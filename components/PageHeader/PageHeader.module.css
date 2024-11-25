@@ -1,0 +1,38 @@
+.title {
+  font-size: rem(34px);
+  font-weight: 900;
+
+  @media (max-width: $mantine-breakpoint-sm) {
+    font-size: rem(24px);
+  }
+}
+
+.description {
+  max-width: rem(600px);
+  margin: var(--mantine-spacing-xs) auto auto auto !important;
+  text-align: center;
+
+  &::after {
+    content: '';
+    display: block;
+    background-color: var(--mantine-color-custom-red-filled);
+    width: rem(45px);
+    height: rem(2px);
+    margin-top: var(--mantine-spacing-sm);
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+.backBtn {
+  height: 100%;
+  align-items: center;
+  display: flex;
+  margin: 0 var(--mantine-spacing-lg);
+  text-align: center;
+  width: max-content;
+
+  @media (max-width: $mantine-breakpoint-md) {
+    margin-top: var(--mantine-spacing-md);
+  }
+}
