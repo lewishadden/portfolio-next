@@ -16,6 +16,7 @@ The repo is initially setup for Static Site Generation, however if you require a
 - Run `npm install`
 
 ### Run the development server
+
 - Run `npm run dev` to start the dev server.
 - Make any required code changes. The dev server watches for changes and rebuilds in real-time.
 

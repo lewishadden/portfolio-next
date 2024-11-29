@@ -300,13 +300,7 @@
       "company": "ERGO Travel Insurance",
       "title": "Lead Full Stack Engineer",
       "years": "Apr 2024 - Nov 2024",
-      "mainTech": [
-        "Next.js",
-        "Azure",
-        "React",
-        "TypeScript",
-        "CSS Modules"
-      ],
+      "mainTech": ["Next.js", "Azure", "React", "TypeScript", "CSS Modules"],
       "icon": "devicon:nextjs",
       "technologies": [
         "Function Apps",
@@ -323,9 +317,7 @@
       "company": "Sopra Steria",
       "title": "Cloud Infrastructure Architect",
       "years": "Jun 2023 – Dec 2023",
-      "mainTech": [
-        "Azure"
-      ],
+      "mainTech": ["Azure"],
       "icon": "devicon:azure",
       "technologies": [
         "REST API",
@@ -339,12 +331,7 @@
       "company": "Sopra Steria",
       "title": "Lead Software Engineer",
       "years": "Aug 2022 - Apr 2023",
-      "mainTech": [
-        "Angular 8+",
-        "React",
-        "Flutter",
-        "TypeScript"
-      ],
+      "mainTech": ["Angular 8+", "React", "Flutter", "TypeScript"],
       "icon": "devicon:angularjs",
       "technologies": [
         "Node.js",
@@ -359,12 +346,7 @@
       "company": "IBM",
       "title": "Senior Full Stack Developer",
       "years": "Jan 2022 - Jul 2022",
-      "mainTech": [
-        "React",
-        "Redux",
-        "TypeScript",
-        "AWS"
-      ],
+      "mainTech": ["React", "Redux", "TypeScript", "AWS"],
       "icon": "devicon:react",
       "technologies": [
         "JavaScript",
@@ -390,12 +372,7 @@
       "company": "IBM",
       "title": "Lead Front End Developer",
       "years": "Jan 2021 - Jan 2022",
-      "mainTech": [
-        "React",
-        "Redux",
-        "TypeScript",
-        "AWS"
-      ],
+      "mainTech": ["React", "Redux", "TypeScript", "AWS"],
       "icon": "devicon:react",
       "technologies": [
         "HTML5",
@@ -414,12 +391,7 @@
       "company": "IBM",
       "title": "Front End Developer",
       "years": "Aug 2018 - Jan 2021",
-      "mainTech": [
-        "React",
-        "Redux",
-        "TypeScript",
-        "Adobe Experience Manager"
-      ],
+      "mainTech": ["React", "Redux", "TypeScript", "Adobe Experience Manager"],
       "icon": "devicon:react",
       "technologies": [
         "JavaScript",
@@ -441,11 +413,7 @@
       "company": "IBM",
       "title": "QA Tester",
       "years": "Jan 2018 - Aug 2018",
-      "mainTech": [
-        "Selenium",
-        "WebdriverIO",
-        "Cucumber / Gherkin"
-      ],
+      "mainTech": ["Selenium", "WebdriverIO", "Cucumber / Gherkin"],
       "icon": "skill-icons:selenium",
       "technologies": [
         "BrowserStack",
