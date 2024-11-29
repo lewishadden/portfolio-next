@@ -56,10 +56,34 @@
       },
       "thumbnail": "simple-icons:googleforms",
       "images": [
-        "images/projects/afb/BATD.png",
-        "images/projects/afb/AU.png",
-        "images/projects/afb/RAC.png",
-        "images/projects/afb/RYI.png"
+        {
+          "url": "/static/images/projects/afb/BATD.png",
+          "size": {
+            "width": 3592,
+            "height": 3978
+          }
+        },
+        {
+          "url": "/static/images/projects/afb/AU.png",
+          "size": {
+            "width": 3592,
+            "height": 3034
+          }
+        },
+        {
+          "url": "/static/images/projects/afb/RAC.png",
+          "size": {
+            "width": 3592,
+            "height": 3914
+          }
+        },
+        {
+          "url": "/static/images/projects/afb/RYI.png",
+          "size": {
+            "width": 3592,
+            "height": 3438
+          }
+        }
       ],
       "url": "https://www.audi.co.uk/uk/web/en/call-me-back.html",
       "technologies": [
@@ -88,9 +112,27 @@
       },
       "thumbnail": "emojione-monotone:cookie",
       "images": [
-        "images/projects/cookies/popup-small.png",
-        "images/projects/cookies/popup-banner.png",
-        "images/projects/cookies/side-nav.png"
+        {
+          "url": "/static/images/projects/cookies/popup-small.png",
+          "size": {
+            "width": 1198,
+            "height": 906
+          }
+        },
+        {
+          "url": "/static/images/projects/cookies/popup-banner.png",
+          "size": {
+            "width": 2294,
+            "height": 1430
+          }
+        },
+        {
+          "url": "/static/images/projects/cookies/side-nav.png",
+          "size": {
+            "width": 2784,
+            "height": 2014
+          }
+        }
       ],
       "url": "",
       "technologies": [
@@ -114,8 +156,20 @@
       "description": "During my five years on the Audi UK project, I was pivotal in modernizing and transforming their technology infrastructure. This involved migrating their legacy tech stack onto AWS and completely overhauling their website. As a front-end development team leader, I spearheaded the development and implementation of cutting-edge web apps and new SPAs. Additionally, I contributed to the technical innovation of their new infrastructure before transitioning into full-stack development. I gained a great deal of knowledge and experience during this project, and it remains one of my most cherished professional accomplishments.",
       "thumbnail": "cbi:audi",
       "images": [
-        "images/projects/spa/OSB.png",
-        "images/projects/spa/PX.png"
+        {
+          "url": "/static/images/projects/spa/OSB.png",
+          "size": {
+            "width": 3600,
+            "height": 5364
+          }
+        },
+        {
+          "url": "/static/images/projects/spa/PX.png",
+          "size": {
+            "width": 3600,
+            "height": 2394
+          }
+        }
       ],
       "theme": {
         "text": "light",
@@ -171,8 +225,20 @@
       "description": "I architected and developed the front-end foundations for a significant module powering Audex, an online media visualisation and analysis portal. Renowned as a highly-skilled React developer, I was brought on board to single-handedly work on the React Front-End for the platforms' Analyse module. I began by developing a POC, successfully demonstrating the ability to display a PowerBI graph in a React app which subscribes to the PowerBI data source and renders real-time analysis data. After delivering on my React competency, I concluded my time on the project after creating the official repository for the Analyse module and the boilerplate containing the underlying technology to power the entire module.",
       "thumbnail": "solar:chart-bold",
       "images": [
-        "images/projects/audex/homepage.png",
-        "images/projects/audex/about.png"
+        {
+          "url": "/static/images/projects/audex/homepage.png",
+          "size": {
+            "width": 3600,
+            "height": 1950
+          }
+        },
+        {
+          "url": "/static/images/projects/audex/about.png",
+          "size": {
+            "width": 3594,
+            "height": 2012
+          }
+        }
       ],
       "theme": {
         "text": "light",

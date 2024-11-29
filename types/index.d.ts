@@ -43,7 +43,12 @@ export interface Project {
   description: string;
   theme: Theme;
   thumbnail: string;
-  images: string[];
+  images: [
+    {
+      url: string;
+      size: { width: number; height: number };
+    },
+  ];
   url: string;
   technologies: Technology[];
 }

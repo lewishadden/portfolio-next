@@ -4,6 +4,7 @@ import { useState, useRef, ReactElement } from 'react';
 import AwesomeSlider from 'react-awesome-slider';
 import { Col, Modal } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
+import ExportedImage from 'next-image-export-optimizer';
 
 import { Project } from '@/types';
 
@@ -37,10 +38,13 @@ const ProjectDetailsModal = ({
           setPaddingHeight(newPaddingHeight);
         }}
       >
-        {images.map((elem, i) => (
+        {images.map(({ url, size }, i) => (
           <div key={i}>
-            <img
-              src={elem}
+            <ExportedImage
+              src={url}
+              width={size.width}
+              height={size.height}
+              alt={`Carousel Image ${i}`}
               className="project-details__modal__body__image-container__img"
               ref={imageRefs[i]}
               onLoad={(e) => {
