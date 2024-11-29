@@ -1,0 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@200;300&display=swap');
+
+section {
+  overflow: hidden;
+  padding: 5% 0;
+  color: #ffffff;
+  background: #222222;
+  &:nth-child(odd) {
+    background: #191919;
+  }
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  align-self: center;
+}
+
+.wave {
+  animation-name: wave-animation; /* Refers to the name of your @keyframes element below */
+  animation-duration: 2.1s; /* Change to speed up or slow down */
+  animation-iteration-count: infinite; /* Never stop waving :) */
+  transform-origin: 70% 70%; /* Pivot around the bottom-left palm */
+  display: inline-block;
+}
+
+@keyframes wave-animation {
+  0% {
+    transform: rotate(0deg);
+  }
+  10% {
+    transform: rotate(14deg);
+  } /* The following five values can be played with to make the waving more or less extreme */
+  20% {
+    transform: rotate(-8deg);
+  }
+  30% {
+    transform: rotate(14deg);
+  }
+  40% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+  60% {
+    transform: rotate(0deg);
+  } /* Reset for the last half to pause */
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.font-trebuchet {
+  font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial,
+    sans-serif;
+}
+
+.bg-darkgrey {
+  background-color: #585858;
+  border: 1px solid #6e6e6e;
+}
+
+.bars {
+  width: 95%;
+  float: left;
+  padding: 0;
+  text-align: left;
+}
+
+.bars .skills {
+  margin-top: 36px;
+  list-style: none;
+}
+
+.bars li {
+  position: relative;
+  margin-bottom: 60px;
+  background: #ccc;
+  height: 42px;
+  border-radius: 3px;
+}
+
+.bars li em {
+  font:
+    15px 'opensans-bold',
+    sans-serif;
+  color: #313131;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: normal;
+  position: relative;
+  top: -36px;
+}
+
+.bar-expand {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  padding-right: 24px;
+  background: #313131;
+  display: inline-block;
+  height: 42px;
+  line-height: 42px;
+  border-radius: 3px 0 0 3px;
+}
+
+.loader-bar-color {
+  color: black !important;
+}

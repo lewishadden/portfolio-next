@@ -1,4 +1,5 @@
 import '@mantine/core/styles.css';
+import 'bootstrap/scss/bootstrap.scss';
 import React from 'react';
 import { MantineProvider } from '@mantine/core';
 import { Layout } from 'components/Layout/Layout';

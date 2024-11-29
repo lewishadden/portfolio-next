@@ -1,0 +1,20 @@
+.timeline__item {
+  &__extra-badge-container {
+    margin-top: 15px;
+  }
+
+  &__badge {
+    font-size: 1rem !important;
+    text-align: left !important;
+    padding: 5px 8px 5px 8px !important;
+    vertical-align: baseline;
+    &.extra {
+      font-weight: lighter !important;
+    }
+  }
+
+  &__subtitle {
+    font-size: 1.2rem;
+    margin-top: 10px
+  }
+}

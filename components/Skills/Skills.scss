@@ -1,0 +1,37 @@
+.skills {
+  &__title {
+    padding-bottom: 5%;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: #fff;
+    text-align: center;
+  }
+
+  &__list {
+    justify-content: center;
+    color: white;
+    text-align: center;
+
+    &__tile {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-evenly;
+      align-items: center;
+      background-color: transparentize(#f8f5f4, 0.95);
+      width: 8rem;
+      height: 8rem;
+      margin: 12px 0;
+      border-radius: 8px;
+      padding: 0 0.5rem;
+
+      &__icon {
+        font-size: 3rem;
+      }
+
+      &__name {
+        font-size: 1rem;
+        line-height: 1.2rem;
+      }
+    }
+  }
+}

@@ -1,0 +1,79 @@
+.contact {
+  &__heading {
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    padding-bottom: 5%;
+  }
+
+  &__body {
+    &:not(.form-submitted) &__personal-info {
+      @media (min-width: 992px) {
+        justify-content: normal;
+      }
+    }
+    &__personal-info {
+      align-items: center;
+      justify-content: space-evenly;
+
+      @media (min-width: 992px) {
+        height: 100%;
+      }
+
+      &__item {
+        height: fit-content;
+
+        a {
+          color: white;
+        }
+
+        &__icon-badge {
+          padding: 1rem;
+          width: fit-content;
+          height: fit-content;
+          border: 1px solid grey;
+          transition: all 0.2s linear;
+          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
+          -webkit-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
+          -moz-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
+
+          &__icon {
+            transition: all 0.2s linear;
+            font-size: 2rem;
+          }
+
+          &:hover {
+            -webkit-transform: scale(1.15);
+            -moz-transform: scale(1.15);
+            transform: scale(1.15);
+
+            svg {
+              -webkit-transform: scale(1.15);
+              -moz-transform: scale(1.15);
+              transform: scale(1.15);
+            }
+          }
+        }
+        &__details {
+          &__name {
+            font-size: 1.5rem;
+            font-weight: bold;
+          }
+          &__text {
+            font-size: 1rem;
+            transition: all 0.2s linear;
+            &:hover {
+              -webkit-transform: scale(1.05);
+              -moz-transform: scale(1.05);
+              transform: scale(1.05);
+            }
+          }
+        }
+      }
+    }
+
+    &__submitted-toast {
+      width: 100% !important;
+      font-size: 1.25rem !important;
+    }
+  }
+}

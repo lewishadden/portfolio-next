@@ -1,0 +1,39 @@
+.about {
+  &__heading {
+    text-transform: uppercase;
+    letter-spacing: 3px;
+  }
+
+  &__body {
+    padding: 5% 0;
+    &__picture-card {
+      background-color: rgba(248, 245, 244, 0.05) !important;
+      -webkit-box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
+      -moz-box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
+      box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
+
+      &__title {
+        font-size: 2.5rem;
+      }
+
+      &__description {
+        font-size: 1.2rem;
+      }
+
+      &__image {
+        width: 100%;
+        height: 100%;
+        max-height: 50vh;
+        object-fit: cover;
+        @media (min-width: 768px) {
+          max-height: 60vh;
+        }
+        @media (min-width: 992px) {
+          border-top-right-radius: 0 !important;
+          border-bottom-left-radius: var(--bs-card-inner-border-radius);
+          max-height: unset;
+        }
+      }
+    }
+  }
+}

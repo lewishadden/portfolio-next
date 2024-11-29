@@ -1,0 +1,30 @@
+.experience {
+  &__title {
+    padding-bottom: 5%;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    text-align: center;
+  }
+
+  .timeline {
+    &__item {
+      &:not(.start) {
+        .vertical-timeline-element-content {
+          border: 1px solid #757575;
+          border-radius: 0.5rem;
+          background: #252525;
+          box-shadow: 0 3px 0 #757575;
+        }
+        .vertical-timeline-element-content-arrow {
+          border-right-color: #757575;
+        }
+      }
+
+      &__icon {
+        width: 36px;
+        height: 36px;
+        margin: -18px 0px 0px -18px;
+      }
+    }
+  }
+}

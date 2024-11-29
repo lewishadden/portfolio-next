@@ -1,0 +1,59 @@
+@import "react-awesome-slider/dist/styles.css";
+@import "react-awesome-slider/dist/custom-animations/cube-animation.css";
+
+.project-details__modal {
+  .modal-content {
+    background-color: #1f1f1f;
+    color: white;
+  }
+
+  &__header {
+    border-bottom: none !important;
+    .btn-close {
+      font-size: 2rem;
+      width: 6rem;
+    }
+
+    &__title {
+      font-size: 2rem;
+      font-weight: bold;
+      text-align: center;
+
+      &__link {
+        &__icon {
+          margin-left: 1rem;
+          font-size: 2.5rem;
+
+          path {
+            stroke: white;
+          }
+        }
+      }
+    }
+  }
+
+  &__body {
+    &__image-container {
+      padding-bottom: 5rem;
+
+      &__img {
+        width: 100%;
+        height: 100%;
+        border: 5px solid rgb(108, 117, 125);
+      }
+    }
+
+    &__description {
+      margin-bottom: 20px;
+      font-size: 1.25rem;
+    }
+
+    &__skill {
+      font-size: 3rem;
+
+      &__name {
+        font-size: 1.25rem;
+      }
+    }
+  }
+}

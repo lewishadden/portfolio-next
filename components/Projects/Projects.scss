@@ -1,0 +1,58 @@
+.projects {
+  -webkit-transition: all ease 0.5s;
+  -moz-transition: all ease 0.5s;
+  transition: all ease 0.5s;
+
+  &__heading {
+    padding-bottom: 5%;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    text-align: center;
+  }
+
+  &__item {
+    cursor: pointer;
+    text-align: center;
+    font-size: 1.5rem;
+
+    &__picture-card {
+      // width: 80%;
+      --bs-border-width: 2px;
+      // padding: 1rem;
+      transition: all 0.2s linear;
+
+      &:hover {
+        -webkit-transform: scale(1.05);
+        -moz-transform: scale(1.05);
+        transform: scale(1.05);
+        z-index: 10;
+        -webkit-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
+        -moz-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
+      }
+      &.card {
+        border-radius: 1rem;
+        height: 100%;
+      }
+
+      &__thumbnail {
+        font-size: 10rem;
+      }
+
+      &__image {
+        &.card-img-top {
+          height: 450px;
+          width: 100%;
+          border-top-left-radius: 1rem;
+          border-top-right-radius: 1rem;
+        }
+      }
+
+      &__date {
+        width: fit-content;
+        font-size: 1rem !important;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+    }
+  }
+}
