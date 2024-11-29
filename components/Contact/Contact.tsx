@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Container, Row, Col, Toast } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
 
@@ -20,21 +21,31 @@ export const Contact = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const ContactBadges = () =>
     contactInfo.map((info, i) => (
       <Col md="auto" className="contact__body__personal-info__item d-flex" key={i}>
-        <a href={info.link} target="_blank" rel="noreferrer">
+        <Link
+          href={info.link}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Contact me at ${info.link}`}
+        >
           <div className="contact__body__personal-info__item__icon-badge rounded-circle me-4">
             <Icon
               icon={info.class}
               className="contact__body__personal-info__item__icon-badge__icon"
             />
           </div>
-        </a>
+        </Link>
 
         <div className="contact__body__personal-info__item__details">
           <div className="contact__body__personal-info__item__details__name">{info.name}</div>
           <div className="contact__body__personal-info__item__details__text">
-            <a href={info.link} target="_blank" rel="noreferrer">
+            <Link
+              href={info.link}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`Contact me via ${info.value}`}
+            >
               {info.value}
-            </a>
+            </Link>
           </div>
         </div>
       </Col>

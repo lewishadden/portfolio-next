@@ -44,7 +44,7 @@ export const Projects = ({
           <Card.Body>
             <Stack gap={3} className="justify-content-between h-100">
               <Badge
-                bg={'secondary'}
+                bg={'dark'}
                 text={project.theme.text}
                 className="projects__item__picture-card__date ms-auto"
               >
@@ -55,7 +55,7 @@ export const Projects = ({
                 className="projects__item__picture-card__thumbnail mx-auto"
               />
 
-              <Card.Title as="h4" className="projects__item__picture-card__title font-trebuchet">
+              <Card.Title as="h3" className="projects__item__picture-card__title font-trebuchet">
                 {project.title}
               </Card.Title>
             </Stack>

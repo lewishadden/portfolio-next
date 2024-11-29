@@ -1,4 +1,5 @@
 import { Icon } from '@iconify/react';
+import Link from 'next/link';
 
 import { BasicInfo } from '@/types';
 
@@ -9,9 +10,14 @@ export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {
 
   const networks = social.map((network) => (
     <span key={network.name} className="m-4">
-      <a href={network.url} target="_blank" rel="noopener noreferrer">
+      <Link
+        href={network.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`View my ${network.name} profile.`}
+      >
         <Icon icon={network.class} style={{ fontSize: '3rem' }} />
-      </a>
+      </Link>
     </span>
   ));
 

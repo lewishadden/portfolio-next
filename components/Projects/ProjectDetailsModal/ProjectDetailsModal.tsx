@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, ReactElement } from 'react';
+import Link from 'next/link';
 import AwesomeSlider from 'react-awesome-slider';
 import { Col, Modal } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
@@ -79,17 +80,18 @@ const ProjectDetailsModal = ({
           <Modal.Title as="h3" className="project-details__modal__header__title">
             {title}
             {url && (
-              <a
+              <Link
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="project-details__modal__header__title__link"
+                aria-label={`Find out more about ${title}`}
               >
                 <Icon
                   icon="majesticons:open"
                   className="project-details__modal__header__title__link__icon"
                 />
-              </a>
+              </Link>
             )}
           </Modal.Title>
         </Col>

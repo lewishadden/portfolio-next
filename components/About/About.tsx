@@ -37,7 +37,7 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                     <Card.Title
                       dangerouslySetInnerHTML={{ __html: descriptionHeader }}
                       className="about__body__picture-card__title mb-3"
-                      as="h4"
+                      as="h3"
                     />
                     <Card.Text
                       dangerouslySetInnerHTML={{ __html: description }}

@@ -51,7 +51,8 @@
       &__date {
         width: fit-content;
         font-size: 1rem !important;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        border: 1px solid var(--bs-secondary);
       }
     }
   }
