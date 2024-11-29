@@ -8,7 +8,7 @@ import { Icon } from '@iconify/react';
 
 import './ContactForm.scss';
 
-const { NEXT_PUBLIC_API_URL } = process.env;
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 interface ContactFormProps {
   onSuccess: () => void;
@@ -37,7 +37,7 @@ const ContactForm = ({ onSuccess, onFail }: ContactFormProps) => {
     message: string;
   }) => {
     setLoading(true);
-    const response = await fetch(`${NEXT_PUBLIC_API_URL}/sendmail`, {
+    const response = await fetch(`${apiUrl}/sendmail`, {
       method: 'POST',
       body: JSON.stringify({ firstName, lastName, email, message }),
       headers: { 'Content-Type': 'application/json' },
