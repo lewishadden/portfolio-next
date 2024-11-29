@@ -1,0 +1,10 @@
+packages:
+  - name: v1
+    actions:
+      - name: sendmail
+        runtime: nodejs:18
+        environment:
+          SMTP_HOST: ${SMTP_HOST}
+          SMTP_PORT: "${SMTP_PORT}"
+          SMTP_EMAIL: ${SMTP_EMAIL}
+          SMTP_PASS: ${SMTP_PASS}

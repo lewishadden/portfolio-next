@@ -18,9 +18,16 @@
     "paths": {
       "@/*": ["./*"],
       "components/*": ["./components/*"],
-      "utils/*": ["./utils/*"]
+      "utils/*": ["./utils/*"],
+      "config": ["./config/config.ts"],
+      "icons": ["./icons"],
+      "scss/*": ["./scss/*"]
     },
-    "plugins": [{ "name": "next" }]
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

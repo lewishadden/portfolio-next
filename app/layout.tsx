@@ -1,4 +1,5 @@
 import '@mantine/core/styles.css';
+import 'bootstrap/scss/bootstrap.scss';
 import React from 'react';
 import { MantineProvider } from '@mantine/core';
 import { Layout } from 'components/Layout/Layout';
@@ -13,7 +14,7 @@ export default function RootLayout({ children }: { children: any }) {
         <title>UI Boilerplate</title>
         <meta name="description" content="UI Boilerplate"></meta>
       </head>
-      <body>
+      <body data-theme="dark" data-bs-theme="dark">
         <MantineProvider forceColorScheme="light" theme={theme}>
           <Layout>{children}</Layout>
         </MantineProvider>

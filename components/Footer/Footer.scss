@@ -1,0 +1,15 @@
+.footer {
+  background: #191919;
+  min-height: 100px;
+  overflow: hidden;
+  position: relative;
+  text-align: center;
+
+  a {
+    color: #fff;
+  }
+
+  &__social-links {
+    padding-top: 3rem;
+  }
+}

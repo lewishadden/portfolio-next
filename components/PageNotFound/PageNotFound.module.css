@@ -8,19 +8,19 @@
 }
 
 .image {
-  position: absolute;
+  position: relative;
   inset: 0;
   opacity: 0.75;
   color: #c9c5c7;
 }
 
 .content {
-  padding-top: rem(220px);
+  padding-top: rem(75px);
   position: relative;
   z-index: 1;
 
   @media (max-width: $mantine-breakpoint-sm) {
-    padding-top: rem(120px);
+    padding-top: rem(50px);
   }
 }
 
