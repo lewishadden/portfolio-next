@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, ReactElement } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import AwesomeSlider from 'react-awesome-slider';
 import { Col, Modal } from 'react-bootstrap';
@@ -39,10 +39,10 @@ const ProjectDetailsModal = ({
           setPaddingHeight(newPaddingHeight);
         }}
       >
-        {images.map(({ url, size }, i) => (
+        {images.map(({ url: imageUrl, size }, i) => (
           <div key={i}>
             <ExportedImage
-              src={url}
+              src={imageUrl}
               width={size.width}
               height={size.height}
               alt={`Carousel Image ${i}`}

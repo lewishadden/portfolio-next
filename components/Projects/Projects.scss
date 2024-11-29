@@ -16,9 +16,7 @@
     font-size: 1.5rem;
 
     &__picture-card {
-      // width: 80%;
       --bs-border-width: 2px;
-      // padding: 1rem;
       transition: all 0.2s linear;
 
       &:hover {
@@ -30,6 +28,7 @@
         -moz-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
       }
+
       &.card {
         border-radius: 1rem;
         height: 100%;

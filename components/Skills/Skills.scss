@@ -1,3 +1,5 @@
+@use 'sass:color';
+
 .skills {
   &__title {
     padding-bottom: 5%;
@@ -17,7 +19,7 @@
       flex-direction: column;
       justify-content: space-evenly;
       align-items: center;
-      background-color: transparentize(#f8f5f4, 0.95);
+      background-color: color.adjust(#f8f5f4, $alpha: -0.95);
       width: 8rem;
       height: 8rem;
       margin: 12px 0;

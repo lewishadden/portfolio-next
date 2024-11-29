@@ -1,10 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@200;300&display=swap');
+@import 'https://fonts.googleapis.com/css2?family=Raleway:wght@200;300&display=swap';
 
 section {
   overflow: hidden;
   padding: 5% 0;
-  color: #ffffff;
-  background: #222222;
+  color: #fff;
+  background: #222;
+
   &:nth-child(odd) {
     background: #191919;
   }
@@ -29,21 +30,26 @@ section {
   0% {
     transform: rotate(0deg);
   }
+
   10% {
     transform: rotate(14deg);
   } /* The following five values can be played with to make the waving more or less extreme */
   20% {
     transform: rotate(-8deg);
   }
+
   30% {
     transform: rotate(14deg);
   }
+
   40% {
     transform: rotate(-4deg);
   }
+
   50% {
     transform: rotate(10deg);
   }
+
   60% {
     transform: rotate(0deg);
   } /* Reset for the last half to pause */
@@ -84,7 +90,7 @@ section {
 
 .bars li em {
   font:
-    15px 'opensans-bold',
+    15px opensans-bold,
     sans-serif;
   color: #313131;
   text-transform: uppercase;

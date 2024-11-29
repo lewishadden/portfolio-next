@@ -6,6 +6,7 @@
 
   &__body {
     padding: 5% 0;
+
     &__picture-card {
       background-color: rgba(248, 245, 244, 0.05) !important;
       -webkit-box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
@@ -26,9 +27,11 @@
         max-height: 50vh;
         object-fit: cover;
         border-radius: var(--bs-card-inner-border-radius) var(--bs-card-inner-border-radius) 0 0;
+
         @media (min-width: 768px) {
           max-height: 60vh;
         }
+
         @media (min-width: 992px) {
           border-radius: var(--bs-card-inner-border-radius) 0 0 var(--bs-card-inner-border-radius);
           max-height: unset;

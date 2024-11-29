@@ -11,6 +11,7 @@
         justify-content: normal;
       }
     }
+
     &__personal-info {
       align-items: center;
       justify-content: space-evenly;
@@ -53,14 +54,17 @@
             }
           }
         }
+
         &__details {
           &__name {
             font-size: 1.5rem;
             font-weight: bold;
           }
+
           &__text {
             font-size: 1rem;
             transition: all 0.2s linear;
+
             &:hover {
               -webkit-transform: scale(1.05);
               -moz-transform: scale(1.05);

@@ -29,7 +29,7 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                     className="about__body__picture-card__image"
                     width={image.size.width}
                     height={image.size.height}
-                    alt={`Portrait Photo`}
+                    alt="Portrait Photo"
                   />
                 </Col>
                 <Col md={12} lg={7} xl={9} className="ps-md-0">

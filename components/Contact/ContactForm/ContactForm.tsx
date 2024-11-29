@@ -59,8 +59,8 @@ const ContactForm = ({ onSuccess, onFail }: ContactFormProps) => {
           message: '',
         }}
       >
-        {({ handleSubmit, handleChange, values, errors }) => (
-          <Form noValidate onSubmit={handleSubmit} className="contact__body__form">
+        {({ handleSubmit: formikSubmit, handleChange, values, errors }) => (
+          <Form noValidate onSubmit={formikSubmit} className="contact__body__form">
             <Row className="g-3">
               <Col sm={12} md={6}>
                 <Form.Group controlId="formFirstName">
