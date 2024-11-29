@@ -1,0 +1,21 @@
+{
+  "name": "portfolio-api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun ./src/server.js",
+    "build": "bun build ./src/server.js --target=bun --minify --outfile=index.js",
+    "create:builder": "docker buildx create --use --driver docker-container --name multi-platform-builder --node multi-platform-builder --bootstrap",
+    "build:image": "docker buildx build --load --pull -t lewishadden/portfolio-api --builder multi-platform-builder .",
+    "build:image:all": "docker buildx build --pull -t lewishadden/portfolio-api --platform linux/arm64,linux/amd64 --builder multi-platform-builder .",
+    "push:image": "docker buildx build --push --pull -t lewishadden/portfolio-api --builder multi-platform-builder .",
+    "push:image:all": "docker buildx build --push --pull -t lewishadden/portfolio-api --platform linux/arm64,linux/amd64 --builder multi-platform-builder ."
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "nodemailer": "^6.9.9",
+    "path": "^0.12.7"
+  }
+}

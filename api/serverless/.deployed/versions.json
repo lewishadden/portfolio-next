@@ -1,0 +1,18 @@
+[
+  {
+    "apihost": "https://faas-lon1-917a94a7.doserverless.co",
+    "namespace": "fn-9ad136d2-3ff6-441f-92d6-e63dcc07d2ce",
+    "packageVersions": {
+      "portfolio-api": {
+        "version": "0.0.46",
+        "digest": "1c5aaf1e488fc383780c3e3bf3ec2739d6ebb2b2007fdd9fbf5cd6c6fba02e5b"
+      }
+    },
+    "actionVersions": {
+      "portfolio-api/sendmail": {
+        "version": "0.0.48",
+        "digest": "a737716d1096c3449c670ee80dd8f4d6337571bba89b22d27f5a51722003582e"
+      }
+    }
+  }
+]
