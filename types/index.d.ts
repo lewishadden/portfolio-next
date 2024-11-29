@@ -9,7 +9,10 @@ export interface BasicInfo {
   name: string;
   titles: string[];
   social: Social[];
-  image: string;
+  image: {
+    url: string;
+    size: { width: number; height: number };
+  };
   descriptionHeader: string;
   description: string;
   sectionName: SectionName;

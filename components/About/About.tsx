@@ -1,6 +1,7 @@
 'use client';
 
 import { Container, Row, Col, Card } from 'react-bootstrap';
+import ExportedImage from 'next-image-export-optimizer';
 
 import { BasicInfo } from '@/types';
 
@@ -8,8 +9,6 @@ import './About.scss';
 
 export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const { image, sectionName, description, descriptionHeader } = basicInfo;
-
-  const profilepic = `/static/images/${image}`;
   const headingText = sectionName.about;
 
   return (
@@ -25,10 +24,12 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
             <Card text="white" border="secondary" className="about__body__picture-card">
               <Row className="g-0">
                 <Col md={12} lg={5} xl={3} className="pe-md-0">
-                  <Card.Img
-                    variant="top"
+                  <ExportedImage
+                    src={image.url}
                     className="about__body__picture-card__image"
-                    src={profilepic}
+                    width={image.size.width}
+                    height={image.size.height}
+                    alt={`Portrait Photo`}
                   />
                 </Col>
                 <Col md={12} lg={7} xl={9} className="ps-md-0">
