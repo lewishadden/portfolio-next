@@ -5,9 +5,9 @@ import ExportedImage from 'next-image-export-optimizer';
 import { IconChevronDown } from '@tabler/icons-react';
 import Link from 'next/link';
 
-import classes from './MenuHeader.module.css';
+import { headerLinks } from 'config';
 
-import { headerLinks } from '../../config/config';
+import classes from './MenuHeader.module.css';
 
 export function MenuHeader() {
   const [expandedLink, setExpandedLink] = useState('');

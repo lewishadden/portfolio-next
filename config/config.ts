@@ -1,5 +1,6 @@
 export const headerLinks = [
   { link: '/', label: 'Home' },
+  { link: '/about-me', label: 'About Me' },
   {
     link: '#1',
     label: 'Dropdown Links',
@@ -9,3 +10,5 @@ export const headerLinks = [
     ],
   },
 ];
+
+export const githubRepoUrl = 'https://github.com/lewishadden/portfolio';

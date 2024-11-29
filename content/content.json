@@ -1,0 +1,644 @@
+{
+  "basicInfo": {
+    "name": "Lewis Hadden",
+    "titles": [
+      "Lead Frontend Developer",
+      "Senior Full Stack Engineer",
+      "Lead Software Engineer",
+      "Infrastructure Architect"
+    ],
+    "social": [
+      {
+        "name": "GitHub",
+        "url": "https://github.com/lewishadden",
+        "class": "fa6-brands:github"
+      },
+      {
+        "name": "LinkedIn",
+        "url": "https://www.linkedin.com/in/lewishadden/",
+        "class": "devicon:linkedin"
+      }
+    ],
+    "image": "portrait.png",
+    "descriptionHeader": "Hello! <span class='wave'>👋</span>",
+    "description": "My name is Lewis, and I'm a highly experienced and qualified Senior Full Stack Engineer. I've been working in the web development industry for over 7 years. I have led several development teams for large-scale projects and worked as an independent developer on both in-house and public-facing products.<br /><br />In my free time, I enjoy going to the gym, boxing, and playing the guitar.<br /><br />I am currently seeking my next opportunity as a Senior or Lead Full Stack developer, either as a freelancer or under permanent employment.<br /><br />Keep scrolling to see my past projects, skills and experience. You can also find my <a href='#contact'>contact information</a> below to get in touch.",
+    "sectionName": {
+      "about": "About Me",
+      "projects": "Projects",
+      "skills": "Skills",
+      "experience": "Experience",
+      "contact": "Contact me"
+    },
+    "contactInfo": [
+      {
+        "name": "Email",
+        "class": "clarity:email-solid",
+        "value": "lewishadden@gmail.com",
+        "link": "mailto:lewishadden@gmail.com"
+      },
+      {
+        "name": "Mobile",
+        "class": "clarity:phone-handset-solid",
+        "value": "+447714512514",
+        "link": "tel:+447714512514"
+      }
+    ]
+  },
+  "projects": [
+    {
+      "title": "Audi Form Builder",
+      "startDate": "2021",
+      "description": "I led a development team in creating a new advanced technical capability. This capability allowed content editors to create custom forms on the Audi website without writing new code. They can drag and drop any of our React micro-frontends onto a new page, and the system will work seamlessly. I was responsible for designing and implementing the solution while leading the development team throughout the project. Currently, the Audi site has four forms created using the Audi Form Builder.",
+      "theme": {
+        "text": "light",
+        "border": "light",
+        "background": "dark"
+      },
+      "thumbnail": "simple-icons:googleforms",
+      "images": [
+        "images/projects/afb/BATD.png",
+        "images/projects/afb/AU.png",
+        "images/projects/afb/RAC.png",
+        "images/projects/afb/RYI.png"
+      ],
+      "url": "https://www.audi.co.uk/uk/web/en/call-me-back.html",
+      "technologies": [
+        {
+          "class": "devicon:react",
+          "name": "React"
+        },
+        {
+          "class": "devicon:typescript",
+          "name": "TypeScript"
+        },
+        {
+          "class": "devicon:redux",
+          "name": "Redux"
+        }
+      ]
+    },
+    {
+      "title": "Cookie Control",
+      "startDate": "2018",
+      "description": "I was responsible for single-handedly designing and implementing the Cookie Control system for the Audi UK website to ensure compliance with GDPR regulations. To achieve this, I utilized Adobe Launch to develop custom rule sets and JavaScript tags, allowing me to control the triggering of third-party tracking tags and custom analytics based on the users' cookie settings.",
+      "theme": {
+        "text": "light",
+        "border": "light",
+        "background": "dark"
+      },
+      "thumbnail": "emojione-monotone:cookie",
+      "images": [
+        "images/projects/cookies/popup-small.png",
+        "images/projects/cookies/popup-banner.png",
+        "images/projects/cookies/side-nav.png"
+      ],
+      "url": "",
+      "technologies": [
+        {
+          "class": "devicon:javascript",
+          "name": "JavaScript"
+        },
+        {
+          "class": "arcticons:adobe-analytics",
+          "name": "Adobe Analytics"
+        },
+        {
+          "class": "emojione:cookie",
+          "name": "Cookies"
+        }
+      ]
+    },
+    {
+      "title": "Audi Digital Transformation",
+      "startDate": "2018",
+      "description": "During my five years on the Audi UK project, I was pivotal in modernizing and transforming their technology infrastructure. This involved migrating their legacy tech stack onto AWS and completely overhauling their website. As a front-end development team leader, I spearheaded the development and implementation of cutting-edge web apps and new SPAs. Additionally, I contributed to the technical innovation of their new infrastructure before transitioning into full-stack development. I gained a great deal of knowledge and experience during this project, and it remains one of my most cherished professional accomplishments.",
+      "thumbnail": "cbi:audi",
+      "images": [
+        "images/projects/spa/OSB.png",
+        "images/projects/spa/PX.png"
+      ],
+      "theme": {
+        "text": "light",
+        "border": "light",
+        "background": "dark"
+      },
+      "url": "",
+      "technologies": [
+        {
+          "class": "devicon:react",
+          "name": "React"
+        },
+        {
+          "class": "devicon:typescript",
+          "name": "TypeScript"
+        },
+        {
+          "class": "logos:aws",
+          "name": "AWS"
+        }
+      ]
+    },
+    {
+      "title": "Traffic Management Portal",
+      "startDate": "2022",
+      "description": "I created bespoke real-time traffic monitoring, reporting, and management dashboards for the Singapore Land Traffic Authority (LTA). These dashboards provided LTA with an online portal to view live updates on their road traffic data. The dashboards were user-friendly, intuitive, and graphical, allowing LTA to monitor road incidents, create custom automated alerts, view live congestion maps, statistical charts and graphs, and much more. As a result, this solution became one of the most highly-capable and feature-rich land traffic management solutions ever created. I was responsible for developing complex Angular components for the dashboards, migrating legacy code, and reviewing and deploying new code across environments.",
+      "thumbnail": "carbon:road",
+      "images": [],
+      "theme": {
+        "text": "light",
+        "border": "light",
+        "background": "dark"
+      },
+      "url": "",
+      "technologies": [
+        {
+          "class": "devicon:angularjs",
+          "name": "Angular"
+        },
+        {
+          "class": "devicon:typescript",
+          "name": "TypeScript"
+        },
+        {
+          "class": "devicon:sass",
+          "name": "SCSS"
+        }
+      ]
+    },
+    {
+      "title": "Audex",
+      "startDate": "2022",
+      "description": "I architected and developed the front-end foundations for a significant module powering Audex, an online media visualisation and analysis portal. Renowned as a highly-skilled React developer, I was brought on board to single-handedly work on the React Front-End for the platforms' Analyse module. I began by developing a POC, successfully demonstrating the ability to display a PowerBI graph in a React app which subscribes to the PowerBI data source and renders real-time analysis data. After delivering on my React competency, I concluded my time on the project after creating the official repository for the Analyse module and the boilerplate containing the underlying technology to power the entire module.",
+      "thumbnail": "solar:chart-bold",
+      "images": [
+        "images/projects/audex/homepage.png",
+        "images/projects/audex/about.png"
+      ],
+      "theme": {
+        "text": "light",
+        "border": "light",
+        "background": "dark"
+      },
+      "url": "https://audex.media/welcome",
+      "technologies": [
+        {
+          "class": "devicon:react",
+          "name": "React"
+        },
+        {
+          "class": "devicon:typescript",
+          "name": "TypeScript"
+        },
+        {
+          "class": "logos:microsoft-power-bi",
+          "name": "PowerBI"
+        }
+      ]
+    },
+    {
+      "title": "Home Greening Microsite",
+      "startDate": "2023",
+      "description": "I was solely responsible for the architecture and design of the entire cloud infrastructure for a proposed new micro-site for UK Power Networks. I led the cloud and Front-End development teams during the design and planning phases, guiding them through the solution and implementation. The client preferred Azure as their cloud provider, and I worked closely with them to ensure that my infrastructure design complied with their strict security standards. After collaborating with the client's security team, I created an optimal cloud infrastructure solution that met their functional and security requirements. I analysed the functionality of the microsite to gather the data requirements and used this to devise the most efficient database schema for Cosmos DB. I also created detailed architecture diagrams and a comprehensive technical design breakdown of the Azure architecture, including justifications and decisions made for each service, along with implementation and configuration steps.",
+      "thumbnail": "mdi:home-electricity",
+      "images": [],
+      "theme": {
+        "text": "light",
+        "border": "light",
+        "background": "dark"
+      },
+      "url": "",
+      "technologies": [
+        {
+          "class": "devicon:azure",
+          "name": "Azure"
+        },
+        {
+          "class": "material-symbols:api",
+          "name": "REST API"
+        },
+        {
+          "class": "devicon:cosmosdb",
+          "name": "Cosmos DB"
+        }
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "company": "ERGO Travel Insurance",
+      "title": "Lead Full Stack Engineer",
+      "years": "Apr 2024 - Nov 2024",
+      "mainTech": [
+        "Next.js",
+        "Azure",
+        "React",
+        "TypeScript",
+        "CSS Modules"
+      ],
+      "icon": "devicon:nextjs",
+      "technologies": [
+        "Function Apps",
+        "Cosmos DB",
+        "Event Hubs",
+        "Blob & Table Storage",
+        "DevOps Pipelines",
+        "Docker",
+        "Node.js",
+        "Jest"
+      ]
+    },
+    {
+      "company": "Sopra Steria",
+      "title": "Cloud Infrastructure Architect",
+      "years": "Jun 2023 – Dec 2023",
+      "mainTech": [
+        "Azure"
+      ],
+      "icon": "devicon:azure",
+      "technologies": [
+        "REST API",
+        "Cosmos DB",
+        "Serverless Function",
+        "Content Delivery Network",
+        "Blob Storage"
+      ]
+    },
+    {
+      "company": "Sopra Steria",
+      "title": "Lead Software Engineer",
+      "years": "Aug 2022 - Apr 2023",
+      "mainTech": [
+        "Angular 8+",
+        "React",
+        "Flutter",
+        "TypeScript"
+      ],
+      "icon": "devicon:angularjs",
+      "technologies": [
+        "Node.js",
+        "HTML5",
+        "SCSS / CSS3",
+        "Jest",
+        "PowerBI",
+        "Split Tunnelling (VPN)"
+      ]
+    },
+    {
+      "company": "IBM",
+      "title": "Senior Full Stack Developer",
+      "years": "Jan 2022 - Jul 2022",
+      "mainTech": [
+        "React",
+        "Redux",
+        "TypeScript",
+        "AWS"
+      ],
+      "icon": "devicon:react",
+      "technologies": [
+        "JavaScript",
+        "Node.js",
+        "Carbon Design System",
+        "HTML5",
+        "SCSS / CSS3",
+        "Jest + Enzyme",
+        "CloudFormation",
+        "DynamoDB",
+        "CodeCommit",
+        "CodeBuild",
+        "CodePipeline",
+        "Lambda",
+        "EC2",
+        "S3",
+        "API Gateway",
+        "IAM",
+        "JIRA"
+      ]
+    },
+    {
+      "company": "IBM",
+      "title": "Lead Front End Developer",
+      "years": "Jan 2021 - Jan 2022",
+      "mainTech": [
+        "React",
+        "Redux",
+        "TypeScript",
+        "AWS"
+      ],
+      "icon": "devicon:react",
+      "technologies": [
+        "HTML5",
+        "SCSS / CSS3",
+        "Jest + Enzyme",
+        "Micro-Frontends",
+        "Carbon Design System",
+        "FeatureHub",
+        "GitHub Workflows",
+        "Adobe Experience Manager",
+        "Adobe Launch",
+        "JIRA"
+      ]
+    },
+    {
+      "company": "IBM",
+      "title": "Front End Developer",
+      "years": "Aug 2018 - Jan 2021",
+      "mainTech": [
+        "React",
+        "Redux",
+        "TypeScript",
+        "Adobe Experience Manager"
+      ],
+      "icon": "devicon:react",
+      "technologies": [
+        "JavaScript",
+        "Webpack",
+        "Babel",
+        "HTML5",
+        "SCSS / CSS3",
+        "Jest + Enzyme",
+        "Carbon Design System",
+        "Adobe Dynamic Tag Manager",
+        "Cookie Control (CIVIC)",
+        "Docker",
+        "Linux / Bash",
+        "Apache",
+        "AWS"
+      ]
+    },
+    {
+      "company": "IBM",
+      "title": "QA Tester",
+      "years": "Jan 2018 - Aug 2018",
+      "mainTech": [
+        "Selenium",
+        "WebdriverIO",
+        "Cucumber / Gherkin"
+      ],
+      "icon": "skill-icons:selenium",
+      "technologies": [
+        "BrowserStack",
+        "Appium",
+        "Node.js",
+        "JIRA",
+        "React",
+        "JavaScript",
+        "HTML",
+        "CSS"
+      ]
+    }
+  ],
+  "skills": {
+    "icons": [
+      {
+        "name": "React",
+        "class": "devicon:react",
+        "level": "100"
+      },
+      {
+        "name": "Next.js",
+        "class": "devicon:nextjs",
+        "level": "100"
+      },
+      {
+        "name": "Redux",
+        "class": "devicon:redux",
+        "level": "95"
+      },
+      {
+        "name": "TypeScript",
+        "class": "devicon:typescript",
+        "level": "90"
+      },
+      {
+        "name": "JavaScript",
+        "class": "devicon:javascript",
+        "level": "95"
+      },
+      {
+        "name": "NodeJS",
+        "class": "devicon:nodejs",
+        "level": "90"
+      },
+      {
+        "name": "ViteJS",
+        "class": "devicon:vitejs",
+        "level": "70"
+      },
+      {
+        "name": "Bun",
+        "class": "devicon:bun",
+        "level": "80"
+      },
+      {
+        "name": "SCSS",
+        "class": "devicon:sass",
+        "level": "95"
+      },
+      {
+        "name": "HTML5",
+        "class": "devicon:html5",
+        "level": "95"
+      },
+      {
+        "name": "CSS Modules",
+        "class": "devicon:css3",
+        "level": "95"
+      },
+      {
+        "name": "Storybook",
+        "class": "devicon:storybook",
+        "level": "85"
+      },
+      {
+        "name": "Webpack",
+        "class": "devicon:webpack",
+        "level": "75"
+      },
+      {
+        "name": "Babel",
+        "class": "devicon:babel",
+        "level": "70"
+      },
+      {
+        "name": "Jest",
+        "class": "logos:jest",
+        "level": "90"
+      },
+      {
+        "name": "Enzyme",
+        "class": "logos:airbnb-icon",
+        "level": "85"
+      },
+      {
+        "name": "Angular 8+",
+        "class": "devicon:angularjs",
+        "level": "60"
+      },
+      {
+        "name": "REST API",
+        "class": "material-symbols:api",
+        "level": "85"
+      },
+      {
+        "name": "Postman",
+        "class": "devicon:postman",
+        "level": "85"
+      },
+      {
+        "name": "MongoDB",
+        "class": "devicon:mongodb",
+        "level": "85"
+      },
+      {
+        "name": "Cosmos DB",
+        "class": "devicon:cosmosdb-wordmark",
+        "level": "85"
+      },
+      {
+        "name": "PowerBI",
+        "class": "logos:microsoft-power-bi",
+        "level": "35"
+      },
+      {
+        "name": "AWS",
+        "class": "devicon:amazonwebservices-wordmark",
+        "level": "80"
+      },
+      {
+        "name": "Azure",
+        "class": "devicon:azure",
+        "level": "85"
+      },
+      {
+        "name": "DevOps",
+        "class": "devicon:azuredevops",
+        "level": "85"
+      },
+      {
+        "name": "Azure Functions",
+        "class": "mdi:function-variant",
+        "level": "85"
+      },
+      {
+        "name": "Flutter",
+        "class": "devicon:flutter",
+        "level": "80"
+      },
+      {
+        "name": "Cookie Control",
+        "class": "emojione:cookie",
+        "level": "90"
+      },
+      {
+        "name": "Docker",
+        "class": "devicon:docker",
+        "level": "90"
+      },
+      {
+        "name": "Bash",
+        "class": "devicon-plain:bash",
+        "level": "85"
+      },
+      {
+        "name": "Apache",
+        "class": "devicon:apache",
+        "level": "75"
+      },
+      {
+        "name": "NGINX",
+        "class": "devicon:nginx",
+        "level": "85"
+      },
+      {
+        "name": "Linux",
+        "class": "devicon:linux",
+        "level": "85"
+      },
+      {
+        "name": "Mantine UI",
+        "class": "logos:mantine-icon",
+        "level": "90"
+      },
+      {
+        "name": "Bootstrap",
+        "class": "devicon:bootstrap",
+        "level": "75"
+      },
+      {
+        "name": "Carbon Design System",
+        "class": "carbon:carbon",
+        "level": "85"
+      },
+      {
+        "name": "Material UI",
+        "class": "devicon:materialui",
+        "level": "50"
+      },
+      {
+        "name": "Adobe Experience Manager",
+        "class": "arcticons:adobe-experience-manager",
+        "level": "85"
+      },
+      {
+        "name": "Adobe Dynamic Tag Manager",
+        "class": "arcticons:adobe-analytics",
+        "level": "85"
+      },
+      {
+        "name": "Split Tunnel VPN",
+        "class": "vscode-icons:file-type-ovpn",
+        "level": "65"
+      },
+      {
+        "name": "Git",
+        "class": "devicon:git",
+        "level": "90"
+      },
+      {
+        "name": "GitHub Actions",
+        "class": "devicon:githubactions",
+        "level": "80"
+      },
+      {
+        "name": "CI/CD Pipelines",
+        "class": "vscode-icons:file-type-azurepipelines",
+        "level": "85"
+      },
+      {
+        "name": "WebdriverIO",
+        "class": "logos:webdriverio",
+        "level": "85"
+      },
+      {
+        "name": "Cucumber / Gherkin",
+        "class": "logos:cucumber",
+        "level": "95"
+      },
+      {
+        "name": "Selenium",
+        "class": "skill-icons:selenium",
+        "level": "85"
+      },
+      {
+        "name": "BrowserStack",
+        "class": "devicon:browserstack",
+        "level": "70"
+      },
+      {
+        "name": "Appium",
+        "class": "logos:appium",
+        "level": "50"
+      },
+      {
+        "name": "JIRA",
+        "class": "devicon:jira",
+        "level": "80"
+      },
+      {
+        "name": "Notion",
+        "class": "devicon:notion",
+        "level": "75"
+      }
+    ]
+  }
+}
