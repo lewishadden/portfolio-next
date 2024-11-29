@@ -7,7 +7,6 @@ import { Icon } from '@iconify/react';
 import { BasicInfo } from '@/types';
 import ContactForm from './ContactForm/ContactForm';
 
-import 'scss/common.scss';
 import './Contact.scss';
 
 export const Contact = ({ basicInfo }: { basicInfo: BasicInfo }) => {

@@ -8,7 +8,6 @@ import { GitHubCornerSVG } from 'icons';
 import { githubRepoUrl } from 'config';
 import { BasicInfo } from '@/types';
 
-import 'scss/common.scss';
 import './Home.scss';
 
 export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {

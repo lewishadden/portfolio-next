@@ -4,7 +4,6 @@ import { Container, Row, Col, Card } from 'react-bootstrap';
 
 import { BasicInfo } from '@/types';
 
-import 'scss/common.scss';
 import './About.scss';
 
 export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {

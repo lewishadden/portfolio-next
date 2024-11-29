@@ -7,7 +7,7 @@ import { Container, Row, Col } from 'react-bootstrap';
 import { BasicInfo, Experience as IExperience } from '@/types';
 
 import TimelineItem from './TimelineItem/TimelineItem';
-import 'scss/common.scss';
+
 import './Experience.scss';
 
 export const Experience = ({

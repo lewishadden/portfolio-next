@@ -2,7 +2,6 @@ import { Icon } from '@iconify/react';
 
 import { BasicInfo } from '@/types';
 
-import 'scss/common.scss';
 import './Footer.scss';
 
 export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {

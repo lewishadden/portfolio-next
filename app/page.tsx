@@ -10,6 +10,8 @@ import { getPageContent } from 'utils/serverUtils';
 
 import { ResumeData } from '@/types';
 
+import './page.scss';
+
 export default async () => {
   const pageData: ResumeData = await getPageContent();
   return (

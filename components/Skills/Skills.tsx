@@ -3,7 +3,6 @@ import { Container, Row, Col } from 'react-bootstrap';
 
 import { BasicInfo, Skills as ISkills } from '@/types';
 
-import 'scss/common.scss';
 import './Skills.scss';
 
 export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: BasicInfo }) => {

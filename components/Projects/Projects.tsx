@@ -6,7 +6,7 @@ import { Icon } from '@iconify/react';
 
 import { BasicInfo, Project } from '@/types';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
-import 'scss/common.scss';
+
 import './Projects.scss';
 
 export const Projects = ({
