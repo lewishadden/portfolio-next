@@ -19,7 +19,7 @@ export function PageNotFound({ title, description, cta }: PageNotFoundProps) {
         <div className={classes.content}>
           <Title className={classes.title}>{title}</Title>
           <Text
-            c="var(--mantine-color-gray-7)"
+            c="var(--mantine-color-gray-2)"
             size="lg"
             ta="center"
             className={classes.description}
