@@ -1,8 +1,8 @@
 # Portfolio Next.js
 
-This repo contains the code for my online web portfolio. It is built using [Next.js](https://nextjs.org/) + [Mantine](https://mantine.dev/).
+This repo contains the code for my online web portfolio. It is built using [Next.js](https://nextjs.org/), [React Bootstrap](https://react-bootstrap.netlify.app/) + [Mantine](https://mantine.dev/).
 
-The repo is initially setup for Static Site Generation, however if you require a dynamic site, you can set `output: 'standalone'` in next.config.js
+The repo is setup for Static Site Generation to maximise performance.
 
 ## Setup local development
 
@@ -61,3 +61,4 @@ The repo is initially setup for Static Site Generation, however if you require a
 ### Other scripts
 
 - `prettier:write` – formats all files with Prettier
+- `lint:fix` – fixes all resolvable ESLint errors
