@@ -11,8 +11,11 @@ export default function RootLayout({ children }: { children: any }) {
     <html lang="en">
       <head>
         <meta name="viewport" content="minimum-scale=1, initial-scale=1, width=device-width" />
-        <title>UI Boilerplate</title>
-        <meta name="description" content="UI Boilerplate"></meta>
+        <title>Portfolio - Lewis Hadden</title>
+        <meta
+          name="description"
+          content="Welcome to my personal portfolio, built with NextJS, React Bootstrap and Mantine UI"
+        />
       </head>
       <body data-theme="dark" data-bs-theme="dark">
         <MantineProvider forceColorScheme="light" theme={theme}>
