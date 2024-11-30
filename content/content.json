@@ -52,6 +52,147 @@
   },
   "projects": [
     {
+      "title": "Sanctions Checker",
+      "startDate": "2024",
+      "description": "I developed a sanctions checking tool for an insurance MGA which allows them to search for a name against the public database of open sanctions to determine whether or not a user is eligible for travel insurance. The tool allows them to view all of the publicly available data associated with a sanctioned person. We tested various sanction checking tools, for example OFSI - HM Treasury and the government UK Sanctions List, and found the accuracy of my solution to be far superior to all of the other tools we tested against. The tool consists of 2 parts on the backend, a dialy job which queries the latest dataset and stores them in a CosmosDB instance, and an API that performs a search against the database given a name as input. The front-end is a Next.js application that provides a search input field and interfaces with the API to show the set of results. I built the tool to perform a thorough search by consolidating several SQL queries to check against multiple search vectors such as aliases and abbreviated first names to ensure that no sanctions are missed.",
+      "theme": {
+        "text": "light",
+        "border": "light",
+        "background": "dark"
+      },
+      "thumbnail": "mdi:gavel",
+      "images": [
+        {
+          "url": "/static/images/projects/sanctions/login-screen.png",
+          "size": {
+            "width": 3024,
+            "height": 1646
+          }
+        }
+      ],
+      "url": "https://sanctions-checker.etisolutionshub.co.uk",
+      "technologies": [
+        {
+          "class": "devicon:nextjs",
+          "name": "Next.js"
+        },
+        {
+          "class": "logos:mantine-icon",
+          "name": "Mantine UI"
+        },
+        {
+          "class": "devicon:azure",
+          "name": "Azure"
+        },
+        {
+          "class": "devicon:cosmosdb",
+          "name": "Azure CosmosDB"
+        },
+        {
+          "class": "mdi:function-variant",
+          "name": "Serverless Functions"
+        },
+        {
+          "class": "vscode-icons:file-type-azurepipelines",
+          "name": "DevOps Pipelines"
+        },
+        {
+          "class": "carbon:object-storage",
+          "name": "Object Storage"
+        },
+        {
+          "class": "devicon:nodejs",
+          "name": "NodeJS"
+        },
+        {
+          "class": "dashicons:rest-api",
+          "name": "REST API"
+        }
+      ]
+    },
+    {
+      "title": "Oralieve ",
+      "startDate": "2024",
+      "description": "",
+      "theme": {
+        "text": "light",
+        "border": "light",
+        "background": "dark"
+      },
+      "thumbnail": "noto:tooth",
+      "images": [
+        {
+          "url": "/static/images/projects/oralieve/patient-samples-form.png",
+          "size": {
+            "width": 3024,
+            "height": 3882
+          }
+        }
+      ],
+      "url": "https://www.oralieve-direct.co.uk/",
+      "technologies": [
+        {
+          "class": "logos:shopify",
+          "name": "Shopify"
+        }
+      ]
+    },
+    {
+      "title": "AirDoctor Webhook",
+      "startDate": "2024",
+      "description": "AirDoctor is a platform that enables its users to connect with nearby doctors whilst abroad, making it easy to claim back on their travel insurance policy to recieve the treatment they need. Whilst working at ERGO Travel Insurance Services, I architected, developed and deployed the entire Webhook that ingests and processes insurance claims from the AirDoctor platform. This has enabled ERGO to underwrite the sales of new insurance policies for their partner insurance companies through the AirDoctor platform, bringing in a large stream of new revenue. I was the sole developer working on the project, and drove it from it's conceptualization, all the way through to delivery of the enterprise-grade, production ready solution. Adhering strictly to best practice secure programming principals in both code and infrastructure, the final solution is extremely robust and secure. I also built a docker stack with local azure emulators to enable local development, mitigating the risks of performing any unwanted actions on an environment. This docker stack can be used for all development team projects going forward, providing an extra layer of security as well as offline development capability.",
+      "theme": {
+        "text": "light",
+        "border": "light",
+        "background": "dark"
+      },
+      "thumbnail": "fa:heartbeat",
+      "images": [
+        {
+          "url": "/static/images/projects/airdoctor/AirDoctor.png",
+          "size": {
+            "width": 711,
+            "height": 216
+          }
+        }
+      ],
+      "url": "",
+      "technologies": [
+        {
+          "class": "devicon:azure",
+          "name": "Azure"
+        },
+        {
+          "class": "carbon:ibm-global-storage-architecture",
+          "name": "Azure Storage (Blob / Tables)"
+        },
+        {
+          "class": "mdi:function-variant",
+          "name": "Serverless Functions"
+        },
+        {
+          "class": "vscode-icons:file-type-azurepipelines",
+          "name": "DevOps Pipelines"
+        },
+        {
+          "class": "material-symbols:business-messages",
+          "name": "Event Hubs"
+        },
+        {
+          "class": "devicon:nodejs",
+          "name": "NodeJS"
+        },
+        {
+          "class": "logos:webhooks",
+          "name": "Webhooks"
+        },
+        {
+          "class": "logos:docker-icon",
+          "name": "Docker"
+        }
+      ]
+    },
+    {
       "title": "Audi Form Builder",
       "startDate": "2021",
       "description": "I led a development team in creating a new advanced technical capability. This capability allowed content editors to create custom forms on the Audi website without writing new code. They can drag and drop any of our React micro-frontends onto a new page, and the system will work seamlessly. I was responsible for designing and implementing the solution while leading the development team throughout the project. Currently, the Audi site has four forms created using the Audi Form Builder.",
@@ -612,6 +753,11 @@
       {
         "name": "Material UI",
         "class": "devicon:materialui",
+        "level": "50"
+      },
+      {
+        "name": "Shopify",
+        "class": "logos:shopify",
         "level": "50"
       },
       {
