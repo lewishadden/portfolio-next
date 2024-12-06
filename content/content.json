@@ -113,7 +113,7 @@
     {
       "title": "Oralieve ",
       "startDate": "2024",
-      "description": "",
+      "description": "I contracted for Oralieve to complete several tasks on their Shopify store. I was responsible for implementing a new patient samples form, which allows dental proffessionals to request free samples of Oralieve products for their patients. I also implemented a minimum spend free shipping feature, as well as many other new features and bugfixes.",
       "theme": {
         "text": "light",
         "border": "light",
@@ -126,6 +126,13 @@
           "size": {
             "width": 3024,
             "height": 3882
+          }
+        },
+        {
+          "url": "/static/images/projects/oralieve/free-shipping-notice.png",
+          "size": {
+            "width": 662,
+            "height": 872
           }
         }
       ],
