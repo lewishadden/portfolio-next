@@ -1,28 +1,34 @@
-import { Experience } from 'components/Experience/Experience';
-import { Footer } from 'components/Footer/Footer';
-import { Home } from 'components/Home/Home';
-import { Projects } from 'components/Projects/Projects';
-import { Skills } from 'components/Skills/Skills';
-import { Contact } from 'components/Contact/Contact';
-import { About } from 'components/About/About';
-
+import Link from 'next/link';
 import { getPageContent } from 'utils/serverUtils';
-
 import { ResumeData } from '@/types';
-
 import './page.scss';
 
 export default async () => {
   const pageData: ResumeData = await getPageContent();
+
   return (
-    <>
-      <Home basicInfo={pageData.basicInfo} />
-      <About basicInfo={pageData.basicInfo} />
-      <Experience experience={pageData.experience} basicInfo={pageData.basicInfo} />
-      <Projects projects={pageData.projects} basicInfo={pageData.basicInfo} />
-      <Skills skills={pageData.skills} basicInfo={pageData.basicInfo} />
-      <Contact basicInfo={pageData.basicInfo} />
-      <Footer basicInfo={pageData.basicInfo} />
-    </>
+    <div className="landing-container">
+      <h1>{pageData.basicInfo.name}'s Portfolio</h1>
+      <nav className="section-navigation">
+        <Link href="/home" className="nav-link">
+          Home
+        </Link>
+        <Link href="/about" className="nav-link">
+          About
+        </Link>
+        <Link href="/experience" className="nav-link">
+          Experience
+        </Link>
+        <Link href="/projects" className="nav-link">
+          Projects
+        </Link>
+        <Link href="/skills" className="nav-link">
+          Skills
+        </Link>
+        <Link href="/contact" className="nav-link">
+          Contact
+        </Link>
+      </nav>
+    </div>
   );
 };
