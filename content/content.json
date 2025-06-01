@@ -52,9 +52,69 @@
   },
   "projects": [
     {
+      "title": "ADP RUN",
+      "startDate": "2025",
+      "description": "I am currently contracted to ADP, a global leader in payroll and HR solutions, where I am working on their ADP RUN platform. My role involves developing new features and enhancements for the platform, using feature flags to enable a highly customisable user experience. I use React and Tailwind CSS to build a highly responsive, mobile-first user experience. I am also responsible for writing comprehensive unit tests using Jest and React Testing Library, as well as e2e tests using Cypress to ensure the reliability and maintainability of the codebase.",
+      "theme": {
+        "text": "light",
+        "border": "light",
+        "background": "dark"
+      },
+      "thumbnail": "tdesign:money",
+      "images": [
+        {
+          "url": "/static/images/projects/run/home-page.png",
+          "size": {
+            "width": 3584,
+            "height": 1956
+          }
+        },
+        {
+          "url": "/static/images/projects/run/hero.png",
+          "size": {
+            "width": 620,
+            "height": 394
+          }
+        },
+        {
+          "url": "/static/images/projects/run/pde.webp",
+          "size": {
+            "width": 1492,
+            "height": 839
+          }
+        },
+        {
+          "url": "/static/images/projects/run/login-screen.png",
+          "size": {
+            "width": 3024,
+            "height": 1638
+          }
+        }
+      ],
+      "url": "https://online.adp.com/signin/v1/?APPID=RUN&productId=80e309c3-70c3-bae1-e053-3505430b5495",
+      "technologies": [
+        {
+          "class": "devicon:react",
+          "name": "React"
+        },
+        {
+          "class": "devicon:tailwindcss",
+          "name": "Tailwind CSS"
+        },
+        {
+          "class": "devicon:webpack",
+          "name": "Webpack"
+        },
+        {
+          "class": "devicon:cypressio",
+          "name": "Cypress IO"
+        }
+      ]
+    },
+    {
       "title": "Sanctions Checker",
       "startDate": "2024",
-      "description": "I developed a sanctions checking tool for an insurance MGA which allows them to search for a name against the public database of open sanctions to determine whether or not a user is eligible for travel insurance. The tool allows them to view all of the publicly available data associated with a sanctioned person. We tested various sanction checking tools, for example OFSI - HM Treasury and the government UK Sanctions List, and found the accuracy of my solution to be far superior to all of the other tools we tested against. The tool consists of 2 parts on the backend, a dialy job which queries the latest dataset and stores them in a CosmosDB instance, and an API that performs a search against the database given a name as input. The front-end is a Next.js application that provides a search input field and interfaces with the API to show the set of results. I built the tool to perform a thorough search by consolidating several SQL queries to check against multiple search vectors such as aliases and abbreviated first names to ensure that no sanctions are missed.",
+      "description": "I developed a sanctions checking tool for an insurance MGA which allows them to search for a name against the public database of open sanctions to determine whether or not a user is eligible for travel insurance. The tool allows them to view all of the publicly available data associated with a sanctioned person. We tested various sanction checking tools, for example OFSI - HM Treasury and the government UK Sanctions List, and found the accuracy of my solution to be far superior to all of the other tools we tested against. The tool consists of 2 parts on the backend, a daily job which queries the latest dataset and stores them in a CosmosDB instance, and an API that performs a search against the database given a name as input. The front-end is a Next.js application that provides a search input field and interfaces with the API to show the set of results. I built the tool to perform a thorough search by consolidating several SQL queries to check against multiple search vectors such as aliases and abbreviated first names to ensure that no sanctions are missed.",
       "theme": {
         "text": "light",
         "border": "light",
@@ -445,6 +505,20 @@
   ],
   "experience": [
     {
+      "company": "ADP",
+      "title": "Senior Full Stack Engineer (Contractor)",
+      "years": "Jan 2025 - Present",
+      "mainTech": ["React", "Tailwind CSS", "Cypress", "Webpack"],
+      "icon": "devicon:react",
+      "technologies": [
+        "React Testing Library",
+        "JavaScript",
+        "REST API",
+        "Jest",
+        "Virtual Machines"
+      ]
+    },
+    {
       "company": "ERGO Travel Insurance",
       "title": "Lead Full Stack Engineer",
       "years": "Apr 2024 - Nov 2024",
@@ -633,6 +707,11 @@
         "level": "95"
       },
       {
+        "name": "Tailwind CSS",
+        "class": "devicon:tailwindcss",
+        "level": "90"
+      },
+      {
         "name": "Storybook",
         "class": "devicon:storybook",
         "level": "85"
@@ -655,6 +734,11 @@
       {
         "name": "Enzyme",
         "class": "logos:airbnb-icon",
+        "level": "85"
+      },
+      {
+        "name": "Cypress",
+        "class": "devicon:cypressio",
         "level": "85"
       },
       {
