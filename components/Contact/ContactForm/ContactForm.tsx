@@ -121,7 +121,7 @@ const ContactForm = ({ onSuccess, onFail }: ContactFormProps) => {
               </Col>
               <Col sm={12} md={6} className="mt-4">
                 <Button
-                  variant="info"
+                  variant="primary"
                   type="submit"
                   disabled={loading}
                   className="contact__body__form__submit-btn center"

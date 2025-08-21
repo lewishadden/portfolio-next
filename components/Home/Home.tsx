@@ -4,8 +4,8 @@ import { Container, Stack } from 'react-bootstrap';
 import { TypeAnimation } from 'react-type-animation';
 import { Icon } from '@iconify/react';
 
-import { GitHubCornerSVG } from 'icons';
-import { githubRepoUrl } from 'config';
+// import { GitHubCornerSVG } from 'icons';
+// import { githubRepoUrl } from 'config';
 import { BasicInfo } from '@/types';
 
 import './Home.scss';
@@ -17,7 +17,7 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
 
   return (
     <section id="home" className="home">
-      <a
+      {/* <a
         href={githubRepoUrl}
         target="_blank"
         className="home__github-corner"
@@ -25,8 +25,8 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
         rel="noreferrer"
       >
         <GitHubCornerSVG />
-      </a>
-      <Container className="d-flex vh-100">
+      </a> */}
+      <Container className="d-flex home__wrapper">
         <Stack as="header" gap={5} className="home__header center">
           <Icon className="home__header__icon" icon="line-md:document-code" />
           <TypeAnimation

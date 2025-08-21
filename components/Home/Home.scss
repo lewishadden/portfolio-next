@@ -4,6 +4,10 @@
   min-height: 450px;
   padding: 0;
 
+  &__wrapper {
+    height: calc(100vh - 56px);
+  }
+
   &__header {
     &__name {
       font-weight: 600 !important;
