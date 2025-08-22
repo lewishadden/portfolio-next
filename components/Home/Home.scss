@@ -1,4 +1,4 @@
-@use 'scss/mixins/github-corner' as github;
+// @use 'scss/mixins/github-corner' as github;
 
 .home {
   min-height: 450px;
@@ -6,6 +6,7 @@
 
   &__wrapper {
     height: calc(100vh - 56px);
+    flex-direction: column;
   }
 
   &__header {
@@ -24,7 +25,25 @@
     }
   }
 
-  &__github-corner {
-    @include github.animate;
+  // &__github-corner {
+  //   @include github.animate;
+  // }
+
+  &__chevron-down {
+    padding-bottom: 2rem;
+
+    .chevron-down {
+      fill: #fff;
+      margin: auto;
+      width: 3rem;
+      height: 3rem;
+      animation: hover-me 0.5s infinite ease-in-out alternate;
+    }
+  }
+
+  @keyframes hover-me {
+    100% {
+      transform: translate3d(0, 25px, 0);
+    }
   }
 }

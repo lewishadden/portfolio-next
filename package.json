@@ -46,6 +46,7 @@
     "react-bootstrap": "^2.10.1",
     "react-dom": "18.2.0",
     "react-headroom": "^3.2.1",
+    "react-parallax": "^3.5.2",
     "react-type-animation": "^3.2.0",
     "react-vertical-timeline-component": "^3.6.0",
     "sass": "^1.81.0",
