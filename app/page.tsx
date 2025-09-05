@@ -1,6 +1,7 @@
 import { Experience } from 'components/Experience/Experience';
 import { Footer } from 'components/Footer/Footer';
 import { Header } from 'components/Header/Header';
+import { Background } from 'components/Background/Background';
 import { Home } from 'components/Home/Home';
 import { Projects } from 'components/Projects/Projects';
 import { Skills } from 'components/Skills/Skills';
@@ -18,6 +19,7 @@ export default async () => {
   return (
     <>
       <Header />
+      <Background />
       <Home basicInfo={pageData.basicInfo} />
       <About basicInfo={pageData.basicInfo} />
       <Experience experience={pageData.experience} basicInfo={pageData.basicInfo} />

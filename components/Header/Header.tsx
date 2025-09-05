@@ -9,7 +9,7 @@ import './Header.scss';
 
 export const Header = () => (
   <Headroom style={{ zIndex: 1000 }}>
-    <Navbar expand="sm" bg="primary" data-bs-theme="dark">
+    <Navbar expand="sm" data-bs-theme="dark" className="navbar">
       <Container>
         <Navbar.Toggle aria-controls="responsive-navbar-nav" />
         <Navbar.Collapse id="responsive-navbar-nav">
