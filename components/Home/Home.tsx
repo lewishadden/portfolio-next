@@ -2,11 +2,11 @@
 
 import { Container, Stack } from 'react-bootstrap';
 import { TypeAnimation } from 'react-type-animation';
-import { Icon } from '@iconify/react';
-import { Parallax } from 'react-parallax';
-import ExportedImage from 'next-image-export-optimizer';
+// import { Icon } from '@iconify/react';
+// import { Parallax } from 'react-parallax';
+// import ExportedImage from 'next-image-export-optimizer';
 
-import { ChevronDown } from 'icons';
+import { ChevronDown, CodeIcon } from 'icons';
 // import { GitHubCornerSVG } from 'icons';
 // import { githubRepoUrl } from 'config';
 import { BasicInfo } from '@/types';
@@ -31,7 +31,7 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
         </a> */}
       <Container className="d-flex home__wrapper">
         <Stack as="header" gap={5} className="home__header center" style={{ zIndex: 2 }}>
-          <Icon className="home__header__icon" icon="line-md:document-code" />
+          <CodeIcon className="home__header__icon" />
           <TypeAnimation
             sequence={[name]}
             wrapper="h1"
