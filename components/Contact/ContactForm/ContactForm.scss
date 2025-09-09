@@ -1,6 +1,11 @@
 .contact__body__form {
+  .form-control {
+    background-color: #000a28;
+    border: 0.1rem solid #5b42f5;
+  }
   &__submit-btn {
     width: 100%;
+    background-color: #5b42f5;
 
     &__icon {
       font-size: 2rem;

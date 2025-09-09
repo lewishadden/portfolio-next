@@ -72,6 +72,7 @@ const ContactForm = ({ onSuccess, onFail }: ContactFormProps) => {
                     value={values.firstName}
                     onChange={handleChange}
                     isInvalid={!!errors.firstName}
+                    autoComplete="given-name"
                   />
                   <Form.Control.Feedback type="invalid">{errors.firstName}</Form.Control.Feedback>
                 </Form.Group>
@@ -86,6 +87,7 @@ const ContactForm = ({ onSuccess, onFail }: ContactFormProps) => {
                     value={values.lastName}
                     onChange={handleChange}
                     isInvalid={!!errors.lastName}
+                    autoComplete="family-name"
                   />
                   <Form.Control.Feedback type="invalid">{errors.lastName}</Form.Control.Feedback>
                 </Form.Group>
@@ -100,6 +102,7 @@ const ContactForm = ({ onSuccess, onFail }: ContactFormProps) => {
                     value={values.email}
                     onChange={handleChange}
                     isInvalid={!!errors.email}
+                    autoComplete="email"
                   />
                   <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
                 </Form.Group>
@@ -121,7 +124,7 @@ const ContactForm = ({ onSuccess, onFail }: ContactFormProps) => {
               </Col>
               <Col sm={12} md={6} className="mt-4">
                 <Button
-                  variant="info"
+                  variant="primary"
                   type="submit"
                   disabled={loading}
                   className="contact__body__form__submit-btn center"

@@ -1,3 +1,5 @@
+@import 'https://fonts.googleapis.com/css2?family=Raleway:wght@200;300&display=swap';
+
 .about {
   &__heading {
     text-transform: uppercase;
@@ -8,10 +10,11 @@
     padding: 5% 0;
 
     &__picture-card {
-      background-color: rgba(248, 245, 244, 0.05) !important;
+      background-color: #000a28 !important;
       -webkit-box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
       -moz-box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
       box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
+      border: 0.25rem solid #5b42f5;
 
       &__title {
         font-size: 2.5rem;

@@ -9,11 +9,7 @@ const TimelineItem = ({ technologies, mainTech, title, company, years, icon }: E
   const MainTechBadges = () => (
     <div className="timeline__item__main-badge-container">
       {mainTech.map((technology, i) => (
-        <Badge
-          bg="darkgrey"
-          className="timeline__item__badge main font-trebuchet me-2 mb-2"
-          key={i}
-        >
+        <Badge className="timeline__item__badge main font-trebuchet me-2 mb-2" key={i}>
           {technology}
         </Badge>
       ))}

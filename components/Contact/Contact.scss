@@ -6,6 +6,9 @@
   }
 
   &__body {
+    position: relative;
+    z-index: 1;
+
     &:not(.form-submitted) &__personal-info {
       @media (min-width: 992px) {
         justify-content: normal;
@@ -28,10 +31,11 @@
         }
 
         &__icon-badge {
+          background-color: #000a28;
           padding: 1rem;
           width: fit-content;
           height: fit-content;
-          border: 1px solid grey;
+          border: 0.1rem solid #5b42f5;
           transition: all 0.2s linear;
           box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
           -webkit-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
