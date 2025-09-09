@@ -1,26 +1,120 @@
-@use 'scss/mixins/github-corner' as github;
+// @use 'scss/mixins/github-corner' as github;
 
 .home {
   min-height: 450px;
   padding: 0;
 
+  &__wrapper {
+    height: calc(100vh - 56px);
+    flex-direction: column;
+  }
+
   &__header {
     &__name {
-      font-weight: 600 !important;
-      font-size: 3rem;
+      font-weight: 700 !important;
+      font-size: 3.25rem;
+      line-height: 1.1;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 18px rgba(96, 165, 250, 0.12);
+      background-size: 200% 100%;
+      animation: shimmerGradient 6s linear infinite;
     }
 
     &__titles {
-      font-size: 2rem;
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      background: linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 14px rgba(96, 165, 250, 0.12);
+      background-size: 200% 100%;
+      animation: shimmerGradient 6s linear infinite;
     }
 
     &__icon {
       height: 150px;
       width: 150px;
+      background: linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 0 18px rgba(96, 165, 250, 0.18));
+      background-size: 200% 100%;
+      animation:
+        shimmerGradient 6s linear infinite,
+        iconFloat 4s ease-in-out infinite alternate;
     }
   }
 
-  &__github-corner {
-    @include github.animate;
+  @media (min-width: 768px) {
+    &__header {
+      &__name {
+        font-size: 4rem;
+      }
+      &__titles {
+        font-size: 2rem;
+      }
+    }
+  }
+
+  // &__github-corner {
+  //   @include github.animate;
+  // }
+
+  &__chevron-down {
+    padding-bottom: 2rem;
+
+    .chevron-down {
+      fill: #fff;
+      margin: auto;
+      width: 3rem;
+      height: 3rem;
+      animation: hover-me 0.5s infinite ease-in-out alternate;
+    }
+  }
+
+  @keyframes hover-me {
+    100% {
+      transform: translate3d(0, 25px, 0);
+    }
+  }
+
+  @keyframes shimmerGradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  @keyframes iconHue {
+    0% {
+      filter: hue-rotate(0deg) drop-shadow(0 0 18px rgba(96, 165, 250, 0.18));
+    }
+    50% {
+      filter: hue-rotate(180deg) drop-shadow(0 0 22px rgba(96, 165, 250, 0.28));
+    }
+    100% {
+      filter: hue-rotate(360deg) drop-shadow(0 0 18px rgba(96, 165, 250, 0.18));
+    }
+  }
+
+  @keyframes iconFloat {
+    0% {
+      transform: translateY(0) scale(1);
+    }
+    100% {
+      transform: translateY(-6px) scale(1.02);
+    }
   }
 }

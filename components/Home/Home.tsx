@@ -2,10 +2,13 @@
 
 import { Container, Stack } from 'react-bootstrap';
 import { TypeAnimation } from 'react-type-animation';
-import { Icon } from '@iconify/react';
+// import { Icon } from '@iconify/react';
+// import { Parallax } from 'react-parallax';
+// import ExportedImage from 'next-image-export-optimizer';
 
-import { GitHubCornerSVG } from 'icons';
-import { githubRepoUrl } from 'config';
+import { ChevronDown, CodeIcon } from 'icons';
+// import { GitHubCornerSVG } from 'icons';
+// import { githubRepoUrl } from 'config';
 import { BasicInfo } from '@/types';
 
 import './Home.scss';
@@ -17,18 +20,18 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
 
   return (
     <section id="home" className="home">
-      <a
-        href={githubRepoUrl}
-        target="_blank"
-        className="home__github-corner"
-        aria-label="View source on GitHub"
-        rel="noreferrer"
-      >
-        <GitHubCornerSVG />
-      </a>
-      <Container className="d-flex vh-100">
-        <Stack as="header" gap={5} className="home__header center">
-          <Icon className="home__header__icon" icon="line-md:document-code" />
+      {/* <a
+          href={githubRepoUrl}
+          target="_blank"
+          className="home__github-corner"
+          aria-label="View source on GitHub"
+          rel="noreferrer"
+        >
+          <GitHubCornerSVG />
+        </a> */}
+      <Container className="d-flex home__wrapper">
+        <Stack as="header" gap={5} className="home__header center" style={{ zIndex: 2 }}>
+          <CodeIcon className="home__header__icon" />
           <TypeAnimation
             sequence={[name]}
             wrapper="h1"
@@ -44,6 +47,9 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
             repeat={Infinity}
           />
         </Stack>
+        <div className="home__chevron-down d-flex" style={{ zIndex: 3 }}>
+          <ChevronDown />
+        </div>
       </Container>
     </section>
   );

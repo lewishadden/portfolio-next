@@ -36,15 +36,12 @@ export const Projects = ({
       <Col key={project.title} className="projects__item my-3 px-3">
         <Card
           text={project.theme.text}
-          border={project.theme.border}
-          bg={project.theme.background}
           className="projects__item__picture-card mx-auto"
           onClick={() => showDetailsModal(project)}
         >
           <Card.Body>
             <Stack gap={3} className="justify-content-between h-100">
               <Badge
-                bg="dark"
                 text={project.theme.text}
                 className="projects__item__picture-card__date ms-auto"
               >

@@ -1,0 +1,24 @@
+.navbar {
+  background-image: linear-gradient(rgba(113, 44, 249, 1), rgba(113, 44, 249, 0.95));
+}
+.header {
+  &__links {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    height: 100%;
+    padding: 0 20px;
+  }
+
+  &__link {
+    margin: 0 8px;
+
+    &:hover {
+      cursor: pointer;
+    }
+  }
+
+  a {
+    color: #fff;
+  }
+}
