@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Container, Row, Col, Stack, Card, Badge } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
+import ScrollAnimation from 'react-animate-on-scroll';
 
 import { BasicInfo, Project } from '@/types';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
@@ -34,30 +35,32 @@ export const Projects = ({
   const ProjectCards = () =>
     projects.map((project) => (
       <Col key={project.title} className="projects__item my-3 px-3">
-        <Card
-          text={project.theme.text}
-          className="projects__item__picture-card mx-auto"
-          onClick={() => showDetailsModal(project)}
-        >
-          <Card.Body>
-            <Stack gap={3} className="justify-content-between h-100">
-              <Badge
-                text={project.theme.text}
-                className="projects__item__picture-card__date ms-auto"
-              >
-                {project.startDate}
-              </Badge>
-              <Icon
-                icon={project.thumbnail}
-                className="projects__item__picture-card__thumbnail mx-auto"
-              />
+        <ScrollAnimation animateIn="bounceInDown" animateOnce>
+          <Card
+            text={project.theme.text}
+            className="projects__item__picture-card mx-auto"
+            onClick={() => showDetailsModal(project)}
+          >
+            <Card.Body>
+              <Stack gap={3} className="justify-content-between h-100">
+                <Badge
+                  text={project.theme.text}
+                  className="projects__item__picture-card__date ms-auto"
+                >
+                  {project.startDate}
+                </Badge>
+                <Icon
+                  icon={project.thumbnail}
+                  className="projects__item__picture-card__thumbnail mx-auto"
+                />
 
-              <Card.Title as="h3" className="projects__item__picture-card__title font-trebuchet">
-                {project.title}
-              </Card.Title>
-            </Stack>
-          </Card.Body>
-        </Card>
+                <Card.Title as="h3" className="projects__item__picture-card__title font-trebuchet">
+                  {project.title}
+                </Card.Title>
+              </Stack>
+            </Card.Body>
+          </Card>
+        </ScrollAnimation>
       </Col>
     ));
 

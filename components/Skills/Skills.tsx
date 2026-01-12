@@ -1,5 +1,8 @@
+'use client';
+
 import { Icon } from '@iconify/react';
 import { Container, Row, Col } from 'react-bootstrap';
+import ScrollAnimation from 'react-animate-on-scroll';
 
 import { BasicInfo, Skills as ISkills } from '@/types';
 
@@ -10,10 +13,12 @@ export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: Basi
 
   const skillTiles = skills?.icons?.map((skill, i) => (
     <Col xs="auto" key={i}>
-      <div className="skills__list__tile" style={{ ['--index' as any]: i }}>
-        <Icon icon={skill.class} className="skills__list__tile__icon" />
-        <p className="skills__list__tile__name m-0">{skill.name}</p>
-      </div>
+      <ScrollAnimation animateIn="flipInX" animateOnce duration={2}>
+        <div className="skills__list__tile">
+          <Icon icon={skill.class} className="skills__list__tile__icon" />
+          <p className="skills__list__tile__name m-0">{skill.name}</p>
+        </div>
+      </ScrollAnimation>
     </Col>
   ));
 
