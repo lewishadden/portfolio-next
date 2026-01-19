@@ -253,10 +253,7 @@ function JsonLd() {
 export default function RootLayout({ children }: { children: any }) {
   return (
     <html lang="en">
-      <body data-theme="dark" data-bs-theme="dark">
-        <a href="#main-content" className="skip-link">
-          Skip to main content
-        </a>
+      <body data-theme="dark" data-bs-theme="dark" suppressHydrationWarning>
         <MantineProvider forceColorScheme="light" theme={theme}>
           <Layout>{children}</Layout>
         </MantineProvider>
