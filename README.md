@@ -16,6 +16,20 @@ This portfolio is built with accessibility as a priority:
 
 See [ACCESSIBILITY.md](./ACCESSIBILITY.md) for comprehensive documentation and [ACCESSIBILITY_QUICK_REFERENCE.md](./ACCESSIBILITY_QUICK_REFERENCE.md) for quick tips.
 
+## 🔍 SEO Optimization
+
+This portfolio is fully optimized for search engines:
+
+- ✅ **Comprehensive Metadata** - Title tags, meta descriptions, Open Graph, Twitter Cards
+- ✅ **Structured Data** - JSON-LD schemas (Person, WebSite, BreadcrumbList, ProfilePage)
+- ✅ **XML Sitemap** - Auto-generated with priorities and change frequencies
+- ✅ **Robots.txt** - Optimized for crawl efficiency
+- ✅ **Core Web Vitals** - Performance optimizations for LCP, FID, CLS
+- ✅ **Security Headers** - SEO-boosting security and performance headers
+- ✅ **Image Optimization** - WebP format, responsive images, lazy loading
+
+See [SEO.md](./SEO.md) for comprehensive SEO documentation.
+
 ## Setup local development
 
 ### Pre-requisites
