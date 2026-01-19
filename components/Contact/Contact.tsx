@@ -52,11 +52,13 @@ export const Contact = ({ basicInfo }: { basicInfo: BasicInfo }) => {
     ));
 
   return (
-    <section id="contact" className="contact">
+    <section id="contact" className="contact" aria-labelledby="contact-heading">
       <Container>
         <Row>
           <Col md={12}>
-            <h2 className="text-center contact__heading">{headingText}</h2>
+            <h2 id="contact-heading" className="text-center contact__heading">
+              {headingText}
+            </h2>
           </Col>
         </Row>
         <Row className={`contact__body g-5${submitted ? ' form-submitted' : ''}`}>
@@ -79,27 +81,34 @@ export const Contact = ({ basicInfo }: { basicInfo: BasicInfo }) => {
             />
           )}
           <Col md={12} lg={{ span: 8, offset: 4 }} className="my-0 mx-auto">
-            <Toast
-              className="contact__body__submitted-toast text-center mt-5"
-              show={showToast}
-              animation
-              onClose={() => {
-                setError(false);
-                setShowToast(false);
-              }}
-              bg={error ? 'danger' : 'success'}
+            <div
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="position-relative"
             >
-              <Toast.Header>
-                <strong className="mx-auto">
-                  {error ? 'There was a problem sending the message' : 'Message sent!'}
-                </strong>
-              </Toast.Header>
-              <Toast.Body>
-                {error
-                  ? 'Please try again soon, or contact me directly via email or phone'
-                  : 'I will be in touch with you shortly to answer your message.'}
-              </Toast.Body>
-            </Toast>
+              <Toast
+                className="contact__body__submitted-toast text-center mt-5"
+                show={showToast}
+                animation
+                onClose={() => {
+                  setError(false);
+                  setShowToast(false);
+                }}
+                bg={error ? 'danger' : 'success'}
+              >
+                <Toast.Header>
+                  <strong className="mx-auto">
+                    {error ? 'There was a problem sending the message' : 'Message sent!'}
+                  </strong>
+                </Toast.Header>
+                <Toast.Body>
+                  {error
+                    ? 'Please try again soon, or contact me directly via email or phone'
+                    : 'I will be in touch with you shortly to answer your message.'}
+                </Toast.Body>
+              </Toast>
+            </div>
           </Col>
         </Row>
       </Container>

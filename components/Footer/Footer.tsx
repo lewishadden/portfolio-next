@@ -14,19 +14,21 @@ export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {
         href={network.url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`View my ${network.name} profile.`}
+        aria-label={`Visit ${name}'s ${network.name} profile`}
       >
-        <Icon icon={network.class} style={{ fontSize: '3rem' }} />
+        <Icon icon={network.class} style={{ fontSize: '3rem' }} aria-hidden="true" />
       </Link>
     </span>
   ));
 
   return (
-    <footer className="footer">
+    <footer className="footer" role="contentinfo">
       <div className="col-md-12">
-        <div className="footer__social-links">{networks}</div>
+        <nav className="footer__social-links" aria-label="Social media links">
+          {networks}
+        </nav>
         <div className="py-4">
-          <small>Copyright &copy; {name}</small>
+          <small>Copyright &copy; {new Date().getFullYear()} {name}. All rights reserved.</small>
         </div>
       </div>
     </footer>

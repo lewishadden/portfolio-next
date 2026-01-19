@@ -9,11 +9,11 @@ import './Header.scss';
 
 export const Header = () => (
   <Headroom style={{ zIndex: 1000 }}>
-    <Navbar expand="sm" data-bs-theme="dark" className="navbar">
+    <Navbar expand="sm" data-bs-theme="dark" className="navbar" role="navigation" aria-label="Main navigation">
       <Container>
-        <Navbar.Toggle aria-controls="responsive-navbar-nav" />
+        <Navbar.Toggle aria-controls="responsive-navbar-nav" aria-label="Toggle navigation menu" />
         <Navbar.Collapse id="responsive-navbar-nav">
-          <Nav className="header" variant="pills">
+          <Nav className="header" variant="pills" as="nav">
             <Nav.Item>
               <Nav.Link active={false} href="#about" className="header__link font-trebuchet">
                 About Me

@@ -1,5 +1,6 @@
 import '@mantine/core/styles.css';
 import 'bootstrap/scss/bootstrap.scss';
+import './globals.scss';
 import React from 'react';
 import { MantineProvider } from '@mantine/core';
 import { Layout } from 'components/Layout/Layout';
@@ -88,6 +89,9 @@ export default function RootLayout({ children }: { children: any }) {
   return (
     <html lang="en">
       <body data-theme="dark" data-bs-theme="dark">
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
         <MantineProvider forceColorScheme="light" theme={theme}>
           <Layout>{children}</Layout>
         </MantineProvider>

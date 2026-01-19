@@ -6,6 +6,7 @@ import { Icon } from '@iconify/react';
 import ScrollAnimation from 'react-animate-on-scroll';
 
 import { BasicInfo, Project } from '@/types';
+import { getAnimationProps } from '@/utils/accessibility';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
 
 import './Projects.scss';
@@ -35,23 +36,34 @@ export const Projects = ({
   const ProjectCards = () =>
     projects.map((project) => (
       <Col key={project.title} className="projects__item my-3 px-3">
-        <ScrollAnimation animateIn="bounceInDown" animateOnce>
+        <ScrollAnimation {...getAnimationProps('bounceInDown')}>
           <Card
             text={project.theme.text}
             className="projects__item__picture-card mx-auto"
             onClick={() => showDetailsModal(project)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                showDetailsModal(project);
+              }
+            }}
+            tabIndex={0}
+            role="button"
+            aria-label={`View details for ${project.title} project`}
           >
             <Card.Body>
               <Stack gap={3} className="justify-content-between h-100">
                 <Badge
                   text={project.theme.text}
                   className="projects__item__picture-card__date ms-auto"
+                  aria-label={`Started in ${project.startDate}`}
                 >
                   {project.startDate}
                 </Badge>
                 <Icon
                   icon={project.thumbnail}
                   className="projects__item__picture-card__thumbnail mx-auto"
+                  aria-hidden="true"
                 />
 
                 <Card.Title as="h3" className="projects__item__picture-card__title font-trebuchet">
@@ -65,14 +77,25 @@ export const Projects = ({
     ));
 
   return (
-    <section id="projects" className="projects">
+    <section id="projects" className="projects" aria-labelledby="projects-heading">
       <Container>
         <Row>
           <Col md={12}>
-            <h2 className="projects__heading">{headingText}</h2>
+            <h2 id="projects-heading" className="projects__heading">
+              {headingText}
+            </h2>
           </Col>
         </Row>
-        <Row xs={1} sm={1} md={2} lg={2} xl={3} className="projects__list center">
+        <Row
+          xs={1}
+          sm={1}
+          md={2}
+          lg={2}
+          xl={3}
+          className="projects__list center"
+          role="list"
+          aria-label="Project portfolio"
+        >
           {projects.length > 0 && <ProjectCards />}
         </Row>
         {deps && (
