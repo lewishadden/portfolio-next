@@ -4,7 +4,7 @@ export const Background = () => {
   const arr = [];
   for (let i = 0; i < 100; i += 1) {
     arr.push(
-      <div className="circle-container">
+      <div className="circle-container" key={i}>
         <div className="circle"></div>
       </div>
     );

@@ -5,6 +5,7 @@ import ExportedImage from 'next-image-export-optimizer';
 import ScrollAnimation from 'react-animate-on-scroll';
 
 import { BasicInfo } from '@/types';
+import { getAnimationProps } from '@/utils/accessibility';
 
 import './About.scss';
 
@@ -13,16 +14,18 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const headingText = sectionName.about;
 
   return (
-    <section id="about" className="about">
+    <section id="about" className="about" aria-labelledby="about-heading">
       <Container>
         <Row>
           <Col md={12}>
-            <h2 className="text-center about__heading">{headingText}</h2>
+            <h2 id="about-heading" className="text-center about__heading">
+              {headingText}
+            </h2>
           </Col>
         </Row>
         <Row className="about__body center">
           <Col md={10} lg={12}>
-            <ScrollAnimation animateIn="slideInRight" animateOnce>
+            <ScrollAnimation {...getAnimationProps('slideInRight')}>
               <Card text="white" className="about__body__picture-card">
                 <Row className="g-0">
                   <Col md={12} lg={5} xl={3} className="pe-md-0">
@@ -31,7 +34,7 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                       className="about__body__picture-card__image"
                       width={image.size.width}
                       height={image.size.height}
-                      alt="Portrait Photo"
+                      alt="Portrait photo of Lewis Hadden"
                     />
                   </Col>
                   <Col md={12} lg={7} xl={9} className="ps-md-0">

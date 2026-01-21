@@ -22,27 +22,31 @@ export const Experience = ({
   const experienceTimelineItems = experience.map((work, i) => <TimelineItem {...work} key={i} />);
 
   return (
-    <section id="experience" className="experience">
+    <section id="experience" className="experience" aria-labelledby="experience-heading">
       <Container>
         <Row>
           <Col md={12}>
-            <h2 className="experience__title">{headingText}</h2>
+            <h2 id="experience-heading" className="experience__title">
+              {headingText}
+            </h2>
           </Col>
         </Row>
         <Row>
           <Col md={12} className="mx-auto">
-            <VerticalTimeline className="timeline">
-              {experienceTimelineItems}
-              <VerticalTimelineElement
-                className="timeline__item start"
-                iconStyle={{
-                  background: 'rgb(63 63 63)',
-                  color: '#fff',
-                  textAlign: 'center',
-                }}
-                icon={<Icon icon="twemoji:hourglass-done" className="timeline__item__icon" />}
-              />
-            </VerticalTimeline>
+            <div role="list" aria-label="Work experience timeline">
+              <VerticalTimeline className="timeline">
+                {experienceTimelineItems}
+                <VerticalTimelineElement
+                  className="timeline__item start"
+                  iconStyle={{
+                    background: 'rgb(63 63 63)',
+                    color: '#fff',
+                    textAlign: 'center',
+                  }}
+                  icon={<Icon icon="twemoji:hourglass-done" className="timeline__item__icon" aria-hidden="true" />}
+                />
+              </VerticalTimeline>
+            </div>
           </Col>
         </Row>
       </Container>

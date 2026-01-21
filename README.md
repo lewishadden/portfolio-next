@@ -1,14 +1,40 @@
 # Portfolio Next.js
 
-This repo contains the code for my online web portfolio. It is built using [Next.js](https://nextjs.org/), [React Bootstrap](https://react-bootstrap.netlify.app/) + [Mantine](https://mantine.dev/).
+This repo contains the code for my online web portfolio. It is built using [Next.js](https://nextjs.org/) (v15), [React Bootstrap](https://react-bootstrap.netlify.app/) + [Mantine](https://mantine.dev/).
 
-The repo is setup for Static Site Generation to maximise performance.
+The repo is setup for Static Site Generation to maximise performance and includes comprehensive **WCAG 2.1 Level AA accessibility** features.
+
+## ♿ Accessibility
+
+This portfolio is built with accessibility as a priority:
+
+- ✅ **Keyboard Navigation** - Full keyboard support with visible focus indicators
+- ✅ **Screen Reader Optimized** - ARIA landmarks, labels, and semantic HTML
+- ✅ **Motion Preferences** - Respects `prefers-reduced-motion` settings
+- ✅ **Skip Links** - Skip to main content for keyboard users
+- ✅ **Form Accessibility** - Proper labels, error messages, and validation
+
+See [ACCESSIBILITY.md](./ACCESSIBILITY.md) for comprehensive documentation and [ACCESSIBILITY_QUICK_REFERENCE.md](./ACCESSIBILITY_QUICK_REFERENCE.md) for quick tips.
+
+## 🔍 SEO Optimization
+
+This portfolio is fully optimized for search engines:
+
+- ✅ **Comprehensive Metadata** - Title tags, meta descriptions, Open Graph, Twitter Cards
+- ✅ **Structured Data** - JSON-LD schemas (Person, WebSite, BreadcrumbList, ProfilePage)
+- ✅ **XML Sitemap** - Auto-generated with priorities and change frequencies
+- ✅ **Robots.txt** - Optimized for crawl efficiency
+- ✅ **Core Web Vitals** - Performance optimizations for LCP, FID, CLS
+- ✅ **Security Headers** - SEO-boosting security and performance headers
+- ✅ **Image Optimization** - WebP format, responsive images, lazy loading
+
+See [SEO.md](./SEO.md) for comprehensive SEO documentation.
 
 ## Setup local development
 
 ### Pre-requisites
 
-- Ensure you are running Node `v20.9.0`. If you have NVM installed, you can simply run `nvm use`
+- Ensure you are running Node `v20.18.0` or higher. If you have NVM installed, you can simply run `nvm use`
 - Copy `.env.SAMPLE` to `.env` and configure your environment variables
 
 ### Install project dependencies
