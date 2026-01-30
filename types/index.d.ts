@@ -46,12 +46,10 @@ export interface Project {
   description: string;
   theme: Theme;
   thumbnail: string;
-  images: [
-    {
-      url: string;
-      size: { width: number; height: number };
-    },
-  ];
+  images: {
+    url: string;
+    size: { width: number; height: number };
+  }[];
   url: string;
   technologies: Technology[];
 }

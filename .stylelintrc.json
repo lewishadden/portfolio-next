@@ -18,6 +18,12 @@
     "scss/at-rule-no-unknown": null,
     "value-keyword-case": null,
     "media-feature-range-notation": null,
+    "property-no-deprecated": null,
+    "color-function-alias-notation": null,
+    "hue-degree-notation": null,
+    "scss/dollar-variable-pattern": null,
+    "rule-empty-line-before": null,
+    "keyframes-name-pattern": null,
     "selector-pseudo-class-no-unknown": [
       true,
       {

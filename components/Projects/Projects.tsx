@@ -3,10 +3,9 @@
 import { useState } from 'react';
 import { Container, Row, Col, Stack, Card, Badge } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
-import ScrollAnimation from 'react-animate-on-scroll';
 
 import { BasicInfo, Project } from '@/types';
-import { getAnimationProps } from '@/utils/accessibility';
+import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
 
 import './Projects.scss';
@@ -36,7 +35,7 @@ export const Projects = ({
   const ProjectCards = () =>
     projects.map((project) => (
       <Col key={project.title} className="projects__item my-3 px-3">
-        <ScrollAnimation {...getAnimationProps('bounceInDown')}>
+        <ScrollReveal animation="bounceInDown">
           <Card
             text={project.theme.text}
             className="projects__item__picture-card mx-auto"
@@ -72,7 +71,7 @@ export const Projects = ({
               </Stack>
             </Card.Body>
           </Card>
-        </ScrollAnimation>
+        </ScrollReveal>
       </Col>
     ));
 

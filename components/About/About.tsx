@@ -1,17 +1,18 @@
 'use client';
 
 import { Container, Row, Col, Card } from 'react-bootstrap';
+import { useMediaQuery } from '@mantine/hooks';
 import ExportedImage from 'next-image-export-optimizer';
-import ScrollAnimation from 'react-animate-on-scroll';
 
 import { BasicInfo } from '@/types';
-import { getAnimationProps } from '@/utils/accessibility';
+import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 
 import './About.scss';
 
 export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const { image, sectionName, description, descriptionHeader } = basicInfo;
   const headingText = sectionName.about;
+  const isDesktop = useMediaQuery('(min-width: 768px)');
 
   return (
     <section id="about" className="about" aria-labelledby="about-heading">
@@ -25,7 +26,7 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
         </Row>
         <Row className="about__body center">
           <Col md={10} lg={12}>
-            <ScrollAnimation {...getAnimationProps('slideInRight')}>
+            <ScrollReveal animation="slideInRight">
               <Card text="white" className="about__body__picture-card">
                 <Row className="g-0">
                   <Col md={12} lg={5} xl={3} className="pe-md-0">
@@ -35,6 +36,11 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                       width={image.size.width}
                       height={image.size.height}
                       alt="Portrait photo of Lewis Hadden"
+                      sizes="(min-width: 992px) 25vw, (min-width: 768px) 40vw, 80vw"
+                      loading={isDesktop ? 'eager' : 'lazy'}
+                      fetchPriority={isDesktop ? 'high' : 'low'}
+                      priority={Boolean(isDesktop)}
+                      decoding="async"
                     />
                   </Col>
                   <Col md={12} lg={7} xl={9} className="ps-md-0">
@@ -53,7 +59,7 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                   </Col>
                 </Row>
               </Card>
-            </ScrollAnimation>
+            </ScrollReveal>
           </Col>
         </Row>
       </Container>

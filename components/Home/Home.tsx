@@ -1,7 +1,7 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Container, Stack } from 'react-bootstrap';
-import { TypeAnimation } from 'react-type-animation';
 // import { Icon } from '@iconify/react';
 // import { Parallax } from 'react-parallax';
 // import ExportedImage from 'next-image-export-optimizer';
@@ -17,6 +17,31 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const { name, titles } = basicInfo;
 
   const titlesUpperCased = titles.map((x) => [x, 1500]).flat();
+  const fallbackTitle = titles[0] ?? '';
+
+  const NameAnimation = dynamic(
+    () => import('react-type-animation').then((mod) => mod.TypeAnimation),
+    {
+      ssr: false,
+      loading: () => (
+        <h1 className="home__header__name font-trebuchet" aria-label={name}>
+          {name}
+        </h1>
+      ),
+    },
+  );
+
+  const TitlesAnimation = dynamic(
+    () => import('react-type-animation').then((mod) => mod.TypeAnimation),
+    {
+      ssr: false,
+      loading: () => (
+        <p className="home__header__titles" aria-live="polite" aria-label="Job titles">
+          {fallbackTitle}
+        </p>
+      ),
+    },
+  );
 
   return (
     <section id="home" className="home" aria-label="Hero section">
@@ -32,7 +57,7 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
       <Container className="d-flex home__wrapper">
         <Stack as="header" gap={5} className="home__header center" style={{ zIndex: 2 }}>
           <CodeIcon className="home__header__icon" aria-hidden="true" />
-          <TypeAnimation
+          <NameAnimation
             sequence={[name]}
             wrapper="h1"
             speed={15}
@@ -40,7 +65,7 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
             className="home__header__name font-trebuchet"
             aria-label={name}
           />
-          <TypeAnimation
+          <TitlesAnimation
             sequence={titlesUpperCased}
             wrapper="p"
             speed={35}

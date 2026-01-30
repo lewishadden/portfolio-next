@@ -1,4 +1,15 @@
 /* Global accessibility styles */
+:root {
+  --scroll-offset: 80px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+section[id] {
+  scroll-margin-top: var(--scroll-offset);
+}
 
 /* Skip to main content link */
 .skip-link {
