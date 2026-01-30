@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
-import AwesomeSlider from 'react-awesome-slider';
+import dynamic from 'next/dynamic';
 import { Col, Modal } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
 import ExportedImage from 'next-image-export-optimizer';
@@ -11,6 +11,11 @@ import ExportedImage from 'next-image-export-optimizer';
 import { Project } from '@/types';
 
 import './ProjectDetailsModal.scss';
+
+const AwesomeSlider = dynamic(() => import('react-awesome-slider'), {
+  ssr: false,
+  loading: () => <div aria-hidden="true" style={{ minHeight: 240 }} />,
+});
 
 const ProjectDetailsModal = ({
   show,
