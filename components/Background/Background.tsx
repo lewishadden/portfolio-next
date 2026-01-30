@@ -1,7 +1,7 @@
 import './Background.scss';
 
 export const Background = () => {
-  const circleCount = 36;
+  const circleCount = 100;
   const circles = Array.from({ length: circleCount }, (_, i) => (
     <div className="circle-container" key={i}>
       <div className="circle"></div>

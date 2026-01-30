@@ -23,6 +23,7 @@ const ProjectDetailsModal = ({
   const [paddingHeight, setPaddingHeight] = useState(100);
   const { technologies, images, title, description, url } = data;
   const titleId = `project-details-modal-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  const modalBodyRef = useRef<HTMLDivElement | null>(null);
 
   const imageRefs = Array.from(images, () => useRef(null));
 
@@ -84,6 +85,10 @@ const ProjectDetailsModal = ({
       aria-labelledby={titleId}
       restoreFocus
       autoFocus
+      enforceFocus
+      onEntered={() => {
+        modalBodyRef.current?.focus();
+      }}
     >
       <Modal.Header closeButton closeVariant="white" className="project-details__modal__header">
         <Col md={1} />
@@ -108,7 +113,7 @@ const ProjectDetailsModal = ({
         </Col>
       </Modal.Header>
 
-      <Modal.Body className="project-details__modal__body">
+      <Modal.Body className="project-details__modal__body" ref={modalBodyRef} tabIndex={-1}>
         <Col md={12}>
           <Col md={10} className="mx-auto">
             {images.length > 0 && getImageSlides()}
