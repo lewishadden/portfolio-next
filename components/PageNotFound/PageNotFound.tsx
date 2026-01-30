@@ -1,3 +1,5 @@
+'use client';
+
 import { Container, Title, Text, Button, Group } from '@mantine/core';
 import Link from 'next/link';
 import { Illustration } from './Illustration';

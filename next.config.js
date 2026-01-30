@@ -8,6 +8,7 @@ export default withBundleAnalyzer({
   reactStrictMode: false,
   output: 'export',
   eslint: {
+    dirs: ['app', 'components', 'config', 'icons', 'utils', 'types', 'test-utils'],
     ignoreDuringBuilds: true,
   },
   experimental: {

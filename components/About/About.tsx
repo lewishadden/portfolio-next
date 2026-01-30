@@ -2,10 +2,9 @@
 
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import ExportedImage from 'next-image-export-optimizer';
-import ScrollAnimation from 'react-animate-on-scroll';
 
 import { BasicInfo } from '@/types';
-import { getAnimationProps } from '@/utils/accessibility';
+import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 
 import './About.scss';
 
@@ -25,7 +24,7 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
         </Row>
         <Row className="about__body center">
           <Col md={10} lg={12}>
-            <ScrollAnimation {...getAnimationProps('slideInRight')}>
+            <ScrollReveal animation="slideInRight">
               <Card text="white" className="about__body__picture-card">
                 <Row className="g-0">
                   <Col md={12} lg={5} xl={3} className="pe-md-0">
@@ -55,7 +54,7 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                   </Col>
                 </Row>
               </Card>
-            </ScrollAnimation>
+            </ScrollReveal>
           </Col>
         </Row>
       </Container>
