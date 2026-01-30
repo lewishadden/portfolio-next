@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import AwesomeSlider from 'react-awesome-slider';
 import { Col, Modal } from 'react-bootstrap';
@@ -24,11 +25,28 @@ const ProjectDetailsModal = ({
   const { technologies, images, title, description, url } = data;
   const titleId = `project-details-modal-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
+  const sliderRef = useRef<HTMLDivElement | null>(null);
 
   const imageRefs = Array.from(images, () => useRef(null));
 
+  const handleCarouselKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      sliderRef.current?.querySelector<HTMLButtonElement>('.awssld__next')?.click();
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      sliderRef.current?.querySelector<HTMLButtonElement>('.awssld__prev')?.click();
+    }
+  };
+
   const getImageSlides = () => (
-    <div className="project-details__modal__body__image-container">
+    <div
+      className="project-details__modal__body__image-container"
+      ref={sliderRef}
+      aria-label="Project image carousel"
+    >
       <AwesomeSlider
         animation="cubeAnimation"
         className="project-details__modal__body__image-container__slider"
@@ -113,7 +131,12 @@ const ProjectDetailsModal = ({
         </Col>
       </Modal.Header>
 
-      <Modal.Body className="project-details__modal__body" ref={modalBodyRef} tabIndex={-1}>
+      <Modal.Body
+        className="project-details__modal__body"
+        ref={modalBodyRef}
+        tabIndex={-1}
+        onKeyDown={handleCarouselKeyDown}
+      >
         <Col md={12}>
           <Col md={10} className="mx-auto">
             {images.length > 0 && getImageSlides()}
