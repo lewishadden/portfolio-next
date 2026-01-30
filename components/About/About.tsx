@@ -35,6 +35,8 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                       width={image.size.width}
                       height={image.size.height}
                       alt="Portrait photo of Lewis Hadden"
+                      priority
+                      fetchPriority="high"
                     />
                   </Col>
                   <Col md={12} lg={7} xl={9} className="ps-md-0">

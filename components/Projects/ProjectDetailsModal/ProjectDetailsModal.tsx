@@ -22,6 +22,7 @@ const ProjectDetailsModal = ({
 }) => {
   const [paddingHeight, setPaddingHeight] = useState(100);
   const { technologies, images, title, description, url } = data;
+  const titleId = `project-details-modal-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
   const imageRefs = Array.from(images, () => useRef(null));
 
@@ -73,11 +74,21 @@ const ProjectDetailsModal = ({
   );
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered className="project-details__modal">
+    <Modal
+      show={show}
+      onHide={onHide}
+      size="lg"
+      centered
+      className="project-details__modal"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      restoreFocus
+      autoFocus
+    >
       <Modal.Header closeButton closeVariant="white" className="project-details__modal__header">
         <Col md={1} />
         <Col md={10}>
-          <Modal.Title as="h3" className="project-details__modal__header__title">
+          <Modal.Title as="h3" id={titleId} className="project-details__modal__header__title">
             {title}
             {url && (
               <Link
