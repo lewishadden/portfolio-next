@@ -68,6 +68,9 @@ const ProjectDetailsModal = ({
               alt={`Carousel Image ${i}`}
               className="project-details__modal__body__image-container__img"
               ref={imageRefs[i]}
+              sizes="(min-width: 992px) 60vw, 90vw"
+              loading="lazy"
+              decoding="async"
               onLoad={(e) => {
                 const { offsetWidth, offsetHeight }: { offsetWidth: number; offsetHeight: number } =
                   e.target as HTMLImageElement;

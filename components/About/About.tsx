@@ -1,6 +1,7 @@
 'use client';
 
 import { Container, Row, Col, Card } from 'react-bootstrap';
+import { useMediaQuery } from '@mantine/hooks';
 import ExportedImage from 'next-image-export-optimizer';
 
 import { BasicInfo } from '@/types';
@@ -11,6 +12,7 @@ import './About.scss';
 export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const { image, sectionName, description, descriptionHeader } = basicInfo;
   const headingText = sectionName.about;
+  const isDesktop = useMediaQuery('(min-width: 768px)');
 
   return (
     <section id="about" className="about" aria-labelledby="about-heading">
@@ -34,8 +36,11 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                       width={image.size.width}
                       height={image.size.height}
                       alt="Portrait photo of Lewis Hadden"
-                      priority
-                      fetchPriority="high"
+                      sizes="(min-width: 992px) 25vw, (min-width: 768px) 40vw, 80vw"
+                      loading={isDesktop ? 'eager' : 'lazy'}
+                      fetchPriority={isDesktop ? 'high' : 'low'}
+                      priority={Boolean(isDesktop)}
+                      decoding="async"
                     />
                   </Col>
                   <Col md={12} lg={7} xl={9} className="ps-md-0">
