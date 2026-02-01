@@ -1,11 +1,11 @@
 import { VerticalTimelineElement } from 'react-vertical-timeline-component';
 import Badge from 'react-bootstrap/Badge';
 import { Icon } from '@iconify/react';
-import { Experience } from '@/types';
+import { ExperienceItem } from '@/types';
 
 import './TimelineItem.scss';
 
-const TimelineItem = ({ technologies, mainTech, title, company, years, icon }: Experience) => {
+const TimelineItem = ({ technologies, mainTech, title, company, years, icon }: ExperienceItem) => {
   const MainTechBadges = () => (
     <div className="timeline__item__main-badge-container">
       {mainTech.map((technology, i) => (

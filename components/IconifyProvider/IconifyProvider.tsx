@@ -6,7 +6,7 @@ import iconifyCollections from '../../icons/iconify-collections.json';
 
 let registered = false;
 
-const IconifyProvider = () => {
+export const IconifyProvider = () => {
   useEffect(() => {
     if (registered) {
       return;
@@ -23,14 +23,8 @@ const IconifyProvider = () => {
       });
     };
 
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      window.requestIdleCallback(() => registerIcons(), { timeout: 2000 });
-    } else {
-      setTimeout(() => registerIcons(), 300);
-    }
+    registerIcons();
   }, []);
 
   return null;
 };
-
-export default IconifyProvider;

@@ -15,11 +15,13 @@ export const Experience = ({
   experience,
 }: {
   basicInfo: BasicInfo;
-  experience: IExperience[];
+  experience: IExperience;
 }) => {
   const headingText = basicInfo.sectionName.experience;
 
-  const experienceTimelineItems = experience.map((work, i) => <TimelineItem {...work} key={i} />);
+  const experienceTimelineItems = experience.items.map((work, i) => (
+    <TimelineItem {...work} key={i} />
+  ));
 
   return (
     <section id="experience" className="experience" aria-labelledby="experience-heading">
@@ -43,7 +45,13 @@ export const Experience = ({
                     color: '#fff',
                     textAlign: 'center',
                   }}
-                  icon={<Icon icon="twemoji:hourglass-done" className="timeline__item__icon" aria-hidden="true" />}
+                  icon={
+                    <Icon
+                      icon={experience.done.icon}
+                      className="timeline__item__icon"
+                      aria-hidden="true"
+                    />
+                  }
                 />
               </VerticalTimeline>
             </div>

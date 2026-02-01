@@ -1,3 +1,5 @@
+'use client';
+
 import { useInViewport, useReducedMotion } from '@mantine/hooks';
 import { useEffect, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
@@ -34,11 +36,14 @@ const ScrollReveal = ({
     ...style,
     ...(duration ? { animationDuration: `${duration}s` } : {}),
     ...(delay ? { animationDelay: `${delay}s` } : {}),
-    opacity: isVisible ? undefined : 0,
   };
 
   return (
-    <div ref={ref} className={`${className ?? ''} ${animationClassName}`.trim()} style={mergedStyle}>
+    <div
+      ref={ref}
+      className={`${className ?? ''} ${animationClassName}`.trim()}
+      style={mergedStyle}
+    >
       {children}
     </div>
   );

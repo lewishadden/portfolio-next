@@ -2,8 +2,8 @@
   "basicInfo": {
     "name": "Lewis Hadden",
     "titles": [
-      "Lead Frontend Developer",
       "Senior Full Stack Engineer",
+      "Lead Frontend Developer",
       "Lead Software Engineer",
       "Infrastructure Architect"
     ],
@@ -479,7 +479,7 @@
       "title": "Home Greening Microsite",
       "startDate": "2023",
       "description": "I was solely responsible for the architecture and design of the entire cloud infrastructure for a proposed new micro-site for UK Power Networks. I led the cloud and Front-End development teams during the design and planning phases, guiding them through the solution and implementation. The client preferred Azure as their cloud provider, and I worked closely with them to ensure that my infrastructure design complied with their strict security standards. After collaborating with the client's security team, I created an optimal cloud infrastructure solution that met their functional and security requirements. I analysed the functionality of the microsite to gather the data requirements and used this to devise the most efficient database schema for Cosmos DB. I also created detailed architecture diagrams and a comprehensive technical design breakdown of the Azure architecture, including justifications and decisions made for each service, along with implementation and configuration steps.",
-      "thumbnail": "mdi:home-electricity",
+      "thumbnail": "mdi:home-battery",
       "images": [],
       "theme": {
         "text": "light",
@@ -503,152 +503,157 @@
       ]
     }
   ],
-  "experience": [
-    {
-      "company": "ADP",
-      "title": "Senior Full Stack Engineer (Contractor)",
-      "years": "Jan 2025 - Present",
-      "mainTech": ["React", "Tailwind CSS", "Cypress", "Webpack"],
-      "icon": "devicon:react",
-      "technologies": [
-        "React Testing Library",
-        "JavaScript",
-        "REST API",
-        "Jest",
-        "Virtual Machines"
-      ]
+  "experience": {
+    "done": {
+      "icon": "emojione:hourglass-done"
     },
-    {
-      "company": "ERGO Travel Insurance",
-      "title": "Lead Full Stack Engineer",
-      "years": "Apr 2024 - Nov 2024",
-      "mainTech": ["Next.js", "Azure", "React", "TypeScript", "CSS Modules"],
-      "icon": "devicon:nextjs",
-      "technologies": [
-        "Function Apps",
-        "Cosmos DB",
-        "Event Hubs",
-        "Blob & Table Storage",
-        "DevOps Pipelines",
-        "Docker",
-        "Node.js",
-        "Jest"
-      ]
-    },
-    {
-      "company": "Sopra Steria",
-      "title": "Cloud Infrastructure Architect",
-      "years": "Jun 2023 – Dec 2023",
-      "mainTech": ["Azure"],
-      "icon": "devicon:azure",
-      "technologies": [
-        "REST API",
-        "Cosmos DB",
-        "Serverless Function",
-        "Content Delivery Network",
-        "Blob Storage"
-      ]
-    },
-    {
-      "company": "Sopra Steria",
-      "title": "Lead Software Engineer",
-      "years": "Aug 2022 - Apr 2023",
-      "mainTech": ["Angular 8+", "React", "Flutter", "TypeScript"],
-      "icon": "devicon:angularjs",
-      "technologies": [
-        "Node.js",
-        "HTML5",
-        "SCSS / CSS3",
-        "Jest",
-        "PowerBI",
-        "Split Tunnelling (VPN)"
-      ]
-    },
-    {
-      "company": "IBM",
-      "title": "Senior Full Stack Developer",
-      "years": "Jan 2022 - Jul 2022",
-      "mainTech": ["React", "Redux", "TypeScript", "AWS"],
-      "icon": "devicon:react",
-      "technologies": [
-        "JavaScript",
-        "Node.js",
-        "Carbon Design System",
-        "HTML5",
-        "SCSS / CSS3",
-        "Jest + Enzyme",
-        "CloudFormation",
-        "DynamoDB",
-        "CodeCommit",
-        "CodeBuild",
-        "CodePipeline",
-        "Lambda",
-        "EC2",
-        "S3",
-        "API Gateway",
-        "IAM",
-        "JIRA"
-      ]
-    },
-    {
-      "company": "IBM",
-      "title": "Lead Front End Developer",
-      "years": "Jan 2021 - Jan 2022",
-      "mainTech": ["React", "Redux", "TypeScript", "AWS"],
-      "icon": "devicon:react",
-      "technologies": [
-        "HTML5",
-        "SCSS / CSS3",
-        "Jest + Enzyme",
-        "Micro-Frontends",
-        "Carbon Design System",
-        "FeatureHub",
-        "GitHub Workflows",
-        "Adobe Experience Manager",
-        "Adobe Launch",
-        "JIRA"
-      ]
-    },
-    {
-      "company": "IBM",
-      "title": "Front End Developer",
-      "years": "Aug 2018 - Jan 2021",
-      "mainTech": ["React", "Redux", "TypeScript", "Adobe Experience Manager"],
-      "icon": "devicon:react",
-      "technologies": [
-        "JavaScript",
-        "Webpack",
-        "Babel",
-        "HTML5",
-        "SCSS / CSS3",
-        "Jest + Enzyme",
-        "Carbon Design System",
-        "Adobe Dynamic Tag Manager",
-        "Cookie Control (CIVIC)",
-        "Docker",
-        "Linux / Bash",
-        "Apache",
-        "AWS"
-      ]
-    },
-    {
-      "company": "IBM",
-      "title": "QA Tester",
-      "years": "Jan 2018 - Aug 2018",
-      "mainTech": ["Selenium", "WebdriverIO", "Cucumber / Gherkin"],
-      "icon": "skill-icons:selenium",
-      "technologies": [
-        "BrowserStack",
-        "Appium",
-        "Node.js",
-        "JIRA",
-        "React",
-        "JavaScript",
-        "HTML",
-        "CSS"
-      ]
-    }
-  ],
+    "items": [
+      {
+        "company": "ADP",
+        "title": "Senior Full Stack Engineer (Contractor)",
+        "years": "Jan 2025 - Present",
+        "mainTech": ["React", "Tailwind CSS", "Cypress", "Webpack"],
+        "icon": "devicon:react",
+        "technologies": [
+          "React Testing Library",
+          "JavaScript",
+          "REST API",
+          "Jest",
+          "Virtual Machines"
+        ]
+      },
+      {
+        "company": "ERGO Travel Insurance",
+        "title": "Lead Full Stack Engineer",
+        "years": "Apr 2024 - Nov 2024",
+        "mainTech": ["Next.js", "Azure", "React", "TypeScript", "CSS Modules"],
+        "icon": "devicon:nextjs",
+        "technologies": [
+          "Function Apps",
+          "Cosmos DB",
+          "Event Hubs",
+          "Blob & Table Storage",
+          "DevOps Pipelines",
+          "Docker",
+          "Node.js",
+          "Jest"
+        ]
+      },
+      {
+        "company": "Sopra Steria",
+        "title": "Cloud Infrastructure Architect",
+        "years": "Jun 2023 – Dec 2023",
+        "mainTech": ["Azure"],
+        "icon": "devicon:azure",
+        "technologies": [
+          "REST API",
+          "Cosmos DB",
+          "Serverless Function",
+          "Content Delivery Network",
+          "Blob Storage"
+        ]
+      },
+      {
+        "company": "Sopra Steria",
+        "title": "Lead Software Engineer",
+        "years": "Aug 2022 - Apr 2023",
+        "mainTech": ["Angular 8+", "React", "Flutter", "TypeScript"],
+        "icon": "devicon:angularjs",
+        "technologies": [
+          "Node.js",
+          "HTML5",
+          "SCSS / CSS3",
+          "Jest",
+          "PowerBI",
+          "Split Tunnelling (VPN)"
+        ]
+      },
+      {
+        "company": "IBM",
+        "title": "Senior Full Stack Developer",
+        "years": "Jan 2022 - Jul 2022",
+        "mainTech": ["React", "Redux", "TypeScript", "AWS"],
+        "icon": "devicon:react",
+        "technologies": [
+          "JavaScript",
+          "Node.js",
+          "Carbon Design System",
+          "HTML5",
+          "SCSS / CSS3",
+          "Jest + Enzyme",
+          "CloudFormation",
+          "DynamoDB",
+          "CodeCommit",
+          "CodeBuild",
+          "CodePipeline",
+          "Lambda",
+          "EC2",
+          "S3",
+          "API Gateway",
+          "IAM",
+          "JIRA"
+        ]
+      },
+      {
+        "company": "IBM",
+        "title": "Lead Front End Developer",
+        "years": "Jan 2021 - Jan 2022",
+        "mainTech": ["React", "Redux", "TypeScript", "AWS"],
+        "icon": "devicon:react",
+        "technologies": [
+          "HTML5",
+          "SCSS / CSS3",
+          "Jest + Enzyme",
+          "Micro-Frontends",
+          "Carbon Design System",
+          "FeatureHub",
+          "GitHub Workflows",
+          "Adobe Experience Manager",
+          "Adobe Launch",
+          "JIRA"
+        ]
+      },
+      {
+        "company": "IBM",
+        "title": "Front End Developer",
+        "years": "Aug 2018 - Jan 2021",
+        "mainTech": ["React", "Redux", "TypeScript", "Adobe Experience Manager"],
+        "icon": "devicon:react",
+        "technologies": [
+          "JavaScript",
+          "Webpack",
+          "Babel",
+          "HTML5",
+          "SCSS / CSS3",
+          "Jest + Enzyme",
+          "Carbon Design System",
+          "Adobe Dynamic Tag Manager",
+          "Cookie Control (CIVIC)",
+          "Docker",
+          "Linux / Bash",
+          "Apache",
+          "AWS"
+        ]
+      },
+      {
+        "company": "IBM",
+        "title": "QA Tester",
+        "years": "Jan 2018 - Aug 2018",
+        "mainTech": ["Selenium", "WebdriverIO", "Cucumber / Gherkin"],
+        "icon": "skill-icons:selenium",
+        "technologies": [
+          "BrowserStack",
+          "Appium",
+          "Node.js",
+          "JIRA",
+          "React",
+          "JavaScript",
+          "HTML",
+          "CSS"
+        ]
+      }
+    ]
+  },
   "skills": {
     "icons": [
       {
@@ -773,7 +778,7 @@
       },
       {
         "name": "AWS",
-        "class": "devicon:amazonwebservices-wordmark",
+        "class": "devicon:amazonwebservices",
         "level": "80"
       },
       {
@@ -917,5 +922,24 @@
         "level": "75"
       }
     ]
+  },
+  "contact": {
+    "send": {
+      "icon": "mdi:send",
+      "text": "Send Message"
+    },
+    "submitting": {
+      "text": "Submitting..."
+    },
+    "error": {
+      "status": "danger",
+      "headerText": "There was a problem sending the message",
+      "bodyText": "Please try again soon, or contact me directly via email or phone"
+    },
+    "success": {
+      "status": "success",
+      "headerText": "Message sent!",
+      "bodyText": "I will be in touch with you shortly to answer your message."
+    }
   }
 }

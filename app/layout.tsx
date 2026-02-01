@@ -1,13 +1,9 @@
-import '@mantine/core/styles.css';
 import 'bootstrap/scss/bootstrap.scss';
 import './globals.scss';
-import React from 'react';
-import { MantineProvider } from '@mantine/core';
 import { Layout } from 'components/Layout/Layout';
 import type { Metadata, Viewport } from 'next';
 
 import content from '../content/content.json';
-import { theme } from '../theme';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
 
@@ -254,9 +250,7 @@ export default function RootLayout({ children }: { children: any }) {
   return (
     <html lang="en">
       <body data-theme="dark" data-bs-theme="dark" suppressHydrationWarning>
-        <MantineProvider forceColorScheme="light" theme={theme}>
-          <Layout>{children}</Layout>
-        </MantineProvider>
+        <Layout>{children}</Layout>
         <JsonLd />
       </body>
     </html>

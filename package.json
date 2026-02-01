@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build && next-image-export-optimizer && npm run purgecss && next-sitemap",
+    "build": "npm run icons:generate && next build && next-image-export-optimizer && npm run purgecss && next-sitemap",
     "purgecss": "purgecss -c purgecss.config.cjs",
     "analyze": "ANALYZE=true next build",
     "start": "serve out",
