@@ -34,7 +34,7 @@ export const Projects = ({
 
   const ProjectCards = () =>
     projects.map((project) => (
-      <Col key={project.title} className="projects__item my-3 px-3">
+      <Col key={project.title} className="projects__item my-3 px-3" role="listitem">
         <ScrollReveal animation="bounceInDown">
           <Card
             text={project.theme.text}
