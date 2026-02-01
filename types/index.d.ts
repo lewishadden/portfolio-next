@@ -1,8 +1,9 @@
 export interface ResumeData {
   basicInfo: BasicInfo;
   projects: Project[];
-  experience: Experience[];
+  experience: Experience;
   skills: Skills;
+  contact: Contact;
 }
 
 export interface BasicInfo {
@@ -65,7 +66,7 @@ export interface Technology {
   name: string;
 }
 
-export interface Experience {
+export interface ExperienceItem {
   company: string;
   title: string;
   years: string;
@@ -74,8 +75,34 @@ export interface Experience {
   technologies: string[];
 }
 
+export interface Experience {
+  done: {
+    icon: string;
+  };
+  items: ExperienceItem[];
+}
 export interface Skills {
   icons: Icon[];
+}
+
+export interface Contact {
+  send: {
+    icon: string;
+    text: string;
+  };
+  submitting: {
+    text: string;
+  };
+  error: {
+    status: string;
+    headerText: string;
+    bodyText: string;
+  };
+  success: {
+    status: string;
+    headerText: string;
+    bodyText: string;
+  };
 }
 
 export interface Icon {

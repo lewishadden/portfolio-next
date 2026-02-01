@@ -1,15 +1,24 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import IconifyProvider from 'components/IconifyProvider/IconifyProvider';
-import type { BasicInfo, Experience as ExperienceType, Project, Skills as SkillsType } from '@/types';
+
+import type {
+  BasicInfo,
+  Experience as ExperienceType,
+  Project,
+  Skills as SkillsType,
+  Contact,
+} from '@/types';
 
 const loadingFallback = () => <div aria-hidden="true" style={{ minHeight: 200 }} />;
 
-const Experience = dynamic(() => import('components/Experience/Experience').then((m) => m.Experience), {
-  ssr: false,
-  loading: loadingFallback,
-});
+const Experience = dynamic(
+  () => import('components/Experience/Experience').then((m) => m.Experience),
+  {
+    ssr: false,
+    loading: loadingFallback,
+  }
+);
 const Projects = dynamic(() => import('components/Projects/Projects').then((m) => m.Projects), {
   ssr: false,
   loading: loadingFallback,
@@ -29,18 +38,18 @@ const Footer = dynamic(() => import('components/Footer/Footer').then((m) => m.Fo
 
 type LazySectionsProps = {
   basicInfo: BasicInfo;
-  experience: ExperienceType[];
+  experience: ExperienceType;
   projects: Project[];
   skills: SkillsType;
+  contact: Contact;
 };
 
-const LazySections = ({ basicInfo, experience, projects, skills }: LazySectionsProps) => (
+const LazySections = ({ basicInfo, experience, projects, skills, contact }: LazySectionsProps) => (
   <>
-    <IconifyProvider />
     <Experience experience={experience} basicInfo={basicInfo} />
     <Projects projects={projects} basicInfo={basicInfo} />
     <Skills skills={skills} basicInfo={basicInfo} />
-    <Contact basicInfo={basicInfo} />
+    <Contact basicInfo={basicInfo} contact={contact} />
     <Footer basicInfo={basicInfo} />
   </>
 );

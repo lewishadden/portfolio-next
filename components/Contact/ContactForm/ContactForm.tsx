@@ -6,16 +6,18 @@ import { Formik } from 'formik';
 import { object, string } from 'yup';
 import { Icon } from '@iconify/react';
 
+import { Contact as ContactType } from '@/types';
 import './ContactForm.scss';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 interface ContactFormProps {
+  contact: ContactType;
   onSuccess: () => void;
   onFail: (response: Response) => void;
 }
 
-const ContactForm = ({ onSuccess, onFail }: ContactFormProps) => {
+const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
   const [loading, setLoading] = useState(false);
 
   const formSchema = object().shape({
@@ -139,15 +141,15 @@ const ContactForm = ({ onSuccess, onFail }: ContactFormProps) => {
                         role="status"
                         aria-hidden="true"
                       />
-                      <strong className="ms-2">Submitting...</strong>
+                      <strong className="ms-2">{contact.submitting.text}</strong>
                     </>
                   ) : (
                     <>
                       <Icon
-                        icon="mdi:send"
+                        icon={contact.send.icon}
                         className="contact__body__form__submit-btn__icon me-2"
                       />
-                      <strong className="ms-2">Send Message</strong>
+                      <strong className="ms-2">{contact.send.text}</strong>
                     </>
                   )}
                 </Button>

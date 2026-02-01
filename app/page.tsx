@@ -3,6 +3,7 @@ import { Background } from 'components/Background/Background';
 import { Home } from 'components/Home/Home';
 import { About } from 'components/About/About';
 import LazySections from 'components/LazySections/LazySections';
+import IconifyProvider from 'components/IconifyProvider/IconifyProvider';
 
 import { getPageContent } from 'utils/serverUtils';
 
@@ -15,6 +16,7 @@ export default async () => {
   return (
     <>
       <Header />
+      <IconifyProvider />
       <Background />
       <main id="main-content">
         <Home basicInfo={pageData.basicInfo} />
@@ -24,6 +26,7 @@ export default async () => {
           experience={pageData.experience}
           projects={pageData.projects}
           skills={pageData.skills}
+          contact={pageData.contact}
         />
       </main>
     </>

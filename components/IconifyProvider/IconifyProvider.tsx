@@ -23,11 +23,7 @@ const IconifyProvider = () => {
       });
     };
 
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      window.requestIdleCallback(() => registerIcons(), { timeout: 2000 });
-    } else {
-      setTimeout(() => registerIcons(), 300);
-    }
+    registerIcons();
   }, []);
 
   return null;

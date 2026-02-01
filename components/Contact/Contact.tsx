@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { Container, Row, Col, Toast } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
 
-import { BasicInfo } from '@/types';
+import { BasicInfo, Contact as ContactType } from '@/types';
 import ContactForm from './ContactForm/ContactForm';
 
 import './Contact.scss';
 
-export const Contact = ({ basicInfo }: { basicInfo: BasicInfo }) => {
+export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact: ContactType }) => {
   const [submitted, setSubmitted] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [error, setError] = useState(false);
@@ -69,6 +69,7 @@ export const Contact = ({ basicInfo }: { basicInfo: BasicInfo }) => {
           </Col>
           {!submitted && (
             <ContactForm
+              contact={contact}
               onSuccess={() => {
                 setError(false);
                 setSubmitted(true);
@@ -81,12 +82,7 @@ export const Contact = ({ basicInfo }: { basicInfo: BasicInfo }) => {
             />
           )}
           <Col md={12} lg={{ span: 8, offset: 4 }} className="my-0 mx-auto">
-            <div
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-              className="position-relative"
-            >
+            <div role="status" aria-live="polite" aria-atomic="true" className="position-relative">
               <Toast
                 className="contact__body__submitted-toast text-center mt-5"
                 show={showToast}
@@ -95,18 +91,14 @@ export const Contact = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                   setError(false);
                   setShowToast(false);
                 }}
-                bg={error ? 'danger' : 'success'}
+                bg={error ? contact.error.status : contact.success.status}
               >
                 <Toast.Header>
                   <strong className="mx-auto">
-                    {error ? 'There was a problem sending the message' : 'Message sent!'}
+                    {error ? contact.error.headerText : contact.success.headerText}
                   </strong>
                 </Toast.Header>
-                <Toast.Body>
-                  {error
-                    ? 'Please try again soon, or contact me directly via email or phone'
-                    : 'I will be in touch with you shortly to answer your message.'}
-                </Toast.Body>
+                <Toast.Body>{error ? contact.error.bodyText : contact.success.bodyText}</Toast.Body>
               </Toast>
             </div>
           </Col>
