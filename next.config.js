@@ -12,7 +12,14 @@ export default withBundleAnalyzer({
     ignoreDuringBuilds: true,
   },
   experimental: {
-    optimizePackageImports: ['@mantine/core', '@mantine/hooks'],
+    optimizePackageImports: [
+      'bootstrap',
+      'react-bootstrap',
+      'react-type-animation',
+      '@iconify/react',
+      '@mantine/core',
+      '@mantine/hooks',
+    ],
   },
   // Performance optimizations for Core Web Vitals
   compress: true,
