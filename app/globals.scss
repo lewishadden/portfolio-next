@@ -41,8 +41,8 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
-[role="button"]:focus-visible,
-[tabindex]:not([tabindex="-1"]):focus-visible {
+[role='button']:focus-visible,
+[tabindex]:not([tabindex='-1']):focus-visible {
   outline: 3px solid #4a9eff;
   outline-offset: 2px;
 }
@@ -81,15 +81,4 @@ select:focus-visible,
   overflow: visible;
   clip: auto;
   white-space: normal;
-}
-
-/* Ensure minimum touch target size (48x48px) */
-button,
-a,
-input[type="button"],
-input[type="submit"],
-input[type="reset"],
-[role="button"] {
-  min-height: 44px;
-  min-width: 44px;
 }

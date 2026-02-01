@@ -34,20 +34,14 @@ export const Projects = ({
 
   const ProjectCards = () =>
     projects.map((project) => (
-      <Col key={project.title} className="projects__item my-3 px-3" role="listitem">
+      <Col as="li" key={project.title} className="projects__item my-3 px-3">
         <ScrollReveal animation="bounceInDown">
           <Card
+            as="button"
+            type="button"
             text={project.theme.text}
             className="projects__item__picture-card mx-auto"
             onClick={() => showDetailsModal(project)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                showDetailsModal(project);
-              }
-            }}
-            tabIndex={0}
-            role="button"
             aria-label={`View details for ${project.title} project`}
           >
             <Card.Body>
@@ -86,13 +80,13 @@ export const Projects = ({
           </Col>
         </Row>
         <Row
+          as="ul"
           xs={1}
           sm={1}
           md={2}
           lg={2}
           xl={3}
-          className="projects__list center"
-          role="list"
+          className="projects__list center list-unstyled"
           aria-label="Project portfolio"
         >
           {projects.length > 0 && <ProjectCards />}

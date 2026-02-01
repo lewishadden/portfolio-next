@@ -12,9 +12,9 @@ export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: Basi
   const headingText = basicInfo.sectionName.skills;
 
   const skillTiles = skills?.icons?.map((skill, i) => (
-    <Col xs="auto" key={i}>
+    <Col as="li" xs="auto" key={i}>
       <ScrollReveal animation="flipInX" duration={2}>
-        <div className="skills__list__tile" role="listitem">
+        <div className="skills__list__tile">
           <Icon icon={skill.class} className="skills__list__tile__icon" aria-hidden="true" />
           <p className="skills__list__tile__name m-0">{skill.name}</p>
         </div>
@@ -32,7 +32,7 @@ export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: Basi
             </h2>
           </Col>
         </Row>
-        <Row className="skills__list" role="list" aria-label="Technical skills">
+        <Row as="ul" className="skills__list list-unstyled" aria-label="Technical skills">
           {skillTiles}
         </Row>
       </Container>

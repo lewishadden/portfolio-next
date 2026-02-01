@@ -35,7 +35,7 @@ export const Experience = ({
         </Row>
         <Row>
           <Col md={12} className="mx-auto">
-            <div role="list" aria-label="Work experience timeline">
+            <div aria-label="Work experience timeline">
               <VerticalTimeline className="timeline">
                 {experienceTimelineItems}
                 <VerticalTimelineElement
