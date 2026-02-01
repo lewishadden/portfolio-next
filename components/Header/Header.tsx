@@ -1,9 +1,15 @@
 'use client';
 
 import { useHeadroom } from '@mantine/hooks';
-import Container from 'react-bootstrap/Container';
-import Nav from 'react-bootstrap/Nav';
-import Navbar from 'react-bootstrap/Navbar';
+import {
+  Container,
+  Nav,
+  Navbar,
+  NavbarToggle,
+  NavbarCollapse,
+  NavLink,
+  NavItem,
+} from 'react-bootstrap';
 
 import './Header.scss';
 
@@ -21,36 +27,36 @@ export const Header = () => {
         collapseOnSelect
       >
         <Container>
-          <Navbar.Toggle aria-controls="responsive-navbar-nav" aria-label="Toggle navigation menu" />
-          <Navbar.Collapse id="responsive-navbar-nav">
+          <NavbarToggle aria-controls="responsive-navbar-nav" aria-label="Toggle navigation menu" />
+          <NavbarCollapse id="responsive-navbar-nav">
             <Nav className="header" variant="pills" as="nav">
-              <Nav.Item>
-                <Nav.Link active={false} href="#about" className="header__link font-trebuchet">
+              <NavItem>
+                <NavLink active={false} href="#about" className="header__link font-trebuchet">
                   About Me
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link active={false} href="#experience" className="header__link font-trebuchet">
+                </NavLink>
+              </NavItem>
+              <NavItem>
+                <NavLink active={false} href="#experience" className="header__link font-trebuchet">
                   Experience
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link active={false} href="#projects" className="header__link font-trebuchet">
+                </NavLink>
+              </NavItem>
+              <NavItem>
+                <NavLink active={false} href="#projects" className="header__link font-trebuchet">
                   My Projects
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link active={false} href="#skills" className="header__link font-trebuchet">
+                </NavLink>
+              </NavItem>
+              <NavItem>
+                <NavLink active={false} href="#skills" className="header__link font-trebuchet">
                   Skills
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link active={false} href="#contact" className="header__link font-trebuchet">
+                </NavLink>
+              </NavItem>
+              <NavItem>
+                <NavLink active={false} href="#contact" className="header__link font-trebuchet">
                   Contact Me
-                </Nav.Link>
-              </Nav.Item>
+                </NavLink>
+              </NavItem>
             </Nav>
-          </Navbar.Collapse>
+          </NavbarCollapse>
         </Container>
       </Navbar>
     </div>

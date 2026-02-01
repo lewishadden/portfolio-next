@@ -7,7 +7,7 @@ import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 
 import './About.scss';
 
-export const About = async ({ basicInfo }: { basicInfo: BasicInfo }) => {
+export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const { image, sectionName, description, descriptionHeader } = basicInfo;
   const headingText = sectionName.about;
   const isServer = typeof window === 'undefined';

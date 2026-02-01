@@ -1,5 +1,3 @@
-// @use 'scss/mixins/github-corner' as github;
-
 .home {
   min-height: 450px;
 
@@ -62,18 +60,11 @@
     }
   }
 
-  // &__github-corner {
-  //   @include github.animate;
-  // }
-
   &__chevron-down {
     padding-bottom: 2rem;
 
     .chevron-down {
       fill: #fff;
-      margin: auto;
-      width: 3rem;
-      height: 3rem;
       animation: hover-me 0.5s infinite ease-in-out alternate;
     }
   }
