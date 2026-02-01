@@ -36,6 +36,7 @@ const ScrollReveal = ({
     ...style,
     ...(duration ? { animationDuration: `${duration}s` } : {}),
     ...(delay ? { animationDelay: `${delay}s` } : {}),
+    opacity: isVisible ? undefined : 0,
   };
 
   return (
