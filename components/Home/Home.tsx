@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { Container, Stack } from 'react-bootstrap';
 import { TypeAnimation } from 'react-type-animation';
 import { ChevronDown, CodeIcon } from 'icons';
@@ -13,31 +12,6 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const { name, titles } = basicInfo;
 
   const titlesUpperCased = titles.map((x) => [x, 1500]).flat();
-  const fallbackTitle = titles[0] ?? '';
-
-  const NameAnimation = dynamic(
-    () => import('react-type-animation').then((mod) => mod.TypeAnimation),
-    {
-      ssr: false,
-      loading: () => (
-        <h1 className="home__header__name font-trebuchet" aria-label={name}>
-          {name}
-        </h1>
-      ),
-    },
-  );
-
-  const TitlesAnimation = dynamic(
-    () => import('react-type-animation').then((mod) => mod.TypeAnimation),
-    {
-      ssr: false,
-      loading: () => (
-        <p className="home__header__titles" aria-live="polite" aria-label="Job titles">
-          {fallbackTitle}
-        </p>
-      ),
-    },
-  );
 
   return (
     <section id="home" className="home" aria-label="Hero section">
