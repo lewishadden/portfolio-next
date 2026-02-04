@@ -7,7 +7,6 @@ import { Projects } from 'components/Projects/Projects';
 import { Skills } from 'components/Skills/Skills';
 import { Contact } from 'components/Contact/Contact';
 import { Footer } from 'components/Footer/Footer';
-import { IconifyProvider } from 'components/IconifyProvider/IconifyProvider';
 
 import { getPageContent } from 'utils/serverUtils';
 
@@ -22,7 +21,6 @@ export default async () => {
   return (
     <>
       <Header />
-      <IconifyProvider />
       <Background />
       <main id="main-content">
         <Home basicInfo={pageData.basicInfo} />
