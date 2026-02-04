@@ -7,16 +7,6 @@ const withBundleAnalyzer = bundleAnalyzer({
 export default withBundleAnalyzer({
   reactStrictMode: false,
   output: 'export',
-  experimental: {
-    optimizePackageImports: [
-      'bootstrap',
-      'react-bootstrap',
-      'react-type-animation',
-      '@iconify/react',
-      '@mantine/core',
-      '@mantine/hooks',
-    ],
-  },
   // Performance optimizations for Core Web Vitals
   compress: true,
   poweredByHeader: false,
