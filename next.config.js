@@ -7,20 +7,6 @@ const withBundleAnalyzer = bundleAnalyzer({
 export default withBundleAnalyzer({
   reactStrictMode: false,
   output: 'export',
-  eslint: {
-    dirs: ['app', 'components', 'config', 'icons', 'utils', 'types', 'test-utils'],
-    ignoreDuringBuilds: true,
-  },
-  experimental: {
-    optimizePackageImports: [
-      'bootstrap',
-      'react-bootstrap',
-      'react-type-animation',
-      '@iconify/react',
-      '@mantine/core',
-      '@mantine/hooks',
-    ],
-  },
   // Performance optimizations for Core Web Vitals
   compress: true,
   poweredByHeader: false,
@@ -40,35 +26,5 @@ export default withBundleAnalyzer({
     nextImageExportOptimizer_exportFolderName: 'nextImageExportOptimizer',
     nextImageExportOptimizer_generateAndUseBlurImages: 'true',
     nextImageExportOptimizer_remoteImageCacheTTL: '0',
-  },
-  // Security headers for better SEO
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin',
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
-          },
-        ],
-      },
-    ];
   },
 });

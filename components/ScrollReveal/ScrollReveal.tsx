@@ -24,6 +24,11 @@ const ScrollReveal = ({
   const { ref, inViewport } = useInViewport();
   const reduceMotion = useReducedMotion();
   const [isVisible, setIsVisible] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (inViewport) {
@@ -36,6 +41,7 @@ const ScrollReveal = ({
     ...style,
     ...(duration ? { animationDuration: `${duration}s` } : {}),
     ...(delay ? { animationDelay: `${delay}s` } : {}),
+    opacity: isVisible ? undefined : isMounted ? 0 : undefined,
   };
 
   return (

@@ -14,11 +14,11 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const titlesUpperCased = titles.map((x) => [x, 1500]).flat();
 
   return (
-    <section id="home" className="home" aria-label="Hero section">
+    <section id="home" className="home" aria-labelledby="home-heading">
       <Container className="d-flex home__wrapper">
         <Stack as="header" gap={5} className="home__header center" style={{ zIndex: 2 }}>
           <CodeIcon className="home__header__icon" aria-hidden="true" />
-          <h1 className="home__header__name font-trebuchet" aria-label={name}>
+          <h1 id="home-heading" className="home__header__name font-trebuchet">
             {name}
           </h1>
           <TypeAnimation

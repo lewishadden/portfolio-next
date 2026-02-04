@@ -9,7 +9,7 @@ export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const { social, name } = basicInfo;
 
   const networks = social.map((network) => (
-    <span key={network.name} className="m-4">
+    <li key={network.name} className="m-4">
       <Link
         href={network.url}
         target="_blank"
@@ -18,14 +18,16 @@ export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {
       >
         <Icon icon={network.class} style={{ fontSize: '3rem' }} aria-hidden="true" />
       </Link>
-    </span>
+    </li>
   ));
 
   return (
     <footer className="footer" role="contentinfo">
       <div className="col-md-12">
         <nav className="footer__social-links" aria-label="Social media links">
-          {networks}
+          <ul className="list-unstyled d-flex justify-content-center flex-wrap m-0">
+            {networks}
+          </ul>
         </nav>
         <div className="py-4">
           <small>Copyright &copy; {new Date().getFullYear()} {name}. All rights reserved.</small>

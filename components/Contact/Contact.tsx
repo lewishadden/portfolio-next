@@ -20,7 +20,7 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
 
   const ContactBadges = () =>
     contactInfo.map((info, i) => (
-      <Col md="auto" className="contact__body__personal-info__item d-flex" key={i}>
+      <Col as="li" md="auto" className="contact__body__personal-info__item d-flex" key={i}>
         <Link
           href={info.link}
           target="_blank"
@@ -31,6 +31,7 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
             <Icon
               icon={info.class}
               className="contact__body__personal-info__item__icon-badge__icon"
+              aria-hidden="true"
             />
           </div>
         </Link>
@@ -63,9 +64,11 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
         </Row>
         <Row className={`contact__body g-5${submitted ? ' form-submitted' : ''}`}>
           <Col md={12} lg={submitted ? { span: 8, offset: 4 } : 4} className="mx-auto">
-            <Row className="contact__body__personal-info gy-4">
-              <ContactBadges />
-            </Row>
+            <address className="contact__body__personal-info__address m-0">
+              <Row as="ul" className="contact__body__personal-info gy-4 list-unstyled">
+                <ContactBadges />
+              </Row>
+            </address>
           </Col>
           {!submitted && (
             <ContactForm

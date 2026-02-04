@@ -23,6 +23,12 @@
         height: 100%;
       }
 
+      &__address {
+        @media (min-width: 992px) {
+          height: 100%;
+        }
+      }
+
       &__item {
         height: fit-content;
 

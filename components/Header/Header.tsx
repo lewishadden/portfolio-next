@@ -17,7 +17,7 @@ export const Header = () => {
   const isPinned = useHeadroom();
 
   return (
-    <div className={`header__wrapper ${isPinned ? 'header__wrapper--pinned' : ''}`}>
+    <header className={`header__wrapper ${isPinned ? 'header__wrapper--pinned' : ''}`}>
       <Navbar
         expand="sm"
         data-bs-theme="dark"
@@ -59,7 +59,7 @@ export const Header = () => {
           </NavbarCollapse>
         </Container>
       </Navbar>
-    </div>
+    </header>
   );
 };
 
