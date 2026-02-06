@@ -33,19 +33,19 @@
         height: fit-content;
 
         a {
-          color: white;
+          color: var(--text-primary);
         }
 
         &__icon-badge {
-          background-color: #000a28;
+          background-color: var(--card-bg);
           padding: 1rem;
           width: fit-content;
           height: fit-content;
-          border: 0.1rem solid #5b42f5;
+          border: 0.1rem solid var(--accent-primary);
           transition: all 0.2s linear;
-          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
-          -webkit-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
-          -moz-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
+          box-shadow: 0 10px 20px var(--shadow);
+          -webkit-box-shadow: 0 10px 20px var(--shadow);
+          -moz-box-shadow: 0 10px 20px var(--shadow);
 
           &__icon {
             transition: all 0.2s linear;

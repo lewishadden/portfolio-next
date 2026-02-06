@@ -9,10 +9,12 @@
     padding: 5px 8px !important;
     vertical-align: baseline;
     &.main {
-      background-color: #5b42f5 !important;
+      background-color: var(--accent-primary) !important;
     }
     &.extra {
       font-weight: lighter !important;
+      background-color: var(--badge-bg-secondary) !important;
+      border: 1px solid var(--border-color) !important;
     }
   }
 

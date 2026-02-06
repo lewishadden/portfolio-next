@@ -1,5 +1,9 @@
 .navbar {
   background-image: linear-gradient(rgba(113, 44, 249, 1), rgba(113, 44, 249, 0.95));
+  
+  [data-theme='light'] & {
+    background-image: linear-gradient(rgba(59, 130, 246, 0.96), rgba(59, 130, 246, 0.92));
+  }
 }
 
 .header__wrapper {
@@ -32,7 +36,22 @@
     }
   }
 
+  &__theme-toggle {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+
+    @media (max-width: 576px) {
+      right: 60px;
+    }
+  }
+
   a {
     color: #fff;
   }
+}
+
+.navbar .container {
+  position: relative;
 }

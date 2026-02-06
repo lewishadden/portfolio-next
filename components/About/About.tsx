@@ -28,7 +28,7 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
         <Row className="about__body center">
           <Col md={10} lg={12}>
             <ScrollReveal animation="slideInRight">
-              <Card text="white" className="about__body__picture-card">
+              <Card className="about__body__picture-card">
                 <Row className="g-0">
                   <Col md={12} lg={5} xl={3} className="pe-md-0">
                     <ExportedImage

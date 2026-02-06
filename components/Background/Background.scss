@@ -22,14 +22,21 @@
     border-radius: 50%;
     mix-blend-mode: screen;
     background-image: radial-gradient(
-      hsl(180, 100%, 80%),
-      hsl(180, 100%, 80%) 10%,
-      hsla(180, 100%, 80%, 0) 56%
+      var(--bg-particle-color),
+      var(--bg-particle-color) 10%,
+      transparent 56%
     );
 
     animation:
       fadein-frames 200ms infinite,
       scale-frames 2s infinite;
+
+    opacity: 0.6;
+
+    [data-theme='light'] & {
+      opacity: 0.5;
+      mix-blend-mode: multiply;
+    }
 
     @keyframes fade-frames {
       0% {

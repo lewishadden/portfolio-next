@@ -41,9 +41,11 @@ export const Experience = ({
                 <VerticalTimelineElement
                   className="timeline__item start"
                   iconStyle={{
-                    background: 'rgb(63 63 63)',
-                    color: '#fff',
+                    background: 'var(--icon-bg)',
+                    color: 'var(--text-primary)',
                     textAlign: 'center',
+                    boxShadow:
+                      '0 0 0 4px var(--line-color), inset 0 2px var(--line-color-inset-shadow), 0 3px 0 4px var(--line-color-inset-shadow-outer)',
                   }}
                   icon={
                     <Icon

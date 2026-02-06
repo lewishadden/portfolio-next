@@ -179,7 +179,7 @@
         "border": "light",
         "background": "dark"
       },
-      "thumbnail": "noto:tooth",
+      "thumbnail": "fa-solid:tooth",
       "images": [
         {
           "url": "/static/images/projects/oralieve/patient-samples-form.png",

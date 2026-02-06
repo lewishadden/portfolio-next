@@ -12,11 +12,11 @@
       font-size: 3.25rem;
       line-height: 1.1;
       letter-spacing: 0.5px;
-      background: linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%);
+      background: linear-gradient(90deg, var(--gradient-start) 0%, var(--gradient-mid) 50%, var(--gradient-end) 100%);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      text-shadow: 0 0 18px rgba(96, 165, 250, 0.12);
+      text-shadow: 0 0 18px var(--gradient-shadow);
       background-size: 200% 100%;
       animation: shimmerGradient 6s linear infinite;
     }
@@ -25,11 +25,11 @@
       font-size: 1.5rem;
       font-weight: 600;
       letter-spacing: 0.3px;
-      background: linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%);
+      background: linear-gradient(90deg, var(--gradient-start) 0%, var(--gradient-mid) 50%, var(--gradient-end) 100%);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      text-shadow: 0 0 14px rgba(96, 165, 250, 0.12);
+      text-shadow: 0 0 14px var(--gradient-shadow);
       background-size: 200% 100%;
       animation: shimmerGradient 6s linear infinite;
     }
@@ -37,11 +37,11 @@
     &__icon {
       height: 150px;
       width: 150px;
-      background: linear-gradient(90deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%);
+      background: linear-gradient(90deg, var(--gradient-start) 0%, var(--gradient-mid) 50%, var(--gradient-end) 100%);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      filter: drop-shadow(0 0 18px rgba(96, 165, 250, 0.18));
+      filter: drop-shadow(0 0 18px var(--gradient-shadow));
       background-size: 200% 100%;
       animation:
         shimmerGradient 6s linear infinite,
@@ -64,7 +64,7 @@
     padding-bottom: 2rem;
 
     .chevron-down {
-      fill: #fff;
+      fill: var(--text-primary);
       animation: hover-me 0.5s infinite ease-in-out alternate;
     }
   }
@@ -89,13 +89,13 @@
 
   @keyframes iconHue {
     0% {
-      filter: hue-rotate(0deg) drop-shadow(0 0 18px rgba(96, 165, 250, 0.18));
+      filter: hue-rotate(0deg) drop-shadow(0 0 18px var(--gradient-shadow));
     }
     50% {
-      filter: hue-rotate(180deg) drop-shadow(0 0 22px rgba(96, 165, 250, 0.28));
+      filter: hue-rotate(180deg) drop-shadow(0 0 22px var(--gradient-shadow));
     }
     100% {
-      filter: hue-rotate(360deg) drop-shadow(0 0 18px rgba(96, 165, 250, 0.18));
+      filter: hue-rotate(360deg) drop-shadow(0 0 18px var(--gradient-shadow));
     }
   }
 

@@ -1,11 +1,22 @@
 .contact__body__form {
   .form-control {
-    background-color: #000a28;
-    border: 0.1rem solid #5b42f5;
+    background-color: var(--card-bg);
+    border: 0.1rem solid var(--accent-primary);
+    color: var(--text-primary);
+    
+    &::placeholder {
+      color: var(--text-muted);
+    }
+    
+    &:focus {
+      background-color: var(--card-bg);
+      border-color: var(--accent-primary);
+      color: var(--text-primary);
+    }
   }
   &__submit-btn {
     width: 100%;
-    background-color: #5b42f5;
+    background-color: var(--accent-primary);
 
     &__icon {
       font-size: 2rem;

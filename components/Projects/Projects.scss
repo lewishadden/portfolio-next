@@ -19,17 +19,18 @@
       width: 100%;
       --bs-border-width: 2px;
       transition: all 0.2s linear;
-      background-color: #000a28;
-      border: 0.25rem solid #5b42f5;
+      background-color: var(--card-bg);
+      border: 0.25rem solid var(--accent-primary);
+      color: var(--text-primary) !important;
 
       &:hover {
         -webkit-transform: scale(1.05);
         -moz-transform: scale(1.05);
         transform: scale(1.05);
         z-index: 10;
-        -webkit-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
-        -moz-box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
+        -webkit-box-shadow: 0 10px 20px var(--shadow);
+        -moz-box-shadow: 0 10px 20px var(--shadow);
+        box-shadow: 0 10px 20px var(--shadow);
       }
 
       &.card {
@@ -54,7 +55,7 @@
         width: fit-content;
         font-size: 1rem !important;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background-color: #5b42f5 !important;
+        background-color: var(--accent-primary) !important;
       }
     }
   }

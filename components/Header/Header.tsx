@@ -10,6 +10,7 @@ import {
   NavLink,
   NavItem,
 } from 'react-bootstrap';
+import { ThemeToggle } from 'components/ThemeToggle/ThemeToggle';
 
 import './Header.scss';
 
@@ -57,6 +58,9 @@ export const Header = () => {
               </NavItem>
             </Nav>
           </NavbarCollapse>
+          <div className="header__theme-toggle">
+            <ThemeToggle />
+          </div>
         </Container>
       </Navbar>
     </header>

@@ -8,11 +8,11 @@
     padding: 5% 0;
 
     &__picture-card {
-      background-color: #000a28 !important;
-      -webkit-box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
-      -moz-box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
-      box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
-      border: 0.25rem solid #5b42f5;
+      background-color: var(--card-bg) !important;
+      -webkit-box-shadow: 0 4px 10px var(--shadow);
+      -moz-box-shadow: 0 4px 10px var(--shadow);
+      box-shadow: 0 4px 10px var(--shadow);
+      border: 0.25rem solid var(--accent-primary);
 
       &__title {
         font-size: 2.5rem;
@@ -20,6 +20,7 @@
 
       &__description {
         font-size: 1.2rem;
+        color: var(--text-primary);
       }
 
       &__image {
@@ -34,7 +35,7 @@
         }
 
         @media (min-width: 992px) {
-          border-radius: var(--bs-card-inner-border-radius) 0 0 var(--bs-card-inner-border-radius);
+          border-radius: 2px 0 0 2px;
           max-height: unset;
         }
       }

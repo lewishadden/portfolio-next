@@ -10,14 +10,14 @@
     &__item {
       &:not(.start) {
         .vertical-timeline-element-content {
-          border: 0.25rem solid #5b42f5;
+          border: 0.25rem solid var(--accent-primary);
           border-radius: 0.5rem;
-          background: #000a28;
-          box-shadow: 0 3px 0 #5b42f5;
+          background: var(--card-bg);
+          box-shadow: 0 3px 0 var(--accent-primary);
         }
 
         .vertical-timeline-element-content-arrow {
-          border-right-color: #5b42f5;
+          border-right-color: var(--accent-primary);
         }
       }
 
@@ -26,6 +26,10 @@
         height: 36px;
         margin: -18px 0px 0px -18px;
       }
+    }
+
+    &:before {
+      background: var(--line-color);
     }
   }
 }

@@ -1,0 +1,82 @@
+/* Theme Variables */
+
+/* Dark Theme (Default) */
+[data-theme='dark'] {
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #00071e;
+  --bg-tertiary: #1a1a2e;
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
+  --text-muted: #808080;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --shadow: rgba(0, 0, 0, 0.7);
+  --card-bg: #000a28;
+  --card-hover-bg: rgba(91, 66, 245, 0.1);
+  --accent-primary: #5b42f5;
+  --accent-secondary: #8f0039;
+  --bg-particle-color: hsl(180, 100%, 80%);
+  --gradient-start: #a78bfa;
+  --gradient-mid: #60a5fa;
+  --gradient-end: #34d399;
+  --gradient-shadow: rgba(96, 165, 250, 0.18);
+  --line-color: #ffffff;
+  --line-color-inset-shadow: #00000014;
+  --line-color-inset-shadow-outer: #0000000d;
+  --icon-bg: #303030;
+  --badge-bg-secondary: #232351;
+  --bs-card-color: #f8f9fa;
+}
+
+/* Light Theme */
+[data-theme='light'] {
+  --bg-primary: #fafbfc;
+  --bg-secondary: #f0f4f8;
+  --bg-tertiary: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --border-color: rgba(15, 23, 42, 0.08);
+  --shadow: rgba(15, 23, 42, 0.12);
+  --card-bg: #ffffff;
+  --card-hover-bg: rgba(59, 130, 246, 0.04);
+  --accent-primary: #3b82f6;
+  --accent-secondary: #0ea5e9;
+  --bg-particle-color: hsl(210, 100%, 56%);
+  --gradient-start: #6366f1;
+  --gradient-mid: #3b82f6;
+  --gradient-end: #06b6d4;
+  --gradient-shadow: rgba(59, 130, 246, 0.2);
+  --line-color: #334155;
+  --line-color-inset-shadow: #ffffff1a;
+  --line-color-inset-shadow-outer: #ffffff12;
+  --icon-bg: #f8fafc;
+  --badge-bg-secondary: #64748b;
+  --bs-card-color: #0f172a;
+}
+
+/* Global Theme Styles */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+/* Smooth transitions for theme change */
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}

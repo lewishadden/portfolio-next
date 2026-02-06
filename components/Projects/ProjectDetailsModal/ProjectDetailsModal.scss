@@ -3,8 +3,8 @@
 
 .project-details__modal {
   .modal-content {
-    background-color: #1f1f1f;
-    color: white;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
   }
 
   &__header {
@@ -13,6 +13,11 @@
     .btn-close {
       font-size: 2rem;
       width: 6rem;
+      filter: var(--bs-btn-close-white-filter, invert(1));
+      
+      [data-theme='light'] & {
+        filter: none;
+      }
     }
 
     &__title {
@@ -26,7 +31,7 @@
           font-size: 2.5rem;
 
           path {
-            stroke: white;
+            stroke: var(--text-primary);
           }
         }
       }
@@ -40,7 +45,7 @@
       &__img {
         width: 100%;
         height: 100%;
-        border: 5px solid rgb(108, 117, 125);
+        border: 5px solid var(--border-color);
       }
     }
 

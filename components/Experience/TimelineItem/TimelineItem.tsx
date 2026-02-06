@@ -19,11 +19,7 @@ const TimelineItem = ({ technologies, mainTech, title, company, years, icon }: E
   const ExtraTechBadges = () => (
     <div className="timeline__item__extra-badge-container">
       {technologies.map((technology, i) => (
-        <Badge
-          className="timeline__item__badge extra font-trebuchet me-2 mb-2"
-          key={i}
-          bg="darkgrey"
-        >
+        <Badge className="timeline__item__badge extra font-trebuchet me-2 mb-2" key={i}>
           {technology}
         </Badge>
       ))}
@@ -35,8 +31,10 @@ const TimelineItem = ({ technologies, mainTech, title, company, years, icon }: E
       className="timeline__item"
       date={years}
       iconStyle={{
-        background: 'rgb(63 63 63)',
-        color: '#fff',
+        background: 'var(--icon-bg)',
+        color: 'var(--text-primary)',
+        boxShadow:
+          '0 0 0 4px var(--line-color), inset 0 2px var(--line-color-inset-shadow), 0 3px 0 4px var(--line-color-inset-shadow-outer)',
       }}
       icon={<Icon icon={icon} className="timeline__item__icon" />}
     >

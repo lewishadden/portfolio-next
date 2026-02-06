@@ -30,6 +30,9 @@
       "components/*": [
         "./components/*"
       ],
+      "contexts/*": [
+        "./contexts/*"
+      ],
       "utils/*": [
         "./utils/*"
       ],
