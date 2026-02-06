@@ -1,3 +1,5 @@
+'use client';
+
 import { Container, Row, Col, Card, CardBody, CardTitle, CardText } from 'react-bootstrap';
 import { useMediaQuery } from '@mantine/hooks';
 import ExportedImage from 'next-image-export-optimizer';
@@ -38,7 +40,7 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                       sizes="(min-width: 992px) 25vw, (min-width: 768px) 40vw, 80vw"
                       loading={isDesktop ? 'eager' : 'lazy'}
                       fetchPriority={isDesktop ? 'high' : 'low'}
-                      priority={Boolean(isDesktop)}
+                      preload={Boolean(isDesktop)}
                       decoding="async"
                     />
                   </Col>

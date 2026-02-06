@@ -25,6 +25,6 @@ export default withBundleAnalyzer({
     nextImageExportOptimizer_storePicturesInWEBP: 'true',
     nextImageExportOptimizer_exportFolderName: 'nextImageExportOptimizer',
     nextImageExportOptimizer_generateAndUseBlurImages: 'true',
-    nextImageExportOptimizer_remoteImageCacheTTL: '0',
+    nextImageExportOptimizer_remoteImageCacheTTL: '604800', // 1 week
   },
 });

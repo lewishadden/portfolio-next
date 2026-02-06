@@ -5,7 +5,8 @@ import type { Metadata, Viewport } from 'next';
 
 import content from '../content/content.json';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'https://portfolio.lewishadden.com';
 
 const personName = content.basicInfo?.name || 'Portfolio';
 const description =
