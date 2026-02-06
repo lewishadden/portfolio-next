@@ -10,17 +10,29 @@ export const ThemeToggle = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="theme-toggle"
+      className={`theme-toggle ${theme === 'light' ? 'theme-toggle--light' : 'theme-toggle--dark'}`}
       aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
       title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
       type="button"
+      role="switch"
+      aria-checked={theme === 'light'}
     >
-      <Icon
-        icon={theme === 'light' ? 'ph:moon-fill' : 'ph:sun-fill'}
-        className="theme-toggle__icon"
-        aria-hidden="true"
-      />
-      <span className="sr-only">{theme === 'light' ? 'Dark' : 'Light'} Mode</span>
+      <span className="theme-toggle__track">
+        <span className="theme-toggle__icon-container">
+          <Icon
+            icon="ph:sun-fill"
+            className="theme-toggle__icon theme-toggle__icon--sun"
+            aria-hidden="true"
+          />
+          <Icon
+            icon="ph:moon-fill"
+            className="theme-toggle__icon theme-toggle__icon--moon"
+            aria-hidden="true"
+          />
+        </span>
+        <span className="theme-toggle__thumb"></span>
+      </span>
+      <span className="sr-only">{theme === 'light' ? 'Light' : 'Dark'} Mode</span>
     </button>
   );
 };
