@@ -35,6 +35,10 @@ section {
   padding-bottom: 5rem;
   color: var(--text-primary);
 
+  &:first-child {
+    padding-top: 2.5rem;
+  }
+
   &:last-child {
     padding-bottom: 2rem;
   }
