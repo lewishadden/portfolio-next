@@ -1,45 +1,182 @@
 @use 'sass:color';
 
 .skills {
-  &__title {
-    padding-bottom: 5%;
-    text-transform: uppercase;
-    letter-spacing: 3px;
-    color: var(--text-primary);
+  &__heading-wrapper {
     text-align: center;
+    margin-bottom: 4rem;
+  }
+
+  &__title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(
+      135deg,
+      var(--gradient-start) 0%,
+      var(--gradient-mid) 50%,
+      var(--gradient-end) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 1rem;
+    display: inline-block;
+
+    @media (min-width: 768px) {
+      font-size: 3rem;
+    }
+  }
+
+  &__heading-underline {
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(
+      90deg,
+      var(--gradient-start) 0%,
+      var(--gradient-mid) 50%,
+      var(--gradient-end) 100%
+    );
+    margin: 0 auto;
+    border-radius: 2px;
   }
 
   &__list {
     justify-content: center;
     color: var(--text-primary);
     text-align: center;
+    gap: 1.5rem;
+    padding-bottom: 2rem;
 
     &__tile {
       position: relative;
-      z-index: 1;
       display: flex;
       flex-direction: column;
-      justify-content: space-evenly;
+      justify-content: center;
       align-items: center;
+      gap: 1rem;
       background-color: var(--card-bg);
-      border: 0.1rem solid var(--accent-primary);
-      width: 8rem;
-      height: 8rem;
-      margin: 12px 0;
-      border-radius: 8px;
-      padding: 0 0.5rem;
+      border: 1px solid var(--border-color);
+      width: 140px;
+      height: 140px;
+      margin: 0;
+      border-radius: 20px;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.08),
+        0 2px 4px rgba(0, 0, 0, 0.04);
+
+      [data-theme='light'] & {
+        box-shadow:
+          0 4px 16px rgba(15, 23, 42, 0.06),
+          0 2px 4px rgba(15, 23, 42, 0.03);
+      }
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(99, 102, 241, 0.05) 0%,
+          rgba(59, 130, 246, 0.05) 50%,
+          transparent 100%
+        );
+        border-radius: 20px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
 
       &:hover {
-        transform: translateY(0) scale(1.03);
+        transform: translateY(-8px);
+        border-color: var(--accent-primary);
+        box-shadow:
+          0 12px 32px rgba(0, 0, 0, 0.15),
+          0 4px 12px rgba(0, 0, 0, 0.08);
+
+        [data-theme='light'] & {
+          box-shadow:
+            0 12px 32px rgba(15, 23, 42, 0.12),
+            0 4px 12px rgba(15, 23, 42, 0.06);
+        }
+
+        &::before {
+          opacity: 1;
+        }
+
+        .skills__list__tile__icon {
+          transform: scale(1.15) rotate(5deg);
+        }
+
+        .skills__list__tile__icon-glow {
+          opacity: 0.8;
+          transform: scale(1.3);
+        }
+
+        .skills__list__tile__name {
+          color: var(--accent-primary);
+        }
+      }
+
+      &:active {
+        transform: translateY(-4px);
+      }
+
+      &__icon-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       &__icon {
-        font-size: 3rem;
+        font-size: 3.5rem;
+        background: linear-gradient(
+          135deg,
+          var(--gradient-start) 0%,
+          var(--gradient-mid) 50%,
+          var(--gradient-end) 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        z-index: 1;
+        filter: drop-shadow(0 2px 8px var(--gradient-shadow));
+      }
+
+      &__icon-glow {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 70px;
+        height: 70px;
+        background: radial-gradient(
+          circle,
+          var(--gradient-shadow) 0%,
+          transparent 70%
+        );
+        opacity: 0.4;
+        transition: all 0.3s ease;
+        z-index: 0;
       }
 
       &__name {
-        font-size: 1rem;
-        line-height: 1.2rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.2;
+        color: var(--text-secondary);
+        margin: 0;
+        transition: color 0.3s ease;
+        text-align: center;
       }
     }
   }

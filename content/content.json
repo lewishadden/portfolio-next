@@ -27,7 +27,7 @@
       }
     },
     "descriptionHeader": "Hello! <span class='wave'>👋</span>",
-    "description": "My name is Lewis, and I'm a highly experienced and qualified Senior Full Stack Engineer. I've been working in the web development industry for almost 9 years. I have led several development teams for large-scale projects and worked as an independent developer on both in-house and public-facing products.<br /><br />In my free time, I enjoy going to the gym, boxing, and playing the guitar.<br /><br />I am currently seeking my next opportunity as a Senior or Lead Full Stack developer, either as a freelancer or under permanent employment.<br /><br />Keep scrolling to see my past projects, skills and experience. You can also find my <a href='#contact'>contact information</a> below to get in touch.",
+    "description": "My name is Lewis, and I'm a highly experienced and qualified Senior Full Stack Engineer. I've been working in the web development industry for almost 9 years. I have led several development teams for large-scale projects and worked as an independent developer on both in-house and public-facing products.<br /><br />In my free time, I enjoy going to the gym, boxing, and playing the guitar.<br /><br />I am currently seeking my next opportunity as a Senior or Lead Full Stack developer, either as a freelancer or under permanent employment.<br /><br />Keep scrolling to see my past projects, skills and experience.",
     "sectionName": {
       "about": "About me",
       "projects": "Projects",
@@ -48,7 +48,10 @@
         "value": "+447714512514",
         "link": "tel:+447714512514"
       }
-    ]
+    ],
+    "cv": {
+      "url": "/static/documents/Lewis_Hadden_CV.pdf"
+    }
   },
   "projects": [
     {

@@ -13,10 +13,13 @@ export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: Basi
 
   const skillTiles = skills?.icons?.map((skill, i) => (
     <Col as="li" xs="auto" key={i}>
-      <ScrollReveal animation="flipInX" duration={2}>
+      <ScrollReveal animation="flipInX">
         <div className="skills__list__tile">
-          <Icon icon={skill.class} className="skills__list__tile__icon" aria-hidden="true" />
-          <p className="skills__list__tile__name m-0">{skill.name}</p>
+          <div className="skills__list__tile__icon-wrapper">
+            <Icon icon={skill.class} className="skills__list__tile__icon" aria-hidden="true" />
+            <div className="skills__list__tile__icon-glow"></div>
+          </div>
+          <p className="skills__list__tile__name">{skill.name}</p>
         </div>
       </ScrollReveal>
     </Col>
@@ -27,9 +30,12 @@ export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: Basi
       <Container>
         <Row>
           <Col md={12}>
-            <h2 id="skills-heading" className="skills__title">
-              {headingText}
-            </h2>
+            <div className="skills__heading-wrapper">
+              <h2 id="skills-heading" className="skills__title">
+                {headingText}
+              </h2>
+              <div className="skills__heading-underline"></div>
+            </div>
           </Col>
         </Row>
         <Row as="ul" className="skills__list list-unstyled" aria-label="Technical skills">

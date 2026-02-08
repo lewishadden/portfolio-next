@@ -18,6 +18,9 @@ export interface BasicInfo {
   description: string;
   sectionName: SectionName;
   contactInfo: ContactInfo[];
+  cv: {
+    url: string;
+  };
 }
 
 export interface Social {

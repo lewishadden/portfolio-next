@@ -28,24 +28,26 @@ export const Experience = ({
       <Container>
         <Row>
           <Col md={12}>
-            <h2 id="experience-heading" className="experience__title">
-              {headingText}
-            </h2>
+            <div className="experience__heading-wrapper">
+              <h2 id="experience-heading" className="experience__title">
+                {headingText}
+              </h2>
+              <div className="experience__heading-underline"></div>
+            </div>
           </Col>
         </Row>
         <Row>
           <Col md={12} className="mx-auto">
             <div aria-label="Work experience timeline">
-              <VerticalTimeline className="timeline">
+              <VerticalTimeline className="timeline" lineColor="var(--border-color)">
                 {experienceTimelineItems}
                 <VerticalTimelineElement
-                  className="timeline__item start"
+                  className="timeline__item timeline__item--end"
                   iconStyle={{
-                    background: 'var(--icon-bg)',
-                    color: 'var(--text-primary)',
+                    background: 'linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-mid) 50%, var(--gradient-end) 100%)',
+                    color: '#ffffff',
                     textAlign: 'center',
-                    boxShadow:
-                      '0 0 0 4px var(--line-color), inset 0 2px var(--line-color-inset-shadow), 0 3px 0 4px var(--line-color-inset-shadow-outer)',
+                    boxShadow: '0 0 0 4px var(--bg-primary), 0 8px 16px rgba(0, 0, 0, 0.15)',
                   }}
                   icon={
                     <Icon
