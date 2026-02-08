@@ -1,0 +1,95 @@
+.theme-toggle {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  outline-offset: 4px;
+
+  &__track {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 64px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+  }
+
+  &:hover &__track {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  &__icon-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 6px;
+    position: relative;
+    z-index: 1;
+  }
+
+  &__icon {
+    width: 16px;
+    height: 16px;
+    color: #fff;
+    transition: all 0.3s ease;
+
+    &--sun {
+      opacity: 0.4;
+    }
+
+    &--moon {
+      opacity: 1;
+    }
+  }
+
+  &__thumb {
+    position: absolute;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 2;
+  }
+
+  &:active &__thumb {
+    width: 28px;
+  }
+
+  // Light mode styles
+  &--light &__track {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+  }
+
+  &--light:hover &__track {
+    background: #cbd5e1;
+    border-color: #94a3b8;
+  }
+
+  &--light &__icon {
+    color: #0f172a;
+
+    &--sun {
+      opacity: 1;
+    }
+
+    &--moon {
+      opacity: 0.35;
+    }
+  }
+
+  &--light &__thumb {
+    left: 37px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+  }
+}

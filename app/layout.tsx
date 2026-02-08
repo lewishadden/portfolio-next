@@ -1,6 +1,9 @@
 import 'bootstrap/scss/bootstrap.scss';
 import './globals.scss';
+import './theme-variables.scss';
 import { Layout } from 'components/Layout/Layout';
+import { ThemeProvider } from 'contexts/ThemeContext';
+import { ThemeScript } from 'components/ThemeScript/ThemeScript';
 import type { Metadata, Viewport } from 'next';
 
 import content from '../content/content.json';
@@ -249,9 +252,14 @@ function JsonLd() {
 
 export default function RootLayout({ children }: { children: any }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
       <body data-theme="dark" data-bs-theme="dark" suppressHydrationWarning>
-        <Layout>{children}</Layout>
+        <ThemeProvider>
+          <Layout>{children}</Layout>
+        </ThemeProvider>
         <JsonLd />
       </body>
     </html>

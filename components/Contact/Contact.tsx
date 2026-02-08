@@ -57,18 +57,26 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
       <Container>
         <Row>
           <Col md={12}>
-            <h2 id="contact-heading" className="text-center contact__heading">
-              {headingText}
-            </h2>
+            <div className="contact__heading-wrapper">
+              <h2 id="contact-heading" className="contact__heading">
+                {headingText}
+              </h2>
+              <div className="contact__heading-underline"></div>
+              <p className="contact__tagline">
+                Let's work together on your next project
+              </p>
+            </div>
           </Col>
         </Row>
         <Row className={`contact__body g-5${submitted ? ' form-submitted' : ''}`}>
           <Col md={12} lg={submitted ? { span: 8, offset: 4 } : 4} className="mx-auto">
-            <address className="contact__body__personal-info__address m-0">
-              <Row as="ul" className="contact__body__personal-info gy-4 list-unstyled">
-                <ContactBadges />
-              </Row>
-            </address>
+            <div className="contact__body__personal-info__wrapper">
+              <address className="contact__body__personal-info__address m-0">
+                <Row as="ul" className="contact__body__personal-info gy-4 list-unstyled">
+                  <ContactBadges />
+                </Row>
+              </address>
+            </div>
           </Col>
           {!submitted && (
             <ContactForm

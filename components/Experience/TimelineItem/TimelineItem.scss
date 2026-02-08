@@ -1,23 +1,68 @@
 .timeline__item {
-  &__extra-badge-container {
-    margin-top: 15px;
-  }
-
-  &__badge {
-    font-size: 1rem !important;
-    text-align: left !important;
-    padding: 5px 8px !important;
-    vertical-align: baseline;
-    &.main {
-      background-color: #5b42f5 !important;
-    }
-    &.extra {
-      font-weight: lighter !important;
-    }
+  &__title {
+    margin-bottom: 0.5rem !important;
   }
 
   &__subtitle {
-    font-size: 1.2rem;
-    margin-top: 10px;
+    font-size: 1.125rem !important;
+    font-weight: 600 !important;
+    color: var(--text-secondary) !important;
+    margin-top: 0 !important;
+    margin-bottom: 1.25rem !important;
+  }
+
+  &__main-badge-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  &__extra-badge-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+  }
+
+  &__badge {
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 8px !important;
+    text-align: center !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    transition: all 0.2s ease !important;
+    border: none !important;
+
+    &--main {
+      background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%) !important;
+      color: #ffffff !important;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25) !important;
+
+      &:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35) !important;
+      }
+    }
+
+    &--extra {
+      background-color: var(--bg-tertiary) !important;
+      color: var(--text-secondary) !important;
+      border: 1px solid var(--border-color) !important;
+      font-weight: 500 !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+
+      [data-theme='light'] & {
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+      }
+
+      &:hover {
+        border-color: var(--accent-primary) !important;
+        color: var(--accent-primary) !important;
+        background-color: rgba(59, 130, 246, 0.05) !important;
+      }
+    }
   }
 }

@@ -3,57 +3,172 @@
 
 .project-details__modal {
   .modal-content {
-    background-color: #1f1f1f;
-    color: white;
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    border-radius: 24px;
+    border: 1px solid var(--border-color);
+    box-shadow:
+      0 20px 80px rgba(0, 0, 0, 0.3),
+      0 8px 32px rgba(0, 0, 0, 0.2);
+
+    [data-theme='light'] & {
+      box-shadow:
+        0 20px 80px rgba(15, 23, 42, 0.2),
+        0 8px 32px rgba(15, 23, 42, 0.15);
+    }
+  }
+
+  .modal-dialog {
+    max-width: 900px;
   }
 
   &__header {
-    border-bottom: none !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    padding: 2rem;
+    background: linear-gradient(
+      135deg,
+      rgba(99, 102, 241, 0.05) 0%,
+      rgba(59, 130, 246, 0.05) 50%,
+      transparent 100%
+    );
 
     .btn-close {
-      font-size: 2rem;
-      width: 6rem;
+      font-size: 1.5rem;
+      width: auto;
+      height: auto;
+      padding: 0.75rem;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+      filter: var(--bs-btn-close-white-filter, invert(1));
+      opacity: 0.7;
+      
+      [data-theme='light'] & {
+        filter: none;
+      }
+
+      &:hover {
+        opacity: 1;
+        background-color: rgba(255, 0, 0, 0.1);
+        transform: scale(1.1);
+      }
     }
 
     &__title {
       font-size: 2rem;
-      font-weight: bold;
+      font-weight: 700;
       text-align: center;
+      background: linear-gradient(
+        135deg,
+        var(--gradient-start) 0%,
+        var(--gradient-mid) 50%,
+        var(--gradient-end) 100%
+      );
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      display: inline-block;
+      line-height: 1.3;
+
+      @media (min-width: 768px) {
+        font-size: 2.25rem;
+      }
 
       &__link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        margin-left: 1rem;
+        border-radius: 10px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        transition: all 0.3s ease;
+
+        &:hover {
+          transform: translateY(-2px);
+          border-color: var(--accent-primary);
+          background: rgba(59, 130, 246, 0.1);
+        }
+
         &__icon {
-          margin-left: 1rem;
-          font-size: 2.5rem;
+          font-size: 1.5rem;
 
           path {
-            stroke: white;
+            stroke: var(--text-primary);
+            transition: stroke 0.3s ease;
           }
+        }
+
+        &:hover &__icon path {
+          stroke: var(--accent-primary);
         }
       }
     }
   }
 
   &__body {
+    padding: 2.5rem;
+
     &__image-container {
-      padding-bottom: 5rem;
+      padding-bottom: 3rem;
+      margin-bottom: 2rem;
 
       &__img {
         width: 100%;
         height: 100%;
-        border: 5px solid rgb(108, 117, 125);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow:
+          0 8px 32px rgba(0, 0, 0, 0.12),
+          0 2px 8px rgba(0, 0, 0, 0.08);
+
+        [data-theme='light'] & {
+          box-shadow:
+            0 8px 32px rgba(15, 23, 42, 0.1),
+            0 2px 8px rgba(15, 23, 42, 0.06);
+        }
+      }
+
+      .awssld__controls button {
+        background: rgba(59, 130, 246, 0.9);
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        transition: all 0.3s ease;
+
+        &:hover {
+          background: var(--accent-primary);
+          transform: scale(1.1);
+        }
       }
     }
 
     &__description {
-      margin-bottom: 20px;
-      font-size: 1.25rem;
+      margin-bottom: 2.5rem;
+      font-size: 1.125rem;
+      line-height: 1.8;
+      color: var(--text-secondary);
     }
 
     &__skill {
-      font-size: 3rem;
+      font-size: 3.5rem;
+      transition: all 0.3s ease;
+      margin: 1rem;
+
+      &:hover {
+        transform: scale(1.15);
+      }
+
+      &__icon {
+        filter: drop-shadow(0 4px 12px var(--gradient-shadow));
+      }
 
       &__name {
-        font-size: 1.25rem;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-top: 0.5rem;
       }
     }
   }

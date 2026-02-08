@@ -1,31 +1,154 @@
 .experience {
-  &__title {
-    padding-bottom: 5%;
-    text-transform: uppercase;
-    letter-spacing: 3px;
+  &__heading-wrapper {
     text-align: center;
+    margin-bottom: 4rem;
+  }
+
+  &__title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(
+      135deg,
+      var(--gradient-start) 0%,
+      var(--gradient-mid) 50%,
+      var(--gradient-end) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 1rem;
+    display: inline-block;
+
+    @media (min-width: 768px) {
+      font-size: 3rem;
+    }
+  }
+
+  &__heading-underline {
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(
+      90deg,
+      var(--gradient-start) 0%,
+      var(--gradient-mid) 50%,
+      var(--gradient-end) 100%
+    );
+    margin: 0 auto;
+    border-radius: 2px;
   }
 
   .timeline {
     &__item {
-      &:not(.start) {
+      &:not(.timeline__item--end) {
         .vertical-timeline-element-content {
-          border: 0.25rem solid #5b42f5;
-          border-radius: 0.5rem;
-          background: #000a28;
-          box-shadow: 0 3px 0 #5b42f5;
+          border: 1px solid var(--border-color);
+          border-radius: 16px;
+          background: var(--card-bg);
+          box-shadow:
+            0 10px 40px rgba(0, 0, 0, 0.1),
+            0 2px 8px rgba(0, 0, 0, 0.06);
+          padding: 1.75rem;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+          [data-theme='light'] & {
+            box-shadow:
+              0 10px 40px rgba(15, 23, 42, 0.08),
+              0 2px 8px rgba(15, 23, 42, 0.04);
+          }
+
+          &:hover {
+            transform: translateY(-4px);
+            box-shadow:
+              0 20px 60px rgba(0, 0, 0, 0.15),
+              0 4px 12px rgba(0, 0, 0, 0.08);
+            border-color: var(--accent-primary);
+
+            [data-theme='light'] & {
+              box-shadow:
+                0 20px 60px rgba(15, 23, 42, 0.12),
+                0 4px 12px rgba(15, 23, 42, 0.06);
+            }
+          }
         }
 
         .vertical-timeline-element-content-arrow {
-          border-right-color: #5b42f5;
+          border-right-color: var(--border-color);
+          transition: border-color 0.3s ease;
+        }
+
+        &:hover .vertical-timeline-element-content-arrow {
+          border-right-color: var(--accent-primary);
+        }
+
+        .vertical-timeline-element-icon {
+          box-shadow: 
+            0 0 0 4px var(--bg-primary),
+            0 8px 24px rgba(0, 0, 0, 0.15) !important;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+          [data-theme='light'] & {
+            box-shadow: 
+              0 0 0 4px var(--bg-primary),
+              0 8px 24px rgba(15, 23, 42, 0.12) !important;
+          }
+        }
+
+        &:hover .vertical-timeline-element-icon {
+          transform: scale(1.1);
+          box-shadow: 
+            0 0 0 4px var(--bg-primary),
+            0 12px 32px rgba(0, 0, 0, 0.2) !important;
+
+          [data-theme='light'] & {
+            box-shadow: 
+              0 0 0 4px var(--bg-primary),
+              0 12px 32px rgba(15, 23, 42, 0.15) !important;
+          }
+        }
+
+        .vertical-timeline-element-date {
+          color: var(--text-secondary);
+          font-weight: 600;
+          font-size: 0.95rem;
+          opacity: 1;
+        }
+      }
+
+      &--end {
+        .vertical-timeline-element-icon {
+          animation: pulse-icon 2s ease-in-out infinite;
         }
       }
 
       &__icon {
-        width: 36px;
-        height: 36px;
-        margin: -18px 0px 0px -18px;
+        width: 32px;
+        height: 32px;
+        margin: -16px 0px 0px -16px;
+      }
+
+      .vertical-timeline-element-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
       }
     }
+
+    &:before {
+      background: var(--border-color);
+    }
+  }
+}
+
+@keyframes pulse-icon {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
   }
 }
