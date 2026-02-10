@@ -70,13 +70,13 @@
         }
 
         .vertical-timeline-element-icon {
-          box-shadow: 
+          box-shadow:
             0 0 0 4px var(--bg-primary),
             0 8px 24px rgba(0, 0, 0, 0.15) !important;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
           [data-theme='light'] & {
-            box-shadow: 
+            box-shadow:
               0 0 0 4px var(--bg-primary),
               0 8px 24px rgba(15, 23, 42, 0.12) !important;
           }
@@ -84,12 +84,12 @@
 
         &:hover .vertical-timeline-element-icon {
           transform: scale(1.1);
-          box-shadow: 
+          box-shadow:
             0 0 0 4px var(--bg-primary),
             0 12px 32px rgba(0, 0, 0, 0.2) !important;
 
           [data-theme='light'] & {
-            box-shadow: 
+            box-shadow:
               0 0 0 4px var(--bg-primary),
               0 12px 32px rgba(15, 23, 42, 0.15) !important;
           }

@@ -44,7 +44,8 @@ export const Experience = ({
                 <VerticalTimelineElement
                   className="timeline__item timeline__item--end"
                   iconStyle={{
-                    background: 'linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-mid) 50%, var(--gradient-end) 100%)',
+                    background:
+                      'linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-mid) 50%, var(--gradient-end) 100%)',
                     color: '#ffffff',
                     textAlign: 'center',
                     boxShadow: '0 0 0 4px var(--bg-primary), 0 8px 16px rgba(0, 0, 0, 0.15)',

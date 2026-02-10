@@ -62,9 +62,7 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
               <h2 id="contact-heading" className="contact__heading">
                 {headingText}
               </h2>
-              <p className="contact__tagline">
-                Let&rsquo;s work together on your next project
-              </p>
+              <p className="contact__tagline">Let&rsquo;s work together on your next project</p>
             </div>
           </Col>
         </Row>
