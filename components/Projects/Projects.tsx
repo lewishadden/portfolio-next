@@ -131,10 +131,10 @@ export const Projects = ({
         <Row>
           <Col md={12}>
             <div className="projects__heading-wrapper">
+              <span className="projects__label">What I&rsquo;ve built</span>
               <h2 id="projects-heading" className="projects__heading">
                 {headingText}
               </h2>
-              <div className="projects__heading-underline"></div>
             </div>
           </Col>
         </Row>

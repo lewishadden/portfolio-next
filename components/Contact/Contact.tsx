@@ -58,12 +58,12 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
         <Row>
           <Col md={12}>
             <div className="contact__heading-wrapper">
+              <span className="contact__label">Let&rsquo;s connect</span>
               <h2 id="contact-heading" className="contact__heading">
                 {headingText}
               </h2>
-              <div className="contact__heading-underline"></div>
               <p className="contact__tagline">
-                Let's work together on your next project
+                Let&rsquo;s work together on your next project
               </p>
             </div>
           </Col>

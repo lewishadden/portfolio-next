@@ -93,10 +93,10 @@ export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: Basi
         <Row>
           <Col md={12}>
             <div className="skills__heading-wrapper">
+              <span className="skills__label">My toolkit</span>
               <h2 id="skills-heading" className="skills__title">
                 {headingText}
               </h2>
-              <div className="skills__heading-underline"></div>
             </div>
           </Col>
         </Row>

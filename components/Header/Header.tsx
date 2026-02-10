@@ -35,7 +35,8 @@ export const Header = () => {
 
     if (isScrollingDown) {
       e.preventDefault();
-      window.scrollTo({ top: targetTop, behavior: 'smooth' });
+      const SCROLL_DOWN_OFFSET = 20;
+      window.scrollTo({ top: targetTop - SCROLL_DOWN_OFFSET, behavior: 'smooth' });
     }
     // scrolling up: let default behavior apply scroll-margin-top
   }, []);

@@ -29,10 +29,10 @@ export const Experience = ({
         <Row>
           <Col md={12}>
             <div className="experience__heading-wrapper">
+              <span className="experience__label">Where I&rsquo;ve worked</span>
               <h2 id="experience-heading" className="experience__title">
                 {headingText}
               </h2>
-              <div className="experience__heading-underline"></div>
             </div>
           </Col>
         </Row>
