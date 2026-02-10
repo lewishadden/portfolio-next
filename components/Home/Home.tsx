@@ -15,8 +15,9 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
 
   return (
     <section id="home" className="home" aria-labelledby="home-heading">
+      <div className="home__bg-accent" aria-hidden="true" />
       <Container className="d-flex home__wrapper">
-        <Stack as="header" gap={4} className="home__header center" style={{ zIndex: 2 }}>
+        <Stack as="header" gap={3} className="home__header center" style={{ zIndex: 2 }}>
           <div className="home__header__badge">
             <span className="home__header__badge-dot"></span>
             <span className="home__header__badge-text">Open to Work</span>
@@ -28,7 +29,7 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
           </div>
 
           <div className="home__header__text">
-            <p className="home__header__greeting">Hi, I'm</p>
+            <p className="home__header__greeting">Hi, I&rsquo;m</p>
             <h1 id="home-heading" className="home__header__name font-trebuchet">
               {name}
             </h1>
@@ -69,7 +70,7 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                   fill="currentColor"
                 />
               </svg>
-              Let's Talk
+              Let&rsquo;s Talk
             </a>
             <a
               href="#projects"
@@ -92,11 +93,11 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
               View Work
             </a>
           </div>
-          <div className="home__chevron-down d-flex" style={{ zIndex: 3 }} role="presentation">
-            <ChevronDown />
-          </div>
         </Stack>
       </Container>
+      <div className="home__chevron-down" role="presentation">
+        <ChevronDown />
+      </div>
     </section>
   );
 };
