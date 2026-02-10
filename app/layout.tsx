@@ -1,4 +1,3 @@
-import 'bootstrap/scss/bootstrap.scss';
 import './globals.scss';
 import './theme-variables.scss';
 import { GoogleTagManager } from '@next/third-parties/google';

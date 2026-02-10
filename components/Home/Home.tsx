@@ -1,6 +1,5 @@
 'use client';
 
-import { Container, Stack } from 'react-bootstrap';
 import { TypeAnimation } from 'react-type-animation';
 import { ChevronDown, CodeIcon } from 'icons';
 
@@ -16,8 +15,8 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   return (
     <section id="home" className="home" aria-labelledby="home-heading">
       <div className="home__bg-accent" aria-hidden="true" />
-      <Container className="d-flex home__wrapper">
-        <Stack as="header" gap={3} className="home__header center" style={{ zIndex: 2 }}>
+      <div className="home__wrapper">
+        <header className="home__header center" style={{ zIndex: 2 }}>
           <div className="home__header__badge">
             <span className="home__header__badge-dot"></span>
             <span className="home__header__badge-text">Open to Work</span>
@@ -93,8 +92,8 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
               View Work
             </a>
           </div>
-        </Stack>
-      </Container>
+        </header>
+      </div>
       <div className="home__chevron-down" role="presentation">
         <ChevronDown />
       </div>

@@ -1,4 +1,12 @@
 .projects {
+  padding: 5rem 0;
+
+  &__container {
+    max-width: 1170px;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+
   &__heading-wrapper {
     text-align: center;
     margin-bottom: 3rem;

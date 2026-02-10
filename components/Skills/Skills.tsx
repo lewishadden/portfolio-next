@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
-import { Container, Row, Col } from 'react-bootstrap';
 
 import { BasicInfo, Skills as ISkills } from '@/types';
 import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
@@ -89,17 +88,13 @@ export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: Basi
 
   return (
     <section id="skills" className="skills" aria-labelledby="skills-heading">
-      <Container>
-        <Row>
-          <Col md={12}>
-            <div className="skills__heading-wrapper">
-              <span className="skills__label">My toolkit</span>
-              <h2 id="skills-heading" className="skills__title">
-                {headingText}
-              </h2>
-            </div>
-          </Col>
-        </Row>
+      <div className="skills__container">
+        <div className="skills__heading-wrapper">
+          <span className="skills__label">My toolkit</span>
+          <h2 id="skills-heading" className="skills__title">
+            {headingText}
+          </h2>
+        </div>
         <div className="skills__list" aria-label="Technical skills" role="list">
           {pyramidRows.map((row, rowIndex) => (
             <div key={rowIndex} className="skills__list__row">
@@ -127,7 +122,7 @@ export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: Basi
             </div>
           ))}
         </div>
-      </Container>
+      </div>
     </section>
   );
 };

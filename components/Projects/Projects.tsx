@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Container, Row, Col, Card, Badge } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
 
 import { BasicInfo, Project } from '@/types';
@@ -49,15 +48,13 @@ export const Projects = ({
           delay={index * STAGGER_DELAY}
           style={{ flex: 1, display: 'flex' }}
         >
-          <Card
-            as="button"
+          <button
             type="button"
-            text={project.theme.text}
             className="projects__item__card"
             onClick={() => showDetailsModal(project)}
             aria-label={`View details for ${project.title} project`}
           >
-            <Card.Body className="projects__item__card__body">
+            <div className="projects__item__card__body">
               <div className="projects__item__card__top">
                 <div className="projects__item__card__icon-wrapper">
                   <Icon
@@ -69,16 +66,14 @@ export const Projects = ({
                 </div>
 
                 <div className="projects__item__card__header">
-                  <Card.Title as="h3" className="projects__item__card__title font-trebuchet">
-                    {project.title}
-                  </Card.Title>
+                  <h3 className="projects__item__card__title font-trebuchet">{project.title}</h3>
 
-                  <Badge
+                  <span
                     className="projects__item__card__date"
                     aria-label={`Started in ${project.startDate}`}
                   >
                     {project.startDate}
-                  </Badge>
+                  </span>
                 </div>
               </div>
 
@@ -119,32 +114,28 @@ export const Projects = ({
                   />
                 </svg>
               </div>
-            </Card.Body>
-          </Card>
+            </div>
+          </button>
         </ScrollReveal>
       </li>
     ));
 
   return (
     <section id="projects" className="projects" aria-labelledby="projects-heading">
-      <Container>
-        <Row>
-          <Col md={12}>
-            <div className="projects__heading-wrapper">
-              <span className="projects__label">What I&rsquo;ve built</span>
-              <h2 id="projects-heading" className="projects__heading">
-                {headingText}
-              </h2>
-            </div>
-          </Col>
-        </Row>
-        <ul className="projects__list list-unstyled" aria-label="Project portfolio">
+      <div className="projects__container">
+        <div className="projects__heading-wrapper">
+          <span className="projects__label">What I&rsquo;ve built</span>
+          <h2 id="projects-heading" className="projects__heading">
+            {headingText}
+          </h2>
+        </div>
+        <ul className="projects__list" aria-label="Project portfolio">
           {projects.length > 0 && <ProjectCards />}
         </ul>
         {deps && (
           <ProjectDetailsModal show={detailsModalShow} onHide={detailsModalClose} data={deps} />
         )}
-      </Container>
+      </div>
     </section>
   );
 };

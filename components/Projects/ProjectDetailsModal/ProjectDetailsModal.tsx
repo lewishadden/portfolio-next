@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { Col, Modal } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
 import ExportedImage from 'next-image-export-optimizer';
 
@@ -32,14 +31,11 @@ const ProjectDetailsModal = ({
   const titleId = `project-details-modal-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const sliderRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
 
   const scrollModalToTop = useCallback(() => {
     const scrollModal = () => {
-      document
-        .querySelectorAll('.project-details__modal, .project-details__modal .modal-body')
-        .forEach((el) => {
-          el.scrollTop = 0;
-        });
+      modalBodyRef.current?.scrollTo(0, 0);
     };
     scrollModal();
     requestAnimationFrame(scrollModal);
@@ -47,11 +43,30 @@ const ProjectDetailsModal = ({
     setTimeout(scrollModal, 150);
   }, []);
 
+  // Lock body scroll when open
   useEffect(() => {
     if (show) {
+      document.body.style.overflow = 'hidden';
       scrollModalToTop();
+      // Focus the dialog
+      setTimeout(() => dialogRef.current?.focus(), 50);
+    } else {
+      document.body.style.overflow = '';
     }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [show, scrollModalToTop]);
+
+  // Close on Escape
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') onHide();
+  };
+
+  // Close on backdrop click
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) onHide();
+  };
 
   const imageRefs = Array.from(images, () => useRef(null));
 
@@ -119,51 +134,55 @@ const ProjectDetailsModal = ({
   const TechIcons = () => (
     <div className="project-details__modal__body__tech-section">
       <h4 className="project-details__modal__body__tech-section__heading">Built with</h4>
-      <ul className="project-details__modal__body__tech-section__list list-inline mx-auto">
+      <ul className="project-details__modal__body__tech-section__list">
         {technologies.map((icon, i) => (
-          <li className="list-inline-item project-details__modal__body__skill" key={i}>
+          <li className="project-details__modal__body__skill" key={i}>
             <Icon icon={icon.class} className="project-details__modal__body__skill__icon" />
-            <p className="text-center project-details__modal__body__skill__name">{icon.name}</p>
+            <p className="project-details__modal__body__skill__name">{icon.name}</p>
           </li>
         ))}
       </ul>
     </div>
   );
 
-  return (
-    <Modal
-      show={show}
-      onHide={onHide}
-      size="lg"
-      centered
-      className="project-details__modal"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      restoreFocus
-      autoFocus
-      enforceFocus
-      onEntered={() => {
-        scrollModalToTop();
-        modalBodyRef.current?.focus();
-      }}
-    >
-      <Modal.Header closeButton closeVariant="white" className="project-details__modal__header">
-        <Col md={1} />
-        <Col md={10}>
-          <Modal.Title as="h3" id={titleId} className="project-details__modal__header__title">
-            {title}
-          </Modal.Title>
-        </Col>
-      </Modal.Header>
+  if (!show) return null;
 
-      <Modal.Body
-        className="project-details__modal__body"
-        ref={modalBodyRef}
+  return (
+    <div
+      className="project-details__overlay"
+      onClick={handleBackdropClick}
+      onKeyDown={handleKeyDown}
+      role="presentation"
+    >
+      <div
+        className="project-details__dialog"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         tabIndex={-1}
-        onKeyDown={handleCarouselKeyDown}
       >
-        <Col md={12}>
-          <Col md={10} className="mx-auto">
+        <div className="project-details__modal__header">
+          <h3 id={titleId} className="project-details__modal__header__title">
+            {title}
+          </h3>
+          <button
+            type="button"
+            className="project-details__close-btn"
+            onClick={onHide}
+            aria-label="Close"
+          >
+            <Icon icon="mdi:close" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div
+          className="project-details__modal__body"
+          ref={modalBodyRef}
+          tabIndex={-1}
+          onKeyDown={handleCarouselKeyDown}
+        >
+          <div className="project-details__modal__body__inner">
             {images.length > 0 && getImageSlides()}
             <p className="project-details__modal__body__description">{description}</p>
             {url && (
@@ -178,13 +197,13 @@ const ProjectDetailsModal = ({
                 <span>Visit Live Site</span>
               </Link>
             )}
-          </Col>
-        </Col>
-        <Col md={12} className="text-center">
-          <TechIcons />
-        </Col>
-      </Modal.Body>
-    </Modal>
+          </div>
+          <div className="project-details__modal__body__tech-wrapper">
+            <TechIcons />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
