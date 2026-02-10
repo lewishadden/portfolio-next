@@ -90,14 +90,17 @@ const ProjectDetailsModal = ({
   );
 
   const TechIcons = () => (
-    <ul className="list-inline mx-auto">
-      {technologies.map((icon, i) => (
-        <li className="list-inline-item mx-3 project-details__modal__body__skill" key={i}>
-          <Icon icon={icon.class} className="project-details__modal__body__skill__icon" />
-          <p className="text-center project-details__modal__body__skill__name">{icon.name}</p>
-        </li>
-      ))}
-    </ul>
+    <div className="project-details__modal__body__tech-section">
+      <h4 className="project-details__modal__body__tech-section__heading">Built with</h4>
+      <ul className="project-details__modal__body__tech-section__list list-inline mx-auto">
+        {technologies.map((icon, i) => (
+          <li className="list-inline-item project-details__modal__body__skill" key={i}>
+            <Icon icon={icon.class} className="project-details__modal__body__skill__icon" />
+            <p className="text-center project-details__modal__body__skill__name">{icon.name}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 
   return (
@@ -121,20 +124,6 @@ const ProjectDetailsModal = ({
         <Col md={10}>
           <Modal.Title as="h3" id={titleId} className="project-details__modal__header__title">
             {title}
-            {url && (
-              <Link
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="project-details__modal__header__title__link"
-                aria-label={`Find out more about ${title}`}
-              >
-                <Icon
-                  icon="majesticons:open"
-                  className="project-details__modal__header__title__link__icon"
-                />
-              </Link>
-            )}
           </Modal.Title>
         </Col>
       </Modal.Header>
@@ -149,6 +138,18 @@ const ProjectDetailsModal = ({
           <Col md={10} className="mx-auto">
             {images.length > 0 && getImageSlides()}
             <p className="project-details__modal__body__description">{description}</p>
+            {url && (
+              <Link
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="project-details__modal__body__link-button"
+                aria-label={`Visit ${title} live site`}
+              >
+                <Icon icon="majesticons:open" aria-hidden="true" />
+                <span>Visit Live Site</span>
+              </Link>
+            )}
           </Col>
         </Col>
         <Col md={12} className="text-center">

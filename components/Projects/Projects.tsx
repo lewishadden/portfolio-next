@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Container, Row, Col, Stack, Card, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
 
 import { BasicInfo, Project } from '@/types';
@@ -9,6 +9,15 @@ import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
 
 import './Projects.scss';
+
+const MAX_DESCRIPTION_LENGTH = 100;
+const MAX_TECH_PREVIEW = 4;
+const STAGGER_DELAY = 0.1;
+
+const truncateDescription = (text: string, maxLength: number) => {
+  if (text.length <= maxLength) return text;
+  return `${text.substring(0, text.lastIndexOf(' ', maxLength))}…`;
+};
 
 export const Projects = ({
   projects,
@@ -33,56 +42,78 @@ export const Projects = ({
   };
 
   const ProjectCards = () =>
-    projects.map((project) => (
+    projects.map((project, index) => (
       <Col as="li" key={project.title} className="projects__item my-3 px-3">
-        <ScrollReveal animation="fadeIn">
+        <ScrollReveal animation="fadeInUp" delay={index * STAGGER_DELAY}>
           <Card
             as="button"
             type="button"
             text={project.theme.text}
-            className="projects__item__picture-card mx-auto"
+            className="projects__item__card mx-auto"
             onClick={() => showDetailsModal(project)}
             aria-label={`View details for ${project.title} project`}
           >
-            <Card.Body className="projects__item__picture-card__body">
-              <div className="projects__item__picture-card__icon-wrapper">
-                <Icon
-                  icon={project.thumbnail}
-                  className="projects__item__picture-card__thumbnail"
-                  aria-hidden="true"
-                />
-                <div className="projects__item__picture-card__icon-glow"></div>
+            <Card.Body className="projects__item__card__body">
+              <div className="projects__item__card__top">
+                <div className="projects__item__card__icon-wrapper">
+                  <Icon
+                    icon={project.thumbnail}
+                    className="projects__item__card__thumbnail"
+                    aria-hidden="true"
+                  />
+                  <div className="projects__item__card__icon-glow" />
+                </div>
+
+                <div className="projects__item__card__header">
+                  <Card.Title as="h3" className="projects__item__card__title font-trebuchet">
+                    {project.title}
+                  </Card.Title>
+
+                  <Badge
+                    className="projects__item__card__date"
+                    aria-label={`Started in ${project.startDate}`}
+                  >
+                    {project.startDate}
+                  </Badge>
+                </div>
               </div>
 
-              <Card.Title as="h3" className="projects__item__picture-card__title font-trebuchet">
-                {project.title}
-              </Card.Title>
+              <p className="projects__item__card__description">
+                {truncateDescription(project.description, MAX_DESCRIPTION_LENGTH)}
+              </p>
 
-              <Badge
-                className="projects__item__picture-card__date"
-                aria-label={`Started in ${project.startDate}`}
-              >
-                {project.startDate}
-              </Badge>
+              <div className="projects__item__card__tech" aria-label="Technologies used">
+                {project.technologies.slice(0, MAX_TECH_PREVIEW).map((tech) => (
+                  <span key={tech.name} className="projects__item__card__tech__pill">
+                    <Icon icon={tech.class} aria-hidden="true" />
+                    {tech.name}
+                  </span>
+                ))}
+                {project.technologies.length > MAX_TECH_PREVIEW && (
+                  <span className="projects__item__card__tech__pill projects__item__card__tech__pill--more">
+                    +{project.technologies.length - MAX_TECH_PREVIEW}
+                  </span>
+                )}
+              </div>
 
-              <div className="projects__item__picture-card__cta">
+              <div className="projects__item__card__cta">
+                <span>View Details</span>
                 <svg
-                  width="20"
-                  height="20"
+                  width="18"
+                  height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                   aria-hidden="true"
                 >
                   <path
-                    d="M13 9L16 12M16 12L13 15M16 12H8M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                    d="M5 12H19M19 12L13 6M19 12L13 18"
                     stroke="currentColor"
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 </svg>
-                <span>View Details</span>
               </div>
             </Card.Body>
           </Card>

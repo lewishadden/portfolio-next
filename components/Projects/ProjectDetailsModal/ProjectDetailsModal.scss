@@ -41,7 +41,7 @@
       transition: all 0.2s ease;
       filter: var(--bs-btn-close-white-filter, invert(1));
       opacity: 0.7;
-      
+
       [data-theme='light'] & {
         filter: none;
       }
@@ -71,38 +71,6 @@
 
       @media (min-width: 768px) {
         font-size: 2.25rem;
-      }
-
-      &__link {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        margin-left: 1rem;
-        border-radius: 10px;
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        transition: all 0.3s ease;
-
-        &:hover {
-          transform: translateY(-2px);
-          border-color: var(--accent-primary);
-          background: rgba(59, 130, 246, 0.1);
-        }
-
-        &__icon {
-          font-size: 1.5rem;
-
-          path {
-            stroke: var(--text-primary);
-            transition: stroke 0.3s ease;
-          }
-        }
-
-        &:hover &__icon path {
-          stroke: var(--accent-primary);
-        }
       }
     }
   }
@@ -145,16 +113,71 @@
     }
 
     &__description {
-      margin-bottom: 2.5rem;
-      font-size: 1.125rem;
-      line-height: 1.8;
+      margin-bottom: 2rem;
+      font-size: 1.0625rem;
+      line-height: 1.85;
       color: var(--text-secondary);
     }
 
+    // --- Live site link button ---
+    &__link-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(
+        135deg,
+        var(--accent-primary) 0%,
+        var(--accent-secondary) 100%
+      );
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      margin-bottom: 2rem;
+
+      svg {
+        font-size: 1.25rem;
+      }
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px var(--gradient-shadow);
+        color: #ffffff;
+        filter: brightness(1.1);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+
+    // --- Tech section ---
+    &__tech-section {
+      border-top: 1px solid var(--border-color);
+      padding-top: 2rem;
+      margin-top: 0.5rem;
+
+      &__heading {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--text-muted);
+        margin-bottom: 1.5rem;
+      }
+
+      &__list {
+        margin-bottom: 0;
+      }
+    }
+
     &__skill {
-      font-size: 3.5rem;
+      font-size: 3.25rem;
       transition: all 0.3s ease;
-      margin: 1rem;
+      margin: 0.75rem;
 
       &:hover {
         transform: scale(1.15);
@@ -165,7 +188,7 @@
       }
 
       &__name {
-        font-size: 0.9375rem;
+        font-size: 0.875rem;
         font-weight: 600;
         color: var(--text-secondary);
         margin-top: 0.5rem;
