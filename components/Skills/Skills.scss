@@ -1,12 +1,12 @@
 @use 'sass:color';
 
 .skills {
-  padding: 5rem 0;
+  padding: var(--padding-y-xlarge) 0;
 
   &__container {
-    max-width: 1170px;
+    max-width: var(--max-width);
     margin: 0 auto;
-    padding: 0 1.25rem;
+    padding: 0 var(--default-padding-x);
   }
 
   &__heading-wrapper {
@@ -41,7 +41,7 @@
     flex-direction: column;
     align-items: center;
     gap: 1.25rem;
-    padding-bottom: 2rem;
+    padding-bottom: var(--padding-y-large);
 
     @media (min-width: 768px) {
       gap: 1.5rem;
@@ -78,7 +78,7 @@
       width: 90px;
       height: 90px;
       border-radius: 16px;
-      padding: 0.75rem;
+      padding: var(--padding-y-xs) var(--padding-x-xs);
       cursor: default;
       transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow:

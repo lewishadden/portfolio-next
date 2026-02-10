@@ -1,10 +1,10 @@
 .about {
-  padding: 5rem 0;
+  padding: var(--padding-y-xlarge) 0;
 
   &__container {
-    max-width: 1100px;
+    max-width: var(--max-width);
     margin: 0 auto;
-    padding: 0 1.25rem;
+    padding: 0 var(--default-padding-x);
   }
 
   // ── Heading ──
@@ -94,7 +94,7 @@
 
     // ── Content ──
     &__content {
-      padding: 2rem 1.5rem;
+      padding: var(--padding-y-large) var(--padding-x-large);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -119,7 +119,7 @@
       font-size: 0.8125rem;
       font-weight: 600;
       color: #22c55e;
-      margin-bottom: 1.25rem;
+      margin-bottom: var(--default-padding-y);
       width: fit-content;
 
       [data-theme='light'] & {
@@ -145,7 +145,7 @@
       font-size: 1.75rem;
       font-weight: 700;
       line-height: 1.2;
-      margin-bottom: 1.25rem;
+      margin-bottom: var(--default-padding-y);
       color: var(--text-primary);
 
       @media (min-width: 768px) {
@@ -186,7 +186,7 @@
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.75rem 1.5rem;
+      padding: var(--padding-y-xs) var(--padding-x-md);
       font-weight: 600;
       font-size: 0.875rem;
       border-radius: 10px;

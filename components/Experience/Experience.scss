@@ -1,10 +1,10 @@
 .experience {
-  padding: 5rem 0;
+  padding: var(--padding-y-xlarge) 0;
 
   &__container {
-    max-width: 1170px;
+    max-width: var(--max-width);
     margin: 0 auto;
-    padding: 0 1.25rem;
+    padding: 0 var(--default-padding-x);
   }
 
   &__heading-wrapper {
@@ -42,7 +42,7 @@
           border-radius: 14px;
           background: var(--card-bg);
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-          padding: 1.5rem;
+          padding: var(--padding-y-md) var(--padding-x-md);
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
           [data-theme='light'] & {

@@ -2,7 +2,7 @@
   &__container {
     max-width: 1100px;
     margin: 0 auto;
-    padding: 0 1.25rem;
+    padding: 0 var(--default-padding-x);
   }
 
   &__heading-wrapper {
@@ -25,7 +25,7 @@
     font-weight: 700;
     color: var(--text-primary);
     letter-spacing: -0.5px;
-    margin: 0 0 0.75rem;
+    margin: 0 0 var(--padding-y-xs);
 
     @media (min-width: 768px) {
       font-size: 2.75rem;
@@ -60,7 +60,7 @@
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 20px;
-    padding: 2rem;
+    padding: var(--padding-y-large) var(--padding-x-large);
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -90,7 +90,7 @@
     font-size: 0.9375rem;
     color: var(--text-secondary);
     line-height: 1.6;
-    margin: 0 0 2rem;
+    margin: 0 0 var(--padding-y-large);
   }
 
   &__info-items {
@@ -109,7 +109,7 @@
     gap: 1rem;
     text-decoration: none;
     color: var(--text-primary);
-    padding: 0.75rem;
+    padding: var(--padding-y-xs) var(--padding-x-xs);
     border-radius: 14px;
     transition: background 0.25s ease;
 
@@ -162,13 +162,13 @@
   // ── Toast notification ──
   &__toast {
     max-width: 600px;
-    margin: 2rem auto 0;
+    margin: var(--padding-y-large) auto 0;
 
     &-content {
       display: flex;
       align-items: flex-start;
       gap: 1rem;
-      padding: 1.25rem 1.5rem;
+      padding: var(--default-padding-y) var(--padding-x-large);
       border-radius: 14px;
       border: 1px solid var(--border-color);
       background: var(--card-bg);

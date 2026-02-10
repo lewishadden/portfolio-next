@@ -1,10 +1,10 @@
 .projects {
-  padding: 5rem 0;
+  padding: var(--padding-y-xlarge) 0;
 
   &__container {
-    max-width: 1170px;
+    max-width: var(--max-width);
     margin: 0 auto;
-    padding: 0 1.25rem;
+    padding: 0 var(--default-padding-x);
   }
 
   &__heading-wrapper {
@@ -38,7 +38,7 @@
     display: grid !important;
     grid-template-columns: 1fr;
     gap: 1.5rem;
-    padding-bottom: 2rem;
+    padding-bottom: var(--padding-y-large);
 
     @media (min-width: 768px) {
       grid-template-columns: repeat(2, 1fr);
@@ -275,7 +275,7 @@
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
-        padding-top: 0.75rem;
+        padding-top: var(--padding-y-xs);
         border-top: 1px solid var(--border-color);
         margin-top: 0.25rem;
         color: var(--accent-primary);

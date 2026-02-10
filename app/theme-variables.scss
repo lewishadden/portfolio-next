@@ -1,4 +1,17 @@
 /* Theme Variables */
+:root {
+  --max-width: 1170px;
+  --default-padding-x: 1.25rem;
+  --default-padding-y: 1.25rem;
+  --padding-x-xs: 0.75rem;
+  --padding-y-xs: 0.75rem;
+  --padding-x-md: 1.5rem;
+  --padding-y-md: 1.5rem;
+  --padding-x-large: 2rem;
+  --padding-y-large: 2rem;
+  --padding-x-xlarge: 2.5rem;
+  --padding-y-xlarge: 2.5rem;
+}
 
 /* Dark Theme (Default) */
 [data-theme='dark'] {

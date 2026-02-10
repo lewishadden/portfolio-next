@@ -40,7 +40,7 @@ section {
   }
 
   &:last-child {
-    padding-bottom: 2rem;
+    padding-bottom: var(--padding-y-large);
   }
 }
 

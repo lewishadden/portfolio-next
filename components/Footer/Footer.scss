@@ -1,5 +1,5 @@
 .footer {
-  padding: 4rem 1.5rem 2rem;
+  padding: 4rem var(--padding-x-md) var(--padding-y-large) var(--padding-x-md);
   background: var(--bg-secondary);
 
   &__inner {
@@ -116,7 +116,7 @@
   &__divider {
     height: 1px;
     background: var(--border-color);
-    margin: 2.5rem 0 1.5rem;
+    margin: 2.5rem 0 var(--padding-y-md);
   }
 
   // ── Bottom bar ──

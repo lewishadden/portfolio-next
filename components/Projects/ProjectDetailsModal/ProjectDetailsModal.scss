@@ -43,8 +43,8 @@
 // ── Close button ──
 .project-details__close-btn {
   position: absolute;
-  top: 1.25rem;
-  right: 1.25rem;
+  top: var(--default-padding-y);
+  right: var(--default-padding-x);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -67,7 +67,7 @@
 
 .project-details__modal {
   &__header {
-    padding: 2rem 2rem 1.5rem;
+    padding: var(--padding-y-large) var(--padding-x-large) var(--padding-y-md);
     border-bottom: 1px solid var(--border-color);
     background: linear-gradient(
       135deg,
@@ -114,7 +114,7 @@
 
     &__image-container {
       padding-bottom: 3rem;
-      margin-bottom: 2rem;
+      margin-bottom: var(--padding-y-large);
 
       &__slider {
         max-height: 65vh;
@@ -164,7 +164,7 @@
     }
 
     &__description {
-      margin-bottom: 2rem;
+      margin-bottom: var(--padding-y-large);
       font-size: 1.0625rem;
       line-height: 1.85;
       color: var(--text-secondary);
@@ -175,7 +175,7 @@
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.75rem 1.5rem;
+      padding: var(--padding-y-xs) var(--padding-x-md);
       background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
       color: #ffffff;
       font-weight: 600;
@@ -183,7 +183,7 @@
       border-radius: 12px;
       text-decoration: none;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      margin-bottom: 2rem;
+      margin-bottom: var(--padding-y-large);
 
       svg {
         font-size: 1.25rem;
@@ -208,7 +208,7 @@
 
     &__tech-section {
       border-top: 1px solid var(--border-color);
-      padding-top: 2rem;
+      padding-top: var(--padding-y-large);
       margin-top: 0.5rem;
 
       &__heading {
@@ -217,7 +217,7 @@
         text-transform: uppercase;
         letter-spacing: 2px;
         color: var(--text-muted);
-        margin-bottom: 1.5rem;
+        margin-bottom: var(--padding-y-md);
       }
 
       &__list {
@@ -234,7 +234,7 @@
     &__skill {
       font-size: 3.25rem;
       transition: all 0.3s ease;
-      margin: 0.75rem;
+      margin: var(--padding-y-xs) var(--padding-x-xs);
       display: inline-flex;
       flex-direction: column;
       align-items: center;
