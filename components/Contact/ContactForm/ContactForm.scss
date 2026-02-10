@@ -1,8 +1,6 @@
-.contact__form-wrapper {
-  min-width: 0;
-}
-
 .contact-form {
+  height: 100%;
+  justify-content: space-evenly;
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 20px;

@@ -47,6 +47,18 @@
         "class": "clarity:phone-handset-solid",
         "value": "+447714512514",
         "link": "tel:+447714512514"
+      },
+      {
+        "name": "LinkedIn",
+        "class": "mdi:linkedin",
+        "value": "@lewishadden",
+        "link": "https://www.linkedin.com/in/lewishadden/"
+      },
+      {
+        "name": "GitHub",
+        "class": "mdi:github",
+        "value": "@lewishadden",
+        "link": "https://github.com/lewishadden"
       }
     ],
     "cv": {
