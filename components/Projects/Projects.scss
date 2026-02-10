@@ -40,15 +40,28 @@
   }
 
   &__list {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
     padding-bottom: 2rem;
+
+    @media (min-width: 768px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (min-width: 1200px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
   }
 
   &__item {
-    height: 100%;
+    display: flex;
 
     &__card {
       width: 100%;
-      height: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
       background-color: var(--card-bg);
       border: 1px solid var(--border-color);
       border-radius: 20px;
@@ -124,7 +137,7 @@
       &__body {
         display: flex;
         flex-direction: column;
-        height: 100%;
+        flex: 1;
         padding: 1.75rem;
         position: relative;
         z-index: 1;

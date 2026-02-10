@@ -43,13 +43,13 @@ export const Projects = ({
 
   const ProjectCards = () =>
     projects.map((project, index) => (
-      <Col as="li" key={project.title} className="projects__item my-3 px-3">
-        <ScrollReveal animation="fadeInUp" delay={index * STAGGER_DELAY}>
+      <li key={project.title} className="projects__item">
+        <ScrollReveal animation="fadeInUp" delay={index * STAGGER_DELAY} style={{ flex: 1, display: 'flex' }}>
           <Card
             as="button"
             type="button"
             text={project.theme.text}
-            className="projects__item__card mx-auto"
+            className="projects__item__card"
             onClick={() => showDetailsModal(project)}
             aria-label={`View details for ${project.title} project`}
           >
@@ -118,7 +118,7 @@ export const Projects = ({
             </Card.Body>
           </Card>
         </ScrollReveal>
-      </Col>
+      </li>
     ));
 
   return (
@@ -134,18 +134,12 @@ export const Projects = ({
             </div>
           </Col>
         </Row>
-        <Row
-          as="ul"
-          xs={1}
-          sm={1}
-          md={2}
-          lg={2}
-          xl={3}
-          className="projects__list center list-unstyled"
+        <ul
+          className="projects__list list-unstyled"
           aria-label="Project portfolio"
         >
           {projects.length > 0 && <ProjectCards />}
-        </Row>
+        </ul>
         {deps && (
           <ProjectDetailsModal show={detailsModalShow} onHide={detailsModalClose} data={deps} />
         )}
