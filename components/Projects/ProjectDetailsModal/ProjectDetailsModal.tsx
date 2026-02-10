@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -26,11 +26,32 @@ const ProjectDetailsModal = ({
   show: boolean;
   onHide: () => void;
 }) => {
-  const [paddingHeight, setPaddingHeight] = useState(100);
+  const MAX_SLIDER_HEIGHT_PERCENT = 56;
+  const [paddingHeight, setPaddingHeight] = useState(MAX_SLIDER_HEIGHT_PERCENT);
   const { technologies, images, title, description, url } = data;
   const titleId = `project-details-modal-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const sliderRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollModalToTop = useCallback(() => {
+    const scrollModal = () => {
+      document
+        .querySelectorAll('.project-details__modal, .project-details__modal .modal-body')
+        .forEach((el) => {
+          el.scrollTop = 0;
+        });
+    };
+    scrollModal();
+    requestAnimationFrame(scrollModal);
+    setTimeout(scrollModal, 50);
+    setTimeout(scrollModal, 150);
+  }, []);
+
+  useEffect(() => {
+    if (show) {
+      scrollModalToTop();
+    }
+  }, [show, scrollModalToTop]);
 
   const imageRefs = Array.from(images, () => useRef(null));
 
@@ -60,7 +81,10 @@ const ProjectDetailsModal = ({
           const nextImg = imageRefs[ref.nextIndex].current as unknown as HTMLImageElement;
           const { offsetWidth, offsetHeight }: { offsetWidth: number; offsetHeight: number } =
             nextImg;
-          const newPaddingHeight = (offsetHeight / offsetWidth) * 100;
+          const newPaddingHeight = Math.min(
+            (offsetHeight / offsetWidth) * 100,
+            MAX_SLIDER_HEIGHT_PERCENT
+          );
           setPaddingHeight(newPaddingHeight);
         }}
       >
@@ -79,7 +103,10 @@ const ProjectDetailsModal = ({
               onLoad={(e) => {
                 const { offsetWidth, offsetHeight }: { offsetWidth: number; offsetHeight: number } =
                   e.target as HTMLImageElement;
-                const newPaddingHeight = (offsetHeight / offsetWidth) * 100;
+                const newPaddingHeight = Math.min(
+                  (offsetHeight / offsetWidth) * 100,
+                  MAX_SLIDER_HEIGHT_PERCENT
+                );
                 setPaddingHeight(newPaddingHeight);
               }}
             />
@@ -116,6 +143,7 @@ const ProjectDetailsModal = ({
       autoFocus
       enforceFocus
       onEntered={() => {
+        scrollModalToTop();
         modalBodyRef.current?.focus();
       }}
     >
