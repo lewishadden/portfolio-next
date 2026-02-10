@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Row, Col, Form, Button, Spinner } from 'react-bootstrap';
 import { Formik } from 'formik';
 import { object, string } from 'yup';
 import { Icon } from '@iconify/react';
@@ -50,7 +49,7 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
   };
 
   return (
-    <Col md={12} lg={8}>
+    <div className="contact__form-wrapper">
       <Formik
         validationSchema={formSchema}
         onSubmit={handleSubmit}
@@ -62,103 +61,98 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
         }}
       >
         {({ handleSubmit: formikSubmit, handleChange, values, errors }) => (
-          <Form noValidate onSubmit={formikSubmit} className="contact__body__form">
-            <Row className="g-3">
-              <Col sm={12} md={6}>
-                <Form.Group controlId="formFirstName">
-                  <Form.Label>First Name</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="First Name *"
-                    name="firstName"
-                    value={values.firstName}
-                    onChange={handleChange}
-                    isInvalid={!!errors.firstName}
-                    autoComplete="given-name"
+          <form noValidate onSubmit={formikSubmit} className="contact-form">
+            <div className="contact-form__row">
+              <div className="contact-form__field">
+                <label htmlFor="formFirstName" className="contact-form__label">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  id="formFirstName"
+                  className={`contact-form__input${errors.firstName ? ' contact-form__input--invalid' : ''}`}
+                  placeholder="First Name *"
+                  name="firstName"
+                  value={values.firstName}
+                  onChange={handleChange}
+                  autoComplete="given-name"
+                />
+                {errors.firstName && (
+                  <span className="contact-form__error">{errors.firstName}</span>
+                )}
+              </div>
+              <div className="contact-form__field">
+                <label htmlFor="formLastName" className="contact-form__label">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  id="formLastName"
+                  className={`contact-form__input${errors.lastName ? ' contact-form__input--invalid' : ''}`}
+                  placeholder="Last Name *"
+                  name="lastName"
+                  value={values.lastName}
+                  onChange={handleChange}
+                  autoComplete="family-name"
+                />
+                {errors.lastName && <span className="contact-form__error">{errors.lastName}</span>}
+              </div>
+            </div>
+
+            <div className="contact-form__field">
+              <label htmlFor="formEmail" className="contact-form__label">
+                Email address
+              </label>
+              <input
+                type="email"
+                id="formEmail"
+                className={`contact-form__input${errors.email ? ' contact-form__input--invalid' : ''}`}
+                placeholder="Email *"
+                name="email"
+                value={values.email}
+                onChange={handleChange}
+                autoComplete="email"
+              />
+              {errors.email && <span className="contact-form__error">{errors.email}</span>}
+            </div>
+
+            <div className="contact-form__field">
+              <label htmlFor="formMessage" className="contact-form__label">
+                Message
+              </label>
+              <textarea
+                id="formMessage"
+                className={`contact-form__input contact-form__textarea${errors.message ? ' contact-form__input--invalid' : ''}`}
+                rows={4}
+                placeholder="Your message *"
+                name="message"
+                value={values.message}
+                onChange={handleChange}
+              />
+              {errors.message && <span className="contact-form__error">{errors.message}</span>}
+            </div>
+
+            <button type="submit" disabled={loading} className="contact-form__submit">
+              {loading ? (
+                <>
+                  <span className="contact-form__spinner" aria-hidden="true" />
+                  <span>{contact.submitting.text}</span>
+                </>
+              ) : (
+                <>
+                  <Icon
+                    icon={contact.send.icon}
+                    className="contact-form__submit-icon"
+                    aria-hidden="true"
                   />
-                  <Form.Control.Feedback type="invalid">{errors.firstName}</Form.Control.Feedback>
-                </Form.Group>
-              </Col>
-              <Col sm={12} md={6}>
-                <Form.Group controlId="formLasttName">
-                  <Form.Label>Last Name</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="Last Name *"
-                    name="lastName"
-                    value={values.lastName}
-                    onChange={handleChange}
-                    isInvalid={!!errors.lastName}
-                    autoComplete="family-name"
-                  />
-                  <Form.Control.Feedback type="invalid">{errors.lastName}</Form.Control.Feedback>
-                </Form.Group>
-              </Col>
-              <Col md={12}>
-                <Form.Group controlId="formEmail">
-                  <Form.Label>Email address</Form.Label>
-                  <Form.Control
-                    type="email"
-                    placeholder="Email *"
-                    name="email"
-                    value={values.email}
-                    onChange={handleChange}
-                    isInvalid={!!errors.email}
-                    autoComplete="email"
-                  />
-                  <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
-                </Form.Group>
-              </Col>
-              <Col md={12}>
-                <Form.Group controlId="formMessage">
-                  <Form.Label>Message</Form.Label>
-                  <Form.Control
-                    as="textarea"
-                    rows={4}
-                    placeholder="Your message *"
-                    name="message"
-                    value={values.message}
-                    onChange={handleChange}
-                    isInvalid={!!errors.message}
-                  />
-                  <Form.Control.Feedback type="invalid">{errors.message}</Form.Control.Feedback>
-                </Form.Group>
-              </Col>
-              <Col sm={12} md={6} className="mt-4">
-                <Button
-                  variant="primary"
-                  type="submit"
-                  disabled={loading}
-                  className="contact__body__form__submit-btn center"
-                  size="lg"
-                >
-                  {loading ? (
-                    <>
-                      <Spinner
-                        as="span"
-                        animation="border"
-                        className="contact__body__form__submit-btn__loading-spinner me-2"
-                        role="status"
-                        aria-hidden="true"
-                      />
-                      <strong className="ms-2">{contact.submitting.text}</strong>
-                    </>
-                  ) : (
-                    <>
-                      <Icon
-                        icon={contact.send.icon}
-                        className="contact__body__form__submit-btn__icon me-2"
-                      />
-                      <strong className="ms-2">{contact.send.text}</strong>
-                    </>
-                  )}
-                </Button>
-              </Col>
-            </Row>
-          </Form>
+                  <span>{contact.send.text}</span>
+                </>
+              )}
+            </button>
+          </form>
         )}
       </Formik>
-    </Col>
+    </div>
   );
 };
 
