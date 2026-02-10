@@ -11,8 +11,8 @@
     "url": "git@github.com:lewishadden/portfolio-next.git"
   },
   "engines": {
-    "node": "20.18.0",
-    "npm": "10.9.1"
+    "node": "25.4.0",
+    "npm": "11.9.0"
   },
   "scripts": {
     "dev": "next dev",

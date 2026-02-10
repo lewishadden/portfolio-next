@@ -3,6 +3,10 @@
   "description": "Portfolio api",
   "type": "module",
   "version": "1.0.0",
+  "engines": {
+    "node": "25.4.0",
+    "npm": "11.9.0"
+  },
   "scripts": {
     "deploy:serverless": "doctl sls deploy serverless",
     "invoke:serverless:sendmail": "doctl serverless function invoke --full -P serverless/packages/v1/sendmail/__test/testParams.json v1/sendmail"
