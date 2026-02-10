@@ -44,7 +44,11 @@ export const Projects = ({
   const ProjectCards = () =>
     projects.map((project, index) => (
       <li key={project.title} className="projects__item">
-        <ScrollReveal animation="fadeInUp" delay={index * STAGGER_DELAY} style={{ flex: 1, display: 'flex' }}>
+        <ScrollReveal
+          animation="fadeInUp"
+          delay={index * STAGGER_DELAY}
+          style={{ flex: 1, display: 'flex' }}
+        >
           <Card
             as="button"
             type="button"
@@ -134,10 +138,7 @@ export const Projects = ({
             </div>
           </Col>
         </Row>
-        <ul
-          className="projects__list list-unstyled"
-          aria-label="Project portfolio"
-        >
+        <ul className="projects__list list-unstyled" aria-label="Project portfolio">
           {projects.length > 0 && <ProjectCards />}
         </ul>
         {deps && (
