@@ -1,6 +1,8 @@
 import 'bootstrap/scss/bootstrap.scss';
 import './globals.scss';
 import './theme-variables.scss';
+import { GoogleTagManager } from '@next/third-parties/google';
+
 import { Layout } from 'components/Layout/Layout';
 import { ThemeProvider } from 'contexts/ThemeContext';
 import { ThemeScript } from 'components/ThemeScript/ThemeScript';
@@ -262,6 +264,7 @@ export default function RootLayout({ children }: { children: any }) {
         </ThemeProvider>
         <JsonLd />
       </body>
+      <GoogleTagManager gtmId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
     </html>
   );
 }
