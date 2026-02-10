@@ -79,8 +79,8 @@ export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {
             &copy; {new Date().getFullYear()} {name}
           </p>
           <p className="footer__built">
-            Built with{' '}
-            <Icon icon="mdi:heart" className="footer__heart" aria-hidden="true" /> &amp; Next.js
+            Built with <Icon icon="mdi:heart" className="footer__heart" aria-hidden="true" /> &amp;
+            Next.js
           </p>
         </div>
       </div>
