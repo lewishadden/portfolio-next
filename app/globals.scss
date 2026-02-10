@@ -7,7 +7,7 @@ html {
   scroll-behavior: smooth;
 }
 
-section[id] {
+:root[data-header-pinned='true'] section[id] {
   scroll-margin-top: var(--scroll-offset);
 }
 
