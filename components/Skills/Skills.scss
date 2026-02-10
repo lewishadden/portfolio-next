@@ -77,11 +77,7 @@
         gap: 0.5rem;
       }
       background:
-        radial-gradient(
-          ellipse at 30% 0%,
-          rgba(99, 102, 241, 0.08) 0%,
-          transparent 60%
-        ),
+        radial-gradient(ellipse at 30% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
         var(--card-bg);
       border: 1px solid var(--border-color);
       width: 90px;
@@ -114,11 +110,7 @@
 
       [data-theme='light'] & {
         background:
-          radial-gradient(
-            ellipse at 30% 0%,
-            rgba(59, 130, 246, 0.06) 0%,
-            transparent 60%
-          ),
+          radial-gradient(ellipse at 30% 0%, rgba(59, 130, 246, 0.06) 0%, transparent 60%),
           var(--card-bg);
         box-shadow:
           0 2px 8px rgba(15, 23, 42, 0.05),
@@ -199,11 +191,7 @@
         transform: translate(-50%, -50%);
         width: 60px;
         height: 60px;
-        background: radial-gradient(
-          circle,
-          var(--gradient-shadow) 0%,
-          transparent 70%
-        );
+        background: radial-gradient(circle, var(--gradient-shadow) 0%, transparent 70%);
         opacity: 0.3;
         transition: all 0.35s ease;
         z-index: 0;
