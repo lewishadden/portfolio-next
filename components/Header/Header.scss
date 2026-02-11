@@ -50,7 +50,7 @@
     height: 2rem;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-    color: #ffffff;
+    color: #fff;
     font-weight: 700;
     font-size: 0.6875rem;
     letter-spacing: 0.5px;
@@ -60,7 +60,7 @@
 
     &:hover {
       transform: scale(1.08);
-      color: #ffffff;
+      color: #fff;
     }
   }
 
@@ -93,7 +93,7 @@
     }
 
     &:hover {
-      color: #ffffff;
+      color: #fff;
       background: rgba(255, 255, 255, 0.1);
 
       [data-theme='light'] & {
@@ -246,7 +246,7 @@
     }
 
     &:hover {
-      color: #ffffff;
+      color: #fff;
       background: rgba(255, 255, 255, 0.08);
 
       [data-theme='light'] & {

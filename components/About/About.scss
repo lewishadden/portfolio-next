@@ -200,13 +200,13 @@
 
       &--primary {
         background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-        color: #ffffff;
+        color: #fff;
         box-shadow: 0 4px 14px rgba(59, 130, 246, 0.25);
 
         &:hover {
           transform: translateY(-2px);
           box-shadow: 0 8px 22px rgba(59, 130, 246, 0.35);
-          color: #ffffff;
+          color: #fff;
 
           svg {
             transform: translateY(2px);
