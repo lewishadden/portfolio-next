@@ -8,9 +8,12 @@ This is a **Next.js 16** portfolio website using **Static Site Generation (SSG)*
 
 - **Framework:** Next.js 16 (App Router, SSG via `next build` + static export)
 - **Language:** TypeScript
-- **UI Libraries:** React Bootstrap, Mantine
+- **UI Libraries:** Mantine
 - **Styling:** SCSS (BEM naming convention), CSS Modules (for select components)
 - **Icons:** `@iconify/react`
+- **Forms:** Formik + Yup
+- **Animations:** animate.css, react-type-animation
+- **Other:** react-awesome-slider, react-vertical-timeline-component
 - **Testing:** Jest + React Testing Library
 - **Linting:** ESLint, Stylelint, Prettier
 - **Package Manager:** npm
@@ -56,7 +59,7 @@ docs/             # Documentation (accessibility, SEO, etc.)
 ### TypeScript Types
 
 - All shared types are in `types/index.d.ts`
-- Key interfaces: `ResumeData`, `BasicInfo`, `Project`, `Experience`, `ExperienceItem`, `Skills`, `Contact`, `Technology`, `Social`, `ContactInfo`, `SectionName`
+- Key interfaces: `ResumeData`, `BasicInfo`, `Project`, `Theme`, `Experience`, `ExperienceItem`, `Skills`, `Icon`, `Contact`, `Technology`, `Social`, `ContactInfo`, `SectionName`
 - Use `@/types` path alias form for imports
 
 ### Data Flow
@@ -67,8 +70,11 @@ docs/             # Documentation (accessibility, SEO, etc.)
 
 ### Path Aliases
 
-- `@/` maps to the project root (configured in `tsconfig.json`)
-- `components/`, `icons/`, `utils/`, `contexts/`, `config/`, `types/` can be imported directly
+- `@/*` maps to the project root (configured in `tsconfig.json`)
+- `components/*`, `utils/*`, `contexts/*` — directory aliases
+- `config` — maps directly to `./config/config.ts`
+- `icons` — maps directly to `./icons`
+- `scss/*` — maps to `./scss/*`
 
 ## Commands
 
