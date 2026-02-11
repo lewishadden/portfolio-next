@@ -35,7 +35,6 @@
     "@iconify/react": "^6.0.2",
     "@mantine/core": "^8.3.13",
     "@mantine/hooks": "^8.3.13",
-    "@next/third-parties": "^16.1.6",
     "animate.css": "^4.1.1",
     "formik": "^2.4.9",
     "next": "^16.1.6",

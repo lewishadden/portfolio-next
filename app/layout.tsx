@@ -1,6 +1,6 @@
 import './globals.scss';
 import './theme-variables.scss';
-import { GoogleTagManager } from '@next/third-parties/google';
+import { GoogleTagManagerDeferred } from 'components/GoogleTagManagerDeferred/GoogleTagManagerDeferred';
 
 import { Layout } from 'components/Layout/Layout';
 import { ThemeProvider } from 'contexts/ThemeContext';
@@ -256,8 +256,8 @@ export default function RootLayout({ children }: { children: any }) {
           <Layout>{children}</Layout>
         </ThemeProvider>
         <JsonLd />
+        <GoogleTagManagerDeferred gtmId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
       </body>
-      <GoogleTagManager gtmId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
     </html>
   );
 }
