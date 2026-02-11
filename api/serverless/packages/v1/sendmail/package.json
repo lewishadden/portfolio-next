@@ -4,17 +4,21 @@
   "description": "Serverless email sender",
   "type": "module",
   "version": "1.0.0",
+  "engines": {
+    "node": "25.4.0",
+    "npm": "11.9.0"
+  },
   "scripts": {
     "build": "rollup --config"
   },
   "dependencies": {
-    "nodemailer": "^6.9.9"
+    "nodemailer": "^8.0.1"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^29.0.0",
     "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
-    "rollup": "^4.9.6",
-    "rollup-plugin-commonjs": "^10.1.0",
-    "rollup-plugin-node-resolve": "^5.2.0"
+    "rollup": "^4.57.1"
   }
 }

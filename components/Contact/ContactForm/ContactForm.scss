@@ -1,33 +1,59 @@
-.contact__body__form {
+.contact-form {
+  height: 100%;
+  justify-content: space-evenly;
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 20px;
-  padding: 2.5rem;
+  padding: var(--padding-y-large) var(--padding-x-large);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
   box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.1),
-    0 2px 8px rgba(0, 0, 0, 0.06);
+    0 4px 20px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
 
   [data-theme='light'] & {
     box-shadow:
-      0 10px 40px rgba(15, 23, 42, 0.08),
-      0 2px 8px rgba(15, 23, 42, 0.04);
+      0 4px 20px rgba(15, 23, 42, 0.06),
+      0 1px 4px rgba(15, 23, 42, 0.03);
   }
 
-  .form-label {
+  @media (min-width: 992px) {
+    padding: 2.5rem;
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+
+    @media (min-width: 576px) {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__label {
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: 0.5rem;
     font-size: 0.9375rem;
   }
 
-  .form-control {
+  &__input {
     background-color: var(--bg-tertiary);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
     padding: 0.875rem 1rem;
     border-radius: 12px;
     font-size: 1rem;
-    transition: all 0.3s ease;
+    font-family: inherit;
+    transition: all 0.25s ease;
+    width: 100%;
 
     &::placeholder {
       color: var(--text-muted);
@@ -41,56 +67,48 @@
       outline: none;
     }
 
-    &.is-invalid {
-      border-color: #dc3545;
+    &--invalid {
+      border-color: #ef4444;
 
       &:focus {
-        box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
       }
     }
   }
 
-  textarea.form-control {
+  &__textarea {
     resize: vertical;
-    min-height: 120px;
+    min-height: 130px;
   }
 
-  .invalid-feedback {
-    font-size: 0.875rem;
+  &__error {
+    font-size: 0.8125rem;
+    color: #ef4444;
     margin-top: 0.375rem;
   }
 
-  &__submit-btn {
-    width: 100%;
+  &__submit {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 1rem 2rem;
+    gap: 0.625rem;
+    padding: 0.875rem var(--padding-x-large);
     background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
-    color: #ffffff !important;
+    color: #fff;
     font-weight: 600;
-    font-size: 1.0625rem;
+    font-size: 1rem;
+    font-family: inherit;
     border: none;
     border-radius: 12px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
-
-    [data-theme='light'] & {
-      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25);
-    }
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+    align-self: flex-start;
+    margin-top: 0.5rem;
 
     &:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
-
-      [data-theme='light'] & {
-        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35);
-      }
-
-      .contact__body__form__submit-btn__icon {
-        transform: translateX(2px);
-      }
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
     }
 
     &:active:not(:disabled) {
@@ -102,19 +120,29 @@
       cursor: not-allowed;
     }
 
-    &__icon {
-      font-size: 1.5rem;
-      transition: transform 0.3s ease;
+    &-icon {
+      font-size: 1.25rem;
+      transition: transform 0.25s ease;
     }
 
-    &__loading-spinner {
-      width: 1.25rem;
-      height: 1.25rem;
-      border-width: 2px;
+    &:hover:not(:disabled) &-icon {
+      transform: translateX(2px);
     }
+  }
 
-    strong {
-      font-size: 1rem;
-    }
+  &__spinner {
+    display: inline-block;
+    width: 1.125rem;
+    height: 1.125rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: contact-spin 0.6s linear infinite;
+  }
+}
+
+@keyframes contact-spin {
+  to {
+    transform: rotate(360deg);
   }
 }

@@ -1,7 +1,6 @@
-import 'bootstrap/scss/bootstrap.scss';
 import './globals.scss';
 import './theme-variables.scss';
-import { GoogleTagManager } from '@next/third-parties/google';
+import { GoogleTagManagerDeferred } from 'components/GoogleTagManagerDeferred/GoogleTagManagerDeferred';
 
 import { Layout } from 'components/Layout/Layout';
 import { ThemeProvider } from 'contexts/ThemeContext';
@@ -231,22 +230,14 @@ function JsonLd() {
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(personSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(profilePageSchema) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            personSchema,
+            websiteSchema,
+            breadcrumbSchema,
+            profilePageSchema,
+          ]),
+        }}
       />
     </>
   );
@@ -257,14 +248,16 @@ export default function RootLayout({ children }: { children: any }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <ThemeScript />
+        <link rel="dns-prefetch" href="https://api.iconify.design" />
+        <link rel="preconnect" href="https://api.iconify.design" crossOrigin="anonymous" />
       </head>
       <body data-theme="dark" data-bs-theme="dark" suppressHydrationWarning>
         <ThemeProvider>
           <Layout>{children}</Layout>
         </ThemeProvider>
         <JsonLd />
+        <GoogleTagManagerDeferred gtmId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
       </body>
-      <GoogleTagManager gtmId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
     </html>
   );
 }

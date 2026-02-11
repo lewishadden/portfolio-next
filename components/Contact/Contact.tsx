@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Container, Row, Col, Toast } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
 
 import { BasicInfo, Contact as ContactType } from '@/types';
@@ -18,66 +17,51 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
   const { sectionName, contactInfo } = basicInfo;
   const headingText = sectionName.contact;
 
-  const ContactBadges = () =>
-    contactInfo.map((info, i) => (
-      <Col as="li" md="auto" className="contact__body__personal-info__item d-flex" key={i}>
-        <Link
-          href={info.link}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`Contact me at ${info.link}`}
-        >
-          <div className="contact__body__personal-info__item__icon-badge rounded-circle me-4">
-            <Icon
-              icon={info.class}
-              className="contact__body__personal-info__item__icon-badge__icon"
-              aria-hidden="true"
-            />
-          </div>
-        </Link>
-
-        <div className="contact__body__personal-info__item__details">
-          <div className="contact__body__personal-info__item__details__name">{info.name}</div>
-          <div className="contact__body__personal-info__item__details__text">
-            <Link
-              href={info.link}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={`Contact me via ${info.value}`}
-            >
-              {info.value}
-            </Link>
-          </div>
-        </div>
-      </Col>
-    ));
-
   return (
     <section id="contact" className="contact" aria-labelledby="contact-heading">
-      <Container>
-        <Row>
-          <Col md={12}>
-            <div className="contact__heading-wrapper">
-              <h2 id="contact-heading" className="contact__heading">
-                {headingText}
-              </h2>
-              <div className="contact__heading-underline"></div>
-              <p className="contact__tagline">
-                Let's work together on your next project
+      <div className="contact__container">
+        <div className="contact__heading-wrapper">
+          <span className="contact__label">Let&rsquo;s connect</span>
+          <h2 id="contact-heading" className="contact__heading">
+            {headingText}
+          </h2>
+          <p className="contact__tagline">Let&rsquo;s work together on your next project</p>
+        </div>
+
+        <div className={`contact__body${submitted ? ' contact__body--submitted' : ''}`}>
+          <div className="contact__info">
+            <div className="contact__info-card">
+              <h3 className="contact__info-title">Get in touch</h3>
+              <p className="contact__info-description">
+                Feel free to reach out. I&rsquo;m always open to discussing new projects and
+                opportunities.
               </p>
-            </div>
-          </Col>
-        </Row>
-        <Row className={`contact__body g-5${submitted ? ' form-submitted' : ''}`}>
-          <Col md={12} lg={submitted ? { span: 8, offset: 4 } : 4} className="mx-auto">
-            <div className="contact__body__personal-info__wrapper">
-              <address className="contact__body__personal-info__address m-0">
-                <Row as="ul" className="contact__body__personal-info gy-4 list-unstyled">
-                  <ContactBadges />
-                </Row>
+              <address className="contact__info-list">
+                <ul className="contact__info-items">
+                  {contactInfo.map((info, i) => (
+                    <li className="contact__info-item" key={i}>
+                      <Link
+                        href={info.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="contact__info-link"
+                        aria-label={`Contact me via ${info.value}`}
+                      >
+                        <span className="contact__info-icon">
+                          <Icon icon={info.class} aria-hidden="true" />
+                        </span>
+                        <span className="contact__info-detail">
+                          <span className="contact__info-label">{info.name}</span>
+                          <span className="contact__info-value">{info.value}</span>
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </address>
             </div>
-          </Col>
+          </div>
+
           {!submitted && (
             <ContactForm
               contact={contact}
@@ -92,29 +76,39 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
               }}
             />
           )}
-          <Col md={12} lg={{ span: 8, offset: 4 }} className="my-0 mx-auto">
-            <div role="status" aria-live="polite" aria-atomic="true" className="position-relative">
-              <Toast
-                className="contact__body__submitted-toast text-center mt-5"
-                show={showToast}
-                animation
-                onClose={() => {
+        </div>
+
+        {showToast && (
+          <div
+            className={`contact__toast contact__toast--${error ? 'error' : 'success'}`}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="contact__toast-content">
+              <Icon
+                icon={error ? 'mdi:alert-circle' : 'mdi:check-circle'}
+                className="contact__toast-icon"
+                aria-hidden="true"
+              />
+              <div className="contact__toast-text">
+                <strong>{error ? contact.error.headerText : contact.success.headerText}</strong>
+                <p>{error ? contact.error.bodyText : contact.success.bodyText}</p>
+              </div>
+              <button
+                className="contact__toast-close"
+                onClick={() => {
                   setError(false);
                   setShowToast(false);
                 }}
-                bg={error ? contact.error.status : contact.success.status}
+                aria-label="Close notification"
+                type="button"
               >
-                <Toast.Header>
-                  <strong className="mx-auto">
-                    {error ? contact.error.headerText : contact.success.headerText}
-                  </strong>
-                </Toast.Header>
-                <Toast.Body>{error ? contact.error.bodyText : contact.success.bodyText}</Toast.Body>
-              </Toast>
+                <Icon icon="mdi:close" aria-hidden="true" />
+              </button>
             </div>
-          </Col>
-        </Row>
-      </Container>
+          </div>
+        )}
+      </div>
     </section>
   );
 };

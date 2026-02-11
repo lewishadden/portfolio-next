@@ -1,3 +1,61 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+img,
+picture,
+video,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+address {
+  font-style: normal;
+}
+
 /* Global accessibility styles */
 :root {
   --scroll-offset: 80px;
@@ -7,7 +65,7 @@ html {
   scroll-behavior: smooth;
 }
 
-section[id] {
+:root[data-header-pinned='true'] section[id] {
   scroll-margin-top: var(--scroll-offset);
 }
 
@@ -81,4 +139,14 @@ select:focus-visible,
   overflow: visible;
   clip: auto;
   white-space: normal;
+}
+
+/* Skip layout/paint for below-fold sections until they scroll near viewport */
+#about,
+#experience,
+#projects,
+#skills,
+#contact {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
 }

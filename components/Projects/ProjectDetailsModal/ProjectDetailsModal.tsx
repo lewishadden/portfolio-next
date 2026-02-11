@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { Col, Modal } from 'react-bootstrap';
 import { Icon } from '@iconify/react';
 import ExportedImage from 'next-image-export-optimizer';
 
@@ -26,11 +25,56 @@ const ProjectDetailsModal = ({
   show: boolean;
   onHide: () => void;
 }) => {
-  const [paddingHeight, setPaddingHeight] = useState(100);
+  const maxSliderHeightPercent = 56;
+  const [paddingHeight, setPaddingHeight] = useState(maxSliderHeightPercent);
   const { technologies, images, title, description, url } = data;
   const titleId = `project-details-modal-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const sliderRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollModalToTop = useCallback(() => {
+    const scrollModal = () => {
+      modalBodyRef.current?.scrollTo(0, 0);
+    };
+    scrollModal();
+    requestAnimationFrame(scrollModal);
+    setTimeout(scrollModal, 50);
+    setTimeout(scrollModal, 150);
+  }, []);
+
+  // Lock body scroll when open
+  useEffect(() => {
+    if (show) {
+      document.body.style.overflow = 'hidden';
+      scrollModalToTop();
+      // Focus the dialog
+      setTimeout(() => dialogRef.current?.focus(), 50);
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [show, scrollModalToTop]);
+
+  // Close on Escape
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') onHide();
+  };
+
+  // Close on backdrop click
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) onHide();
+  };
+
+  // Close on backdrop keyboard
+  const handleBackdropKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onHide();
+    }
+  };
 
   const imageRefs = Array.from(images, () => useRef(null));
 
@@ -50,6 +94,7 @@ const ProjectDetailsModal = ({
     <div
       className="project-details__modal__body__image-container"
       ref={sliderRef}
+      role="group"
       aria-label="Project image carousel"
     >
       <AwesomeSlider
@@ -60,7 +105,10 @@ const ProjectDetailsModal = ({
           const nextImg = imageRefs[ref.nextIndex].current as unknown as HTMLImageElement;
           const { offsetWidth, offsetHeight }: { offsetWidth: number; offsetHeight: number } =
             nextImg;
-          const newPaddingHeight = (offsetHeight / offsetWidth) * 100;
+          const newPaddingHeight = Math.min(
+            (offsetHeight / offsetWidth) * 100,
+            maxSliderHeightPercent
+          );
           setPaddingHeight(newPaddingHeight);
         }}
       >
@@ -79,7 +127,10 @@ const ProjectDetailsModal = ({
               onLoad={(e) => {
                 const { offsetWidth, offsetHeight }: { offsetWidth: number; offsetHeight: number } =
                   e.target as HTMLImageElement;
-                const newPaddingHeight = (offsetHeight / offsetWidth) * 100;
+                const newPaddingHeight = Math.min(
+                  (offsetHeight / offsetWidth) * 100,
+                  maxSliderHeightPercent
+                );
                 setPaddingHeight(newPaddingHeight);
               }}
             />
@@ -90,72 +141,84 @@ const ProjectDetailsModal = ({
   );
 
   const TechIcons = () => (
-    <ul className="list-inline mx-auto">
-      {technologies.map((icon, i) => (
-        <li className="list-inline-item mx-3 project-details__modal__body__skill" key={i}>
-          <Icon icon={icon.class} className="project-details__modal__body__skill__icon" />
-          <p className="text-center project-details__modal__body__skill__name">{icon.name}</p>
-        </li>
-      ))}
-    </ul>
+    <div className="project-details__modal__body__tech-section">
+      <h4 className="project-details__modal__body__tech-section__heading">Built with</h4>
+      <ul className="project-details__modal__body__tech-section__list">
+        {technologies.map((icon, i) => (
+          <li className="project-details__modal__body__skill" key={i}>
+            <Icon icon={icon.class} className="project-details__modal__body__skill__icon" />
+            <p className="project-details__modal__body__skill__name">{icon.name}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 
+  if (!show) return null;
+
   return (
-    <Modal
-      show={show}
-      onHide={onHide}
-      size="lg"
-      centered
-      className="project-details__modal"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      restoreFocus
-      autoFocus
-      enforceFocus
-      onEntered={() => {
-        modalBodyRef.current?.focus();
-      }}
-    >
-      <Modal.Header closeButton closeVariant="white" className="project-details__modal__header">
-        <Col md={1} />
-        <Col md={10}>
-          <Modal.Title as="h3" id={titleId} className="project-details__modal__header__title">
+    <div className="project-details__overlay">
+      <button
+        type="button"
+        className="project-details__backdrop"
+        onClick={handleBackdropClick}
+        onKeyDown={handleBackdropKeyDown}
+        aria-label="Close modal"
+        tabIndex={-1}
+      />
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+      <div
+        className="project-details__dialog"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+      >
+        <div className="project-details__modal__header">
+          <h3 id={titleId} className="project-details__modal__header__title">
             {title}
+          </h3>
+          <button
+            type="button"
+            className="project-details__close-btn"
+            onClick={onHide}
+            aria-label="Close"
+          >
+            <Icon icon="mdi:close" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+        <div
+          className="project-details__modal__body"
+          ref={modalBodyRef}
+          tabIndex={-1}
+          onKeyDown={handleCarouselKeyDown}
+        >
+          <div className="project-details__modal__body__inner">
+            {images.length > 0 && getImageSlides()}
+            <p className="project-details__modal__body__description">{description}</p>
             {url && (
               <Link
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="project-details__modal__header__title__link"
-                aria-label={`Find out more about ${title}`}
+                className="project-details__modal__body__link-button"
+                aria-label={`Visit ${title} live site`}
               >
-                <Icon
-                  icon="majesticons:open"
-                  className="project-details__modal__header__title__link__icon"
-                />
+                <Icon icon="majesticons:open" aria-hidden="true" />
+                <span>Visit Live Site</span>
               </Link>
             )}
-          </Modal.Title>
-        </Col>
-      </Modal.Header>
-
-      <Modal.Body
-        className="project-details__modal__body"
-        ref={modalBodyRef}
-        tabIndex={-1}
-        onKeyDown={handleCarouselKeyDown}
-      >
-        <Col md={12}>
-          <Col md={10} className="mx-auto">
-            {images.length > 0 && getImageSlides()}
-            <p className="project-details__modal__body__description">{description}</p>
-          </Col>
-        </Col>
-        <Col md={12} className="text-center">
-          <TechIcons />
-        </Col>
-      </Modal.Body>
-    </Modal>
+          </div>
+          <div className="project-details__modal__body__tech-wrapper">
+            <TechIcons />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

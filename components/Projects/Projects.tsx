@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { Container, Row, Col, Stack, Card, Badge } from 'react-bootstrap';
+import { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 
 import { BasicInfo, Project } from '@/types';
@@ -9,6 +8,74 @@ import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
 
 import './Projects.scss';
+
+const maxDescriptionLength = 100;
+const maxTechPreview = 4;
+const staggerDelay = 0.1;
+
+const breakpoints = [
+  { min: 1200, cols: 3 },
+  { min: 768, cols: 2 },
+  { min: 0, cols: 1 },
+];
+
+const getColumns = (width: number) =>
+  (breakpoints.find((bp) => width >= bp.min) ?? breakpoints[breakpoints.length - 1]).cols;
+
+/**
+ * Splits items into rows with a reverse-pyramid taper at the bottom.
+ * Full rows fill to `cols`. When there is a remainder, one full row is
+ * borrowed and combined with the leftover to form two balanced, centered
+ * taper rows (e.g. 3+1 → 2+2).
+ */
+const buildPyramidRows = <T,>(items: T[], cols: number): T[][] => {
+  const total = items.length;
+  if (total === 0) return [];
+
+  const rows: T[][] = [];
+  const remainder = total % cols;
+  let offset = 0;
+
+  if (remainder === 0) {
+    for (let r = 0; r < total / cols; r += 1) {
+      rows.push(items.slice(offset, offset + cols));
+      offset += cols;
+    }
+    return rows;
+  }
+
+  const fullRowsAvailable = Math.floor(total / cols);
+
+  // Not enough items for even one full row — single centered row
+  if (fullRowsAvailable === 0) {
+    return [items.slice(0)];
+  }
+
+  // Borrow one full row; split pool into two balanced taper rows
+  const fullRowCount = fullRowsAvailable - 1;
+  const pool = cols + remainder;
+  const firstTaper = Math.ceil(pool / 2);
+  const secondTaper = pool - firstTaper;
+
+  for (let r = 0; r < fullRowCount; r += 1) {
+    rows.push(items.slice(offset, offset + cols));
+    offset += cols;
+  }
+
+  rows.push(items.slice(offset, offset + firstTaper));
+  offset += firstTaper;
+
+  if (secondTaper > 0) {
+    rows.push(items.slice(offset, offset + secondTaper));
+  }
+
+  return rows;
+};
+
+const truncateDescription = (text: string, maxLength: number) => {
+  if (text.length <= maxLength) return text;
+  return `${text.substring(0, text.lastIndexOf(' ', maxLength))}…`;
+};
 
 export const Projects = ({
   projects,
@@ -19,6 +86,14 @@ export const Projects = ({
 }) => {
   const [deps, setDeps] = useState<Project | null>(null);
   const [detailsModalShow, setDetailsModalShow] = useState(false);
+  const [columns, setColumns] = useState(1);
+
+  useEffect(() => {
+    const update = () => setColumns(getColumns(window.innerWidth));
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   const headingText = basicInfo.sectionName.projects;
 
@@ -32,93 +107,112 @@ export const Projects = ({
     setDeps(null);
   };
 
-  const ProjectCards = () =>
-    projects.map((project) => (
-      <Col as="li" key={project.title} className="projects__item my-3 px-3">
-        <ScrollReveal animation="fadeIn">
-          <Card
-            as="button"
-            type="button"
-            text={project.theme.text}
-            className="projects__item__picture-card mx-auto"
-            onClick={() => showDetailsModal(project)}
-            aria-label={`View details for ${project.title} project`}
-          >
-            <Card.Body className="projects__item__picture-card__body">
-              <div className="projects__item__picture-card__icon-wrapper">
-                <Icon
-                  icon={project.thumbnail}
-                  className="projects__item__picture-card__thumbnail"
-                  aria-hidden="true"
-                />
-                <div className="projects__item__picture-card__icon-glow"></div>
-              </div>
-
-              <Card.Title as="h3" className="projects__item__picture-card__title font-trebuchet">
-                {project.title}
-              </Card.Title>
-
-              <Badge
-                className="projects__item__picture-card__date"
-                aria-label={`Started in ${project.startDate}`}
-              >
-                {project.startDate}
-              </Badge>
-
-              <div className="projects__item__picture-card__cta">
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M13 9L16 12M16 12L13 15M16 12H8M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <span>View Details</span>
-              </div>
-            </Card.Body>
-          </Card>
-        </ScrollReveal>
-      </Col>
-    ));
+  const pyramidRows = buildPyramidRows(projects, columns);
+  let globalIndex = 0;
 
   return (
     <section id="projects" className="projects" aria-labelledby="projects-heading">
-      <Container>
-        <Row>
-          <Col md={12}>
-            <div className="projects__heading-wrapper">
-              <h2 id="projects-heading" className="projects__heading">
-                {headingText}
-              </h2>
-              <div className="projects__heading-underline"></div>
+      <div className="projects__container">
+        <div className="projects__heading-wrapper">
+          <span className="projects__label">What I&rsquo;ve built</span>
+          <h2 id="projects-heading" className="projects__heading">
+            {headingText}
+          </h2>
+        </div>
+        <div className="projects__list" role="list" aria-label="Project portfolio">
+          {pyramidRows.map((row, rowIndex) => (
+            <div key={rowIndex} className="projects__list__row">
+              {row.map((project) => {
+                const i = globalIndex;
+                globalIndex += 1;
+                return (
+                  <div key={project.title} className="projects__item" role="listitem">
+                    <ScrollReveal
+                      animation="fadeInUp"
+                      delay={i * staggerDelay}
+                      style={{ flex: 1, display: 'flex' }}
+                    >
+                      <button
+                        type="button"
+                        className="projects__item__card"
+                        onClick={() => showDetailsModal(project)}
+                        aria-label={`View details for ${project.title} project`}
+                      >
+                        <div className="projects__item__card__body">
+                          <div className="projects__item__card__top">
+                            <div className="projects__item__card__icon-wrapper">
+                              <Icon
+                                icon={project.thumbnail}
+                                className="projects__item__card__thumbnail"
+                                aria-hidden="true"
+                              />
+                              <div className="projects__item__card__icon-glow" />
+                            </div>
+
+                            <div className="projects__item__card__header">
+                              <h3 className="projects__item__card__title font-trebuchet">
+                                {project.title}
+                              </h3>
+
+                              <time
+                                className="projects__item__card__date"
+                                dateTime={project.startDate}
+                              >
+                                {project.startDate}
+                              </time>
+                            </div>
+                          </div>
+
+                          <p className="projects__item__card__description">
+                            {truncateDescription(project.description, maxDescriptionLength)}
+                          </p>
+
+                          <ul className="projects__item__card__tech" aria-label="Technologies used">
+                            {project.technologies.slice(0, maxTechPreview).map((tech) => (
+                              <li key={tech.name} className="projects__item__card__tech__pill">
+                                <Icon icon={tech.class} aria-hidden="true" />
+                                {tech.name}
+                              </li>
+                            ))}
+                            {project.technologies.length > maxTechPreview && (
+                              <li className="projects__item__card__tech__pill projects__item__card__tech__pill--more">
+                                +{project.technologies.length - maxTechPreview}
+                              </li>
+                            )}
+                          </ul>
+
+                          <div className="projects__item__card__cta">
+                            <span>View Details</span>
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M5 12H19M19 12L13 6M19 12L13 18"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                      </button>
+                    </ScrollReveal>
+                  </div>
+                );
+              })}
             </div>
-          </Col>
-        </Row>
-        <Row
-          as="ul"
-          xs={1}
-          sm={1}
-          md={2}
-          lg={2}
-          xl={3}
-          className="projects__list center list-unstyled"
-          aria-label="Project portfolio"
-        >
-          {projects.length > 0 && <ProjectCards />}
-        </Row>
+          ))}
+        </div>
         {deps && (
           <ProjectDetailsModal show={detailsModalShow} onHide={detailsModalClose} data={deps} />
         )}
-      </Container>
+      </div>
     </section>
   );
 };

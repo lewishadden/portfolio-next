@@ -1,11 +1,24 @@
 /* Theme Variables */
+:root {
+  --max-width: 1170px;
+  --default-padding-x: 1.25rem;
+  --default-padding-y: 1.25rem;
+  --padding-x-xs: 0.75rem;
+  --padding-y-xs: 0.75rem;
+  --padding-x-md: 1.5rem;
+  --padding-y-md: 1.5rem;
+  --padding-x-large: 2rem;
+  --padding-y-large: 2rem;
+  --padding-x-xlarge: 2.5rem;
+  --padding-y-xlarge: 2.5rem;
+}
 
 /* Dark Theme (Default) */
 [data-theme='dark'] {
   --bg-primary: #0a0a0f;
   --bg-secondary: #00071e;
   --bg-tertiary: #1a1a2e;
-  --text-primary: #ffffff;
+  --text-primary: #fff;
   --text-secondary: #b0b0b0;
   --text-muted: #808080;
   --border-color: rgba(255, 255, 255, 0.1);
@@ -14,12 +27,16 @@
   --card-hover-bg: rgba(91, 66, 245, 0.1);
   --accent-primary: #5b42f5;
   --accent-secondary: #8f0039;
-  --bg-particle-color: hsl(180, 100%, 80%);
+  --bg-particle-color: hsl(220, 100%, 80%);
+  --orb-color-1: rgba(124, 58, 237, 0.1);
+  --orb-color-2: rgba(59, 130, 246, 0.08);
+  --orb-color-3: rgba(20, 184, 166, 0.06);
+  --dot-grid-color: rgba(255, 255, 255, 0.035);
   --gradient-start: #a78bfa;
   --gradient-mid: #60a5fa;
   --gradient-end: #34d399;
   --gradient-shadow: rgba(96, 165, 250, 0.18);
-  --line-color: #ffffff;
+  --line-color: #fff;
   --line-color-inset-shadow: #00000014;
   --line-color-inset-shadow-outer: #0000000d;
   --icon-bg: #303030;
@@ -37,11 +54,15 @@
   --text-muted: #64748b;
   --border-color: rgba(15, 23, 42, 0.08);
   --shadow: rgba(15, 23, 42, 0.12);
-  --card-bg: #ffffff;
+  --card-bg: #fff;
   --card-hover-bg: rgba(59, 130, 246, 0.04);
   --accent-primary: #3b82f6;
   --accent-secondary: #0ea5e9;
-  --bg-particle-color: hsl(210, 100%, 56%);
+  --bg-particle-color: hsl(220, 80%, 65%);
+  --orb-color-1: rgba(99, 102, 241, 0.06);
+  --orb-color-2: rgba(59, 130, 246, 0.05);
+  --orb-color-3: rgba(14, 165, 233, 0.04);
+  --dot-grid-color: rgba(59, 130, 246, 0.06);
   --gradient-start: #6366f1;
   --gradient-mid: #3b82f6;
   --gradient-end: #06b6d4;
@@ -63,10 +84,10 @@ body {
     color 0.3s ease;
 }
 
-/* Smooth transitions for theme change */
-*,
-*::before,
-*::after {
+/* Smooth transitions for theme change — only after initial paint */
+.theme-ready *,
+.theme-ready *::before,
+.theme-ready *::after {
   transition-property: background-color, border-color, color, fill, stroke;
   transition-duration: 0.3s;
   transition-timing-function: ease;
@@ -74,9 +95,9 @@ body {
 
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  .theme-ready *,
+  .theme-ready *::before,
+  .theme-ready *::after {
     transition-duration: 0.01ms !important;
   }
 }
