@@ -39,6 +39,13 @@ docs/             # Documentation (accessibility, SEO, etc.)
 
 ## Key Conventions
 
+### Naming
+
+- All variables, constants, and function parameters must use **camelCase** (e.g., `maxSliderHeight`, `paddingHeight`)
+- Do **not** use `SCREAMING_SNAKE_CASE` or `snake_case` for any JavaScript/TypeScript identifiers
+- Component names use **PascalCase** (e.g., `ProjectDetailsModal`)
+- CSS/SCSS class names use **BEM** (`.block__element--modifier`)
+
 ### Component Structure
 
 - Each component lives in `components/<ComponentName>/` with:

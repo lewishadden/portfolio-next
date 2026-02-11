@@ -25,8 +25,8 @@ const ProjectDetailsModal = ({
   show: boolean;
   onHide: () => void;
 }) => {
-  const MAX_SLIDER_HEIGHT_PERCENT = 56;
-  const [paddingHeight, setPaddingHeight] = useState(MAX_SLIDER_HEIGHT_PERCENT);
+  const maxSliderHeightPercent = 56;
+  const [paddingHeight, setPaddingHeight] = useState(maxSliderHeightPercent);
   const { technologies, images, title, description, url } = data;
   const titleId = `project-details-modal-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
@@ -107,7 +107,7 @@ const ProjectDetailsModal = ({
             nextImg;
           const newPaddingHeight = Math.min(
             (offsetHeight / offsetWidth) * 100,
-            MAX_SLIDER_HEIGHT_PERCENT
+            maxSliderHeightPercent
           );
           setPaddingHeight(newPaddingHeight);
         }}
@@ -129,7 +129,7 @@ const ProjectDetailsModal = ({
                   e.target as HTMLImageElement;
                 const newPaddingHeight = Math.min(
                   (offsetHeight / offsetWidth) * 100,
-                  MAX_SLIDER_HEIGHT_PERCENT
+                  maxSliderHeightPercent
                 );
                 setPaddingHeight(newPaddingHeight);
               }}
