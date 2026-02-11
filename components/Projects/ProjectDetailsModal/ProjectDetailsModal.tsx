@@ -86,6 +86,7 @@ const ProjectDetailsModal = ({
     <div
       className="project-details__modal__body__image-container"
       ref={sliderRef}
+      role="group"
       aria-label="Project image carousel"
     >
       <AwesomeSlider

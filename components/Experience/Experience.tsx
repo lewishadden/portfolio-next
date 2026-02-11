@@ -32,7 +32,7 @@ export const Experience = ({
           </h2>
         </div>
 
-        <div aria-label="Work experience timeline">
+        <div role="group" aria-label="Work experience timeline">
           <VerticalTimeline className="timeline" lineColor="var(--border-color)">
             {experienceTimelineItems}
             <VerticalTimelineElement

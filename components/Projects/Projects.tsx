@@ -154,12 +154,12 @@ export const Projects = ({
                                 {project.title}
                               </h3>
 
-                              <span
+                              <time
                                 className="projects__item__card__date"
-                                aria-label={`Started in ${project.startDate}`}
+                                dateTime={project.startDate}
                               >
                                 {project.startDate}
-                              </span>
+                              </time>
                             </div>
                           </div>
 
@@ -167,22 +167,19 @@ export const Projects = ({
                             {truncateDescription(project.description, maxDescriptionLength)}
                           </p>
 
-                          <div
-                            className="projects__item__card__tech"
-                            aria-label="Technologies used"
-                          >
+                          <ul className="projects__item__card__tech" aria-label="Technologies used">
                             {project.technologies.slice(0, maxTechPreview).map((tech) => (
-                              <span key={tech.name} className="projects__item__card__tech__pill">
+                              <li key={tech.name} className="projects__item__card__tech__pill">
                                 <Icon icon={tech.class} aria-hidden="true" />
                                 {tech.name}
-                              </span>
+                              </li>
                             ))}
                             {project.technologies.length > maxTechPreview && (
-                              <span className="projects__item__card__tech__pill projects__item__card__tech__pill--more">
+                              <li className="projects__item__card__tech__pill projects__item__card__tech__pill--more">
                                 +{project.technologies.length - maxTechPreview}
-                              </span>
+                              </li>
                             )}
-                          </div>
+                          </ul>
 
                           <div className="projects__item__card__cta">
                             <span>View Details</span>
