@@ -8,12 +8,10 @@ const particleCount = 100;
 export const Background = () => {
   const [ready, setReady] = useState(false);
 
-  // Delay heavy background rendering until after first paint / LCP
+  // Delay heavy background rendering until browser is truly idle (after LCP)
   useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setReady(true));
-    });
-    return () => cancelAnimationFrame(id);
+    const id = requestIdleCallback(() => setReady(true), { timeout: 4000 });
+    return () => cancelIdleCallback(id);
   }, []);
 
   return (

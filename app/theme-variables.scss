@@ -84,10 +84,10 @@ body {
     color 0.3s ease;
 }
 
-/* Smooth transitions for theme change */
-*,
-*::before,
-*::after {
+/* Smooth transitions for theme change — only after initial paint */
+.theme-ready *,
+.theme-ready *::before,
+.theme-ready *::after {
   transition-property: background-color, border-color, color, fill, stroke;
   transition-duration: 0.3s;
   transition-timing-function: ease;
@@ -95,9 +95,9 @@ body {
 
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  .theme-ready *,
+  .theme-ready *::before,
+  .theme-ready *::after {
     transition-duration: 0.01ms !important;
   }
 }

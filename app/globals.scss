@@ -140,3 +140,13 @@ select:focus-visible,
   clip: auto;
   white-space: normal;
 }
+
+/* Skip layout/paint for below-fold sections until they scroll near viewport */
+#about,
+#experience,
+#projects,
+#skills,
+#contact {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
+}
