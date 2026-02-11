@@ -27,7 +27,11 @@
   --card-hover-bg: rgba(91, 66, 245, 0.1);
   --accent-primary: #5b42f5;
   --accent-secondary: #8f0039;
-  --bg-particle-color: hsl(180, 100%, 80%);
+  --bg-particle-color: hsl(220, 100%, 80%);
+  --orb-color-1: rgba(124, 58, 237, 0.1);
+  --orb-color-2: rgba(59, 130, 246, 0.08);
+  --orb-color-3: rgba(20, 184, 166, 0.06);
+  --dot-grid-color: rgba(255, 255, 255, 0.035);
   --gradient-start: #a78bfa;
   --gradient-mid: #60a5fa;
   --gradient-end: #34d399;
@@ -54,7 +58,11 @@
   --card-hover-bg: rgba(59, 130, 246, 0.04);
   --accent-primary: #3b82f6;
   --accent-secondary: #0ea5e9;
-  --bg-particle-color: hsl(210, 100%, 56%);
+  --bg-particle-color: hsl(220, 80%, 65%);
+  --orb-color-1: rgba(99, 102, 241, 0.06);
+  --orb-color-2: rgba(59, 130, 246, 0.05);
+  --orb-color-3: rgba(14, 165, 233, 0.04);
+  --dot-grid-color: rgba(59, 130, 246, 0.06);
   --gradient-start: #6366f1;
   --gradient-mid: #3b82f6;
   --gradient-end: #06b6d4;

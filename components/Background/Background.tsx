@@ -1,14 +1,23 @@
 import './Background.scss';
 
-export const Background = () => {
-  const circleCount = 100;
-  const circles = Array.from({ length: circleCount }, (_, i) => (
-    <div className="circle-container" key={i}>
-      <div className="circle"></div>
-    </div>
-  ));
+const PARTICLE_COUNT = 60;
 
-  return <div className="bg-container">{circles}</div>;
-};
+export const Background = () => (
+  <div className="bg-container" aria-hidden="true">
+    {/* Ambient gradient orbs */}
+    <div className="bg-container__orb bg-container__orb--1" />
+    <div className="bg-container__orb bg-container__orb--2" />
+    <div className="bg-container__orb bg-container__orb--3" />
+
+    {/* Floating particles */}
+    <div className="bg-container__particles">
+      {Array.from({ length: PARTICLE_COUNT }, (_, i) => (
+        <div className="bg-particle" key={i}>
+          <div className="bg-particle__dot" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 export default Background;
