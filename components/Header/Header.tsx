@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useHeadroom } from '@mantine/hooks';
+import { useHeadroom } from '@/hooks/useHeadroom';
 import { Icon } from '@iconify/react';
 import { ThemeToggle } from 'components/ThemeToggle/ThemeToggle';
 

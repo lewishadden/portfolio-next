@@ -1,12 +1,9 @@
 'use client';
 
-import { MantineProvider, Container, Title, Text, Button, Group } from '@mantine/core';
-import '@mantine/core/styles.css';
 import Link from 'next/link';
 
 import { Illustration } from './Illustration';
-import classes from './PageNotFound.module.css';
-import { theme } from '../../theme';
+import './PageNotFound.scss';
 
 export type PageNotFoundProps = {
   title: string;
@@ -18,28 +15,19 @@ export type PageNotFoundProps = {
 
 export function PageNotFound({ title, description, cta }: PageNotFoundProps) {
   return (
-    <MantineProvider forceColorScheme="dark" theme={theme}>
-      <Container className={classes.root}>
-        <div className={classes.inner}>
-          <Illustration className={classes.image} />
-          <div className={classes.content}>
-            <Title className={classes.title}>{title}</Title>
-            <Text
-              c="var(--mantine-color-gray-2)"
-              size="lg"
-              ta="center"
-              className={classes.description}
-            >
-              {description}
-            </Text>
-            <Group justify="center">
-              <Button size="md" component={Link} href="/" aria-label={cta.text}>
-                {cta.text}
-              </Button>
-            </Group>
+    <div className="not-found">
+      <div className="not-found__inner">
+        <Illustration className="not-found__image" />
+        <div className="not-found__content">
+          <h1 className="not-found__title">{title}</h1>
+          <p className="not-found__description">{description}</p>
+          <div className="not-found__actions">
+            <Link href="/" className="not-found__btn" aria-label={cta.text}>
+              {cta.text}
+            </Link>
           </div>
         </div>
-      </Container>
-    </MantineProvider>
+      </div>
+    </div>
   );
 }

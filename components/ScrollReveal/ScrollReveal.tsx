@@ -1,6 +1,7 @@
 'use client';
 
-import { useInViewport, useReducedMotion } from '@mantine/hooks';
+import { useInViewport } from '@/hooks/useInViewport';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useEffect, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 

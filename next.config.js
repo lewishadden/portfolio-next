@@ -11,7 +11,7 @@ export default withBundleAnalyzer({
   compress: true,
   poweredByHeader: false,
   experimental: {
-    optimizePackageImports: ['@iconify/react', '@mantine/core', '@mantine/hooks'],
+    optimizePackageImports: ['@iconify/react'],
   },
   images: {
     loader: 'custom',

@@ -2,13 +2,12 @@
 
 ## Project Overview
 
-This is a **Next.js 16** portfolio website using **Static Site Generation (SSG)**. It is built with **React 19**, **TypeScript**, **React Bootstrap**, **Mantine**, and **SCSS**. The site is a single-page portfolio with sections: Home, About, Experience, Projects, Skills, Contact, and Footer.
+This is a **Next.js 16** portfolio website using **Static Site Generation (SSG)**. It is built with **React 19**, **TypeScript**, and **SCSS**. The site is a single-page portfolio with sections: Home, About, Experience, Projects, Skills, Contact, and Footer.
 
 ## Tech Stack
 
 - **Framework:** Next.js 16 (App Router, SSG via `next build` + static export)
 - **Language:** TypeScript
-- **UI Libraries:** Mantine
 - **Styling:** SCSS (BEM naming convention), CSS Modules (for select components)
 - **Icons:** `@iconify/react`
 - **Forms:** Formik + Yup
@@ -157,4 +156,4 @@ npm run typecheck         # TypeScript type checking (tsc --noEmit)
 - PurgeCSS runs post-build to remove unused CSS (config in `purgecss.config.cjs`)
 - Images are optimized with `next-image-export-optimizer`
 - The `api/` directory contains standalone backend services (not Next.js API routes) — a serverless function and an Express/Bun server for sending contact form emails
-- PostCSS config (`postcss.config.cjs`) includes Mantine presets and breakpoint variables
+- PostCSS config (`postcss.config.cjs`) includes `postcss-simple-vars` with breakpoint variables

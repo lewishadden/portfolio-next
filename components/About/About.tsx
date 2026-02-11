@@ -1,6 +1,6 @@
 'use client';
 
-import { useMediaQuery } from '@mantine/hooks';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import ExportedImage from 'next-image-export-optimizer';
 
 import { BasicInfo } from '@/types';
@@ -11,8 +11,7 @@ import './About.scss';
 export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const { image, sectionName, description, descriptionHeader, cv } = basicInfo;
   const headingText = sectionName.about;
-  const isServer = typeof window === 'undefined';
-  const isDesktop = isServer ? false : useMediaQuery('(min-width: 768px)');
+  const isDesktop = useMediaQuery('(min-width: 768px)');
 
   return (
     <section id="about" className="about" aria-labelledby="about-heading">
