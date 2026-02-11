@@ -230,22 +230,14 @@ function JsonLd() {
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(personSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(profilePageSchema) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            personSchema,
+            websiteSchema,
+            breadcrumbSchema,
+            profilePageSchema,
+          ]),
+        }}
       />
     </>
   );
@@ -256,6 +248,8 @@ export default function RootLayout({ children }: { children: any }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <ThemeScript />
+        <link rel="dns-prefetch" href="https://api.iconify.design" />
+        <link rel="preconnect" href="https://api.iconify.design" crossOrigin="anonymous" />
       </head>
       <body data-theme="dark" data-bs-theme="dark" suppressHydrationWarning>
         <ThemeProvider>

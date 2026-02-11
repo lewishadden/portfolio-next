@@ -1,6 +1,6 @@
 import './Background.scss';
 
-const particleCount = 60;
+const particleCount = 100;
 
 export const Background = () => (
   <div className="bg-container" aria-hidden="true">

@@ -10,6 +10,9 @@ export default withBundleAnalyzer({
   // Performance optimizations for Core Web Vitals
   compress: true,
   poweredByHeader: false,
+  experimental: {
+    optimizePackageImports: ['@iconify/react', '@mantine/core', '@mantine/hooks'],
+  },
   images: {
     loader: 'custom',
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
