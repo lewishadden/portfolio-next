@@ -9,10 +9,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
   padding: 1rem;
   animation: modalFadeIn 0.2s ease;
+}
+
+// ── Clickable backdrop ──
+.project-details__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  border: none;
+  padding: 0;
+  cursor: default;
+  appearance: none;
 }
 
 // ── Dialog shell ──

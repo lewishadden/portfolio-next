@@ -68,6 +68,14 @@ const ProjectDetailsModal = ({
     if (e.target === e.currentTarget) onHide();
   };
 
+  // Close on backdrop keyboard
+  const handleBackdropKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onHide();
+    }
+  };
+
   const imageRefs = Array.from(images, () => useRef(null));
 
   const handleCarouselKeyDown = (event: KeyboardEvent) => {
@@ -149,12 +157,16 @@ const ProjectDetailsModal = ({
   if (!show) return null;
 
   return (
-    <div
-      className="project-details__overlay"
-      onClick={handleBackdropClick}
-      onKeyDown={handleKeyDown}
-      role="presentation"
-    >
+    <div className="project-details__overlay">
+      <button
+        type="button"
+        className="project-details__backdrop"
+        onClick={handleBackdropClick}
+        onKeyDown={handleBackdropKeyDown}
+        aria-label="Close modal"
+        tabIndex={-1}
+      />
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         className="project-details__dialog"
         ref={dialogRef}
@@ -162,6 +174,7 @@ const ProjectDetailsModal = ({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
+        onKeyDown={handleKeyDown}
       >
         <div className="project-details__modal__header">
           <h3 id={titleId} className="project-details__modal__header__title">
@@ -177,6 +190,7 @@ const ProjectDetailsModal = ({
           </button>
         </div>
 
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
         <div
           className="project-details__modal__body"
           ref={modalBodyRef}

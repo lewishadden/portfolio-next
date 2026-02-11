@@ -205,7 +205,7 @@
         margin: 0;
         transition: color 0.3s ease;
         text-align: center;
-        word-break: break-word;
+        overflow-wrap: break-word;
         max-width: 100%;
 
         @media (min-width: 768px) {
