@@ -21,7 +21,6 @@ export default async () => {
   return (
     <>
       <Header />
-      <Background />
       <main id="main-content">
         <Home basicInfo={pageData.basicInfo} />
         <About basicInfo={pageData.basicInfo} />
@@ -31,6 +30,7 @@ export default async () => {
         <Contact basicInfo={basicInfo} contact={contact} />
         <Footer basicInfo={basicInfo} />
       </main>
+      <Background />
     </>
   );
 };

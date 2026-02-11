@@ -1,7 +1,5 @@
-'use client';
-
-import { TypeAnimation } from 'react-type-animation';
 import { ChevronDown, CodeIcon } from 'icons';
+import { TypeAnimationClient } from './TypeAnimationClient';
 
 import { BasicInfo } from '@/types';
 
@@ -9,8 +7,6 @@ import './Home.scss';
 
 export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
   const { name, titles } = basicInfo;
-
-  const titlesUpperCased = titles.map((x) => [x, 1500]).flat();
 
   return (
     <section id="home" className="home" aria-labelledby="home-heading">
@@ -33,16 +29,7 @@ export const Home = ({ basicInfo }: { basicInfo: BasicInfo }) => {
               {name}
             </h1>
             <div className="home__header__title-wrapper">
-              <TypeAnimation
-                sequence={titlesUpperCased}
-                wrapper="h2"
-                speed={35}
-                className="home__header__titles"
-                preRenderFirstString
-                repeat={Infinity}
-                aria-live="polite"
-                aria-label="Job titles"
-              />
+              <TypeAnimationClient titles={titles} />
             </div>
           </div>
 

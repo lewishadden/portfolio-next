@@ -9,6 +9,7 @@
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
+  contain: layout style;
 
   /* Noise grain overlay */
   &::after {
@@ -33,7 +34,7 @@
 .bg-container__orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(120px);
+  filter: blur(80px);
   will-change: transform;
 
   &--1 {
