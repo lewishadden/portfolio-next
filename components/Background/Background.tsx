@@ -1,6 +1,6 @@
 import './Background.scss';
 
-const PARTICLE_COUNT = 60;
+const particleCount = 60;
 
 export const Background = () => (
   <div className="bg-container" aria-hidden="true">
@@ -11,7 +11,7 @@ export const Background = () => (
 
     {/* Floating particles */}
     <div className="bg-container__particles">
-      {Array.from({ length: PARTICLE_COUNT }, (_, i) => (
+      {Array.from({ length: particleCount }, (_, i) => (
         <div className="bg-particle" key={i}>
           <div className="bg-particle__dot" />
         </div>

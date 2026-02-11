@@ -7,7 +7,7 @@ import { ThemeToggle } from 'components/ThemeToggle/ThemeToggle';
 
 import './Header.scss';
 
-const NAV_ITEMS = [
+const navItems = [
   { href: '#about', label: 'About' },
   { href: '#experience', label: 'Experience' },
   { href: '#projects', label: 'Projects' },
@@ -35,8 +35,8 @@ export const Header = () => {
 
     if (isScrollingDown) {
       e.preventDefault();
-      const SCROLL_DOWN_OFFSET = 20;
-      window.scrollTo({ top: targetTop - SCROLL_DOWN_OFFSET, behavior: 'smooth' });
+      const scrollDownOffset = 20;
+      window.scrollTo({ top: targetTop - scrollDownOffset, behavior: 'smooth' });
     }
     // scrolling up: let default behavior apply scroll-margin-top
   }, []);
@@ -49,7 +49,7 @@ export const Header = () => {
         </a>
 
         <ul className="header__links">
-          {NAV_ITEMS.map(({ href, label }) => (
+          {navItems.map(({ href, label }) => (
             <li key={href}>
               <a href={href} className="header__link" onClick={handleNavClick}>
                 {label}
@@ -80,7 +80,7 @@ export const Header = () => {
         aria-hidden={!mobileOpen}
       >
         <ul className="header__mobile-links">
-          {NAV_ITEMS.map(({ href, label }) => (
+          {navItems.map(({ href, label }) => (
             <li key={href}>
               <a
                 href={href}

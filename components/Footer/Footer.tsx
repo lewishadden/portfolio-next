@@ -7,7 +7,7 @@ import { BasicInfo } from '@/types';
 
 import './Footer.scss';
 
-const FOOTER_NAV = [
+const footerNav = [
   { href: '#about', label: 'About' },
   { href: '#experience', label: 'Experience' },
   { href: '#projects', label: 'Projects' },
@@ -41,7 +41,7 @@ export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {
 
           <nav className="footer__nav" aria-label="Footer navigation">
             <ul className="footer__nav-list">
-              {FOOTER_NAV.map((item) => (
+              {footerNav.map((item) => (
                 <li key={item.href}>
                   <a href={item.href} className="footer__nav-link">
                     {item.label}

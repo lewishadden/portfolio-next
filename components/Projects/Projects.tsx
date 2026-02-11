@@ -9,18 +9,18 @@ import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
 
 import './Projects.scss';
 
-const MAX_DESCRIPTION_LENGTH = 100;
-const MAX_TECH_PREVIEW = 4;
-const STAGGER_DELAY = 0.1;
+const maxDescriptionLength = 100;
+const maxTechPreview = 4;
+const staggerDelay = 0.1;
 
-const BREAKPOINTS = [
+const breakpoints = [
   { min: 1200, cols: 3 },
   { min: 768, cols: 2 },
   { min: 0, cols: 1 },
 ];
 
 const getColumns = (width: number) =>
-  (BREAKPOINTS.find((bp) => width >= bp.min) ?? BREAKPOINTS[BREAKPOINTS.length - 1]).cols;
+  (breakpoints.find((bp) => width >= bp.min) ?? breakpoints[breakpoints.length - 1]).cols;
 
 /**
  * Splits items into rows with a reverse-pyramid taper at the bottom.
@@ -129,7 +129,7 @@ export const Projects = ({
                   <div key={project.title} className="projects__item" role="listitem">
                     <ScrollReveal
                       animation="fadeInUp"
-                      delay={i * STAGGER_DELAY}
+                      delay={i * staggerDelay}
                       style={{ flex: 1, display: 'flex' }}
                     >
                       <button
@@ -164,22 +164,22 @@ export const Projects = ({
                           </div>
 
                           <p className="projects__item__card__description">
-                            {truncateDescription(project.description, MAX_DESCRIPTION_LENGTH)}
+                            {truncateDescription(project.description, maxDescriptionLength)}
                           </p>
 
                           <div
                             className="projects__item__card__tech"
                             aria-label="Technologies used"
                           >
-                            {project.technologies.slice(0, MAX_TECH_PREVIEW).map((tech) => (
+                            {project.technologies.slice(0, maxTechPreview).map((tech) => (
                               <span key={tech.name} className="projects__item__card__tech__pill">
                                 <Icon icon={tech.class} aria-hidden="true" />
                                 {tech.name}
                               </span>
                             ))}
-                            {project.technologies.length > MAX_TECH_PREVIEW && (
+                            {project.technologies.length > maxTechPreview && (
                               <span className="projects__item__card__tech__pill projects__item__card__tech__pill--more">
-                                +{project.technologies.length - MAX_TECH_PREVIEW}
+                                +{project.technologies.length - maxTechPreview}
                               </span>
                             )}
                           </div>

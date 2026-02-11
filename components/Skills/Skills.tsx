@@ -8,9 +8,9 @@ import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 
 import './Skills.scss';
 
-const STAGGER_DELAY = 0.1;
+const staggerDelay = 0.1;
 
-const BREAKPOINTS = [
+const breakpoints = [
   { min: 1200, cols: 8 },
   { min: 992, cols: 6 },
   { min: 768, cols: 5 },
@@ -19,7 +19,7 @@ const BREAKPOINTS = [
 ];
 
 const getColumns = (width: number) =>
-  (BREAKPOINTS.find((bp) => width >= bp.min) ?? BREAKPOINTS[BREAKPOINTS.length - 1]).cols;
+  (breakpoints.find((bp) => width >= bp.min) ?? breakpoints[breakpoints.length - 1]).cols;
 
 /**
  * Splits items into rows with a reverse-pyramid taper at the bottom.
@@ -103,7 +103,7 @@ export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: Basi
                 globalIndex += 1;
                 return (
                   <div key={i} className="skills__list__tile" role="listitem">
-                    <ScrollReveal animation="flipInX" delay={colIndex * STAGGER_DELAY}>
+                    <ScrollReveal animation="flipInX" delay={colIndex * staggerDelay}>
                       <div className="skills__list__tile__icon-wrapper">
                         <Icon
                           icon={skill.class}
