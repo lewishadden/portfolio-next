@@ -4,7 +4,7 @@
  * borrowed and combined with the leftover to form two balanced, centered
  * taper rows (e.g. 3+1 → 2+2).
  */
-export const buildPyramidRows = <T,>(items: T[], cols: number): T[][] => {
+export const buildPyramidRows = <T>(items: T[], cols: number): T[][] => {
   const total = items.length;
   if (total === 0) return [];
 
