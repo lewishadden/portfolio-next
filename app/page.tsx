@@ -14,7 +14,7 @@ import { ResumeData } from '@/types';
 
 import './page.scss';
 
-export default async () => {
+export default async function Page() {
   const pageData: ResumeData = await getPageContent();
   const { basicInfo, experience, projects, skills, contact } = pageData;
 
@@ -33,4 +33,4 @@ export default async () => {
       <Background />
     </>
   );
-};
+}

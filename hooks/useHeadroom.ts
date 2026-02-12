@@ -8,23 +8,32 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  *  - The user is at the top of the page
  *  - The user is scrolling up
  * The header is unpinned (hidden) when the user scrolls down past a threshold.
+ *
+ * Uses requestAnimationFrame to throttle scroll event processing.
  */
 export function useHeadroom({ fixedAt = 0 }: { fixedAt?: number } = {}): boolean {
   const [pinned, setPinned] = useState(true);
   const lastScrollY = useRef(0);
+  const ticking = useRef(false);
 
   const handleScroll = useCallback(() => {
-    const currentScrollY = window.scrollY;
+    if (ticking.current) return;
 
-    if (currentScrollY <= fixedAt) {
-      setPinned(true);
-    } else if (currentScrollY < lastScrollY.current) {
-      setPinned(true);
-    } else if (currentScrollY > lastScrollY.current) {
-      setPinned(false);
-    }
+    ticking.current = true;
+    requestAnimationFrame(() => {
+      const currentScrollY = window.scrollY;
 
-    lastScrollY.current = currentScrollY;
+      if (currentScrollY <= fixedAt) {
+        setPinned(true);
+      } else if (currentScrollY < lastScrollY.current) {
+        setPinned(true);
+      } else if (currentScrollY > lastScrollY.current) {
+        setPinned(false);
+      }
+
+      lastScrollY.current = currentScrollY;
+      ticking.current = false;
+    });
   }, [fixedAt]);
 
   useEffect(() => {

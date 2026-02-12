@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
 
@@ -9,6 +9,8 @@ import ContactForm from './ContactForm/ContactForm';
 
 import './Contact.scss';
 
+const toastAutoDismissMs = 8000;
+
 export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact: ContactType }) => {
   const [submitted, setSubmitted] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -16,6 +18,24 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
 
   const { sectionName, contactInfo } = basicInfo;
   const headingText = sectionName.contact;
+
+  const dismissToast = useCallback(() => {
+    setError(false);
+    setShowToast(false);
+  }, []);
+
+  // Auto-dismiss toast after timeout
+  useEffect(() => {
+    if (!showToast) return;
+    const timer = setTimeout(dismissToast, toastAutoDismissMs);
+    return () => clearTimeout(timer);
+  }, [showToast, dismissToast]);
+
+  const handleSendAnother = () => {
+    setSubmitted(false);
+    setShowToast(false);
+    setError(false);
+  };
 
   return (
     <section id="contact" className="contact" aria-labelledby="contact-heading">
@@ -62,7 +82,17 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
             </div>
           </div>
 
-          {!submitted && (
+          {submitted ? (
+            <div className="contact__success-panel">
+              <Icon icon="mdi:check-circle" className="contact__success-icon" aria-hidden="true" />
+              <h3 className="contact__success-title">{contact.success.headerText}</h3>
+              <p className="contact__success-text">{contact.success.bodyText}</p>
+              <button type="button" className="contact__send-another" onClick={handleSendAnother}>
+                <Icon icon="mdi:email-edit-outline" aria-hidden="true" />
+                Send another message
+              </button>
+            </div>
+          ) : (
             <ContactForm
               contact={contact}
               onSuccess={() => {
@@ -81,8 +111,8 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
         {showToast && (
           <div
             className={`contact__toast contact__toast--${error ? 'error' : 'success'}`}
-            role="status"
-            aria-live="polite"
+            role={error ? 'alert' : 'status'}
+            aria-live={error ? 'assertive' : 'polite'}
           >
             <div className="contact__toast-content">
               <Icon
@@ -96,10 +126,7 @@ export const Contact = ({ basicInfo, contact }: { basicInfo: BasicInfo; contact:
               </div>
               <button
                 className="contact__toast-close"
-                onClick={() => {
-                  setError(false);
-                  setShowToast(false);
-                }}
+                onClick={dismissToast}
                 aria-label="Close notification"
                 type="button"
               >

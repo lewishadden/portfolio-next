@@ -9,6 +9,7 @@ export interface ResumeData {
 export interface BasicInfo {
   name: string;
   titles: string[];
+  openToWork?: boolean;
   social: Social[];
   image: {
     url: string;
@@ -52,6 +53,7 @@ export interface Project {
   thumbnail: string;
   images: {
     url: string;
+    alt?: string;
     size: { width: number; height: number };
   }[];
   url: string;
