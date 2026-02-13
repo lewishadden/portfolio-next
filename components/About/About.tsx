@@ -1,25 +1,26 @@
 'use client';
 
-import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { Icon } from '@iconify/react';
 import ExportedImage from 'next-image-export-optimizer';
 
-import { BasicInfo } from '@/types';
 import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+
+import { About as AboutProps } from '@/types';
 
 import './About.scss';
 
-export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
-  const { image, sectionName, description, descriptionHeader, cv } = basicInfo;
-  const headingText = sectionName.about;
+export const About = ({ about, openToWork }: { about: AboutProps; openToWork: boolean }) => {
+  const { openToWorkText, image, title, label, description, descriptionHeader, cta, cv } = about;
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
   return (
     <section id="about" className="about" aria-labelledby="about-heading">
       <div className="about__container">
         <div className="about__heading-wrapper">
-          <span className="about__label">Get to know me</span>
+          <span className="about__label">{label}</span>
           <h2 id="about-heading" className="about__heading">
-            {headingText}
+            {title}
           </h2>
         </div>
 
@@ -43,10 +44,12 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
             </div>
 
             <div className="about__card__content">
-              <div className="about__card__status">
-                <span className="about__card__status-dot" />
-                <span className="about__card__status-text">Available for opportunities</span>
-              </div>
+              {openToWork && (
+                <div className="about__card__status">
+                  <span className="about__card__status-dot" />
+                  <span className="about__card__status-text">{openToWorkText}</span>
+                </div>
+              )}
 
               <h3
                 dangerouslySetInnerHTML={{ __html: descriptionHeader }}
@@ -60,12 +63,15 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
 
               <div className="about__card__actions">
                 <a
-                  href={cv.url}
-                  download="Lewis_Hadden_CV.pdf"
+                  href={cta.primary.url}
+                  download={cv.download}
                   className="about__card__btn about__card__btn--primary"
-                  aria-label="Download CV as PDF"
+                  aria-label={cta.primary.ariaLabel}
                 >
-                  <svg
+                  {cta.primary.icon && (
+                    <Icon icon={cta.primary.icon} width={20} height={20} aria-hidden="true" />
+                  )}
+                  {/* <svg
                     width="18"
                     height="18"
                     viewBox="0 0 24 24"
@@ -77,15 +83,18 @@ export const About = ({ basicInfo }: { basicInfo: BasicInfo }) => {
                       d="M12 16L7 11L8.4 9.55L11 12.15V4H13V12.15L15.6 9.55L17 11L12 16ZM6 20C5.45 20 4.979 19.804 4.587 19.412C4.195 19.02 3.99934 18.5493 4 18V15H6V18H18V15H20V18C20 18.55 19.804 19.021 19.412 19.413C19.02 19.805 18.5493 20.0007 18 20H6Z"
                       fill="currentColor"
                     />
-                  </svg>
-                  Download CV
+                  </svg> */}
+                  {cta.primary.text}
                 </a>
                 <a
-                  href="#contact"
+                  href={cta.secondary.url}
                   className="about__card__btn about__card__btn--secondary"
-                  aria-label="Go to contact section"
+                  aria-label={cta.secondary.ariaLabel}
                 >
-                  Get in Touch
+                  {cta.secondary.icon && (
+                    <Icon icon={cta.secondary.icon} width={20} height={20} aria-hidden="true" />
+                  )}
+                  {cta.secondary.text}
                 </a>
               </div>
             </div>

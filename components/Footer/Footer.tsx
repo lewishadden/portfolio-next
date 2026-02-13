@@ -3,20 +3,12 @@
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
 
-import { BasicInfo } from '@/types';
+import { Footer as FooterProps, NavItem } from '@/types';
 
 import './Footer.scss';
 
-const footerNav = [
-  { href: '#about', label: 'About' },
-  { href: '#experience', label: 'Experience' },
-  { href: '#projects', label: 'Projects' },
-  { href: '#skills', label: 'Skills' },
-  { href: '#contact', label: 'Contact' },
-];
-
-export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {
-  const { social, name } = basicInfo;
+export const Footer = ({ footer, navItems }: { footer: FooterProps; navItems: NavItem[] }) => {
+  const { tagline, social, name, home, connectText, builtWith } = footer;
 
   return (
     <footer className="footer" role="contentinfo">
@@ -24,24 +16,22 @@ export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {
         <div className="footer__main">
           <div className="footer__brand">
             <a
-              href="#home"
+              href={home.url}
               className="footer__logo"
               onClick={(e) => {
                 e.preventDefault();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              aria-label="Back to top"
+              aria-label={home.ariaLabel}
             >
-              LH
+              {home.text}
             </a>
-            <p className="footer__tagline">
-              Senior Full Stack Engineer crafting modern web experiences.
-            </p>
+            <p className="footer__tagline">{tagline}</p>
           </div>
 
           <nav className="footer__nav" aria-label="Footer navigation">
             <ul className="footer__nav-list">
-              {footerNav.map((item) => (
+              {navItems.map((item) => (
                 <li key={item.href}>
                   <a href={item.href} className="footer__nav-link">
                     {item.label}
@@ -52,7 +42,7 @@ export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {
           </nav>
 
           <div className="footer__connect">
-            <span className="footer__connect-label">Connect</span>
+            <span className="footer__connect-label">{connectText}</span>
             <ul className="footer__social-list" aria-label="Social media links">
               {social.map((network) => (
                 <li key={network.name}>
@@ -79,8 +69,9 @@ export const Footer = ({ basicInfo }: { basicInfo: BasicInfo }) => {
             &copy; {new Date().getFullYear()} {name}
           </p>
           <p className="footer__built">
-            Built with <Icon icon="mdi:heart" className="footer__heart" aria-hidden="true" /> &amp;
-            Next.js
+            {builtWith.pretext}
+            <Icon icon={builtWith.icon} className="footer__heart" aria-hidden="true" />
+            {builtWith.posttext}
           </p>
         </div>
       </div>

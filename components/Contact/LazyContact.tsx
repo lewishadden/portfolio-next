@@ -1,18 +1,13 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { BasicInfo, Contact as ContactType } from '@/types';
+
+import { Contact as ContactProps } from '@/types';
 
 const Contact = dynamic(() => import('./Contact').then((m) => m.Contact), {
   ssr: false,
 });
 
-export function LazyContact({
-  basicInfo,
-  contact,
-}: {
-  basicInfo: BasicInfo;
-  contact: ContactType;
-}) {
-  return <Contact basicInfo={basicInfo} contact={contact} />;
+export function LazyContact({ contact }: { contact: ContactProps }) {
+  return <Contact contact={contact} />;
 }

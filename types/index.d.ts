@@ -1,26 +1,129 @@
 export interface ResumeData {
-  basicInfo: BasicInfo;
-  projects: Project[];
+  global: Global;
+  header: Header;
+  home: Home;
+  about: About;
   experience: Experience;
+  projects: Projects;
   skills: Skills;
   contact: Contact;
+  footer: Footer;
 }
 
-export interface BasicInfo {
+export interface Global {
+  openToWork: boolean;
+  navItems: NavItem[];
+}
+export interface Header {
+  home: {
+    href: string;
+    label: string;
+    ariaLabel: string;
+  };
+  mobile: {
+    icon: string;
+  };
+}
+
+export interface Home {
+  title: string;
   name: string;
   titles: string[];
-  openToWork?: boolean;
-  social: Social[];
+  openToWorkText: string;
+  tagline: string;
+  cta: CtaPair;
+}
+
+export interface About {
+  title: string;
+  label: string;
+  openToWorkText: string;
+  descriptionHeader: string;
+  description: string;
   image: {
     url: string;
     size: { width: number; height: number };
   };
-  descriptionHeader: string;
-  description: string;
-  sectionName: SectionName;
-  contactInfo: ContactInfo[];
   cv: {
+    download: string;
+  };
+  cta: CtaPair;
+}
+
+export interface Experience {
+  title: string;
+  label: string;
+  done: {
+    icon: string;
+  };
+  items: ExperienceItem[];
+}
+
+export interface Projects {
+  title: string;
+  label: string;
+  items: Project[];
+  ctaText: string;
+}
+
+export interface Skills {
+  title: string;
+  label: string;
+  icons: Icon[];
+}
+
+export interface Contact {
+  title: string;
+  label: string;
+  tagline: string;
+  contactInfo: {
+    title: string;
+    description: string;
+    items: ContactInfo[];
+  };
+  send: {
+    icon: string;
+    text: string;
+  };
+  sendAgain: {
+    icon: string;
+    text: string;
+  };
+  submitting: {
+    text: string;
+  };
+  error: {
+    status: string;
+    headerText: string;
+    bodyText: string;
+    icon: string;
+  };
+  success: {
+    status: string;
+    headerText: string;
+    bodyText: string;
+    icon: string;
+  };
+  close: {
+    icon: string;
+    ariaLabel: string;
+  };
+}
+
+export interface Footer {
+  name: string;
+  tagline: string;
+  social: Social[];
+  home: {
     url: string;
+    text: string;
+    ariaLabel: string;
+  };
+  connectText: string;
+  builtWith: {
+    pretext: string;
+    icon: string;
+    posttext: string;
   };
 }
 
@@ -28,14 +131,6 @@ export interface Social {
   name: string;
   url: string;
   class: string;
-}
-
-export interface SectionName {
-  about: string;
-  projects: string;
-  skills: string;
-  experience: string;
-  contact: string;
 }
 
 export interface ContactInfo {
@@ -80,40 +175,27 @@ export interface ExperienceItem {
   technologies: string[];
 }
 
-export interface Experience {
-  done: {
-    icon: string;
-  };
-  items: ExperienceItem[];
-}
-export interface Skills {
-  icons: Icon[];
-}
-
-export interface Contact {
-  send: {
-    icon: string;
-    text: string;
-  };
-  submitting: {
-    text: string;
-  };
-  error: {
-    status: string;
-    headerText: string;
-    bodyText: string;
-  };
-  success: {
-    status: string;
-    headerText: string;
-    bodyText: string;
-  };
+export interface NavItem {
+  href: string;
+  label: string;
 }
 
 export interface Icon {
   name: string;
   class: string;
   level: string;
+}
+
+export interface CtaPair {
+  primary: Cta;
+  secondary: Cta;
+}
+
+export interface Cta {
+  text: string;
+  url: string;
+  icon?: string;
+  ariaLabel: string;
 }
 
 declare global {

@@ -5,18 +5,21 @@ import { Formik } from 'formik';
 import { object, string } from 'yup';
 import { Icon } from '@iconify/react';
 
-import { Contact as ContactType } from '@/types';
+import { Contact as ContactProps } from '@/types';
+
 import './ContactForm.scss';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 interface ContactFormProps {
-  contact: ContactType;
+  contact: ContactProps;
   onSuccess: () => void;
   onFail: (response: Response) => void;
 }
 
 const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
+  const { submitting, send } = contact;
+
   const [loading, setLoading] = useState(false);
 
   const formSchema = object().shape({
@@ -141,16 +144,12 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
               {loading ? (
                 <>
                   <span className="contact-form__spinner" aria-hidden="true" />
-                  <span>{contact.submitting.text}</span>
+                  <span>{submitting.text}</span>
                 </>
               ) : (
                 <>
-                  <Icon
-                    icon={contact.send.icon}
-                    className="contact-form__submit-icon"
-                    aria-hidden="true"
-                  />
-                  <span>{contact.send.text}</span>
+                  <Icon icon={send.icon} className="contact-form__submit-icon" aria-hidden="true" />
+                  <span>{send.text}</span>
                 </>
               )}
             </button>

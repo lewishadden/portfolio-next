@@ -2,10 +2,11 @@
 
 import { Icon } from '@iconify/react';
 
-import { BasicInfo, Skills as ISkills } from '@/types';
 import { useColumns } from '@/hooks/useColumns';
 import { buildPyramidRows } from '@/utils/buildPyramidRows';
 import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
+
+import { Skills as SkillsProps } from '@/types';
 
 import './Skills.scss';
 
@@ -19,11 +20,11 @@ const breakpoints = [
   { min: 0, cols: 3 },
 ];
 
-export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: BasicInfo }) => {
-  const headingText = basicInfo.sectionName.skills;
+export const Skills = ({ skills }: { skills: SkillsProps }) => {
+  const { title, label, icons } = skills;
+
   const columns = useColumns(breakpoints);
 
-  const icons = skills?.icons ?? [];
   const pyramidRows = buildPyramidRows(icons, columns);
   let globalIndex = 0;
 
@@ -31,9 +32,9 @@ export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: Basi
     <section id="skills" className="skills" aria-labelledby="skills-heading">
       <div className="skills__container">
         <div className="skills__heading-wrapper">
-          <span className="skills__label">My toolkit</span>
+          <span className="skills__label">{label}</span>
           <h2 id="skills-heading" className="skills__title">
-            {headingText}
+            {title}
           </h2>
         </div>
         <div className="skills__list" aria-label="Technical skills" role="list">

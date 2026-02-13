@@ -38,6 +38,17 @@ docs/             # Documentation (accessibility, SEO, etc.)
 
 ## Key Conventions
 
+## Import Order and Grouping
+
+All imports in TypeScript/JavaScript files must follow this order, with each group separated by a single blank line:
+
+1. **External imports** (npm packages, e.g., `react`, `@iconify/react`)
+2. **Internal JS/TS imports** (project files, e.g., `@/components/...`, `@/utils/...`)
+3. **Type imports** (e.g., `import type { MyType } from '@/types'`)
+4. **SCSS and CSS imports** (e.g., `import './Component.scss'`)
+
+Each group must be separated by a newline for clarity and consistency.
+
 ## Prettier Formatting Rules
 
 - All code must follow the formatting rules enforced by Prettier.
