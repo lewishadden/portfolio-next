@@ -6,17 +6,11 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Icon } from '@iconify/react';
 import { ThemeToggle } from 'components/ThemeToggle/ThemeToggle';
 
+import { Header as HeaderProps, NavItem } from '@/types';
+
 import './Header.scss';
 
-const navItems = [
-  { href: '#about', label: 'About' },
-  { href: '#experience', label: 'Experience' },
-  { href: '#projects', label: 'Projects' },
-  { href: '#skills', label: 'Skills' },
-  { href: '#contact', label: 'Contact' },
-];
-
-export const Header = () => {
+export const Header = ({ header, navItems }: { header: HeaderProps; navItems: NavItem[] }) => {
   const isPinned = useHeadroom();
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileMenuRef = useFocusTrap<HTMLDivElement>(mobileOpen);
@@ -75,8 +69,8 @@ export const Header = () => {
         ref={mobileMenuRef}
       >
         <nav className="header__nav" aria-label="Main navigation">
-          <a href="#home" className="header__logo" aria-label="Go to top">
-            LH
+          <a href={header.home.href} className="header__logo" aria-label={header.home.ariaLabel}>
+            {header.home.label}
           </a>
 
           <ul className="header__links">
@@ -122,7 +116,7 @@ export const Header = () => {
                     handleNavClick(e);
                   }}
                 >
-                  <Icon icon="ph:arrow-up-right" width={14} aria-hidden="true" />
+                  <Icon icon={header.mobile.icon} width={14} aria-hidden="true" />
                   {label}
                 </a>
               </li>

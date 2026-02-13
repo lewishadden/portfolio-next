@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
 
-import { BasicInfo, Project } from '@/types';
 import { useColumns } from '@/hooks/useColumns';
 import { buildPyramidRows } from '@/utils/buildPyramidRows';
 import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
+
+import { Projects as ProjectsProps, Project } from '@/types';
 
 import './Projects.scss';
 
@@ -26,18 +27,12 @@ const truncateDescription = (text: string, maxLength: number) => {
   return `${text.substring(0, text.lastIndexOf(' ', maxLength))}…`;
 };
 
-export const Projects = ({
-  projects,
-  basicInfo,
-}: {
-  basicInfo: BasicInfo;
-  projects: Project[];
-}) => {
+export const Projects = ({ projects }: { projects: ProjectsProps }) => {
+  const { title, label, items, ctaText } = projects;
+
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [detailsModalShow, setDetailsModalShow] = useState(false);
   const columns = useColumns(breakpoints);
-
-  const headingText = basicInfo.sectionName.projects;
 
   const showDetailsModal = (data: Project) => {
     setSelectedProject(data);
@@ -49,16 +44,16 @@ export const Projects = ({
     setSelectedProject(null);
   };
 
-  const pyramidRows = buildPyramidRows(projects, columns);
+  const pyramidRows = buildPyramidRows(items, columns);
   let globalIndex = 0;
 
   return (
     <section id="projects" className="projects" aria-labelledby="projects-heading">
       <div className="projects__container">
         <div className="projects__heading-wrapper">
-          <span className="projects__label">What I&rsquo;ve built</span>
+          <span className="projects__label">{label}</span>
           <h2 id="projects-heading" className="projects__heading">
-            {headingText}
+            {title}
           </h2>
         </div>
         <div className="projects__list" role="list" aria-label="Project portfolio">
@@ -124,7 +119,7 @@ export const Projects = ({
                           </ul>
 
                           <div className="projects__item__card__cta">
-                            <span>View Details</span>
+                            <span>{ctaText}</span>
                             <svg
                               width="18"
                               height="18"
