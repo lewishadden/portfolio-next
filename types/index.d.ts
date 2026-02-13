@@ -115,3 +115,9 @@ export interface Icon {
   class: string;
   level: string;
 }
+
+declare global {
+  interface Window {
+    dataLayer?: unknown[][];
+  }
+}
