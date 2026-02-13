@@ -32,7 +32,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (mounted) {
       document.body.setAttribute('data-theme', theme);
-      document.body.setAttribute('data-bs-theme', theme);
       document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('theme', theme);
     }

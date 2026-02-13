@@ -1,42 +1,70 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
- * Deferred Google Tag Manager loader.
+ * Interaction-deferred Google Tag Manager loader.
  *
- * Waits for the page to fully load (window 'load' event) before injecting
- * the gtag.js script. This keeps GTM completely off the critical rendering
- * path and improves Core Web Vitals (LCP, TBT, INP).
+ * GTM is injected via dynamic script creation (not React-rendered
+ * `<script>` tags) only after the first genuine user interaction.
+ * Uses a short RAF delay before attaching the scroll listener to
+ * skip the browser's initial scroll-restoration event.
+ *
+ * A 10-second safety timeout ensures analytics still fire even if
+ * the user never interacts.
  */
 export function GoogleTagManagerDeferred({ gtmId }: { gtmId: string }) {
-  const [loaded, setLoaded] = useState(false);
+  const injectedRef = useRef(false);
 
   useEffect(() => {
-    if (!gtmId || loaded) return undefined;
+    if (!gtmId || injectedRef.current) return undefined;
 
-    // Wait for an idle period after hydration before loading analytics
-    const id = requestIdleCallback(() => setLoaded(true), { timeout: 3500 });
+    const inject = () => {
+      if (injectedRef.current) return;
+      injectedRef.current = true;
+      teardown();
 
-    return () => cancelIdleCallback(id);
-  }, [gtmId, loaded]);
+      // Initialise dataLayer and gtag function
+      window.dataLayer = window.dataLayer || [];
+      function gtag(...args: unknown[]) {
+        window.dataLayer!.push(args);
+      }
+      gtag('js', new Date());
+      gtag('config', gtmId);
 
-  if (!loaded || !gtmId) return null;
+      // Dynamically load the gtag.js script
+      const script = document.createElement('script');
+      script.src = `https://www.googletagmanager.com/gtag/js?id=${gtmId}`;
+      script.async = true;
+      document.head.appendChild(script);
+    };
 
-  return (
-    <>
-      {/* gtag.js script */}
-      <script async src={`https://www.googletagmanager.com/gtag/js?id=${gtmId}`} />
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            window.dataLayer=window.dataLayer||[];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js',new Date());
-            gtag('config','${gtmId}');
-          `,
-        }}
-      />
-    </>
-  );
+    const immediateEvents: (keyof WindowEventMap)[] = ['click', 'touchstart', 'keydown'];
+    immediateEvents.forEach((evt) =>
+      window.addEventListener(evt, inject, { once: true, passive: true })
+    );
+
+    // Delay scroll listener by 2 frames to skip browser scroll-restoration
+    let scrollRafId: number;
+    scrollRafId = requestAnimationFrame(() => {
+      scrollRafId = requestAnimationFrame(() => {
+        window.addEventListener('scroll', inject, { once: true, passive: true });
+      });
+    });
+
+    // Safety net: load after 10s even without interaction
+    const timerId = setTimeout(inject, 10_000);
+
+    const teardown = () => {
+      immediateEvents.forEach((evt) => window.removeEventListener(evt, inject));
+      window.removeEventListener('scroll', inject);
+      clearTimeout(timerId);
+      cancelAnimationFrame(scrollRafId);
+    };
+
+    return teardown;
+  }, [gtmId]);
+
+  // Renders nothing — script injection is purely imperative
+  return null;
 }

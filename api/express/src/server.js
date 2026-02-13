@@ -1,10 +1,7 @@
-import express from "express";
-import {
-  json as bodyParserJson,
-  urlencoded as bodyParserUrlencoded,
-} from "body-parser";
-import cors from "cors";
-import sendMail from "./utils/sendMail";
+import express from 'express';
+import { json as bodyParserJson, urlencoded as bodyParserUrlencoded } from 'body-parser';
+import cors from 'cors';
+import sendMail from './utils/sendMail';
 
 const { PORT } = import.meta.env;
 
@@ -16,14 +13,14 @@ app.use(cors());
 app.use(bodyParserJson());
 app.use(bodyParserUrlencoded({ extended: true }));
 
-app.post("/api/sendmail", async (req, res) => {
+app.post('/api/sendmail', async (req, res) => {
   const { firstName, lastName, email: from, message } = req.body;
 
   try {
     await sendMail(`${firstName} ${lastName}`, from, message);
-    res.status(200).send({ message: "Email sent successfully" });
+    res.status(200).send({ message: 'Email sent successfully' });
   } catch (error) {
-    res.status(500).send({ message: "Error sending email" });
+    res.status(500).send({ message: 'Error sending email' });
   }
 });
 

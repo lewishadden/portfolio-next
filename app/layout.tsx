@@ -251,7 +251,7 @@ export default function RootLayout({ children }: { children: any }) {
         <link rel="dns-prefetch" href="https://api.iconify.design" />
         <link rel="preconnect" href="https://api.iconify.design" crossOrigin="anonymous" />
       </head>
-      <body data-theme="dark" data-bs-theme="dark" suppressHydrationWarning>
+      <body data-theme="dark" suppressHydrationWarning>
         <ThemeProvider>
           <Layout>{children}</Layout>
         </ThemeProvider>

@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build && next-image-export-optimizer && npm run purgecss && next-sitemap",
+    "build": "next build && next-image-export-optimizer && npm run purgecss && node scripts/inline-critical-css.mjs && next-sitemap",
     "purgecss": "purgecss -c purgecss.config.cjs",
     "analyze": "ANALYZE=true next build",
     "start": "serve out",
@@ -33,11 +33,9 @@
   },
   "dependencies": {
     "@iconify/react": "^6.0.2",
-    "animate.css": "^4.1.1",
     "formik": "^2.4.9",
     "next": "^16.1.6",
     "react": "^19.2.4",
-    "react-awesome-slider": "^4.1.0",
     "react-dom": "^19.2.4",
     "react-type-animation": "^3.2.0",
     "react-vertical-timeline-component": "^3.6.0",
@@ -61,6 +59,7 @@
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "babel-loader": "^10.0.0",
+    "critters": "^0.0.23",
     "dotenv": "^17.2.3",
     "eslint": "^8.57.0",
     "eslint-config-airbnb": "19.0.4",

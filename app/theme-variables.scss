@@ -79,6 +79,10 @@
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+}
+
+/* Only apply transitions after initial paint (theme-ready class is added post-hydration) */
+.theme-ready body {
   transition:
     background-color 0.3s ease,
     color 0.3s ease;

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 
 import { BasicInfo, Skills as ISkills } from '@/types';
+import { useColumns } from '@/hooks/useColumns';
+import { buildPyramidRows } from '@/utils/buildPyramidRows';
 import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 
 import './Skills.scss';
@@ -18,69 +19,9 @@ const breakpoints = [
   { min: 0, cols: 3 },
 ];
 
-const getColumns = (width: number) =>
-  (breakpoints.find((bp) => width >= bp.min) ?? breakpoints[breakpoints.length - 1]).cols;
-
-/**
- * Splits items into rows with a reverse-pyramid taper at the bottom.
- * Full rows fill to `cols`. When there is a remainder, one full row is
- * borrowed and combined with the leftover to form two balanced, centered
- * taper rows (e.g. 8+5 → 7+6).
- */
-const buildPyramidRows = <T,>(items: T[], cols: number): T[][] => {
-  const total = items.length;
-  if (total === 0) return [];
-
-  const rows: T[][] = [];
-  const remainder = total % cols;
-  let offset = 0;
-
-  if (remainder === 0) {
-    for (let r = 0; r < total / cols; r += 1) {
-      rows.push(items.slice(offset, offset + cols));
-      offset += cols;
-    }
-    return rows;
-  }
-
-  const fullRowsAvailable = Math.floor(total / cols);
-
-  // Not enough items for even one full row — single centered row
-  if (fullRowsAvailable === 0) {
-    return [items.slice(0)];
-  }
-
-  // Borrow one full row; split pool into two balanced taper rows
-  const fullRowCount = fullRowsAvailable - 1;
-  const pool = cols + remainder;
-  const firstTaper = Math.ceil(pool / 2);
-  const secondTaper = pool - firstTaper;
-
-  for (let r = 0; r < fullRowCount; r += 1) {
-    rows.push(items.slice(offset, offset + cols));
-    offset += cols;
-  }
-
-  rows.push(items.slice(offset, offset + firstTaper));
-  offset += firstTaper;
-
-  if (secondTaper > 0) {
-    rows.push(items.slice(offset, offset + secondTaper));
-  }
-
-  return rows;
-};
-
 export const Skills = ({ skills, basicInfo }: { skills: ISkills; basicInfo: BasicInfo }) => {
   const headingText = basicInfo.sectionName.skills;
-  const [columns, setColumns] = useState(3);
-
-  useEffect(() => {
-    const update = () => setColumns(getColumns(window.innerWidth));
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
+  const columns = useColumns(breakpoints);
 
   const icons = skills?.icons ?? [];
   const pyramidRows = buildPyramidRows(icons, columns);

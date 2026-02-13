@@ -3,18 +3,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { Icon } from '@iconify/react';
 import ExportedImage from 'next-image-export-optimizer';
 
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Project } from '@/types';
 
 import './ProjectDetailsModal.scss';
-
-const AwesomeSlider = dynamic(() => import('react-awesome-slider'), {
-  ssr: false,
-  loading: () => <div aria-hidden="true" style={{ minHeight: 240 }} />,
-});
 
 const ProjectDetailsModal = ({
   show,
@@ -26,12 +21,15 @@ const ProjectDetailsModal = ({
   onHide: () => void;
 }) => {
   const maxSliderHeightPercent = 56;
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [transitionEnabled, setTransitionEnabled] = useState(true);
   const [paddingHeight, setPaddingHeight] = useState(maxSliderHeightPercent);
   const { technologies, images, title, description, url } = data;
   const titleId = `project-details-modal-title-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
-  const sliderRef = useRef<HTMLDivElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
+  const focusTrapRef = useFocusTrap<HTMLDivElement>(show);
 
   const scrollModalToTop = useCallback(() => {
     const scrollModal = () => {
@@ -43,12 +41,16 @@ const ProjectDetailsModal = ({
     setTimeout(scrollModal, 150);
   }, []);
 
+  // Reset slide index when data changes
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [title]);
+
   // Lock body scroll when open
   useEffect(() => {
     if (show) {
       document.body.style.overflow = 'hidden';
       scrollModalToTop();
-      // Focus the dialog
       setTimeout(() => dialogRef.current?.focus(), 50);
     } else {
       document.body.style.overflow = '';
@@ -76,69 +78,189 @@ const ProjectDetailsModal = ({
     }
   };
 
-  const imageRefs = Array.from(images, () => useRef(null));
+  const goToSlide = useCallback(
+    (index: number) => {
+      setActiveIndex(index);
+
+      const realIndex = ((index % images.length) + images.length) % images.length;
+      const img = imageRefs.current[realIndex];
+      if (img && img.offsetWidth > 0) {
+        const newPaddingHeight = Math.min(
+          (img.offsetHeight / img.offsetWidth) * 100,
+          maxSliderHeightPercent
+        );
+        setPaddingHeight(newPaddingHeight);
+      }
+    },
+    [images.length]
+  );
+
+  // After transitioning to a clone slide, snap to the real slide without animation
+  const handleTransitionEnd = useCallback(() => {
+    if (activeIndex >= images.length) {
+      setTransitionEnabled(false);
+      setActiveIndex(0);
+    } else if (activeIndex < 0) {
+      setTransitionEnabled(false);
+      setActiveIndex(images.length - 1);
+    }
+  }, [activeIndex, images.length]);
+
+  // Re-enable transition after a snap reset
+  useEffect(() => {
+    if (!transitionEnabled) {
+      // Force a reflow so the snap is applied before re-enabling transition
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTransitionEnabled(true);
+        });
+      });
+    }
+  }, [transitionEnabled]);
 
   const handleCarouselKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'ArrowRight') {
       event.preventDefault();
-      sliderRef.current?.querySelector<HTMLButtonElement>('.awssld__next')?.click();
+      goToSlide(activeIndex + 1);
     }
-
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      sliderRef.current?.querySelector<HTMLButtonElement>('.awssld__prev')?.click();
+      goToSlide(activeIndex - 1);
     }
   };
 
-  const getImageSlides = () => (
-    <div
-      className="project-details__modal__body__image-container"
-      ref={sliderRef}
-      role="group"
-      aria-label="Project image carousel"
-    >
-      <AwesomeSlider
-        animation="cubeAnimation"
-        className="project-details__modal__body__image-container__slider"
-        style={{ '--slider-height-percentage': `${paddingHeight}%` }}
-        onTransitionStart={(ref) => {
-          const nextImg = imageRefs[ref.nextIndex].current as unknown as HTMLImageElement;
-          const { offsetWidth, offsetHeight }: { offsetWidth: number; offsetHeight: number } =
-            nextImg;
-          const newPaddingHeight = Math.min(
-            (offsetHeight / offsetWidth) * 100,
-            maxSliderHeightPercent
-          );
-          setPaddingHeight(newPaddingHeight);
-        }}
+  const setImageRef = (index: number) => (el: HTMLImageElement | null) => {
+    imageRefs.current[index] = el;
+  };
+
+  const getImageSlides = () => {
+    // Clone last slide before first and first slide after last for seamless looping
+    const lastImage = images[images.length - 1];
+    const firstImage = images[0];
+    // Track offset: index 0 maps to translateX(-100%) because of the prepended clone
+    const trackOffset = (activeIndex + 1) * 100;
+    const realIndex = ((activeIndex % images.length) + images.length) % images.length;
+
+    return (
+      <div
+        className="project-details__carousel"
+        role="group"
+        aria-label="Project image carousel"
+        aria-roledescription="carousel"
       >
-        {images.map(({ url: imageUrl, size }, i) => (
-          <div key={i}>
+        <div
+          className="project-details__carousel__track"
+          style={{
+            transform: `translateX(-${trackOffset}%)`,
+            transition: transitionEnabled ? undefined : 'none',
+            paddingBottom: `${paddingHeight}%`,
+          }}
+          onTransitionEnd={handleTransitionEnd}
+        >
+          {/* Clone of last slide (prepended) */}
+          <div className="project-details__carousel__slide" aria-hidden="true">
             <ExportedImage
-              src={imageUrl}
-              width={size.width}
-              height={size.height}
-              alt={`Carousel Image ${i}`}
-              className="project-details__modal__body__image-container__img"
-              ref={imageRefs[i]}
+              src={lastImage.url}
+              width={lastImage.size.width}
+              height={lastImage.size.height}
+              alt=""
+              className="project-details__carousel__img"
               sizes="(min-width: 992px) 60vw, 90vw"
               loading="lazy"
               decoding="async"
-              onLoad={(e) => {
-                const { offsetWidth, offsetHeight }: { offsetWidth: number; offsetHeight: number } =
-                  e.target as HTMLImageElement;
-                const newPaddingHeight = Math.min(
-                  (offsetHeight / offsetWidth) * 100,
-                  maxSliderHeightPercent
-                );
-                setPaddingHeight(newPaddingHeight);
-              }}
             />
           </div>
-        ))}
-      </AwesomeSlider>
-    </div>
-  );
+
+          {/* Real slides */}
+          {images.map(({ url: imageUrl, size, alt: imageAlt }, i) => (
+            <div
+              key={i}
+              className="project-details__carousel__slide"
+              role="tabpanel"
+              aria-roledescription="slide"
+              aria-label={`Slide ${i + 1} of ${images.length}`}
+              aria-hidden={i !== realIndex}
+            >
+              <ExportedImage
+                src={imageUrl}
+                width={size.width}
+                height={size.height}
+                alt={imageAlt || `Screenshot of ${title} project`}
+                className="project-details__carousel__img"
+                ref={setImageRef(i)}
+                sizes="(min-width: 992px) 60vw, 90vw"
+                loading={i === 0 ? 'eager' : 'lazy'}
+                decoding="async"
+                onLoad={(e) => {
+                  if (i !== activeIndex) return;
+                  const { offsetWidth, offsetHeight } = e.target as HTMLImageElement;
+                  if (offsetWidth === 0) return;
+                  const newPaddingHeight = Math.min(
+                    (offsetHeight / offsetWidth) * 100,
+                    maxSliderHeightPercent
+                  );
+                  setPaddingHeight(newPaddingHeight);
+                }}
+              />
+            </div>
+          ))}
+
+          {/* Clone of first slide (appended) */}
+          <div className="project-details__carousel__slide" aria-hidden="true">
+            <ExportedImage
+              src={firstImage.url}
+              width={firstImage.size.width}
+              height={firstImage.size.height}
+              alt=""
+              className="project-details__carousel__img"
+              sizes="(min-width: 992px) 60vw, 90vw"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        </div>
+
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="project-details__carousel__btn project-details__carousel__btn--prev"
+              onClick={() => goToSlide(activeIndex - 1)}
+              aria-label="Previous image"
+            >
+              <Icon icon="mdi:chevron-left" />
+            </button>
+            <button
+              type="button"
+              className="project-details__carousel__btn project-details__carousel__btn--next"
+              onClick={() => goToSlide(activeIndex + 1)}
+              aria-label="Next image"
+            >
+              <Icon icon="mdi:chevron-right" />
+            </button>
+
+            <div
+              className="project-details__carousel__dots"
+              role="tablist"
+              aria-label="Slide controls"
+            >
+              {images.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  role="tab"
+                  className={`project-details__carousel__dot${i === realIndex ? ' project-details__carousel__dot--active' : ''}`}
+                  onClick={() => goToSlide(i)}
+                  aria-label={`Go to slide ${i + 1}`}
+                  aria-selected={i === realIndex}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   const TechIcons = () => (
     <div className="project-details__modal__body__tech-section">
@@ -157,7 +279,7 @@ const ProjectDetailsModal = ({
   if (!show) return null;
 
   return (
-    <div className="project-details__overlay">
+    <div className="project-details__overlay" ref={focusTrapRef}>
       <button
         type="button"
         className="project-details__backdrop"

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Icon } from '@iconify/react';
 
 import { BasicInfo, Project } from '@/types';
+import { useColumns } from '@/hooks/useColumns';
+import { buildPyramidRows } from '@/utils/buildPyramidRows';
 import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
 
@@ -19,59 +21,6 @@ const breakpoints = [
   { min: 0, cols: 1 },
 ];
 
-const getColumns = (width: number) =>
-  (breakpoints.find((bp) => width >= bp.min) ?? breakpoints[breakpoints.length - 1]).cols;
-
-/**
- * Splits items into rows with a reverse-pyramid taper at the bottom.
- * Full rows fill to `cols`. When there is a remainder, one full row is
- * borrowed and combined with the leftover to form two balanced, centered
- * taper rows (e.g. 3+1 → 2+2).
- */
-const buildPyramidRows = <T,>(items: T[], cols: number): T[][] => {
-  const total = items.length;
-  if (total === 0) return [];
-
-  const rows: T[][] = [];
-  const remainder = total % cols;
-  let offset = 0;
-
-  if (remainder === 0) {
-    for (let r = 0; r < total / cols; r += 1) {
-      rows.push(items.slice(offset, offset + cols));
-      offset += cols;
-    }
-    return rows;
-  }
-
-  const fullRowsAvailable = Math.floor(total / cols);
-
-  // Not enough items for even one full row — single centered row
-  if (fullRowsAvailable === 0) {
-    return [items.slice(0)];
-  }
-
-  // Borrow one full row; split pool into two balanced taper rows
-  const fullRowCount = fullRowsAvailable - 1;
-  const pool = cols + remainder;
-  const firstTaper = Math.ceil(pool / 2);
-  const secondTaper = pool - firstTaper;
-
-  for (let r = 0; r < fullRowCount; r += 1) {
-    rows.push(items.slice(offset, offset + cols));
-    offset += cols;
-  }
-
-  rows.push(items.slice(offset, offset + firstTaper));
-  offset += firstTaper;
-
-  if (secondTaper > 0) {
-    rows.push(items.slice(offset, offset + secondTaper));
-  }
-
-  return rows;
-};
-
 const truncateDescription = (text: string, maxLength: number) => {
   if (text.length <= maxLength) return text;
   return `${text.substring(0, text.lastIndexOf(' ', maxLength))}…`;
@@ -84,27 +33,20 @@ export const Projects = ({
   basicInfo: BasicInfo;
   projects: Project[];
 }) => {
-  const [deps, setDeps] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [detailsModalShow, setDetailsModalShow] = useState(false);
-  const [columns, setColumns] = useState(1);
-
-  useEffect(() => {
-    const update = () => setColumns(getColumns(window.innerWidth));
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
+  const columns = useColumns(breakpoints);
 
   const headingText = basicInfo.sectionName.projects;
 
   const showDetailsModal = (data: Project) => {
-    setDeps(data);
+    setSelectedProject(data);
     setDetailsModalShow(true);
   };
 
   const detailsModalClose = () => {
     setDetailsModalShow(false);
-    setDeps(null);
+    setSelectedProject(null);
   };
 
   const pyramidRows = buildPyramidRows(projects, columns);
@@ -209,8 +151,12 @@ export const Projects = ({
             </div>
           ))}
         </div>
-        {deps && (
-          <ProjectDetailsModal show={detailsModalShow} onHide={detailsModalClose} data={deps} />
+        {selectedProject && (
+          <ProjectDetailsModal
+            show={detailsModalShow}
+            onHide={detailsModalClose}
+            data={selectedProject}
+          />
         )}
       </div>
     </section>

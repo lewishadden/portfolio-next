@@ -38,6 +38,12 @@ docs/             # Documentation (accessibility, SEO, etc.)
 
 ## Key Conventions
 
+## Prettier Formatting Rules
+
+- All code must follow the formatting rules enforced by Prettier.
+- Run `npm run prettier:check` to verify formatting and `npm run prettier:write` to auto-format code before committing.
+- Do not manually override Prettier formatting; use the automated tool for consistency.
+
 ### Naming
 
 - All variables, constants, and function parameters must use **camelCase** (e.g., `maxSliderHeight`, `paddingHeight`)

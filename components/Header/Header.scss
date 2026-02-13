@@ -16,6 +16,25 @@
     transform: translateY(0);
   }
 
+  // ── Backdrop overlay (mobile) ──
+  &__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: rgba(0, 0, 0, 0.4);
+    border: none;
+    cursor: default;
+    -webkit-tap-highlight-color: transparent;
+
+    [data-theme='light'] & {
+      background: rgba(15, 23, 42, 0.2);
+    }
+
+    @media (min-width: 768px) {
+      display: none;
+    }
+  }
+
   // ── Floating pill nav ──
   &__nav {
     pointer-events: auto;

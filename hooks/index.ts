@@ -1,3 +1,5 @@
+export { useColumns } from './useColumns';
+export { useFocusTrap } from './useFocusTrap';
 export { useHeadroom } from './useHeadroom';
 export { useInViewport } from './useInViewport';
 export { useMediaQuery } from './useMediaQuery';

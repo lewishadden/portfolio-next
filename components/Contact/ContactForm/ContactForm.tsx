@@ -38,14 +38,19 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
     message: string;
   }) => {
     setLoading(true);
-    const response = await fetch(`${apiUrl}/sendmail`, {
-      method: 'POST',
-      body: JSON.stringify({ firstName, lastName, email, message }),
-      headers: { 'Content-Type': 'application/json' },
-    });
-    setLoading(false);
-    if (response.status === 200) onSuccess();
-    else onFail(response);
+    try {
+      const response = await fetch(`${apiUrl}/sendmail`, {
+        method: 'POST',
+        body: JSON.stringify({ firstName, lastName, email, message }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      setLoading(false);
+      if (response.status === 200) onSuccess();
+      else onFail(response);
+    } catch {
+      setLoading(false);
+      onFail(new Response(null, { status: 0, statusText: 'Network Error' }));
+    }
   };
 
   return (
