@@ -1,8 +1,8 @@
-import { createTransport } from "nodemailer";
+import { createTransport } from 'nodemailer';
 
 const { SMTP_HOST, SMTP_PORT, SMTP_PASS, SMTP_EMAIL } = process.env;
 
-import { senderEmail, recieverEmail, emailSubject } from "../config/config.js";
+import { senderEmail, recieverEmail, emailSubject } from '../config/config.js';
 
 const logToConsole = (message) => {
   const logMessage = `[${new Date().toISOString()}] ${message}\n`;
@@ -10,7 +10,7 @@ const logToConsole = (message) => {
 };
 
 const sendMail = async (name, from, message) => {
-  logToConsole("Sending email...");
+  logToConsole('Sending email...');
   try {
     let transporter = createTransport({
       host: SMTP_HOST,
@@ -32,7 +32,7 @@ const sendMail = async (name, from, message) => {
     };
 
     await transporter.sendMail(mailOptions);
-    logToConsole("Email sent!");
+    logToConsole('Email sent!');
     return true;
   } catch (error) {
     logToConsole(`Error sending email: ${error}`);

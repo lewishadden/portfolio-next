@@ -1,20 +1,20 @@
-import nodemailer from "nodemailer";
-import { appendFile } from "fs";
+import nodemailer from 'nodemailer';
+import { appendFile } from 'fs';
 const { SMTP_HOST, SMTP_PORT, SMTP_PASS, SMTP_EMAIL } = import.meta.env;
 
-import { senderEmail, recieverEmail, emailSubject } from "../config/config";
+import { senderEmail, recieverEmail, emailSubject } from '../config/config';
 
 const logToFile = (message) => {
   const logMessage = `[${new Date().toISOString()}] ${message}\n`;
-  appendFile("sendMail.log", logMessage, (err) => {
+  appendFile('sendMail.log', logMessage, (err) => {
     if (err) {
-      console.error("Error writing to log file:", err);
+      console.error('Error writing to log file:', err);
     }
   });
 };
 
 const sendMail = async (name, from, message) => {
-  logToFile("Sending email..., in the sendMail.js file");
+  logToFile('Sending email..., in the sendMail.js file');
   try {
     let transporter = nodemailer.createTransport({
       host: SMTP_HOST,
@@ -36,7 +36,7 @@ const sendMail = async (name, from, message) => {
     };
 
     await transporter.sendMail(mailOptions);
-    logToFile("Email sent!");
+    logToFile('Email sent!');
     return true;
   } catch (error) {
     logToFile(`Error sending email: ${error}`);
