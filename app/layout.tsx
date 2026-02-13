@@ -12,7 +12,7 @@ import content from '../content/content.json';
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'https://portfolio.lewishadden.com';
 
-const personName = content.basicInfo?.name || 'Portfolio';
+const personName = content.home?.name || 'Portfolio';
 const description =
   'Lewis Hadden - Freelance Senior Full Stack Engineer & Lead Developer specializing in React, Next.js, TypeScript, Node.js, Azure, and AWS. Available for freelance contracts and permanent positions. 8+ years experience building enterprise applications.';
 const keywords = [
@@ -35,8 +35,8 @@ const keywords = [
   'JavaScript Developer',
   'Web Developer',
 ];
-const profileImage = content.basicInfo?.image?.url || '/static/images/portrait.png';
-const sameAs = (content.basicInfo?.social || []).map((s: any) => s.url).filter(Boolean);
+const profileImage = content.about?.image?.url || '/static/images/portrait.png';
+const sameAs = (content.footer?.social || []).map((s: any) => s.url).filter(Boolean);
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -76,8 +76,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: profileImage,
-        width: content.basicInfo?.image?.size?.width || 1200,
-        height: content.basicInfo?.image?.size?.height || 630,
+        width: content.about?.image?.size?.width || 1200,
+        height: content.about?.image?.size?.height || 630,
         alt: `${personName} - Full Stack Developer Portfolio`,
         type: 'image/png',
       },
@@ -111,8 +111,10 @@ export const metadata: Metadata = {
 };
 
 function JsonLd() {
-  const email = content.basicInfo?.contactInfo?.find((c: any) => c.name === 'Email')?.value;
-  const telephone = content.basicInfo?.contactInfo?.find((c: any) => c.name === 'Mobile')?.value;
+  const email = content.contact?.contactInfo?.items?.find((c: any) => c.name === 'Email')?.value;
+  const telephone = content.contact?.contactInfo?.items?.find(
+    (c: any) => c.name === 'Mobile'
+  )?.value;
 
   // Person Schema
   const personSchema = {
@@ -124,12 +126,12 @@ function JsonLd() {
     image: {
       '@type': 'ImageObject',
       url: new URL(profileImage, siteUrl).toString(),
-      width: content.basicInfo?.image?.size?.width || 1200,
-      height: content.basicInfo?.image?.size?.height || 630,
+      width: content.about?.image?.size?.width || 1200,
+      height: content.about?.image?.size?.height || 630,
     },
     email,
     telephone,
-    jobTitle: content.basicInfo?.titles || ['Full Stack Engineer'],
+    jobTitle: content.home?.titles || ['Full Stack Engineer'],
     worksFor: {
       '@type': 'Organization',
       name: 'Freelance',
