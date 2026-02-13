@@ -31,7 +31,7 @@
     "openToWorkText": "Open to Work",
     "cta": {
       "primary": {
-        "text": "Let&rsquo;s Talk",
+        "text": "Let's Talk",
         "url": "#contact",
         "icon": "mdi:email",
         "ariaLabel": "Contact me"
@@ -49,7 +49,7 @@
     "label": "Get to know me",
     "openToWorkText": "Available for opportunities",
     "descriptionHeader": "Hello! <span class='wave'>👋</span>",
-    "description": "My name is Lewis, and I&rsquo;m a highly experienced and qualified Senior Full Stack Engineer. I&rsquo;ve been working in the web development industry for almost 9 years. I have led several development teams for large-scale projects and worked as an independent developer on both in-house and public-facing products.<br /><br />In my free time, I enjoy going to the gym, boxing, and playing the guitar.<br /><br />I am currently seeking my next opportunity as a Senior or Lead Full Stack developer, either as a freelancer or under permanent employment.<br /><br />Keep scrolling to see my past projects, skills and experience.",
+    "description": "My name is Lewis, and I'm a highly experienced and qualified Senior Full Stack Engineer. I've been working in the web development industry for almost 9 years. I have led several development teams for large-scale projects and worked as an independent developer on both in-house and public-facing products.<br /><br />In my free time, I enjoy going to the gym, boxing, and playing the guitar.<br /><br />I am currently seeking my next opportunity as a Senior or Lead Full Stack developer, either as a freelancer or under permanent employment.<br /><br />Keep scrolling to see my past projects, skills and experience.",
     "image": {
       "url": "/static/images/portrait.png",
       "size": {
@@ -76,7 +76,7 @@
   },
   "experience": {
     "title": "Experience",
-    "label": "Where I&rsquo;ve worked",
+    "label": "Where I've worked",
     "done": {
       "icon": "emojione:hourglass-done"
     },
@@ -229,7 +229,7 @@
   },
   "projects": {
     "title": "Projects",
-    "label": "What I&rsquo;ve built",
+    "label": "What I've built",
     "items": [
       {
         "title": "ADP RUN",
@@ -387,7 +387,7 @@
       {
         "title": "AirDoctor Webhook",
         "startDate": "2024",
-        "description": "AirDoctor is a platform that enables its users to connect with nearby doctors whilst abroad, making it easy to claim back on their travel insurance policy to recieve the treatment they need. Whilst working at ERGO Travel Insurance Services, I architected, developed and deployed the entire Webhook that ingests and processes insurance claims from the AirDoctor platform. This has enabled ERGO to underwrite the sales of new insurance policies for their partner insurance companies through the AirDoctor platform, bringing in a large stream of new revenue. I was the sole developer working on the project, and drove it from it&rsquo;s conceptualization, all the way through to delivery of the enterprise-grade, production ready solution. Adhering strictly to best practice secure programming principals in both code and infrastructure, the final solution is extremely robust and secure. I also built a docker stack with local azure emulators to enable local development, mitigating the risks of performing any unwanted actions on an environment. This docker stack can be used for all development team projects going forward, providing an extra layer of security as well as offline development capability.",
+        "description": "AirDoctor is a platform that enables its users to connect with nearby doctors whilst abroad, making it easy to claim back on their travel insurance policy to recieve the treatment they need. Whilst working at ERGO Travel Insurance Services, I architected, developed and deployed the entire Webhook that ingests and processes insurance claims from the AirDoctor platform. This has enabled ERGO to underwrite the sales of new insurance policies for their partner insurance companies through the AirDoctor platform, bringing in a large stream of new revenue. I was the sole developer working on the project, and drove it from it's conceptualization, all the way through to delivery of the enterprise-grade, production ready solution. Adhering strictly to best practice secure programming principals in both code and infrastructure, the final solution is extremely robust and secure. I also built a docker stack with local azure emulators to enable local development, mitigating the risks of performing any unwanted actions on an environment. This docker stack can be used for all development team projects going forward, providing an extra layer of security as well as offline development capability.",
         "theme": {
           "text": "light",
           "border": "light",
@@ -498,7 +498,7 @@
       {
         "title": "Cookie Control",
         "startDate": "2018",
-        "description": "I was responsible for single-handedly designing and implementing the Cookie Control system for the Audi UK website to ensure compliance with GDPR regulations. To achieve this, I utilized Adobe Launch to develop custom rule sets and JavaScript tags, allowing me to control the triggering of third-party tracking tags and custom analytics based on the users&rsquo; cookie settings.",
+        "description": "I was responsible for single-handedly designing and implementing the Cookie Control system for the Audi UK website to ensure compliance with GDPR regulations. To achieve this, I utilized Adobe Launch to develop custom rule sets and JavaScript tags, allowing me to control the triggering of third-party tracking tags and custom analytics based on the users' cookie settings.",
         "theme": {
           "text": "light",
           "border": "light",
@@ -616,7 +616,7 @@
       {
         "title": "Audex",
         "startDate": "2022",
-        "description": "I architected and developed the front-end foundations for a significant module powering Audex, an online media visualisation and analysis portal. Renowned as a highly-skilled React developer, I was brought on board to single-handedly work on the React Front-End for the platforms&rsquo; Analyse module. I began by developing a POC, successfully demonstrating the ability to display a PowerBI graph in a React app which subscribes to the PowerBI data source and renders real-time analysis data. After delivering on my React competency, I concluded my time on the project after creating the official repository for the Analyse module and the boilerplate containing the underlying technology to power the entire module.",
+        "description": "I architected and developed the front-end foundations for a significant module powering Audex, an online media visualisation and analysis portal. Renowned as a highly-skilled React developer, I was brought on board to single-handedly work on the React Front-End for the platforms' Analyse module. I began by developing a POC, successfully demonstrating the ability to display a PowerBI graph in a React app which subscribes to the PowerBI data source and renders real-time analysis data. After delivering on my React competency, I concluded my time on the project after creating the official repository for the Analyse module and the boilerplate containing the underlying technology to power the entire module.",
         "thumbnail": "solar:chart-bold",
         "images": [
           {
@@ -658,7 +658,7 @@
       {
         "title": "Home Greening Microsite",
         "startDate": "2023",
-        "description": "I was solely responsible for the architecture and design of the entire cloud infrastructure for a proposed new micro-site for UK Power Networks. I led the cloud and Front-End development teams during the design and planning phases, guiding them through the solution and implementation. The client preferred Azure as their cloud provider, and I worked closely with them to ensure that my infrastructure design complied with their strict security standards. After collaborating with the client&rsquo;s security team, I created an optimal cloud infrastructure solution that met their functional and security requirements. I analysed the functionality of the microsite to gather the data requirements and used this to devise the most efficient database schema for Cosmos DB. I also created detailed architecture diagrams and a comprehensive technical design breakdown of the Azure architecture, including justifications and decisions made for each service, along with implementation and configuration steps.",
+        "description": "I was solely responsible for the architecture and design of the entire cloud infrastructure for a proposed new micro-site for UK Power Networks. I led the cloud and Front-End development teams during the design and planning phases, guiding them through the solution and implementation. The client preferred Azure as their cloud provider, and I worked closely with them to ensure that my infrastructure design complied with their strict security standards. After collaborating with the client's security team, I created an optimal cloud infrastructure solution that met their functional and security requirements. I analysed the functionality of the microsite to gather the data requirements and used this to devise the most efficient database schema for Cosmos DB. I also created detailed architecture diagrams and a comprehensive technical design breakdown of the Azure architecture, including justifications and decisions made for each service, along with implementation and configuration steps.",
         "thumbnail": "mdi:home-battery",
         "images": [],
         "theme": {
@@ -958,11 +958,11 @@
   },
   "contact": {
     "title": "Contact Me",
-    "label": "Let&rsquo;s connect",
-    "tagline": "Let&rsquo;s work together on your next project",
+    "label": "Let's connect",
+    "tagline": "Let's work together on your next project",
     "contactInfo": {
       "title": "Get in touch",
-      "description": "Feel free to reach out. I&rsquo;m always open to discussing new projects and opportunities.",
+      "description": "Feel free to reach out. I'm always open to discussing new projects and opportunities.",
       "items": [
         {
           "name": "Email",
