@@ -28,7 +28,7 @@ export const Home = ({ home, openToWork }: { home: HomeProps; openToWork: boolea
 
           <div className="home__header__text">
             <p className="home__header__greeting">Hi, I&rsquo;m</p>
-            <h1 id="home-heading" className="home__header__name font-trebuchet">
+            <h1 id="home-heading" className="home__header__name font-trebuchet" data-text={name}>
               {name}
             </h1>
             <div className="home__header__title-wrapper">

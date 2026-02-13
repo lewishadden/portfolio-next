@@ -73,7 +73,7 @@
       font-weight: 600;
       color: #22c55e;
       backdrop-filter: blur(12px);
-      animation: fadeInDown 0.6s ease-out;
+      animation: slideInDown 1s ease-out;
       letter-spacing: 0.3px;
 
       [data-theme='light'] & {
@@ -98,7 +98,7 @@
     &__icon-wrapper {
       position: relative;
       display: inline-block;
-      animation: fadeInScale 0.8s ease-out 0.2s backwards;
+      animation: scaleIn 1s ease-out 0.15s backwards;
     }
 
     &__icon {
@@ -145,10 +145,6 @@
       }
     }
 
-    &__text {
-      animation: fadeInUp 0.8s ease-out 0.4s backwards;
-    }
-
     &__greeting {
       font-size: 1.125rem;
       font-weight: 500;
@@ -156,6 +152,7 @@
       margin-bottom: 0.375rem;
       letter-spacing: 1px;
       text-transform: uppercase;
+      animation: slideInDown 1s ease-out 0.3s backwards;
 
       @media (min-width: 768px) {
         font-size: 1.25rem;
@@ -167,18 +164,29 @@
       font-size: clamp(2rem, 5vw, 2.75rem);
       line-height: 1.05;
       letter-spacing: -1px;
-      background: linear-gradient(
-        135deg,
-        var(--gradient-start) 0%,
-        var(--gradient-mid) 50%,
-        var(--gradient-end) 100%
-      );
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      background-size: 200% 100%;
-      animation: shimmerGradient 8s linear infinite;
+      color: var(--gradient-start);
+      position: relative;
+      contain: paint;
       margin-bottom: var(--padding-y-xs);
+      animation: slideInUp 1s ease-out 0.45s backwards;
+
+      &::after {
+        content: attr(data-text);
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          var(--gradient-start) 0%,
+          var(--gradient-mid) 50%,
+          var(--gradient-end) 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        background-size: 200% 100%;
+        animation: shimmerGradient 8s linear infinite;
+        pointer-events: none;
+      }
 
       @media (min-width: 768px) {
         font-size: 4.5rem;
@@ -196,6 +204,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      animation: slideInUp 1s ease-out 0.6s backwards;
 
       @media (min-width: 768px) {
         min-height: 70px;
@@ -218,6 +227,12 @@
       background-size: 200% 100%;
       animation: shimmerGradient 8s linear infinite;
       display: inline-block;
+      position: relative;
+
+      // Prevent typing cursor from affecting inline-block width
+      &::after {
+        position: absolute;
+      }
 
       @media (min-width: 768px) {
         font-size: 1.875rem;
@@ -235,7 +250,7 @@
       max-width: 540px;
       margin: 0.25rem 1rem 0;
       line-height: 1.75;
-      animation: fadeInUp 0.8s ease-out 0.6s backwards;
+      animation: slideInUp 1s ease-out 0.75s backwards;
 
       @media (min-width: 768px) {
         font-size: 1.125rem;
@@ -247,7 +262,7 @@
       gap: 0.875rem;
       flex-wrap: wrap;
       justify-content: center;
-      animation: fadeInUp 0.8s ease-out 0.8s backwards;
+      animation: slideInUp 1s ease-out 0.9s backwards;
       padding-top: 0.5rem;
     }
 
@@ -336,7 +351,7 @@
     left: 50%;
     transform: translateX(-50%);
     z-index: 3;
-    animation: fadeIn 1s ease-out 1s backwards;
+    animation: chevronSlideIn 1s ease-out 1.05s backwards;
 
     .chevron-down {
       fill: var(--text-primary);
@@ -347,6 +362,42 @@
       &:hover {
         opacity: 0.9;
       }
+    }
+  }
+
+  @keyframes slideInUp {
+    from {
+      transform: translateY(35px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInDown {
+    from {
+      transform: translateY(-35px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      transform: scale(0.7);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes chevronSlideIn {
+    from {
+      transform: translateX(-50%) translateY(35px);
+    }
+    to {
+      transform: translateX(-50%) translateY(0);
     }
   }
 
