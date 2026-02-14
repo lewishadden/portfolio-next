@@ -108,6 +108,7 @@
         0 0 0 5px rgba(59, 130, 246, 0.35),
         0 4px 16px rgba(59, 130, 246, 0.25);
       z-index: 2;
+      animation: pulse-icon 2.5s ease-in-out infinite;
       transition:
         transform 0.3s ease,
         box-shadow 0.3s ease;
@@ -120,6 +121,7 @@
       }
 
       .timeline__item:hover & {
+        animation: none;
         transform: scale(1.1);
         box-shadow:
           0 0 0 3px var(--bg-primary),
