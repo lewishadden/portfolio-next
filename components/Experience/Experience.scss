@@ -33,86 +33,289 @@
       font-size: 2.75rem;
     }
   }
+}
 
-  .timeline {
-    &__item {
-      &:not(.timeline__item--end) {
-        .vertical-timeline-element-content {
-          border: 1px solid var(--border-color);
-          border-radius: 14px;
-          background: var(--card-bg);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-          padding: var(--padding-y-md) var(--padding-x-md);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+// ── Timeline layout ──
+.timeline {
+  position: relative;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1rem 0 2rem;
 
-          [data-theme='light'] & {
-            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
-          }
+  // Vertical centre line
+  &__line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 23px;
+    width: 2px;
+    background: var(--border-color);
+    border-radius: 1px;
 
-          &:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            border-color: var(--accent-primary);
+    @media (min-width: 992px) {
+      left: 50%;
+      transform: translateX(-50%);
+    }
+  }
 
-            [data-theme='light'] & {
-              box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
-            }
-          }
-        }
+  // ── Each timeline entry ──
+  &__item {
+    position: relative;
+    padding-left: 68px; // space for larger icon + gap
+    margin-bottom: 2.5rem;
 
-        .vertical-timeline-element-content-arrow {
-          border-right-color: var(--border-color);
-          transition: border-color 0.3s ease;
-        }
+    @media (min-width: 992px) {
+      padding-left: 0;
+      width: 50%;
+      margin-bottom: 3rem;
 
-        &:hover .vertical-timeline-element-content-arrow {
-          border-right-color: var(--accent-primary);
-        }
+      // Alternate sides: odd items on the left, even on the right
+      &:nth-child(odd of :not(.timeline__item--end)) {
+        margin-right: auto;
+        padding-right: 56px;
+      }
 
-        .vertical-timeline-element-icon {
+      &:nth-child(even of :not(.timeline__item--end)) {
+        margin-left: auto;
+        padding-left: 56px;
+      }
+    }
+
+    &__inner {
+      display: flex;
+      align-items: flex-start;
+
+      @media (min-width: 992px) {
+        display: block;
+      }
+    }
+
+    // ── Icon dot ──
+    &__icon-wrapper {
+      position: absolute;
+      left: 3px;
+      top: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+      color: #fff;
+      box-shadow:
+        0 0 0 3px var(--bg-primary),
+        0 0 0 5px rgba(59, 130, 246, 0.35),
+        0 4px 16px rgba(59, 130, 246, 0.25);
+      z-index: 2;
+      transition:
+        transform 0.3s ease,
+        box-shadow 0.3s ease;
+
+      [data-theme='light'] & {
+        box-shadow:
+          0 0 0 3px var(--bg-primary),
+          0 0 0 5px rgba(59, 130, 246, 0.25),
+          0 4px 16px rgba(59, 130, 246, 0.15);
+      }
+
+      .timeline__item:hover & {
+        transform: scale(1.1);
+        box-shadow:
+          0 0 0 3px var(--bg-primary),
+          0 0 0 6px rgba(59, 130, 246, 0.5),
+          0 6px 24px rgba(59, 130, 246, 0.35);
+
+        [data-theme='light'] & {
           box-shadow:
             0 0 0 3px var(--bg-primary),
-            0 4px 12px rgba(0, 0, 0, 0.1) !important;
+            0 0 0 6px rgba(59, 130, 246, 0.35),
+            0 6px 24px rgba(59, 130, 246, 0.2);
+        }
+      }
 
-          [data-theme='light'] & {
-            box-shadow:
-              0 0 0 3px var(--bg-primary),
-              0 4px 12px rgba(15, 23, 42, 0.08) !important;
-          }
+      @media (min-width: 992px) {
+        width: 48px;
+        height: 48px;
+        left: auto;
+
+        // Odd items: icon on the right edge
+        .timeline__item:nth-child(odd of :not(.timeline__item--end)) & {
+          right: -24px;
         }
 
-        .vertical-timeline-element-date {
-          color: var(--text-muted);
-          font-weight: 500;
-          font-size: 0.875rem;
-          opacity: 1;
-          letter-spacing: 0.2px;
+        // Even items: icon on the left edge
+        .timeline__item:nth-child(even of :not(.timeline__item--end)) & {
+          left: -24px;
         }
       }
 
       &--end {
-        .vertical-timeline-element-icon {
-          animation: pulse-icon 2.5s ease-in-out infinite;
+        width: 48px;
+        height: 48px;
+        left: 0;
+        background: linear-gradient(
+          135deg,
+          var(--gradient-start) 0%,
+          var(--gradient-mid) 50%,
+          var(--gradient-end) 100%
+        );
+        box-shadow:
+          0 0 0 3px var(--bg-primary),
+          0 0 0 5px rgba(99, 102, 241, 0.4),
+          0 4px 16px rgba(99, 102, 241, 0.3);
+        animation: pulse-icon 2.5s ease-in-out infinite;
+
+        [data-theme='light'] & {
+          box-shadow:
+            0 0 0 3px var(--bg-primary),
+            0 0 0 5px rgba(99, 102, 241, 0.3),
+            0 4px 16px rgba(99, 102, 241, 0.2);
         }
-      }
 
-      &__icon {
-        width: 28px;
-        height: 28px;
-        margin: -14px 0 0 -14px;
-      }
-
-      .vertical-timeline-element-title {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 0.25rem;
-        line-height: 1.3;
+        @media (min-width: 992px) {
+          width: 52px;
+          height: 52px;
+          left: 50%;
+          margin-left: -26px; // half of 52px — keeps transform free for pulse animation
+        }
       }
     }
 
-    &::before {
-      background: var(--border-color);
+    &__icon {
+      width: 22px;
+      height: 22px;
+
+      @media (min-width: 992px) {
+        width: 26px;
+        height: 26px;
+      }
+    }
+
+    // ── Content card ──
+    &__card {
+      position: relative;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: var(--padding-y-md) var(--padding-x-md);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 100%;
+
+      [data-theme='light'] & {
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+      }
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border-color: var(--accent-primary);
+
+        [data-theme='light'] & {
+          box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+        }
+      }
+    }
+
+    // ── Arrow pointing to the timeline line ──
+    &__arrow {
+      position: absolute;
+      top: 14px;
+      width: 10px;
+      height: 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      transform: rotate(45deg);
+      transition: border-color 0.3s ease;
+
+      // Mobile: arrow on the left
+      left: -6px;
+      border-right: none;
+      border-top: none;
+
+      @media (min-width: 992px) {
+        // Odd items (left side): arrow on the right
+        .timeline__item:nth-child(odd of :not(.timeline__item--end)) & {
+          left: auto;
+          right: -6px;
+          border: 1px solid var(--border-color);
+          border-left: none;
+          border-bottom: none;
+        }
+
+        // Even items (right side): arrow on the left
+        .timeline__item:nth-child(even of :not(.timeline__item--end)) & {
+          left: -6px;
+          border: 1px solid var(--border-color);
+          border-right: none;
+          border-top: none;
+        }
+      }
+
+      .timeline__item__card:hover & {
+        border-color: var(--accent-primary);
+      }
+    }
+
+    &__header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+
+      @media (min-width: 480px) {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+    }
+
+    &__title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0 0 0.25rem;
+      line-height: 1.3;
+
+      @media (min-width: 768px) {
+        font-size: 1.25rem;
+      }
+    }
+
+    &__subtitle {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    &__date {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+      flex-shrink: 0;
+
+      @media (min-width: 992px) {
+        font-size: 0.875rem;
+      }
+    }
+
+    // ── End marker ──
+    &--end {
+      margin-bottom: 0;
+      padding-left: 0;
+      display: flex;
+      justify-content: flex-start;
+      padding-left: 68px;
+
+      @media (min-width: 992px) {
+        width: 100%;
+        justify-content: center;
+        padding-left: 0;
+      }
     }
   }
 }
@@ -123,6 +326,6 @@
     transform: scale(1);
   }
   50% {
-    transform: scale(1.06);
+    transform: scale(1.08);
   }
 }
