@@ -124,3 +124,5 @@ bin
 obj
 appsettings.json
 local.settings.json
+
+next-env.d.ts
