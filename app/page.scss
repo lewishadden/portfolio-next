@@ -59,6 +59,22 @@
   backface-visibility: visible !important;
 }
 
+// Subtle slide-up for section headings
+.slideUp {
+  animation-name: slideUp;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 #main-content {
   background-color: var(--bg-secondary);
   background-image: radial-gradient(circle at 1px 1px, var(--dot-grid-color) 1px, transparent 0);

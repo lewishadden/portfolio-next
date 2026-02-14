@@ -66,7 +66,6 @@ export const Header = ({ header, navItems }: { header: HeaderProps; navItems: Na
       <header
         className={`header ${isPinned ? 'header--visible' : ''}`}
         role="banner"
-        ref={mobileMenuRef}
       >
         <nav className="header__nav" aria-label="Main navigation">
           <a href={header.home.href} className="header__logo" aria-label={header.home.ariaLabel}>
@@ -101,6 +100,7 @@ export const Header = ({ header, navItems }: { header: HeaderProps; navItems: Na
 
         {/* Mobile menu */}
         <div
+          ref={mobileMenuRef}
           className={`header__mobile ${mobileOpen ? 'header__mobile--open' : ''}`}
           aria-hidden={!mobileOpen}
         >

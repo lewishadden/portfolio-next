@@ -221,6 +221,73 @@
     }
   }
 
+  // ── Skeleton loading state ──
+  &__skeleton {
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        transparent 100%
+      );
+      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+
+      [data-theme='light'] & {
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.6) 50%,
+          transparent 100%
+        );
+      }
+    }
+
+    &--label {
+      width: 120px;
+      height: 14px;
+      margin: 0 auto 0.625rem;
+    }
+
+    &--title {
+      width: 200px;
+      height: 36px;
+      margin: 0 auto var(--padding-y-xs);
+    }
+
+    &--tagline {
+      width: 300px;
+      height: 18px;
+      margin: 0 auto;
+    }
+
+    &--card {
+      height: 360px;
+      border-radius: 20px;
+    }
+
+    &--form {
+      height: 360px;
+      border-radius: 20px;
+    }
+  }
+
+  @keyframes skeleton-shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
   // ── Toast notification ──
   &__toast {
     max-width: 600px;

@@ -4,6 +4,7 @@ import { VerticalTimeline, VerticalTimelineElement } from 'react-vertical-timeli
 import { Icon } from '@iconify/react';
 
 import TimelineItem from './TimelineItem/TimelineItem';
+import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 
 import { Experience as ExperienceProps } from '@/types';
 
@@ -19,10 +20,14 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
     <section id="experience" className="experience" aria-labelledby="experience-heading">
       <div className="experience__container">
         <div className="experience__heading-wrapper">
-          <span className="experience__label">{label}</span>
-          <h2 id="experience-heading" className="experience__title">
-            {title}
-          </h2>
+          <ScrollReveal animation="slideUp">
+            <span className="experience__label">{label}</span>
+          </ScrollReveal>
+          <ScrollReveal animation="slideUp" delay={0.1}>
+            <h2 id="experience-heading" className="experience__title">
+              {title}
+            </h2>
+          </ScrollReveal>
         </div>
 
         <div role="group" aria-label="Work experience timeline">
