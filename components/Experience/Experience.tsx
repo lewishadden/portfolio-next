@@ -34,7 +34,7 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
           <div className="timeline__line" aria-hidden="true" />
 
           {items.map((work, i) => (
-            <TimelineItem {...work} index={i} key={i} />
+            <TimelineItem {...work} key={i} />
           ))}
 
           {/* End marker */}

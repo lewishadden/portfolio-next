@@ -6,17 +6,7 @@ import { ExperienceItem } from '@/types';
 
 import './TimelineItem.scss';
 
-const staggerDelay = 0.15;
-
-const TimelineItem = ({
-  technologies,
-  mainTech,
-  title,
-  company,
-  years,
-  icon,
-  index,
-}: ExperienceItem & { index: number }) => {
+const TimelineItem = ({ technologies, mainTech, title, company, years, icon }: ExperienceItem) => {
   return (
     <div className="timeline__item" role="listitem">
       {/* Icon dot on the timeline line — outside ScrollReveal so position: absolute anchors to the timeline item, not the animated wrapper */}
@@ -24,11 +14,7 @@ const TimelineItem = ({
         <Icon icon={icon} className="timeline__item__icon" />
       </div>
 
-      <ScrollReveal
-        animation="fadeInUp"
-        delay={index * staggerDelay}
-        className="timeline__item__inner"
-      >
+      <ScrollReveal animation="fadeInUp" delay={0.15} className="timeline__item__inner">
         {/* Content card */}
         <div className="timeline__item__card">
           <div className="timeline__item__arrow" aria-hidden="true" />
