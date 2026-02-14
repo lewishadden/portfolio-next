@@ -51,10 +51,14 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     <section id="projects" className="projects" aria-labelledby="projects-heading">
       <div className="projects__container">
         <div className="projects__heading-wrapper">
-          <span className="projects__label">{label}</span>
-          <h2 id="projects-heading" className="projects__heading">
-            {title}
-          </h2>
+          <ScrollReveal animation="slideUp">
+            <span className="projects__label">{label}</span>
+          </ScrollReveal>
+          <ScrollReveal animation="slideUp" delay={0.1}>
+            <h2 id="projects-heading" className="projects__heading">
+              {title}
+            </h2>
+          </ScrollReveal>
         </div>
         <div className="projects__list" role="list" aria-label="Project portfolio">
           {pyramidRows.map((row, rowIndex) => (

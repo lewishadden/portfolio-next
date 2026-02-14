@@ -84,7 +84,7 @@
       box-shadow:
         0 2px 8px rgba(0, 0, 0, 0.06),
         0 1px 3px rgba(0, 0, 0, 0.03);
-      overflow: hidden;
+      overflow: visible;
       flex-shrink: 0;
 
       @media (min-width: 480px) {
@@ -211,6 +211,89 @@
         @media (min-width: 768px) {
           font-size: 0.75rem;
         }
+      }
+
+      &__tooltip {
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) translateY(6px);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.75rem;
+        background: rgba(10, 10, 18, 0.92);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+        z-index: 10;
+
+        [data-theme='light'] & {
+          background: rgba(255, 255, 255, 0.95);
+          border-color: rgba(15, 23, 42, 0.1);
+          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+        }
+
+        // Arrow
+        &::after {
+          content: '';
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          border: 5px solid transparent;
+          border-top-color: rgba(10, 10, 18, 0.92);
+
+          [data-theme='light'] & {
+            border-top-color: rgba(255, 255, 255, 0.95);
+          }
+        }
+
+        &__bar {
+          width: 48px;
+          height: 5px;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 3px;
+          overflow: hidden;
+
+          [data-theme='light'] & {
+            background: rgba(15, 23, 42, 0.1);
+          }
+        }
+
+        &__fill {
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            var(--accent-primary),
+            var(--accent-secondary)
+          );
+          border-radius: 3px;
+          transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        &__label {
+          font-size: 0.6875rem;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.85);
+          letter-spacing: 0.3px;
+
+          [data-theme='light'] & {
+            color: var(--text-primary);
+          }
+        }
+      }
+
+      &:hover &__tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
       }
     }
   }

@@ -18,10 +18,14 @@ export const About = ({ about, openToWork }: { about: AboutProps; openToWork: bo
     <section id="about" className="about" aria-labelledby="about-heading">
       <div className="about__container">
         <div className="about__heading-wrapper">
-          <span className="about__label">{label}</span>
-          <h2 id="about-heading" className="about__heading">
-            {title}
-          </h2>
+          <ScrollReveal animation="slideUp">
+            <span className="about__label">{label}</span>
+          </ScrollReveal>
+          <ScrollReveal animation="slideUp" delay={0.1}>
+            <h2 id="about-heading" className="about__heading">
+              {title}
+            </h2>
+          </ScrollReveal>
         </div>
 
         <ScrollReveal animation="fadeIn">

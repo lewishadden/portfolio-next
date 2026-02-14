@@ -6,6 +6,7 @@ import { Icon } from '@iconify/react';
 
 import { Contact as ContactProps } from '@/types';
 import ContactForm from './ContactForm/ContactForm';
+import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 
 import './Contact.scss';
 
@@ -49,11 +50,17 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
     <section id="contact" className="contact" aria-labelledby="contact-heading">
       <div className="contact__container">
         <div className="contact__heading-wrapper">
-          <span className="contact__label">{label}</span>
-          <h2 id="contact-heading" className="contact__heading">
-            {title}
-          </h2>
-          <p className="contact__tagline">{tagline}</p>
+          <ScrollReveal animation="slideUp">
+            <span className="contact__label">{label}</span>
+          </ScrollReveal>
+          <ScrollReveal animation="slideUp" delay={0.1}>
+            <h2 id="contact-heading" className="contact__heading">
+              {title}
+            </h2>
+          </ScrollReveal>
+          <ScrollReveal animation="slideUp" delay={0.2}>
+            <p className="contact__tagline">{tagline}</p>
+          </ScrollReveal>
         </div>
 
         <div className={`contact__body${submitted ? ' contact__body--submitted' : ''}`}>
@@ -68,7 +75,7 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
                       <Link
                         href={info.link}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="contact__info-link"
                         aria-label={`Contact me via ${info.value}`}
                       >

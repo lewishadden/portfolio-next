@@ -1,46 +1,56 @@
-import { VerticalTimelineElement } from 'react-vertical-timeline-component';
 import { Icon } from '@iconify/react';
+
+import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
+
 import { ExperienceItem } from '@/types';
 
 import './TimelineItem.scss';
 
 const TimelineItem = ({ technologies, mainTech, title, company, years, icon }: ExperienceItem) => {
-  const MainTechBadges = () => (
-    <div className="timeline__item__main-badge-container">
-      {mainTech.map((technology, i) => (
-        <span className="timeline__item__badge timeline__item__badge--main font-trebuchet" key={i}>
-          {technology}
-        </span>
-      ))}
-    </div>
-  );
-
-  const ExtraTechBadges = () => (
-    <div className="timeline__item__extra-badge-container">
-      {technologies.map((technology, i) => (
-        <span className="timeline__item__badge timeline__item__badge--extra font-trebuchet" key={i}>
-          {technology}
-        </span>
-      ))}
-    </div>
-  );
-
   return (
-    <VerticalTimelineElement
-      className="timeline__item"
-      date={years}
-      iconStyle={{
-        background:
-          'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)',
-        color: '#ffffff',
-      }}
-      icon={<Icon icon={icon} className="timeline__item__icon" />}
-    >
-      <h3 className="vertical-timeline-element-title timeline__item__title">{title}</h3>
-      <h4 className="vertical-timeline-element-subtitle timeline__item__subtitle">{company}</h4>
-      <MainTechBadges />
-      <ExtraTechBadges />
-    </VerticalTimelineElement>
+    <div className="timeline__item" role="listitem">
+      {/* Icon dot on the timeline line — outside ScrollReveal so position: absolute anchors to the timeline item, not the animated wrapper */}
+      <div className="timeline__item__icon-wrapper" aria-hidden="true">
+        <Icon icon={icon} className="timeline__item__icon" />
+      </div>
+
+      <ScrollReveal animation="fadeInUp" delay={0.15} className="timeline__item__inner">
+        {/* Content card */}
+        <div className="timeline__item__card">
+          <div className="timeline__item__arrow" aria-hidden="true" />
+
+          <div className="timeline__item__header">
+            <div>
+              <h3 className="timeline__item__title">{title}</h3>
+              <h4 className="timeline__item__subtitle">{company}</h4>
+            </div>
+            <time className="timeline__item__date">{years}</time>
+          </div>
+
+          <div className="timeline__item__main-badges">
+            {mainTech.map((technology, i) => (
+              <span
+                className="timeline__item__badge timeline__item__badge--main font-trebuchet"
+                key={i}
+              >
+                {technology}
+              </span>
+            ))}
+          </div>
+
+          <div className="timeline__item__extra-badges">
+            {technologies.map((technology, i) => (
+              <span
+                className="timeline__item__badge timeline__item__badge--extra font-trebuchet"
+                key={i}
+              >
+                {technology}
+              </span>
+            ))}
+          </div>
+        </div>
+      </ScrollReveal>
+    </div>
   );
 };
 
