@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build && next-image-export-optimizer && npm run purgecss && node scripts/inline-critical-css.mjs && next-sitemap",
+    "build": "next build && next-image-export-optimizer && npm run purgecss && next-sitemap",
     "purgecss": "purgecss -c purgecss.config.cjs",
     "analyze": "ANALYZE=true next build",
     "start": "serve out",
@@ -54,7 +54,6 @@
     "@types/node": "^25.1.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
-    "critters": "^0.0.23",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.6",
     "globals": "^17.3.0",

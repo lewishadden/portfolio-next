@@ -12,6 +12,7 @@ export default withBundleAnalyzer({
   poweredByHeader: false,
   experimental: {
     optimizePackageImports: ['@iconify/react'],
+    inlineCss: true,
   },
   images: {
     loader: 'custom',
