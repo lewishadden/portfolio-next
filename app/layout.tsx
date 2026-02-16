@@ -1,6 +1,6 @@
 import './globals.scss';
 import './theme-variables.scss';
-import { GoogleTagManagerDeferred } from 'components/GoogleTagManagerDeferred/GoogleTagManagerDeferred';
+import { GoogleAnalytics } from '@next/third-parties/google';
 
 import { Layout } from 'components/Layout/Layout';
 import { ThemeProvider } from 'contexts/ThemeContext';
@@ -8,6 +8,7 @@ import { ThemeScript } from 'components/ThemeScript/ThemeScript';
 import type { Metadata, Viewport } from 'next';
 
 import content from '../content/content.json';
+import { ContactInfo, Social } from '@/types';
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'https://portfolio.lewishadden.com';
@@ -36,7 +37,7 @@ const keywords = [
   'Web Developer',
 ];
 const profileImage = content.about?.image?.url || '/static/images/portrait.png';
-const sameAs = (content.footer?.social || []).map((s: any) => s.url).filter(Boolean);
+const sameAs = (content.footer?.social || []).map((s: Social) => s.url).filter(Boolean);
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -111,9 +112,11 @@ export const metadata: Metadata = {
 };
 
 function JsonLd() {
-  const email = content.contact?.contactInfo?.items?.find((c: any) => c.name === 'Email')?.value;
+  const email = content.contact?.contactInfo?.items?.find(
+    (c: ContactInfo) => c.name === 'Email'
+  )?.value;
   const telephone = content.contact?.contactInfo?.items?.find(
-    (c: any) => c.name === 'Mobile'
+    (c: ContactInfo) => c.name === 'Mobile'
   )?.value;
 
   // Person Schema
@@ -245,7 +248,7 @@ function JsonLd() {
   );
 }
 
-export default function RootLayout({ children }: { children: any }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -258,7 +261,7 @@ export default function RootLayout({ children }: { children: any }) {
           <Layout>{children}</Layout>
         </ThemeProvider>
         <JsonLd />
-        <GoogleTagManagerDeferred gtmId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
+        <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
       </body>
     </html>
   );

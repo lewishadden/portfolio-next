@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@iconify/react": "^6.0.2",
+    "@next/third-parties": "^16.1.6",
     "formik": "^2.4.9",
     "next": "^16.1.6",
     "react": "^19.2.4",
