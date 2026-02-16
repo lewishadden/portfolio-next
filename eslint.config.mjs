@@ -5,13 +5,14 @@ import nextTsConfig from 'eslint-config-next/typescript';
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTsConfig,
-  // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     '.next/**',
     'out/**',
-    'api/serverless/packages/v1/**/dist/**',
     'build/**',
+    'coverage/**',
+    'api/**',
+    '**/*.cjs',
+    '**/*.js',
     'next-env.d.ts',
   ]),
 ]);

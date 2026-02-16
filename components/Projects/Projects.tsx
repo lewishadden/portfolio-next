@@ -51,7 +51,6 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   };
 
   const pyramidRows = buildPyramidRows(items, columns);
-  let globalIndex = 0;
 
   return (
     <section id="projects" className="projects" aria-labelledby="projects-heading">
@@ -67,11 +66,14 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
           </ScrollReveal>
         </div>
         <div className="projects__list" role="list" aria-label="Project portfolio">
-          {pyramidRows.map((row, rowIndex) => (
+          {pyramidRows.map((row, rowIndex) => {
+            const rowStartIndex = pyramidRows
+              .slice(0, rowIndex)
+              .reduce((sum, r) => sum + r.length, 0);
+            return (
             <div key={rowIndex} className="projects__list__row">
-              {row.map((project) => {
-                const i = globalIndex;
-                globalIndex += 1;
+              {row.map((project, colIndex) => {
+                const i = rowStartIndex + colIndex;
                 return (
                   <div key={project.title} className="projects__item" role="listitem">
                     <ScrollReveal
@@ -154,7 +156,8 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
                 );
               })}
             </div>
-          ))}
+            );
+          })}
         </div>
         {selectedProject && (
           <ProjectDetailsModal

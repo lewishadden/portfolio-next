@@ -38,7 +38,6 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
 
   const columns = useColumns(breakpoints);
   const pyramidRows = buildPyramidRows(displayedIcons, columns);
-  let globalIndex = 0;
 
   return (
     <section id="skills" className="skills" aria-labelledby="skills-heading">
@@ -54,11 +53,14 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
           </ScrollReveal>
         </div>
         <div id="skills-list" className="skills__list" aria-label="Technical skills" role="list">
-          {pyramidRows.map((row, rowIndex) => (
+          {pyramidRows.map((row, rowIndex) => {
+            const rowStartIndex = pyramidRows
+              .slice(0, rowIndex)
+              .reduce((sum, r) => sum + r.length, 0);
+            return (
             <div key={rowIndex} className="skills__list__row">
               {row.map((skill, colIndex) => {
-                const i = globalIndex;
-                globalIndex += 1;
+                const i = rowStartIndex + colIndex;
                 return (
                   <div key={i} className="skills__list__tile" role="listitem">
                     <ScrollReveal animation="flipInX" delay={colIndex * staggerDelay}>
@@ -87,7 +89,8 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
                 );
               })}
             </div>
-          ))}
+            );
+          })}
         </div>
         {hasMore && (
           <div className="skills__expand-wrapper">
