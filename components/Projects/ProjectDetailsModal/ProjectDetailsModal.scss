@@ -246,7 +246,7 @@
 
     @for $i from 0 through 20 {
       &:nth-child(#{$i + 1}) {
-        left: #{$i * 100}%;
+        left: #{$i * 100%};
       }
     }
   }
@@ -331,29 +331,17 @@
     border-radius: 50%;
     border: none;
     padding: 0;
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(15, 23, 42, 0.4);
     cursor: pointer;
     transition: all 0.25s ease;
 
-    [data-theme='light'] & {
-      background: rgba(15, 23, 42, 0.25);
-    }
-
     &:hover {
-      background: rgba(255, 255, 255, 0.7);
-
-      [data-theme='light'] & {
-        background: rgba(15, 23, 42, 0.5);
-      }
+      background: rgba(15, 23, 42, 0.7);
     }
 
     &--active {
-      background: #fff;
+      background: var(--accent-primary);
       transform: scale(1.25);
-
-      [data-theme='light'] & {
-        background: var(--accent-primary);
-      }
     }
   }
 }

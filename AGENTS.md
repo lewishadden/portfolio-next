@@ -12,12 +12,11 @@ This is a **Next.js 16** portfolio website using **Static Site Generation (SSG)*
 - **Icons:** `@iconify/react`
 - **Forms:** Formik + Yup
 - **Animations:** animate.css, react-type-animation
-- **Other:** react-awesome-slider, react-vertical-timeline-component
 - **Testing:** Jest + React Testing Library
 - **Linting:** ESLint, Stylelint, Prettier
 - **Package Manager:** npm
 - **Node Version:** See `.nvmrc`
-- **Backend APIs:** Serverless (OpenWhisk) and Express (Bun) email endpoints in `api/`
+- **Backend APIs:** Serverless (DigitalOcean) and Express (Bun) email endpoints in `api/`
 
 ## Project Structure
 

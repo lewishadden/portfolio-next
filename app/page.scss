@@ -25,7 +25,7 @@
 }
 
 @keyframes flipInX {
-  from {
+  0% {
     transform: perspective(400px) rotate3d(1, 0, 0, 90deg);
     animation-timing-function: ease-in;
     opacity: 0;
@@ -41,7 +41,7 @@
   80% {
     transform: perspective(400px) rotate3d(1, 0, 0, -5deg);
   }
-  to {
+  100% {
     transform: perspective(400px);
   }
 }

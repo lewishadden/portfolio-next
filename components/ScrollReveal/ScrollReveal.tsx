@@ -1,8 +1,10 @@
 'use client';
 
+import { useState, useSyncExternalStore } from 'react';
+
 import { useInViewport } from '@/hooks/useInViewport';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { useEffect, useState } from 'react';
+
 import type { CSSProperties, ReactNode } from 'react';
 
 type ScrollRevealProps = {
@@ -13,6 +15,8 @@ type ScrollRevealProps = {
   className?: string;
   style?: CSSProperties;
 };
+
+const emptySubscribe = () => () => {};
 
 const ScrollReveal = ({
   children,
@@ -25,17 +29,11 @@ const ScrollReveal = ({
   const { ref, inViewport } = useInViewport();
   const reduceMotion = useReducedMotion();
   const [isVisible, setIsVisible] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (inViewport) {
-      setIsVisible(true);
-    }
-  }, [inViewport]);
+  if (inViewport && !isVisible) {
+    setIsVisible(true);
+  }
 
   const animationClassName = isVisible && !reduceMotion ? `animated ${animation}` : '';
   const mergedStyle: CSSProperties = {

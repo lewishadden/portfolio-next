@@ -7,9 +7,24 @@ import { Icon } from '@iconify/react';
 import ExportedImage from 'next-image-export-optimizer';
 
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { Project } from '@/types';
+
+import { Project, Technology } from '@/types';
 
 import './ProjectDetailsModal.scss';
+
+const TechIcons = ({ technologies }: { technologies: Technology[] }) => (
+  <div className="project-details__modal__body__tech-section">
+    <h4 className="project-details__modal__body__tech-section__heading">Built with</h4>
+    <ul className="project-details__modal__body__tech-section__list">
+      {technologies.map((icon, i) => (
+        <li className="project-details__modal__body__skill" key={i}>
+          <Icon icon={icon.class} className="project-details__modal__body__skill__icon" />
+          <p className="project-details__modal__body__skill__name">{icon.name}</p>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
 
 const ProjectDetailsModal = ({
   show,
@@ -30,6 +45,7 @@ const ProjectDetailsModal = ({
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
   const focusTrapRef = useFocusTrap<HTMLDivElement>(show);
+  const [prevTitle, setPrevTitle] = useState(title);
 
   const scrollModalToTop = useCallback(() => {
     const scrollModal = () => {
@@ -42,9 +58,10 @@ const ProjectDetailsModal = ({
   }, []);
 
   // Reset slide index when data changes
-  useEffect(() => {
+  if (title !== prevTitle) {
+    setPrevTitle(title);
     setActiveIndex(0);
-  }, [title]);
+  }
 
   // Lock body scroll when open
   useEffect(() => {
@@ -262,20 +279,6 @@ const ProjectDetailsModal = ({
     );
   };
 
-  const TechIcons = () => (
-    <div className="project-details__modal__body__tech-section">
-      <h4 className="project-details__modal__body__tech-section__heading">Built with</h4>
-      <ul className="project-details__modal__body__tech-section__list">
-        {technologies.map((icon, i) => (
-          <li className="project-details__modal__body__skill" key={i}>
-            <Icon icon={icon.class} className="project-details__modal__body__skill__icon" />
-            <p className="project-details__modal__body__skill__name">{icon.name}</p>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-
   if (!show) return null;
 
   return (
@@ -288,7 +291,6 @@ const ProjectDetailsModal = ({
         aria-label="Close modal"
         tabIndex={-1}
       />
-      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         className="project-details__dialog"
         ref={dialogRef}
@@ -312,7 +314,6 @@ const ProjectDetailsModal = ({
           </button>
         </div>
 
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
         <div
           className="project-details__modal__body"
           ref={modalBodyRef}
@@ -336,7 +337,7 @@ const ProjectDetailsModal = ({
             )}
           </div>
           <div className="project-details__modal__body__tech-wrapper">
-            <TechIcons />
+            <TechIcons technologies={technologies} />
           </div>
         </div>
       </div>

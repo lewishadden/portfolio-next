@@ -353,7 +353,7 @@
       {
         "title": "Oralieve ",
         "startDate": "2024",
-        "description": "I contracted for Oralieve to complete several tasks on their Shopify store. I was responsible for implementing a new patient samples form, which allows dental proffessionals to request free samples of Oralieve products for their patients. I also implemented a minimum spend free shipping feature, as well as many other new features and bugfixes.",
+        "description": "I contracted for Oralieve to complete several tasks on their Shopify store. I was responsible for implementing a new patient samples form, which allows dental professionals to request free samples of Oralieve products for their patients. I also implemented a minimum spend free shipping feature, as well as many other new features and bugfixes.",
         "theme": {
           "text": "light",
           "border": "light",
@@ -707,17 +707,17 @@
       {
         "name": "TypeScript",
         "class": "devicon:typescript",
-        "level": "90"
+        "level": "95"
       },
       {
         "name": "JavaScript",
         "class": "devicon:javascript",
-        "level": "95"
+        "level": "100"
       },
       {
         "name": "NodeJS",
         "class": "devicon:nodejs",
-        "level": "90"
+        "level": "100"
       },
       {
         "name": "ViteJS",
@@ -732,12 +732,12 @@
       {
         "name": "SCSS",
         "class": "devicon:sass",
-        "level": "95"
+        "level": "100"
       },
       {
         "name": "HTML5",
         "class": "devicon:html5",
-        "level": "95"
+        "level": "100"
       },
       {
         "name": "CSS Modules",
@@ -767,7 +767,7 @@
       {
         "name": "Jest",
         "class": "logos:jest",
-        "level": "90"
+        "level": "95"
       },
       {
         "name": "Enzyme",
@@ -777,7 +777,7 @@
       {
         "name": "Cypress",
         "class": "devicon:cypressio",
-        "level": "85"
+        "level": "90"
       },
       {
         "name": "Angular 8+",
@@ -787,12 +787,12 @@
       {
         "name": "REST API",
         "class": "material-symbols:api",
-        "level": "85"
+        "level": "95"
       },
       {
         "name": "Postman",
         "class": "devicon:postman",
-        "level": "85"
+        "level": "90"
       },
       {
         "name": "MongoDB",
@@ -812,7 +812,7 @@
       {
         "name": "AWS",
         "class": "devicon:amazonwebservices",
-        "level": "80"
+        "level": "85"
       },
       {
         "name": "Azure",
@@ -842,12 +842,12 @@
       {
         "name": "Docker",
         "class": "devicon:docker",
-        "level": "90"
+        "level": "95"
       },
       {
         "name": "Bash",
         "class": "devicon-plain:bash",
-        "level": "85"
+        "level": "90"
       },
       {
         "name": "Apache",
@@ -862,7 +862,7 @@
       {
         "name": "Linux",
         "class": "devicon:linux",
-        "level": "85"
+        "level": "90"
       },
       {
         "name": "Mantine UI",
@@ -872,7 +872,7 @@
       {
         "name": "Bootstrap",
         "class": "devicon:bootstrap",
-        "level": "75"
+        "level": "80"
       },
       {
         "name": "Carbon Design System",
@@ -882,12 +882,12 @@
       {
         "name": "Material UI",
         "class": "devicon:materialui",
-        "level": "50"
+        "level": "60"
       },
       {
         "name": "Shopify",
         "class": "logos:shopify",
-        "level": "50"
+        "level": "70"
       },
       {
         "name": "Adobe Experience Manager",
@@ -907,7 +907,7 @@
       {
         "name": "Git",
         "class": "devicon:git",
-        "level": "90"
+        "level": "95"
       },
       {
         "name": "GitHub Actions",
@@ -917,7 +917,7 @@
       {
         "name": "CI/CD Pipelines",
         "class": "vscode-icons:file-type-azurepipelines",
-        "level": "85"
+        "level": "90"
       },
       {
         "name": "WebdriverIO",
@@ -927,12 +927,12 @@
       {
         "name": "Cucumber / Gherkin",
         "class": "logos:cucumber",
-        "level": "95"
+        "level": "90"
       },
       {
         "name": "Selenium",
         "class": "skill-icons:selenium",
-        "level": "85"
+        "level": "90"
       },
       {
         "name": "BrowserStack",
@@ -947,7 +947,7 @@
       {
         "name": "JIRA",
         "class": "devicon:jira",
-        "level": "80"
+        "level": "90"
       },
       {
         "name": "Notion",
