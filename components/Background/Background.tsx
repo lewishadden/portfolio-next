@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import './Background.scss';
 
@@ -12,10 +12,18 @@ export const Background = () => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const particleCount = isMobile ? mobileParticleCount : desktopParticleCount;
 
+  const rIC = useCallback(
+    (callback: () => void) =>
+      typeof requestIdleCallback === 'function'
+        ? requestIdleCallback(callback, { timeout: 4000 })
+        : setTimeout(callback, 4000),
+    []
+  );
   // Delay heavy background rendering until browser is truly idle (after LCP)
   useEffect(() => {
-    const id = requestIdleCallback(() => setReady(true), { timeout: 4000 });
-    return () => cancelIdleCallback(id);
+    const id = rIC(() => setReady(true)) as number;
+    return () =>
+      typeof cancelIdleCallback === 'function' ? cancelIdleCallback(id) : clearTimeout(id);
   }, []);
 
   return (
