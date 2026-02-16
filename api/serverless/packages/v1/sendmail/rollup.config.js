@@ -3,7 +3,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import json from '@rollup/plugin-json';
 import terser from '@rollup/plugin-terser';
 
-export default {
+const config = {
   input: 'index.js',
   output: {
     file: 'dist/bundle.js',
@@ -11,3 +11,5 @@ export default {
   },
   plugins: [json(), resolve(), commonjs(), terser()],
 };
+
+export default config;

@@ -1,1 +1,3 @@
-export const Layout = ({ children }: { children: any }) => children;
+import type { ReactNode } from 'react';
+
+export const Layout = ({ children }: { children: ReactNode }) => children;
