@@ -326,6 +326,7 @@ const ProjectDetailsModal = ({
             {url && (
               <Link
                 href={url}
+                as={'a'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="project-details__modal__body__link-button"

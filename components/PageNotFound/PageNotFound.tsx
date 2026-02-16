@@ -1,4 +1,4 @@
-'use client';
+'use server';
 
 import Link from 'next/link';
 
@@ -13,7 +13,7 @@ export type PageNotFoundProps = {
   };
 };
 
-export function PageNotFound({ title, description, cta }: PageNotFoundProps) {
+export const PageNotFound = async ({ title, description, cta }: PageNotFoundProps) => {
   return (
     <div className="not-found">
       <div className="not-found__inner">
@@ -22,7 +22,7 @@ export function PageNotFound({ title, description, cta }: PageNotFoundProps) {
           <h1 className="not-found__title">{title}</h1>
           <p className="not-found__description">{description}</p>
           <div className="not-found__actions">
-            <Link href="/" className="not-found__btn" aria-label={cta.text}>
+            <Link as={'a'} href="/" className="not-found__btn" aria-label={cta.text}>
               {cta.text}
             </Link>
           </div>
@@ -30,4 +30,4 @@ export function PageNotFound({ title, description, cta }: PageNotFoundProps) {
       </div>
     </div>
   );
-}
+};
