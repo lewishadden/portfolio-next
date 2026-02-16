@@ -288,7 +288,6 @@ const ProjectDetailsModal = ({
         aria-label="Close modal"
         tabIndex={-1}
       />
-      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         className="project-details__dialog"
         ref={dialogRef}
@@ -312,7 +311,6 @@ const ProjectDetailsModal = ({
           </button>
         </div>
 
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
         <div
           className="project-details__modal__body"
           ref={modalBodyRef}
