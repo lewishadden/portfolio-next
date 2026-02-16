@@ -3,11 +3,11 @@
 import { useEffect, useRef, useCallback } from 'react';
 
 const focusableSelectors = [
-  'a[href]',
-  'button:not([disabled])',
-  'input:not([disabled])',
-  'textarea:not([disabled])',
-  'select:not([disabled])',
+  'a[href]:not([tabindex="-1"])',
+  'button:not([disabled]):not([tabindex="-1"])',
+  'input:not([disabled]):not([tabindex="-1"])',
+  'textarea:not([disabled]):not([tabindex="-1"])',
+  'select:not([disabled]):not([tabindex="-1"])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
@@ -36,18 +36,23 @@ export function useFocusTrap<T extends HTMLElement>(active: boolean) {
       if (e.key !== 'Tab') return;
 
       const focusable = getFocusableElements();
-      if (focusable.length === 0) return;
+      if (focusable.length === 0) {
+        e.preventDefault();
+        return;
+      }
 
       const firstFocusable = focusable[0];
       const lastFocusable = focusable[focusable.length - 1];
+      const focusIndex = focusable.indexOf(document.activeElement as HTMLElement);
+      const isOutsideFocusables = focusIndex === -1;
 
       if (e.shiftKey) {
-        if (document.activeElement === firstFocusable) {
+        if (isOutsideFocusables || document.activeElement === firstFocusable) {
           e.preventDefault();
           lastFocusable.focus();
         }
       } else {
-        if (document.activeElement === lastFocusable) {
+        if (isOutsideFocusables || document.activeElement === lastFocusable) {
           e.preventDefault();
           firstFocusable.focus();
         }
