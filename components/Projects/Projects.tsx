@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 
 import { useColumns } from '@/hooks/useColumns';
@@ -32,9 +32,11 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [detailsModalShow, setDetailsModalShow] = useState(false);
+  const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
   const columns = useColumns(breakpoints);
 
-  const showDetailsModal = (data: Project) => {
+  const showDetailsModal = (data: Project, trigger: HTMLButtonElement) => {
+    lastTriggerRef.current = trigger;
     setSelectedProject(data);
     setDetailsModalShow(true);
   };
@@ -42,6 +44,10 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   const detailsModalClose = () => {
     setDetailsModalShow(false);
     setSelectedProject(null);
+    requestAnimationFrame(() => {
+      lastTriggerRef.current?.focus();
+      lastTriggerRef.current = null;
+    });
   };
 
   const pyramidRows = buildPyramidRows(items, columns);
@@ -76,7 +82,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
                       <button
                         type="button"
                         className="projects__item__card"
-                        onClick={() => showDetailsModal(project)}
+                        onClick={(e) => showDetailsModal(project, e.currentTarget)}
                         aria-label={`View details for ${project.title} project`}
                       >
                         <div className="projects__item__card__body">

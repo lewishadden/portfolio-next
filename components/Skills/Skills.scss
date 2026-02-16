@@ -297,4 +297,38 @@
       }
     }
   }
+
+  &__expand-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.5rem;
+    padding-bottom: var(--padding-y-large);
+  }
+
+  &__expand-btn {
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 100px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: inherit;
+
+    [data-theme='light'] & {
+      background: rgba(59, 130, 246, 0.08);
+      border-color: rgba(59, 130, 246, 0.2);
+    }
+
+    &:hover {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: var(--accent-primary);
+
+      [data-theme='light'] & {
+        background: rgba(59, 130, 246, 0.12);
+      }
+    }
+  }
 }

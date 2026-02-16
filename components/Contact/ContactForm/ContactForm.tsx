@@ -69,7 +69,13 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
         }}
       >
         {({ handleSubmit: formikSubmit, handleChange, values, errors }) => (
-          <form noValidate onSubmit={formikSubmit} className="contact-form">
+          <form
+            noValidate
+            onSubmit={formikSubmit}
+            className="contact-form"
+            aria-busy={loading}
+            aria-live="polite"
+          >
             <div className="contact-form__row">
               <div className="contact-form__field">
                 <label htmlFor="formFirstName" className="contact-form__label">

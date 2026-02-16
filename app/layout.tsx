@@ -15,7 +15,7 @@ const siteUrl =
 
 const personName = content.home?.name || 'Portfolio';
 const description =
-  'Lewis Hadden - Freelance Senior Full Stack Engineer & Lead Developer specializing in React, Next.js, TypeScript, Node.js, Azure, and AWS. Available for freelance contracts and permanent positions. 8+ years experience building enterprise applications.';
+  'Lewis Hadden - Senior Full Stack Engineer specializing in React, Next.js, TypeScript, Node.js & Azure. 8+ years experience. Available for contracts.';
 const keywords = [
   'Lewis Hadden',
   'Full Stack Developer',
