@@ -1,9 +1,7 @@
 import './globals.scss';
 import './theme-variables.scss';
-import { GoogleAnalytics } from '@next/third-parties/google';
-
-import { Layout } from 'components/Layout/Layout';
 import { ThemeProvider } from 'contexts/ThemeContext';
+import { GoogleAnalyticsDeferred } from 'components/GoogleAnalyticsDeferred/GoogleAnalyticsDeferred';
 import { ThemeScript } from 'components/ThemeScript/ThemeScript';
 import type { Metadata, Viewport } from 'next';
 
@@ -234,7 +232,6 @@ function JsonLd() {
     <>
       <script
         type="application/ld+json"
-         
         dangerouslySetInnerHTML={{
           __html: JSON.stringify([
             personSchema,
@@ -250,18 +247,16 @@ function JsonLd() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en-GB" suppressHydrationWarning>
       <head>
         <ThemeScript />
         <link rel="dns-prefetch" href="https://api.iconify.design" />
         <link rel="preconnect" href="https://api.iconify.design" crossOrigin="anonymous" />
       </head>
       <body data-theme="dark" suppressHydrationWarning>
-        <ThemeProvider>
-          <Layout>{children}</Layout>
-        </ThemeProvider>
+        <ThemeProvider>{children}</ThemeProvider>
         <JsonLd />
-        <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
+        <GoogleAnalyticsDeferred gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
       </body>
     </html>
   );
