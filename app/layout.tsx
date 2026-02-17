@@ -1,8 +1,7 @@
 import './globals.scss';
 import './theme-variables.scss';
-import { GoogleAnalytics } from '@next/third-parties/google';
-
 import { ThemeProvider } from 'contexts/ThemeContext';
+import { GoogleAnalyticsDeferred } from 'components/GoogleAnalyticsDeferred/GoogleAnalyticsDeferred';
 import { ThemeScript } from 'components/ThemeScript/ThemeScript';
 import type { Metadata, Viewport } from 'next';
 
@@ -257,7 +256,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body data-theme="dark" suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
         <JsonLd />
-        <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
+        <GoogleAnalyticsDeferred gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
       </body>
     </html>
   );
