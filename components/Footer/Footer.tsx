@@ -48,7 +48,7 @@ export const Footer = ({ footer, navItems }: { footer: FooterProps; navItems: Na
                 <li key={network.name}>
                   <Link
                     href={network.url}
-                    as={'a'}
+                    prefetch={false}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`${network.name}`}

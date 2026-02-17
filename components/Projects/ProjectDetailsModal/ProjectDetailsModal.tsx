@@ -335,8 +335,8 @@ const ProjectDetailsModal = ({
             <p className="project-details__modal__body__description">{description}</p>
             {url && (
               <Link
+                prefetch={false}
                 href={url}
-                as={'a'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="project-details__modal__body__link-button"

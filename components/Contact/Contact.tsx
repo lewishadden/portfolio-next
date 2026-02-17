@@ -74,7 +74,7 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
                     <li className="contact__info-item" key={i}>
                       <Link
                         href={info.link}
-                        as={'a'}
+                        prefetch={false}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="contact__info-link"

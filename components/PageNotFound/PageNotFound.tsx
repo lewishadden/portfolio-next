@@ -22,7 +22,7 @@ export const PageNotFound = ({ title, description, cta }: PageNotFoundProps) => 
           <h1 className="not-found__title">{title}</h1>
           <p className="not-found__description">{description}</p>
           <div className="not-found__actions">
-            <Link as={'a'} href="/" className="not-found__btn" aria-label={cta.text}>
+            <Link href="/" className="not-found__btn" aria-label={cta.text}>
               {cta.text}
             </Link>
           </div>
