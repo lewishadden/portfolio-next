@@ -1,4 +1,12 @@
 .footer {
+  --footer-text-muted: #9ca3b8;
+  --footer-text-secondary: #b8bcc8;
+
+  [data-theme='light'] & {
+    --footer-text-muted: #475569;
+    --footer-text-secondary: #334155;
+  }
+
   padding: 4rem var(--padding-x-md) var(--padding-y-large) var(--padding-x-md);
   background: var(--bg-secondary);
 
@@ -47,7 +55,7 @@
 
   &__tagline {
     font-size: 0.9375rem;
-    color: var(--text-secondary);
+    color: var(--footer-text-secondary);
     line-height: 1.6;
     margin: 0;
     max-width: 280px;
@@ -65,7 +73,7 @@
 
   &__nav-link {
     font-size: 0.9375rem;
-    color: var(--text-muted);
+    color: var(--footer-text-muted);
     text-decoration: none;
     transition: color 0.2s ease;
 
@@ -81,7 +89,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: var(--text-muted);
+    color: var(--footer-text-muted);
     margin-bottom: 0.875rem;
   }
 
@@ -99,7 +107,7 @@
     align-items: center;
     gap: 0.625rem;
     font-size: 0.9375rem;
-    color: var(--text-muted);
+    color: var(--footer-text-muted);
     text-decoration: none;
     transition: color 0.2s ease;
 
@@ -130,13 +138,13 @@
 
   &__copy {
     font-size: 0.8125rem;
-    color: var(--text-muted);
+    color: var(--footer-text-muted);
     margin: 0;
   }
 
   &__built {
     font-size: 0.8125rem;
-    color: var(--text-muted);
+    color: var(--footer-text-muted);
     margin: 0;
     display: inline-flex;
     align-items: center;
