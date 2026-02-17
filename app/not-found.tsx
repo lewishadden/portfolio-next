@@ -1,6 +1,6 @@
 import { PageNotFound } from 'components/PageNotFound/PageNotFound';
 
-export default async function NotFound() {
+export default function NotFound() {
   return (
     <PageNotFound
       title="Nothing to see here"
