@@ -158,6 +158,9 @@ const ProjectDetailsModal = ({
     const trackOffset = (activeIndex + 1) * 100;
     const realIndex = ((activeIndex % images.length) + images.length) % images.length;
 
+    const carouselId = `carousel-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+    const slidePanelId = (i: number) => `${carouselId}-slide-${i}`;
+
     return (
       <div
         className="project-details__carousel"
@@ -167,6 +170,9 @@ const ProjectDetailsModal = ({
       >
         <div
           className="project-details__carousel__track"
+          aria-label={`Slide ${realIndex + 1} of ${images.length}`}
+          aria-live="polite"
+          aria-atomic="true"
           style={{
             transform: `translateX(-${trackOffset}%)`,
             transition: transitionEnabled ? undefined : 'none',
@@ -192,6 +198,7 @@ const ProjectDetailsModal = ({
           {images.map(({ url: imageUrl, size, alt: imageAlt }, i) => (
             <div
               key={i}
+              id={slidePanelId(i)}
               className="project-details__carousel__slide"
               role="tabpanel"
               aria-roledescription="slide"
@@ -244,6 +251,7 @@ const ProjectDetailsModal = ({
               className="project-details__carousel__btn project-details__carousel__btn--prev"
               onClick={() => goToSlide(activeIndex - 1)}
               aria-label="Previous image"
+              aria-controls={slidePanelId((realIndex - 1 + images.length) % images.length)}
             >
               <Icon icon="mdi:chevron-left" />
             </button>
@@ -252,6 +260,7 @@ const ProjectDetailsModal = ({
               className="project-details__carousel__btn project-details__carousel__btn--next"
               onClick={() => goToSlide(activeIndex + 1)}
               aria-label="Next image"
+              aria-controls={slidePanelId((realIndex + 1) % images.length)}
             >
               <Icon icon="mdi:chevron-right" />
             </button>
@@ -270,6 +279,7 @@ const ProjectDetailsModal = ({
                   onClick={() => goToSlide(i)}
                   aria-label={`Go to slide ${i + 1}`}
                   aria-selected={i === realIndex}
+                  aria-controls={slidePanelId(i)}
                 />
               ))}
             </div>

@@ -1041,7 +1041,7 @@
     "builtWith": {
       "pretext": "Built with ",
       "icon": "mdi:heart",
-      "posttext": " &amp; Next.js"
+      "posttext": " & Next.js"
     }
   }
 }

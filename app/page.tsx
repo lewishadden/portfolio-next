@@ -1,5 +1,6 @@
 import { Header } from 'components/Header/Header';
 import { Background } from 'components/Background/Background';
+import { ScrollProgress } from 'components/ScrollProgress/ScrollProgress';
 import { Home } from 'components/Home/Home';
 import { About } from 'components/About/About';
 import { Experience } from 'components/Experience/Experience';
@@ -20,6 +21,7 @@ export default async function Page() {
 
   return (
     <>
+      <ScrollProgress />
       <Header header={header} navItems={global.navItems} />
       <main id="main-content">
         <Home home={home} openToWork={global.openToWork} />
