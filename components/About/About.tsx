@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import Image, { ImageLoader } from 'next/image';
 import { Icon } from '@iconify/react';
 
 import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
@@ -9,6 +9,12 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { About as AboutProps } from '@/types';
 
 import './About.scss';
+
+const maxImageWidth = 640;
+const aboutImageLoader: ImageLoader = ({ src, width, quality }) => {
+  const w = Math.min(width, maxImageWidth);
+  return `/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=${quality || 75}`;
+};
 
 export const About = ({ about, openToWork }: { about: AboutProps; openToWork: boolean }) => {
   const { openToWorkText, image, title, label, description, descriptionHeader, cta, cv } = about;
@@ -38,7 +44,8 @@ export const About = ({ about, openToWork }: { about: AboutProps; openToWork: bo
                   width={image.size.width}
                   height={image.size.height}
                   alt="Portrait photo of Lewis Hadden"
-                  sizes="(min-width: 992px) 30vw, (min-width: 768px) 40vw, 100vw"
+                  loader={aboutImageLoader}
+                  sizes="(min-width: 1170px) 471px, (min-width: 992px) calc((100vw - 2.5rem) * 0.417), calc(100vw - 2.5rem)"
                   loading={isDesktop ? 'eager' : 'lazy'}
                   fetchPriority={isDesktop ? 'high' : 'low'}
                   priority={Boolean(isDesktop)}
