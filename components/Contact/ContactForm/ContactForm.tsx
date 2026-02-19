@@ -9,8 +9,6 @@ import { Contact as ContactProps } from '@/types';
 
 import './ContactForm.scss';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
 interface ContactFormProps {
   contact: ContactProps;
   onSuccess: () => void;
@@ -46,7 +44,7 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
   }) => {
     setLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/sendmail`, {
+      const response = await fetch('/api/sendmail', {
         method: 'POST',
         body: JSON.stringify({ firstName, lastName, email, message }),
         headers: { 'Content-Type': 'application/json' },

@@ -1,5 +1,5 @@
 module.exports = {
-  content: ['out/*.html', 'out/_next/static/chunks/*.js'],
-  css: ['out/_next/static/chunks/*.css'],
-  output: 'out/_next/static/chunks',
+  content: ['.next/server/app/*.html', '.next/static/chunks/*.js'],
+  css: ['.next/static/chunks/*.css'],
+  output: '.next/static/chunks',
 };

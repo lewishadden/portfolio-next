@@ -1,7 +1,7 @@
 'use client';
 
+import Image from 'next/image';
 import { Icon } from '@iconify/react';
-import ExportedImage from 'next-image-export-optimizer';
 
 import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -32,7 +32,7 @@ export const About = ({ about, openToWork }: { about: AboutProps; openToWork: bo
           <div className="about__card">
             <div className="about__card__image-col">
               <div className="about__card__image-wrapper">
-                <ExportedImage
+                <Image
                   src={image.url}
                   className="about__card__image"
                   width={image.size.width}
@@ -41,8 +41,7 @@ export const About = ({ about, openToWork }: { about: AboutProps; openToWork: bo
                   sizes="(min-width: 992px) 30vw, (min-width: 768px) 40vw, 100vw"
                   loading={isDesktop ? 'eager' : 'lazy'}
                   fetchPriority={isDesktop ? 'high' : 'low'}
-                  preload={Boolean(isDesktop)}
-                  decoding="async"
+                  priority={Boolean(isDesktop)}
                 />
               </div>
             </div>
