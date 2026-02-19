@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
-import ExportedImage from 'next-image-export-optimizer';
+import Image from 'next/image';
 
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 
@@ -182,7 +182,7 @@ const ProjectDetailsModal = ({
         >
           {/* Clone of last slide (prepended) */}
           <div className="project-details__carousel__slide" aria-hidden="true">
-            <ExportedImage
+            <Image
               src={lastImage.url}
               width={lastImage.size.width}
               height={lastImage.size.height}
@@ -190,7 +190,6 @@ const ProjectDetailsModal = ({
               className="project-details__carousel__img"
               sizes="(min-width: 992px) 60vw, 90vw"
               loading="lazy"
-              decoding="async"
             />
           </div>
 
@@ -205,7 +204,7 @@ const ProjectDetailsModal = ({
               aria-label={`Slide ${i + 1} of ${images.length}`}
               aria-hidden={i !== realIndex}
             >
-              <ExportedImage
+              <Image
                 src={imageUrl}
                 width={size.width}
                 height={size.height}
@@ -214,7 +213,6 @@ const ProjectDetailsModal = ({
                 ref={setImageRef(i)}
                 sizes="(min-width: 992px) 60vw, 90vw"
                 loading={i === 0 ? 'eager' : 'lazy'}
-                decoding="async"
                 onLoad={(e) => {
                   if (i !== activeIndex) return;
                   const { offsetWidth, offsetHeight } = e.target as HTMLImageElement;
@@ -231,7 +229,7 @@ const ProjectDetailsModal = ({
 
           {/* Clone of first slide (appended) */}
           <div className="project-details__carousel__slide" aria-hidden="true">
-            <ExportedImage
+            <Image
               src={firstImage.url}
               width={firstImage.size.width}
               height={firstImage.size.height}
@@ -239,7 +237,6 @@ const ProjectDetailsModal = ({
               className="project-details__carousel__img"
               sizes="(min-width: 992px) 60vw, 90vw"
               loading="lazy"
-              decoding="async"
             />
           </div>
         </div>

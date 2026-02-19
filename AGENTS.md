@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-This is a **Next.js 16** portfolio website using **Static Site Generation (SSG)**. It is built with **React 19**, **TypeScript**, and **SCSS**. The site is a single-page portfolio with sections: Home, About, Experience, Projects, Skills, Contact, and Footer.
+This is a **Next.js 16** portfolio website built with **React 19**, **TypeScript**, and **SCSS**. The site is a single-page portfolio with sections: Home, About, Experience, Projects, Skills, Contact, and Footer. It uses server-side rendering with a Next.js API route for the contact form email endpoint.
 
 ## Tech Stack
 
-- **Framework:** Next.js 16 (App Router, SSG via `next build` + static export)
+- **Framework:** Next.js 16 (App Router)
 - **Language:** TypeScript
 - **Styling:** SCSS (BEM naming convention), CSS Modules (for select components)
 - **Icons:** `@iconify/react`
@@ -16,12 +16,13 @@ This is a **Next.js 16** portfolio website using **Static Site Generation (SSG)*
 - **Linting:** ESLint, Stylelint, Prettier
 - **Package Manager:** npm
 - **Node Version:** See `.nvmrc`
-- **Backend APIs:** Serverless (DigitalOcean) and Express (Bun) email endpoints in `api/`
+- **Email:** `nodemailer` via Next.js API route (`app/api/sendmail/route.ts`)
+- **Legacy APIs:** Serverless (DigitalOcean) and Express (Bun) email endpoints in `api/` (unused, kept for reference)
 
 ## Project Structure
 
 ```
-app/              # Next.js App Router (layout, pages, global styles, theme variables)
+app/              # Next.js App Router (layout, pages, API routes, global styles, theme variables)
 components/       # React components, each with its own .tsx, .scss, and test files
 config/           # App configuration (header links, GitHub URL)
 content/          # Static content (content.json — the single data source)
@@ -31,7 +32,7 @@ public/           # Static assets served at root
 types/            # TypeScript type definitions (index.d.ts)
 utils/            # Utility functions (serverUtils.ts for reading content)
 test-utils/       # Shared test utilities (custom render, re-exports from @testing-library/react)
-api/              # Backend API implementations (serverless + express)
+api/              # Legacy backend API implementations (serverless + express), unused
 docs/             # Documentation (accessibility, SEO, etc.)
 ```
 
@@ -88,7 +89,8 @@ Each group must be separated by a newline for clarity and consistency.
 
 - Content is loaded from `content/content.json` via `utils/serverUtils.ts` (`getPageContent()`)
 - Page data is fetched in `app/page.tsx` (server component) and passed as props to child components
-- No client-side data fetching for portfolio content; it's all SSG
+- No client-side data fetching for portfolio content
+- The contact form submits to `/api/sendmail` (Next.js API route) which sends email via nodemailer
 
 ### Path Aliases
 
@@ -109,7 +111,7 @@ npm run dev          # Start Next.js dev server
 ### Building
 
 ```sh
-npm run build        # Full production build (next build + image optimization + PurgeCSS + sitemap)
+npm run build        # Full production build (next build + sitemap)
 ```
 
 ### Testing
@@ -168,8 +170,8 @@ npm run typecheck         # TypeScript type checking (tsc --noEmit)
 
 ## Important Notes
 
-- The site is statically exported (`output: 'export'` in Next.js config) — no server-side rendering at runtime
-- PurgeCSS runs post-build to remove unused CSS (config in `purgecss.config.cjs`)
-- Images are optimized with `next-image-export-optimizer`
-- The `api/` directory contains standalone backend services (not Next.js API routes) — a serverless function and an Express/Bun server for sending contact form emails
+- The site requires a Node.js server at runtime (e.g., `next start`, Vercel, or DigitalOcean App Platform) to serve pages and the API route
+- Images use the built-in Next.js `<Image>` component with server-side optimization
+- The `api/` directory contains legacy standalone backend services (a DigitalOcean serverless function and an Express/Bun server) — these are no longer used; the contact form email is handled by `app/api/sendmail/route.ts`
+- SMTP configuration is provided via environment variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL`, `SMTP_PASS`
 - PostCSS config (`postcss.config.cjs`) includes `postcss-simple-vars` with breakpoint variables

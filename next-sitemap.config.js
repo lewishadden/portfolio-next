@@ -5,7 +5,7 @@ export default {
   changefreq: 'weekly',
   priority: 1.0,
   generateIndexSitemap: false,
-  outDir: 'out',
+  outDir: 'public',
   exclude: ['/server-sitemap.xml'],
   robotsTxtOptions: {
     policies: [

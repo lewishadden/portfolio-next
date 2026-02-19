@@ -1,19 +1,17 @@
 # *
 User-agent: *
 Allow: /
-Disallow: /api/
-Disallow: /_next/
-Disallow: /static/
 
-# Google
+# Googlebot
 User-agent: Googlebot
 Allow: /
-Crawl-delay: 0
 
-# Bing
+# Bingbot
 User-agent: Bingbot
 Allow: /
-Crawl-delay: 0
 
-# Sitemap
-Sitemap: https://portfolio.lewishadden.co.uk/sitemap.xml
+# Host
+Host: https://portfolio.lewishadden.com
+
+# Sitemaps
+Sitemap: https://portfolio.lewishadden.com/sitemap.xml
