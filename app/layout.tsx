@@ -252,6 +252,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeScript />
         <link rel="dns-prefetch" href="https://api.iconify.design" />
         <link rel="preconnect" href="https://api.iconify.design" crossOrigin="anonymous" />
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2910874318834529"
+          crossOrigin="anonymous"
+        ></script>
       </head>
       <body data-theme="dark" suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
