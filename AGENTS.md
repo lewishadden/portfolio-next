@@ -12,7 +12,6 @@ This is a **Next.js 16** portfolio website built with **React 19**, **TypeScript
 - **Icons:** `@iconify/react`
 - **Forms:** Formik + Yup
 - **Animations:** animate.css, react-type-animation
-- **Testing:** Jest + React Testing Library
 - **Linting:** ESLint, Stylelint, Prettier
 - **Package Manager:** npm
 - **Node Version:** See `.nvmrc`
@@ -31,7 +30,6 @@ icons/            # Custom SVG icon components
 public/           # Static assets served at root
 types/            # TypeScript type definitions (index.d.ts)
 utils/            # Utility functions (serverUtils.ts for reading content)
-test-utils/       # Shared test utilities (custom render, re-exports from @testing-library/react)
 api/              # Legacy backend API implementations (serverless + express), unused
 docs/             # Documentation (accessibility, SEO, etc.)
 ```
@@ -67,7 +65,6 @@ Each group must be separated by a newline for clarity and consistency.
 - Each component lives in `components/<ComponentName>/` with:
   - `<ComponentName>.tsx` — the React component (client or server)
   - `<ComponentName>.scss` — scoped styles using BEM naming (`.component__element--modifier`)
-  - `<ComponentName>.test.tsx` — Jest tests (when present)
 - Components marked `'use client'` are client components; otherwise they are server components.
 
 ### Styling
@@ -114,14 +111,6 @@ npm run dev          # Start Next.js dev server
 npm run build        # Full production build (next build + sitemap)
 ```
 
-### Testing
-
-```sh
-npm run test         # Full test suite: prettier:check + lint + typecheck + jest
-npm run jest         # Run Jest unit tests only
-npm run jest:watch   # Run Jest in watch mode
-```
-
 ### Linting & Formatting
 
 ```sh
@@ -131,14 +120,6 @@ npm run prettier:check    # Check formatting
 npm run prettier:write    # Auto-format all files
 npm run typecheck         # TypeScript type checking (tsc --noEmit)
 ```
-
-## Testing Guidelines
-
-- Tests use **Jest** with **React Testing Library**
-- Test setup is in `jest.setup.cjs` (includes `@testing-library/jest-dom`, mocks for `matchMedia`, `ResizeObserver`, `scrollIntoView`)
-- Import test utilities from `test-utils/` (which re-exports `@testing-library/react` + custom `render` + `userEvent`)
-- Jest config is in `jest.config.cjs` using `next/jest`
-- Test environment: `jest-environment-jsdom`
 
 ## Accessibility
 
