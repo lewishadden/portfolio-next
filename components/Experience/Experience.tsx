@@ -26,11 +26,7 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
           </ScrollReveal>
         </div>
 
-        <div
-          className="timeline"
-          role="list"
-          aria-label="Work experience timeline"
-        >
+        <div className="timeline" role="list" aria-label="Work experience timeline">
           <div className="timeline__line" aria-hidden="true" />
 
           {items.map((work, i) => (
