@@ -52,9 +52,7 @@ This repo contains the code for my online web portfolio. It is built using [Next
 
 ### Testing scripts
 
-- `test` – full test suite: prettier:check + lint + typecheck + jest
-- `jest` – run Jest unit tests only
-- `jest:watch` – run Jest in watch mode
+- `test` – full test suite: prettier:check + lint + typecheck
 - `typecheck` – checks TypeScript types
 - `lint` – runs ESLint + Stylelint
 - `prettier:check` – checks files with Prettier

@@ -58,37 +58,37 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
               .slice(0, rowIndex)
               .reduce((sum, r) => sum + r.length, 0);
             return (
-            <div key={rowIndex} className="skills__list__row">
-              {row.map((skill, colIndex) => {
-                const i = rowStartIndex + colIndex;
-                return (
-                  <div key={i} className="skills__list__tile" role="listitem">
-                    <ScrollReveal animation="flipInX" delay={colIndex * staggerDelay}>
-                      <div className="skills__list__tile__icon-wrapper">
-                        <Icon
-                          icon={skill.class}
-                          className="skills__list__tile__icon"
-                          aria-hidden="true"
-                        />
-                        <div className="skills__list__tile__icon-glow" />
-                      </div>
-                      <p className="skills__list__tile__name" title={skill.name}>
-                        {skill.name}
-                      </p>
-                      <div className="skills__list__tile__tooltip" aria-hidden="true">
-                        <div className="skills__list__tile__tooltip__bar">
-                          <div
-                            className="skills__list__tile__tooltip__fill"
-                            style={{ width: `${skill.level}%` }}
+              <div key={rowIndex} className="skills__list__row">
+                {row.map((skill, colIndex) => {
+                  const i = rowStartIndex + colIndex;
+                  return (
+                    <div key={i} className="skills__list__tile" role="listitem">
+                      <ScrollReveal animation="flipInX" delay={colIndex * staggerDelay}>
+                        <div className="skills__list__tile__icon-wrapper">
+                          <Icon
+                            icon={skill.class}
+                            className="skills__list__tile__icon"
+                            aria-hidden="true"
                           />
+                          <div className="skills__list__tile__icon-glow" />
                         </div>
-                        <span className="skills__list__tile__tooltip__label">{skill.level}%</span>
-                      </div>
-                    </ScrollReveal>
-                  </div>
-                );
-              })}
-            </div>
+                        <p className="skills__list__tile__name" title={skill.name}>
+                          {skill.name}
+                        </p>
+                        <div className="skills__list__tile__tooltip" aria-hidden="true">
+                          <div className="skills__list__tile__tooltip__bar">
+                            <div
+                              className="skills__list__tile__tooltip__fill"
+                              style={{ width: `${skill.level}%` }}
+                            />
+                          </div>
+                          <span className="skills__list__tile__tooltip__label">{skill.level}%</span>
+                        </div>
+                      </ScrollReveal>
+                    </div>
+                  );
+                })}
+              </div>
             );
           })}
         </div>

@@ -29,7 +29,11 @@ const ScrollReveal = ({
   const { ref, inViewport } = useInViewport();
   const reduceMotion = useReducedMotion();
   const [isVisible, setIsVisible] = useState(false);
-  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
 
   if (inViewport && !isVisible) {
     setIsVisible(true);

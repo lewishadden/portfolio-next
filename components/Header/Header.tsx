@@ -63,10 +63,7 @@ export const Header = ({ header, navItems }: { header: HeaderProps; navItems: Na
           tabIndex={-1}
         />
       )}
-      <header
-        className={`header ${isPinned ? 'header--visible' : ''}`}
-        role="banner"
-      >
+      <header className={`header ${isPinned ? 'header--visible' : ''}`} role="banner">
         <nav className="header__nav" aria-label="Main navigation">
           <a href={header.home.href} className="header__logo" aria-label={header.home.ariaLabel}>
             {header.home.label}

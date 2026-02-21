@@ -71,91 +71,94 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
               .slice(0, rowIndex)
               .reduce((sum, r) => sum + r.length, 0);
             return (
-            <div key={rowIndex} className="projects__list__row">
-              {row.map((project, colIndex) => {
-                const i = rowStartIndex + colIndex;
-                return (
-                  <div key={project.title} className="projects__item" role="listitem">
-                    <ScrollReveal
-                      animation="fadeInUp"
-                      delay={i * staggerDelay}
-                      style={{ flex: 1, display: 'flex' }}
-                    >
-                      <button
-                        type="button"
-                        className="projects__item__card"
-                        onClick={(e) => showDetailsModal(project, e.currentTarget)}
-                        aria-label={`View details for ${project.title} project`}
+              <div key={rowIndex} className="projects__list__row">
+                {row.map((project, colIndex) => {
+                  const i = rowStartIndex + colIndex;
+                  return (
+                    <div key={project.title} className="projects__item" role="listitem">
+                      <ScrollReveal
+                        animation="fadeInUp"
+                        delay={i * staggerDelay}
+                        style={{ flex: 1, display: 'flex' }}
                       >
-                        <div className="projects__item__card__body">
-                          <div className="projects__item__card__top">
-                            <div className="projects__item__card__icon-wrapper">
-                              <Icon
-                                icon={project.thumbnail}
-                                className="projects__item__card__thumbnail"
-                                aria-hidden="true"
-                              />
-                              <div className="projects__item__card__icon-glow" />
+                        <button
+                          type="button"
+                          className="projects__item__card"
+                          onClick={(e) => showDetailsModal(project, e.currentTarget)}
+                          aria-label={`View details for ${project.title} project`}
+                        >
+                          <div className="projects__item__card__body">
+                            <div className="projects__item__card__top">
+                              <div className="projects__item__card__icon-wrapper">
+                                <Icon
+                                  icon={project.thumbnail}
+                                  className="projects__item__card__thumbnail"
+                                  aria-hidden="true"
+                                />
+                                <div className="projects__item__card__icon-glow" />
+                              </div>
+
+                              <div className="projects__item__card__header">
+                                <h3 className="projects__item__card__title font-trebuchet">
+                                  {project.title}
+                                </h3>
+
+                                <time
+                                  className="projects__item__card__date"
+                                  dateTime={project.startDate}
+                                >
+                                  {project.startDate}
+                                </time>
+                              </div>
                             </div>
 
-                            <div className="projects__item__card__header">
-                              <h3 className="projects__item__card__title font-trebuchet">
-                                {project.title}
-                              </h3>
+                            <p className="projects__item__card__description">
+                              {truncateDescription(project.description, maxDescriptionLength)}
+                            </p>
 
-                              <time
-                                className="projects__item__card__date"
-                                dateTime={project.startDate}
-                              >
-                                {project.startDate}
-                              </time>
-                            </div>
-                          </div>
-
-                          <p className="projects__item__card__description">
-                            {truncateDescription(project.description, maxDescriptionLength)}
-                          </p>
-
-                          <ul className="projects__item__card__tech" aria-label="Technologies used">
-                            {project.technologies.slice(0, maxTechPreview).map((tech) => (
-                              <li key={tech.name} className="projects__item__card__tech__pill">
-                                <Icon icon={tech.class} aria-hidden="true" />
-                                {tech.name}
-                              </li>
-                            ))}
-                            {project.technologies.length > maxTechPreview && (
-                              <li className="projects__item__card__tech__pill projects__item__card__tech__pill--more">
-                                +{project.technologies.length - maxTechPreview}
-                              </li>
-                            )}
-                          </ul>
-
-                          <div className="projects__item__card__cta">
-                            <span>{ctaText}</span>
-                            <svg
-                              width="18"
-                              height="18"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                              aria-hidden="true"
+                            <ul
+                              className="projects__item__card__tech"
+                              aria-label="Technologies used"
                             >
-                              <path
-                                d="M5 12H19M19 12L13 6M19 12L13 18"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
+                              {project.technologies.slice(0, maxTechPreview).map((tech) => (
+                                <li key={tech.name} className="projects__item__card__tech__pill">
+                                  <Icon icon={tech.class} aria-hidden="true" />
+                                  {tech.name}
+                                </li>
+                              ))}
+                              {project.technologies.length > maxTechPreview && (
+                                <li className="projects__item__card__tech__pill projects__item__card__tech__pill--more">
+                                  +{project.technologies.length - maxTechPreview}
+                                </li>
+                              )}
+                            </ul>
+
+                            <div className="projects__item__card__cta">
+                              <span>{ctaText}</span>
+                              <svg
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d="M5 12H19M19 12L13 6M19 12L13 18"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </div>
                           </div>
-                        </div>
-                      </button>
-                    </ScrollReveal>
-                  </div>
-                );
-              })}
-            </div>
+                        </button>
+                      </ScrollReveal>
+                    </div>
+                  );
+                })}
+              </div>
             );
           })}
         </div>
