@@ -230,17 +230,13 @@ function JsonLd() {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
-            personSchema,
-            websiteSchema,
-            breadcrumbSchema,
-            profilePageSchema,
-          ]),
-        }}
-      />
+      {[personSchema, websiteSchema, breadcrumbSchema, profilePageSchema].map((schema, i) => (
+        <script
+          key={i}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
     </>
   );
 }
