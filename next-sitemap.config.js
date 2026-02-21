@@ -2,7 +2,7 @@
 export default {
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://portfolio.lewishadden.com',
   generateRobotsTxt: true,
-  changefreq: 'weekly',
+  changefreq: 'monthly',
   priority: 1.0,
   generateIndexSitemap: false,
   outDir: 'public',
@@ -31,7 +31,7 @@ export default {
     if (path === '/') {
       return {
         loc: path,
-        changefreq: 'daily',
+        changefreq: 'weekly',
         priority: 1.0,
         lastmod: new Date().toISOString(),
       };

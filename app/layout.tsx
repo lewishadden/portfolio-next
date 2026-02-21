@@ -102,7 +102,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/favicon.ico',
-    apple: '/favicon.ico',
+    apple: '/static/images/favicon.png',
   },
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
@@ -132,12 +132,16 @@ function JsonLd() {
     },
     email,
     telephone,
-    jobTitle: content.home?.titles || ['Full Stack Engineer'],
+    description,
+    jobTitle: content.home?.titles?.[0] || 'Full Stack Engineer',
     worksFor: {
       '@type': 'Organization',
       name: 'Freelance',
     },
-    alumniOf: 'IBM',
+    alumniOf: {
+      '@type': 'Organization',
+      name: 'ADP',
+    },
     knowsAbout: [
       'React',
       'Next.js',
@@ -172,50 +176,6 @@ function JsonLd() {
     inLanguage: 'en-GB',
   };
 
-  // BreadcrumbList Schema
-  const breadcrumbSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: 'Home',
-        item: siteUrl,
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'About',
-        item: `${siteUrl}#about`,
-      },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: 'Experience',
-        item: `${siteUrl}#experience`,
-      },
-      {
-        '@type': 'ListItem',
-        position: 4,
-        name: 'Projects',
-        item: `${siteUrl}#projects`,
-      },
-      {
-        '@type': 'ListItem',
-        position: 5,
-        name: 'Skills',
-        item: `${siteUrl}#skills`,
-      },
-      {
-        '@type': 'ListItem',
-        position: 6,
-        name: 'Contact',
-        item: `${siteUrl}#contact`,
-      },
-    ],
-  };
-
   // ProfilePage Schema
   const profilePageSchema = {
     '@context': 'https://schema.org',
@@ -226,11 +186,13 @@ function JsonLd() {
     url: siteUrl,
     name: `${personName} - Professional Portfolio`,
     description,
+    dateCreated: '2020-01-01',
+    dateModified: new Date().toISOString().split('T')[0],
   };
 
   return (
     <>
-      {[personSchema, websiteSchema, breadcrumbSchema, profilePageSchema].map((schema, i) => (
+      {[personSchema, websiteSchema, profilePageSchema].map((schema, i) => (
         <script
           key={i}
           type="application/ld+json"
