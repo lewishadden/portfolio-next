@@ -1,0 +1,107 @@
+# Lewis Hadden — Freelance Senior Full Stack Developer
+
+> Senior full stack developer specialising in React, Next.js, TypeScript, Node.js and Azure, based in Peterborough, UK. 9+ years' experience delivering large-scale web apps for IBM, ADP, ERGO and more. Available for remote and on-site work across the UK and Europe.
+
+## About
+
+Lewis Hadden is a highly experienced senior full stack engineer based in Peterborough, UK. He has been working in the web development industry for almost 9 years, leading development teams for large-scale projects and working as an independent developer on both in-house and public-facing products. He is currently seeking opportunities as a Senior or Lead Full Stack Developer, either as a freelancer or under permanent employment.
+
+## Contact
+
+- **Email:** lewishadden@gmail.com
+- **Phone:** +447714512514
+- **LinkedIn:** https://www.linkedin.com/in/lewishadden/
+- **GitHub:** https://github.com/lewishadden
+- **Portfolio:** https://portfolio.lewishadden.com
+
+## Experience
+
+### ADP — Senior Full Stack Engineer (Contractor)
+*Jan 2025 – Present*
+React, Tailwind CSS, Cypress, Webpack, React Testing Library, JavaScript, REST API, Jest, Virtual Machines
+
+### ERGO Travel Insurance — Lead Full Stack Engineer
+*Apr 2024 – Nov 2024*
+Next.js, Azure, React, TypeScript, CSS Modules, Function Apps, Cosmos DB, Event Hubs, Blob & Table Storage, DevOps Pipelines, Docker, Node.js, Jest
+
+### Sopra Steria — Cloud Infrastructure Architect
+*Jun 2023 – Dec 2023*
+Azure, REST API, Cosmos DB, Serverless Function, Content Delivery Network, Blob Storage
+
+### Sopra Steria — Lead Software Engineer
+*Aug 2022 – Apr 2023*
+Angular 8+, React, Flutter, TypeScript, Node.js, HTML5, SCSS / CSS3, Jest, PowerBI, Split Tunnelling (VPN)
+
+### IBM — Senior Full Stack Developer
+*Jan 2022 – Jul 2022*
+React, Redux, TypeScript, AWS, JavaScript, Node.js, Carbon Design System, HTML5, SCSS / CSS3, Jest + Enzyme, CloudFormation, DynamoDB, CodeCommit, CodeBuild, CodePipeline, Lambda, EC2, S3, API Gateway, IAM, JIRA
+
+### IBM — Lead Front End Developer
+*Jan 2021 – Jan 2022*
+React, Redux, TypeScript, AWS, HTML5, SCSS / CSS3, Jest + Enzyme, Micro-Frontends, Carbon Design System, FeatureHub, GitHub Workflows, Adobe Experience Manager, Adobe Launch, JIRA
+
+### IBM — Front End Developer
+*Aug 2018 – Jan 2021*
+React, Redux, TypeScript, Adobe Experience Manager, JavaScript, Webpack, Babel, HTML5, SCSS / CSS3, Jest + Enzyme, Carbon Design System, Adobe Dynamic Tag Manager, Cookie Control (CIVIC), Docker, Linux / Bash, Apache, AWS
+
+### IBM — QA Tester
+*Jan 2018 – Aug 2018*
+Selenium, WebdriverIO, Cucumber / Gherkin, BrowserStack, Appium, Node.js, JIRA, React, JavaScript, HTML, CSS
+
+## Projects
+
+### ADP RUN (2025)
+Working on the ADP RUN payroll and HR platform. Developing new features using React and Tailwind CSS with feature flags for a customisable user experience. Writing unit tests with Jest and React Testing Library, and e2e tests with Cypress.
+Technologies: React, Tailwind CSS, Webpack, Cypress IO
+URL: https://online.adp.com/signin/v1/?APPID=RUN&productId=80e309c3-70c3-bae1-e053-3505430b5495
+
+### Sanctions Checker (2024)
+A sanctions checking tool for an insurance MGA using the open sanctions public database. Backend consists of a daily job to update CosmosDB and an API for name-based searches. Frontend is a Next.js application.
+Technologies: Next.js, Mantine UI, Azure, Azure CosmosDB, Serverless Functions, DevOps Pipelines, Azure Object Storage, Node.js, REST API
+URL: https://sanctions-checker.etisolutionshub.co.uk
+
+### Oralieve (2024)
+Shopify development for Oralieve's dental professional products store, including a patient samples form and minimum spend free shipping feature.
+Technologies: Shopify
+URL: https://www.oralieve-direct.co.uk/
+
+### AirDoctor Webhook (2024)
+Architected, developed and deployed a webhook for ERGO Travel Insurance that ingests and processes insurance claims from the AirDoctor platform. Built a Docker stack with local Azure emulators for local development.
+Technologies: Azure, Azure Storage (Blob / Tables), Serverless Functions, DevOps Pipelines, Event Hubs, Node.js, Webhooks, Docker
+
+### Audi Form Builder (2021)
+Led a development team to create an advanced capability allowing content editors to drag and drop React micro-frontends to create custom forms on the Audi website without writing code.
+Technologies: React, TypeScript, Redux
+URL: https://www.audi.co.uk/uk/web/en/call-me-back.html
+
+### Cookie Control (2018)
+Designed and implemented the Cookie Control system for the Audi UK website for GDPR compliance using Adobe Launch to control third-party tracking tags and custom analytics.
+Technologies: JavaScript, Adobe Analytics
+
+### Audi Digital Transformation (2018)
+Led front-end development and was pivotal in modernising Audi UK's technology infrastructure, migrating their legacy tech stack to AWS and overhauling their website with new SPAs.
+Technologies: React, TypeScript, AWS
+
+### Traffic Management Portal (2022)
+Bespoke real-time traffic monitoring, reporting and management dashboards for the Singapore Land Traffic Authority (LTA).
+Technologies: Angular, TypeScript, SCSS
+
+### Audex (2022)
+Architected and developed the front-end foundations for the Analyse module of Audex, an online media visualisation and analysis portal. Built a PowerBI POC demonstrating real-time analysis data in React.
+Technologies: React, TypeScript, PowerBI
+URL: https://audex.media/welcome
+
+### Home Greening Microsite (2023)
+Sole cloud architect for a proposed new microsite for UK Power Networks, designing Azure infrastructure compliant with strict enterprise security requirements.
+Technologies: Azure, REST API, Cosmos DB
+
+## Skills
+
+- **Frontend:** React, Next.js, TypeScript, JavaScript, Redux, HTML5, SCSS, CSS Modules, Tailwind CSS, Angular 8+, Flutter, Storybook, Webpack, Babel, Vite
+- **Testing:** Jest, Enzyme, Cypress, React Testing Library, Selenium, WebdriverIO, Cucumber / Gherkin, BrowserStack, Appium
+- **Backend:** Node.js, Bun, REST API
+- **Databases:** MongoDB, Cosmos DB
+- **Cloud:** AWS, Azure, Azure Functions, Azure DevOps, Docker, GitHub Actions, CI/CD Pipelines
+- **CMS & Analytics:** Adobe Experience Manager, Adobe Dynamic Tag Manager, Shopify
+- **UI Libraries:** Mantine UI, Bootstrap, Carbon Design System, Material UI
+- **Tools:** Git, JIRA, Notion, Linux, Bash, Apache, NGINX, PowerBI
