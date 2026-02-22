@@ -1,8 +1,13 @@
 import './globals.scss';
 import './theme-variables.scss';
+
+import { geolocation, ipAddress } from '@vercel/functions';
+import { headers } from 'next/headers';
+
 import { ThemeProvider } from 'contexts/ThemeContext';
 import { GoogleAnalyticsDeferred } from 'components/GoogleAnalyticsDeferred/GoogleAnalyticsDeferred';
 import { ThemeScript } from 'components/ThemeScript/ThemeScript';
+
 import type { Metadata, Viewport } from 'next';
 
 import content from '../content/content.json';
@@ -203,7 +208,12 @@ function JsonLd() {
   );
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const headersData = await headers();
+  const ip = ipAddress({ headers: headersData }) || 'Unknown';
+  const geo = geolocation({ headers: headersData });
+  const geoData = { ip, geo };
+
   return (
     <html lang="en-GB" suppressHydrationWarning>
       <head>
@@ -214,7 +224,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body data-theme="dark" suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
         <JsonLd />
-        <GoogleAnalyticsDeferred gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
+        <GoogleAnalyticsDeferred
+          gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''}
+          geoData={geoData}
+        />
       </body>
     </html>
   );
