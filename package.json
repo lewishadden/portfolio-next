@@ -32,6 +32,7 @@
   "dependencies": {
     "@iconify/react": "^6.0.2",
     "@next/third-parties": "^16.1.6",
+    "@vercel/functions": "^3.4.2",
     "formik": "^2.4.9",
     "next": "^16.1.6",
     "nodemailer": "^8.0.1",
