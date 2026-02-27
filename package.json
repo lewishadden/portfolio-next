@@ -27,7 +27,7 @@
     "lint:stylelint:fix": "stylelint '**/*.{scss,css}' --cache --fix",
     "prettier:check": "prettier --check \"**/*.{ts,tsx,js,json,css,yml,md}\"",
     "prettier:write": "prettier --write \"**/*.{ts,tsx,js,json,css,scss,yml,md}\"",
-    "test": "npm run prettier:check && npm run lint && npm run typecheck"
+    "verify": "npm run prettier:check && npm run lint && npm run typecheck"
   },
   "dependencies": {
     "@iconify/react": "^6.0.2",

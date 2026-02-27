@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
@@ -288,7 +289,7 @@ const ProjectDetailsModal = ({
 
   if (!show) return null;
 
-  return (
+  return createPortal(
     <div className="project-details__overlay" ref={focusTrapRef}>
       <button
         type="button"
@@ -349,7 +350,8 @@ const ProjectDetailsModal = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
