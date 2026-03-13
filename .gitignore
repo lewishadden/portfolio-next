@@ -127,5 +127,3 @@ local.settings.json
 
 next-env.d.ts
 .vercel
-
-public/sitemap.xml

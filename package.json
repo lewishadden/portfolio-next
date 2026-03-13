@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build && next-sitemap",
+    "build": "next build",
     "purgecss": "purgecss -c purgecss.config.cjs",
     "analyze": "ANALYZE=true next build",
     "start": "next start",
@@ -53,7 +53,6 @@
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.6",
     "globals": "^17.3.0",
-    "next-sitemap": "^4.2.3",
     "postcss": "^8.5.6",
     "prettier": "^3.8.1",
     "purgecss": "^8.0.0",
