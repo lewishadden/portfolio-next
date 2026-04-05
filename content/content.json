@@ -232,6 +232,56 @@
     "label": "What I've built",
     "items": [
       {
+        "title": "Sip Happens",
+        "startDate": "2026",
+        "description": "Sip Happens is a passion project I designed and built from scratch — a dedicated review platform for espresso martini enthusiasts. The site features honest, detailed bar reviews from around the world, a blog exploring espresso martini culture, and an interactive global map that lets users explore reviewed bars by location. Visitors can submit bar recommendations to help grow the platform's coverage. Built entirely with Next.js, React, TypeScript and Tailwind CSS, the platform uses a PostgreSQL database to store and serve reviews, blog posts, and submission data. The site is deployed and live at sip-happens.co.uk, with an active social presence on Instagram and TikTok.",
+        "theme": {
+          "text": "light",
+          "border": "light",
+          "background": "dark"
+        },
+        "thumbnail": "mdi:glass-cocktail",
+        "images": [
+          {
+            "url": "/static/images/projects/sip-happens/sip-happens_homepage.png",
+            "size": {
+              "width": 3024,
+              "height": 1656
+            }
+          },
+          {
+            "url": "/static/images/projects/sip-happens/sip-happens_globe.png",
+            "size": {
+              "width": 3024,
+              "height": 1658
+            }
+          }
+        ],
+        "url": "https://sip-happens.co.uk",
+        "technologies": [
+          {
+            "class": "devicon:nextjs",
+            "name": "Next.js"
+          },
+          {
+            "class": "devicon:react",
+            "name": "React"
+          },
+          {
+            "class": "devicon:typescript",
+            "name": "TypeScript"
+          },
+          {
+            "class": "devicon:tailwindcss",
+            "name": "Tailwind CSS"
+          },
+          {
+            "class": "devicon:postgresql",
+            "name": "PostgreSQL"
+          }
+        ]
+      },
+      {
         "title": "ADP RUN",
         "startDate": "2025",
         "description": "I am currently contracted to ADP, a global leader in payroll and HR solutions, where I am working on their ADP RUN platform. My role involves developing new features and enhancements for the platform, using feature flags to enable a highly customisable user experience. I use React and Tailwind CSS to build a highly responsive, mobile-first user experience. I am also responsible for writing comprehensive unit tests using Jest and React Testing Library, as well as e2e tests using Cypress to ensure the reliability and maintainability of the codebase.",
