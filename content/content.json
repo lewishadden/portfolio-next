@@ -232,6 +232,70 @@
     "label": "What I've built",
     "items": [
       {
+        "title": "Smiley Pets",
+        "startDate": "2026",
+        "description": "Smiley Pets is a professional pet care website I designed and built from scratch for a local business established in 2010. The site showcases their dog walking and pet sitting services, highlights their credentials — fully insured, DBS checked, and Canine First Aid certified — and builds trust through client testimonials and a photo gallery of happy pets in their care. Key features include a pet photo film strip, a full gallery, a contact and booking section, and social media integration. Built with Next.js, React, TypeScript and Tailwind CSS, and deployed on Vercel.",
+        "theme": {
+          "text": "light",
+          "border": "light",
+          "background": "dark"
+        },
+        "thumbnail": "mdi:paw",
+        "images": [
+          {
+            "url": "/static/images/projects/smiley-pets/smiley-pets_homepage.png",
+            "size": {
+              "width": 3024,
+              "height": 1660
+            }
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/smiley-pets_film-strip.png",
+            "size": {
+              "width": 3024,
+              "height": 1418
+            }
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/smiley-pets_gallery.png",
+            "size": {
+              "width": 3024,
+              "height": 1658
+            }
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/smiley-pets_contact.png",
+            "size": {
+              "width": 3024,
+              "height": 1656
+            }
+          }
+        ],
+        "url": "https://smileypets.co.uk",
+        "technologies": [
+          {
+            "class": "devicon:nextjs",
+            "name": "Next.js"
+          },
+          {
+            "class": "devicon:react",
+            "name": "React"
+          },
+          {
+            "class": "devicon:typescript",
+            "name": "TypeScript"
+          },
+          {
+            "class": "devicon:tailwindcss",
+            "name": "Tailwind CSS"
+          },
+          {
+            "class": "devicon:vercel",
+            "name": "Vercel"
+          }
+        ]
+      },
+      {
         "title": "Sip Happens",
         "startDate": "2026",
         "description": "Sip Happens is a passion project I designed and built from scratch — a dedicated review platform for espresso martini enthusiasts. The site features honest, detailed bar reviews from around the world, a blog exploring espresso martini culture, and an interactive global map that lets users explore reviewed bars by location. Visitors can submit bar recommendations to help grow the platform's coverage. Built entirely with Next.js, React, TypeScript and Tailwind CSS, the platform uses a PostgreSQL database to store and serve reviews, blog posts, and submission data. The site is deployed and live at sip-happens.co.uk, with an active social presence on Instagram and TikTok.",
