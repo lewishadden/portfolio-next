@@ -18,9 +18,19 @@ const siteUrl =
 
 const personName = content.home?.name || 'Portfolio';
 const description =
-  'Senior full stack developer specialising in React, Next.js, TypeScript, Node.js and Azure, based in the UK. 9+ years’ experience delivering large-scale web apps for IBM, ADP, ERGO and more.';
+  "Freelance senior full stack developer based in Peterborough, UK, available remote across the UK and Europe. Specialising in React, Next.js, TypeScript, Node.js and Azure. 9+ years’ experience delivering large-scale web apps for IBM, ADP, ERGO and more.";
 const keywords = [
   'Lewis Hadden',
+  'Freelance React Developer UK',
+  'Hire React Developer UK',
+  'Contract Next.js Developer UK',
+  'React Contractor UK',
+  'Freelance TypeScript Developer UK',
+  'Freelance Node.js Developer UK',
+  'Freelance Full Stack Developer UK',
+  'Senior Full Stack Developer UK',
+  'Freelance Web Developer Peterborough',
+  'Freelance Developer Peterborough',
   'Full Stack Developer',
   'React Developer',
   'Next.js Developer',
@@ -141,7 +151,7 @@ function JsonLd() {
     },
     alumniOf: {
       '@type': 'Organization',
-      name: 'ADP',
+      name: 'IBM',
     },
     knowsAbout: [
       'React',
@@ -159,6 +169,8 @@ function JsonLd() {
     sameAs,
     address: {
       '@type': 'PostalAddress',
+      addressLocality: 'Peterborough',
+      addressRegion: 'Cambridgeshire',
       addressCountry: 'GB',
     },
   };
