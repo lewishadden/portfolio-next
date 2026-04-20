@@ -18,7 +18,7 @@ const siteUrl =
 
 const personName = content.home?.name || 'Portfolio';
 const description =
-  "Freelance senior full stack developer based in Peterborough, UK, available remote across the UK and Europe. Specialising in React, Next.js, TypeScript, Node.js and Azure. 9+ years’ experience delivering large-scale web apps for IBM, ADP, ERGO and more.";
+  'Freelance React & Next.js developer, Peterborough UK. Senior full stack engineer. 9+ years at IBM, ADP & ERGO. Remote contracts across the UK and Europe.';
 const keywords = [
   'Lewis Hadden',
   'Freelance React Developer UK',
@@ -61,7 +61,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: `Freelance Senior Full Stack Developer | React, Next.js, TypeScript | ${personName}, UK`,
+    default: `Freelance React & Next.js Developer UK | ${personName}`,
     template: `%s | ${personName}`,
   },
   description,
@@ -84,7 +84,7 @@ export const metadata: Metadata = {
     type: 'website',
     url: siteUrl,
     siteName: `${personName} - Full Stack Developer`,
-    title: `${personName} — Freelance Full Stack Developer | React, Next.js, Azure`,
+    title: `Freelance React & Next.js Developer UK | ${personName}`,
     description,
     locale: 'en_GB',
     images: [
