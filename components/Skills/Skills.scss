@@ -109,37 +109,25 @@
   }
 
   &__grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-
-    .skill-tile {
-      width: calc((100% - 60px) / 7);
-      flex-shrink: 0;
-    }
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 16px;
   }
 }
 
 .skill-tile {
   aspect-ratio: 1;
-  perspective: 600px;
+  perspective: 1000px;
   position: relative;
-  z-index: 0;
-  transition:
-    transform 0.25s var(--ease-standard),
-    z-index 0s 0.25s;
+  z-index: 1;
 
   &:hover {
-    transform: scale(1.45);
     z-index: 10;
-    transition:
-      transform 0.25s var(--ease-standard),
-      z-index 0s;
   }
 
   &:hover &__inner {
-    transform: rotateY(180deg);
+    transform: translateY(-8px) rotateY(180deg) scale(1.15);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
   }
 
   &__inner {
@@ -147,7 +135,8 @@
     width: 100%;
     height: 100%;
     transform-style: preserve-3d;
-    transition: transform 0.4s var(--ease-standard);
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.6s var(--ease-standard);
+    border-radius: var(--radius-xl);
   }
 
   &__front,
@@ -164,35 +153,38 @@
   }
 
   &__front {
-    background:
-      radial-gradient(
-        ellipse at 30% 0%,
-        color-mix(in oklab, var(--accent-primary) 10%, transparent),
-        transparent 60%
-      ),
-      color-mix(in oklab, var(--bg-tertiary) 30%, transparent);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06);
 
     svg {
-      filter: drop-shadow(0 2px 6px var(--gradient-shadow));
+      width: 45%;
+      height: 45%;
+      color: var(--text-secondary);
+      transition: color 0.4s var(--ease-standard);
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
     }
+  }
+
+  &:hover &__front svg {
+    color: var(--accent-primary);
   }
 
   &__back {
     transform: rotateY(180deg);
     background: linear-gradient(
       135deg,
-      color-mix(in oklab, var(--accent-primary) 30%, var(--bg-secondary)),
-      var(--bg-secondary)
+      var(--accent-primary),
+      var(--accent-secondary)
     );
-    border-color: color-mix(in oklab, var(--accent-primary) 40%, transparent);
+    border: none;
     padding: 8px;
 
     span {
-      font-size: var(--fs-tiny);
+      font-size: var(--fs-xs);
       font-weight: 700;
-      color: var(--text-primary);
+      color: #fff;
       text-align: center;
-      line-height: 1.3;
+      line-height: 1.15;
     }
   }
 }
