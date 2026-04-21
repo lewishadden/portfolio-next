@@ -1,118 +1,87 @@
 .footer {
-  --footer-text-muted: #9ca3b8;
-  --footer-text-secondary: #b8bcc8;
-
-  [data-theme='light'] & {
-    --footer-text-muted: #475569;
-    --footer-text-secondary: #334155;
-  }
-
-  padding: 4rem var(--padding-x-md) var(--padding-y-large) var(--padding-x-md);
-  background: var(--bg-secondary);
+  max-width: 1280px;
+  margin: 60px auto 0;
+  padding: 48px 32px 40px;
+  border-top: 1px solid var(--border-color);
 
   &__inner {
-    max-width: 1100px;
-    margin: 0 auto;
-  }
-
-  // ── Three-column main area ──
-  &__main {
     display: grid;
-    gap: 2.5rem;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 48px;
 
-    @media (min-width: 768px) {
-      grid-template-columns: 1.5fr 1fr 1fr;
-      gap: 3rem;
+    @media (max-width: 760px) {
+      grid-template-columns: 1fr;
+      gap: 32px;
     }
   }
 
-  // ── Brand column ──
   &__brand {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 10px;
   }
 
   &__logo {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: #fff;
-    font-size: 1.125rem;
-    font-weight: 700;
-    text-decoration: none;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.4rem;
     letter-spacing: -0.5px;
-    transition: opacity 0.2s ease;
-
-    &:hover {
-      opacity: 0.85;
-    }
+    background: linear-gradient(
+      135deg,
+      var(--gradient-start, var(--accent-primary)),
+      var(--gradient-mid, var(--accent-secondary)),
+      var(--gradient-end, var(--accent-primary))
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-decoration: none;
+    align-self: flex-start;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+    background-color: transparent;
   }
 
   &__tagline {
-    font-size: 0.9375rem;
-    color: var(--footer-text-secondary);
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--fs-caption);
     line-height: 1.6;
-    margin: 0;
-    max-width: 280px;
+    max-width: 340px;
   }
 
-  // ── Navigation column ──
-  &__nav-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.625rem;
-  }
-
-  &__nav-link {
-    font-size: 0.9375rem;
-    color: var(--footer-text-muted);
-    text-decoration: none;
-    transition: color 0.2s ease;
-
-    &:hover {
-      color: var(--text-primary);
-    }
-  }
-
-  // ── Connect column ──
-  &__connect-label {
-    display: block;
-    font-size: 0.8125rem;
-    font-weight: 600;
+  &__col-title {
+    font-size: var(--fs-2xs);
+    letter-spacing: 2px;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: var(--footer-text-muted);
-    margin-bottom: 0.875rem;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin: 0 0 18px;
   }
 
+  &__nav-list,
   &__social-list {
     list-style: none;
     padding: 0;
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 10px;
   }
 
+  &__nav-link,
   &__social-link {
+    color: var(--text-secondary);
+    font-size: var(--fs-caption);
+    text-decoration: none;
+    transition: color 0.2s;
     display: inline-flex;
     align-items: center;
-    gap: 0.625rem;
-    font-size: 0.9375rem;
-    color: var(--footer-text-muted);
-    text-decoration: none;
-    transition: color 0.2s ease;
+    gap: 10px;
 
     svg {
-      font-size: 1.25rem;
+      font-size: 1rem;
     }
 
     &:hover {
@@ -120,39 +89,36 @@
     }
   }
 
-  // ── Divider ──
-  &__divider {
-    height: 1px;
-    background: var(--border-color);
-    margin: 2.5rem 0 var(--padding-y-md);
-  }
-
-  // ── Bottom bar ──
   &__bottom {
+    grid-column: 1 / -1;
+    padding-top: 32px;
+    margin-top: 16px;
+    border-top: 1px solid var(--border-color);
     display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
+    gap: 20px;
     flex-wrap: wrap;
-    gap: 0.5rem;
   }
 
   &__copy {
-    font-size: 0.8125rem;
-    color: var(--footer-text-muted);
+    font-size: var(--fs-caption);
+    color: var(--text-muted);
     margin: 0;
   }
 
   &__built {
-    font-size: 0.8125rem;
-    color: var(--footer-text-muted);
-    margin: 0;
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 6px;
+    font-size: var(--fs-2xs);
+    color: var(--text-muted);
+    margin: 0;
+    letter-spacing: 0.3px;
   }
 
   &__heart {
-    font-size: 0.875rem;
     color: #ef4444;
+    font-size: 0.9rem;
   }
 }

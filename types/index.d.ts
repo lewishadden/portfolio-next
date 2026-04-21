@@ -12,6 +12,8 @@ export interface ResumeData {
 
 export interface Global {
   openToWork: boolean;
+  openToWorkText: string;
+  location: string;
   navItems: NavItem[];
 }
 export interface Header {
@@ -29,9 +31,15 @@ export interface Home {
   title: string;
   name: string;
   titles: string[];
-  openToWorkText: string;
   tagline: string;
   cta: CtaPair;
+  stats: StatItem[];
+}
+
+export interface StatItem {
+  value: number;
+  suffix: string;
+  label: string;
 }
 
 export interface About {
@@ -48,6 +56,13 @@ export interface About {
     download: string;
   };
   cta: CtaPair;
+  highlights: Highlight[];
+}
+
+export interface Highlight {
+  icon: string;
+  title: string;
+  sub: string;
 }
 
 export interface Experience {
@@ -69,7 +84,23 @@ export interface Projects {
 export interface Skills {
   title: string;
   label: string;
-  icons: Icon[];
+  tagline: string;
+  marquee: string[];
+  categories: SkillCategory[];
+  icons: SkillIcon[];
+}
+
+export interface SkillCategory {
+  title: string;
+  icon: string;
+  categoryKey: string;
+}
+
+export interface SkillIcon {
+  name: string;
+  class: string;
+  level: string;
+  category: string;
 }
 
 export interface Contact {
@@ -80,6 +111,7 @@ export interface Contact {
     title: string;
     description: string;
     items: ContactInfo[];
+    socialLinks: SocialLink[];
   };
   send: {
     icon: string;
@@ -113,13 +145,19 @@ export interface Contact {
 export interface Footer {
   name: string;
   tagline: string;
+  description: string;
   social: Social[];
   home: {
     url: string;
     text: string;
     ariaLabel: string;
   };
+  navigateText: string;
+  elsewhereText: string;
   connectText: string;
+  version: string;
+  madeInPrefix: string;
+  copyright: string;
   builtWith: {
     pretext: string;
     icon: string;
@@ -137,7 +175,14 @@ export interface ContactInfo {
   name: string;
   class: string;
   value: string;
+  link?: string;
+}
+
+export interface SocialLink {
+  name: string;
+  class: string;
   link: string;
+  ariaLabel: string;
 }
 
 export interface Project {
@@ -170,6 +215,7 @@ export interface ExperienceItem {
   company: string;
   title: string;
   years: string;
+  description?: string;
   mainTech: string[];
   icon: string;
   technologies: string[];
@@ -183,7 +229,7 @@ export interface NavItem {
 export interface Icon {
   name: string;
   class: string;
-  level: string;
+  level?: string;
 }
 
 export interface CtaPair {

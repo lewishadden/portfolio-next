@@ -1,211 +1,233 @@
-// Only the 3 animations used by ScrollReveal (instead of full 72KB animate.css)
-.animated {
-  animation-duration: 1s;
-  animation-fill-mode: both;
+/* =============================================================
+   Portfolio Redesign — global app shell
+   ============================================================= */
+
+html {
+  scroll-behavior: smooth;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+html,
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 40px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
+iconify-icon {
+  display: inline-block;
+  vertical-align: middle;
 }
 
-@keyframes flipInX {
-  0% {
-    transform: perspective(400px) rotate3d(1, 0, 0, 90deg);
-    animation-timing-function: ease-in;
-    opacity: 0;
-  }
-  40% {
-    transform: perspective(400px) rotate3d(1, 0, 0, -20deg);
-    animation-timing-function: ease-in;
-  }
-  60% {
-    transform: perspective(400px) rotate3d(1, 0, 0, 10deg);
-    opacity: 1;
-  }
-  80% {
-    transform: perspective(400px) rotate3d(1, 0, 0, -5deg);
-  }
-  100% {
-    transform: perspective(400px);
-  }
-}
-
-.fadeIn {
-  animation-name: fadeIn;
-}
-
-.fadeInUp {
-  animation-name: fadeInUp;
-}
-
-.flipInX {
-  animation-name: flipInX;
-  backface-visibility: visible !important;
-}
-
-// Subtle slide-up for section headings
-.slideUp {
-  animation-name: slideUp;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 24px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
+::selection {
+  background: color-mix(in oklab, var(--accent-primary) 40%, transparent);
+  color: var(--text-primary);
 }
 
 #main-content {
-  background-color: var(--bg-secondary);
-  background-image: radial-gradient(circle at 1px 1px, var(--dot-grid-color) 1px, transparent 0);
-  background-size: 32px 32px;
-
-  [data-theme='light'] & {
-    background-color: var(--bg-primary);
-    background-image:
-      radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
-      radial-gradient(circle at 40% 20%, rgba(6, 182, 212, 0.03) 0%, transparent 50%),
-      radial-gradient(circle at 1px 1px, var(--dot-grid-color) 1px, transparent 0);
-    background-size:
-      100% 100%,
-      100% 100%,
-      100% 100%,
-      40px 40px;
-  }
-}
-
-section {
-  overflow: hidden;
-  padding-bottom: 5rem;
-  color: var(--text-primary);
-
-  &:first-child {
-    padding-top: 2.5rem;
-  }
-
-  &:last-child {
-    padding-bottom: var(--padding-y-large);
-  }
-}
-
-.center {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  align-self: center;
-}
-
-.wave {
-  animation-name: wave-animation; /* Refers to the name of your @keyframes element below */
-  animation-duration: 2.1s; /* Change to speed up or slow down */
-  animation-iteration-count: infinite; /* Never stop waving :) */
-  transform-origin: 70% 70%; /* Pivot around the bottom-left palm */
-  display: inline-block;
-}
-
-@keyframes wave-animation {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  10% {
-    transform: rotate(14deg);
-  } /* The following five values can be played with to make the waving more or less extreme */
-  20% {
-    transform: rotate(-8deg);
-  }
-
-  30% {
-    transform: rotate(14deg);
-  }
-
-  40% {
-    transform: rotate(-4deg);
-  }
-
-  50% {
-    transform: rotate(10deg);
-  }
-
-  60% {
-    transform: rotate(0deg);
-  } /* Reset for the last half to pause */
-  100% {
-    transform: rotate(0deg);
-  }
-}
-
-.font-trebuchet {
-  font-family:
-    'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
-}
-
-.bars {
-  width: 95%;
-  float: left;
-  padding: 0;
-  text-align: left;
-}
-
-.bars .skills {
-  margin-top: 36px;
-  list-style: none;
-}
-
-.bars li {
   position: relative;
-  margin-bottom: 60px;
-  background: var(--bg-tertiary);
-  height: 42px;
-  border-radius: 3px;
+  z-index: 1;
 }
 
-.bars li em {
-  font:
-    15px opensans-bold,
-    sans-serif;
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  font-weight: normal;
+/* =============================================================
+   Section layout — shared by About, Experience, Projects, Skills, Contact
+   ============================================================= */
+.section {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 140px 32px 100px;
   position: relative;
-  top: -36px;
 }
 
-.bar-expand {
+.section__num {
   position: absolute;
-  left: 0;
-  top: 0;
-  margin: 0;
-  padding-right: 24px;
-  background: var(--accent-primary);
-  display: inline-block;
-  height: 42px;
-  line-height: 42px;
-  border-radius: 3px 0 0 3px;
+  top: -120px;
+  right: 0;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(8rem, 18vw, 16rem);
+  line-height: 1;
+  letter-spacing: -6px;
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in oklab, var(--text-primary) 8%, transparent);
+  pointer-events: none;
+  user-select: none;
 }
 
-.loader-bar-color {
-  color: var(--text-primary) !important;
+.section__head {
+  margin-bottom: 64px;
+  position: relative;
+
+  &--centered {
+    text-align: center;
+  }
+}
+
+.section__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+  margin-bottom: 18px;
+
+  &::before {
+    content: '';
+    width: 32px;
+    height: 1px;
+    background: currentColor;
+  }
+
+  &--centered::before {
+    display: none;
+  }
+}
+
+.section__title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  letter-spacing: -2px;
+  line-height: 1;
+  margin: 0;
+  color: var(--text-primary);
+  position: relative;
+  z-index: 1;
+
+  &-accent {
+    background: linear-gradient(
+      135deg,
+      var(--gradient-start),
+      var(--gradient-mid),
+      var(--gradient-end)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+.section__sub {
+  margin: 18px 0 0;
+  font-size: var(--fs-body-lg);
+  color: var(--text-secondary);
+  max-width: 620px;
+  line-height: var(--lh-loose);
+
+  .section__head--centered & {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* =============================================================
+   Reveal-on-scroll (Removed in favor of Framer Motion)
+   ============================================================= */
+
+/* =============================================================
+   Reusable building blocks
+   ============================================================= */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  background: color-mix(in oklab, var(--bg-tertiary) 60%, transparent);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: var(--fs-body-sm);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 15px 30px;
+  white-space: nowrap;
+  transition: all 0.3s var(--ease-standard);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+
+  &--primary {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: #fff;
+    box-shadow: 0 8px 28px color-mix(in oklab, var(--accent-primary) 30%, transparent);
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        135deg,
+        var(--gradient-start),
+        var(--gradient-mid),
+        var(--gradient-end)
+      );
+      opacity: 0;
+      transition: opacity 0.35s;
+    }
+
+    > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 14px 40px color-mix(in oklab, var(--accent-primary) 40%, transparent);
+    }
+
+    &:hover::before {
+      opacity: 1;
+    }
+  }
+
+  &--secondary {
+    background: color-mix(in oklab, var(--bg-tertiary) 70%, transparent);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    backdrop-filter: blur(12px);
+
+    &:hover {
+      background: color-mix(in oklab, var(--accent-primary) 12%, transparent);
+      border-color: color-mix(in oklab, var(--accent-primary) 50%, transparent);
+      transform: translateY(-2px);
+    }
+  }
+}
+
+.magnet {
+  display: inline-block;
+  will-change: transform;
+  transition: transform 0.25s var(--ease-standard);
+}
+
+/* =============================================================
+   Responsive
+   ============================================================= */
+@media (max-width: 640px) {
+  .section {
+    padding: 100px 20px 72px;
+  }
+  .section__num {
+    top: -80px;
+    font-size: 7rem;
+  }
 }

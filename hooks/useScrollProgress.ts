@@ -11,9 +11,11 @@ export const useScrollProgress = () => {
       const scrollTop = window.scrollY;
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       const scrollPercent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+      const clamped = Math.min(scrollPercent, 100);
 
-      setProgress(Math.min(scrollPercent, 100));
+      setProgress(clamped);
       setShowBackToTop(scrollTop > window.innerHeight * 0.5);
+      document.documentElement.style.setProperty('--scroll-pct', `${clamped}%`);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });

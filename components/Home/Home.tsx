@@ -1,69 +1,108 @@
 import { Icon } from '@iconify/react';
-import { ChevronDown, CodeIcon } from 'icons';
+import Magnet from 'components/Magnet/Magnet';
 import { TypeAnimationClient } from './TypeAnimationClient';
 
 import { Home as HomeProps } from '@/types';
 
 import './Home.scss';
 
-export const Home = ({ home, openToWork }: { home: HomeProps; openToWork: boolean }) => {
-  const { name, titles, openToWorkText, tagline, cta } = home;
+export const Home = ({
+  home,
+  openToWork,
+  openToWorkText,
+}: {
+  home: HomeProps;
+  openToWork: boolean;
+  openToWorkText: string;
+}) => {
+  const { name, titles, tagline, cta } = home;
 
   return (
-    <section id="home" className="home" aria-labelledby="home-heading">
-      <div className="home__bg-accent" aria-hidden="true" />
-      <div className="home__wrapper">
-        <header className="home__header center" style={{ zIndex: 2 }}>
-          {openToWork && (
-            <div className="home__header__badge">
-              <span className="home__header__badge-dot"></span>
-              <span className="home__header__badge-text">{openToWorkText}</span>
-            </div>
-          )}
-
-          <div className="home__header__icon-wrapper">
-            <CodeIcon className="home__header__icon" aria-hidden="true" />
-            <div className="home__header__icon-glow"></div>
+    <section id="home" className="hero" aria-labelledby="home-heading">
+      <div className="hero__inner">
+        {openToWork && (
+          <div className="hero__badge">
+            <span className="hero__badge-dot" aria-hidden="true" />
+            {openToWorkText}
           </div>
+        )}
 
-          <div className="home__header__text">
-            <p className="home__header__greeting">Hi, I&rsquo;m</p>
-            <h1 id="home-heading" className="home__header__name font-trebuchet" data-text={name}>
+        <p className="hero__greeting">
+          <span className="hero__wave" aria-hidden="true">
+            👋
+          </span>{' '}
+          &nbsp;Hi, I&rsquo;m
+        </p>
+
+        <div className="hero__name-container">
+          <div className="hero__aurora" aria-hidden="true">
+            <div className="hero__aurora-item hero__aurora-item--1" />
+            <div className="hero__aurora-item hero__aurora-item--2" />
+            <div className="hero__aurora-item hero__aurora-item--3" />
+          </div>
+          <svg className="hero__name-svg" viewBox="0 0 1100 200" aria-labelledby="home-heading">
+            <title id="home-heading">{name}</title>
+            <defs>
+              <linearGradient id="hero-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="var(--gradient-start)" />
+                <stop offset="50%" stopColor="var(--gradient-mid)" />
+                <stop offset="100%" stopColor="var(--gradient-end)" />
+              </linearGradient>
+            </defs>
+            <text className="hero__name-stroke" x="50%" y="145" textAnchor="middle">
               {name}
-            </h1>
-            <div className="home__header__title-wrapper">
-              <TypeAnimationClient titles={titles} />
-            </div>
-          </div>
+            </text>
+            <text className="hero__name-fill" x="50%" y="145" textAnchor="middle">
+              {name}
+            </text>
+          </svg>
+        </div>
 
-          <p className="home__header__tagline">{tagline}</p>
+        <div className="hero__role">
+          <TypeAnimationClient titles={titles} />
+        </div>
 
-          <div className="home__header__actions">
+        <p className="hero__tag">{tagline}</p>
+
+        <div className="hero__ctas">
+          <Magnet>
             <a
               href={cta.primary.url}
-              className="home__header__btn home__header__btn--primary"
+              className="btn btn--primary"
               aria-label={cta.primary.ariaLabel}
             >
               {cta.primary.icon && (
-                <Icon icon={cta.primary.icon} width={20} height={20} aria-hidden="true" />
+                <Icon icon={cta.primary.icon} width={18} height={18} aria-hidden="true" />
               )}
-              {cta.primary.text}
+              <span>{cta.primary.text}</span>
             </a>
+          </Magnet>
+          <Magnet>
             <a
               href={cta.secondary.url}
-              className="home__header__btn home__header__btn--secondary"
+              className="btn btn--secondary"
               aria-label={cta.secondary.ariaLabel}
             >
               {cta.secondary.icon && (
-                <Icon icon={cta.secondary.icon} width={20} height={20} aria-hidden="true" />
+                <Icon icon={cta.secondary.icon} width={18} height={18} aria-hidden="true" />
               )}
-              {cta.secondary.text}
+              <span>{cta.secondary.text}</span>
             </a>
-          </div>
-        </header>
+          </Magnet>
+        </div>
       </div>
-      <div className="home__chevron-down" role="presentation">
-        <ChevronDown />
+
+      <div className="hero__scroll-cue" aria-hidden="true">
+        Scroll
+        <svg viewBox="0 0 24 24" fill="none">
+          <path
+            d="M6 9l6 6 6-6"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </div>
     </section>
   );

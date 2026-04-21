@@ -1,6 +1,11 @@
-/* Theme Variables */
+/* =============================================================
+   Theme Variables — Lewis Hadden Portfolio v3
+   Layout, radii, shadows, motion, typography, colors
+   ============================================================= */
+
 :root {
-  --max-width: 1170px;
+  /* Layout */
+  --max-width: 1280px;
   --default-padding-x: 1.25rem;
   --default-padding-y: 1.25rem;
   --padding-x-xs: 0.75rem;
@@ -11,26 +16,90 @@
   --padding-y-large: 2rem;
   --padding-x-xlarge: 2.5rem;
   --padding-y-xlarge: 2.5rem;
+
+  /* Radii — distinct scale, not a linear ramp */
+  --radius-xs: 3px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-pill: 100px;
+
+  /* Elevation */
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.12);
+  --shadow-nav: 0 6px 32px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.06) inset;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 0.2s;
+  --dur-med: 0.3s;
+  --dur-slow: 0.4s;
+
+  /* Typography — system stack + JetBrains Mono display */
+  --font-sans:
+    var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display:
+    var(--font-jetbrains-mono), 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+
+  /* Type scale */
+  --fs-display: clamp(2rem, 5vw, 5.5rem);
+  --fs-h1: 2.75rem;
+  --fs-h1-mob: 2.25rem;
+  --fs-h2: 2rem;
+  --fs-h3: 1.375rem;
+  --fs-h4: 1.125rem;
+  --fs-body-lg: 1.0625rem;
+  --fs-body: 1rem;
+  --fs-body-sm: 0.9375rem;
+  --fs-caption: 0.875rem;
+  --fs-xs: 0.8125rem;
+  --fs-2xs: 0.75rem;
+  --fs-tiny: 0.6875rem;
+
+  /* Line heights */
+  --lh-tight: 1.2;
+  --lh-snug: 1.3;
+  --lh-body: 1.5;
+  --lh-loose: 1.75;
+
+  /* Weights */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-heavy: 800;
+
+  /* Tracking */
+  --tr-display: -2px;
+  --tr-title: -0.5px;
+  --tr-body: 0;
+  --tr-label: 2px;
+  --tr-pill: 0.3px;
 }
 
-/* Dark Theme (Default) */
+/* =============================================================
+   Dark Theme (default) — "electric indigo" brand
+   ============================================================= */
 [data-theme='dark'] {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #00071e;
-  --bg-tertiary: #1a1a2e;
+  --bg-primary: #020617;
+  --bg-secondary: #0f172a;
+  --bg-tertiary: #1e293b;
   --text-primary: #fff;
   --text-secondary: #b0b0b0;
   --text-muted: #808080;
   --border-color: rgba(255, 255, 255, 0.1);
   --shadow: rgba(0, 0, 0, 0.7);
-  --card-bg: #000a28;
+  --card-bg: #0f172a;
   --card-hover-bg: rgba(91, 66, 245, 0.1);
   --accent-primary: #5b42f5;
   --accent-secondary: #8f0039;
   --bg-particle-color: hsl(220, 100%, 80%);
-  --orb-color-1: rgba(124, 58, 237, 0.1);
-  --orb-color-2: rgba(59, 130, 246, 0.08);
-  --orb-color-3: rgba(20, 184, 166, 0.06);
+  --orb-color-1: rgba(167, 139, 250, 0.25);
+  --orb-color-2: rgba(96, 165, 250, 0.22);
+  --orb-color-3: rgba(52, 211, 153, 0.18);
   --dot-grid-color: rgba(255, 255, 255, 0.035);
   --gradient-start: #a78bfa;
   --gradient-mid: #60a5fa;
@@ -42,9 +111,16 @@
   --icon-bg: #303030;
   --badge-bg-secondary: #232351;
   --bs-card-color: #f8f9fa;
+
+  /* Signals — "Open to work" is the only non-brand status color */
+  --status-ok: #22c55e;
+  --status-ok-bg: rgba(34, 197, 94, 0.08);
+  --status-ok-br: rgba(34, 197, 94, 0.25);
 }
 
-/* Light Theme */
+/* =============================================================
+   Light Theme
+   ============================================================= */
 [data-theme='light'] {
   --bg-primary: #fafbfc;
   --bg-secondary: #f0f4f8;
@@ -59,9 +135,9 @@
   --accent-primary: #3b82f6;
   --accent-secondary: #0ea5e9;
   --bg-particle-color: hsl(220, 80%, 65%);
-  --orb-color-1: rgba(99, 102, 241, 0.06);
-  --orb-color-2: rgba(59, 130, 246, 0.05);
-  --orb-color-3: rgba(14, 165, 233, 0.04);
+  --orb-color-1: rgba(99, 102, 241, 0.12);
+  --orb-color-2: rgba(59, 130, 246, 0.10);
+  --orb-color-3: rgba(14, 165, 233, 0.08);
   --dot-grid-color: rgba(59, 130, 246, 0.06);
   --gradient-start: #6366f1;
   --gradient-mid: #3b82f6;
@@ -73,22 +149,26 @@
   --icon-bg: #f8fafc;
   --badge-bg-secondary: #64748b;
   --bs-card-color: #0f172a;
+
+  --status-ok: #22c55e;
+  --status-ok-bg: rgba(34, 197, 94, 0.06);
+  --status-ok-br: rgba(34, 197, 94, 0.2);
 }
 
-/* Global Theme Styles */
+/* =============================================================
+   Base body
+   ============================================================= */
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
 }
 
-/* Only apply transitions after initial paint (theme-ready class is added post-hydration) */
 .theme-ready body {
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
 }
 
-/* Smooth transitions for theme change — only after initial paint */
 .theme-ready *,
 .theme-ready *::before,
 .theme-ready *::after {
@@ -97,7 +177,6 @@ body {
   transition-timing-function: ease;
 }
 
-/* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   .theme-ready *,
   .theme-ready *::before,

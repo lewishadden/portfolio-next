@@ -6,8 +6,7 @@
 
 body {
   margin: 0;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -141,12 +140,4 @@ select:focus-visible,
   white-space: normal;
 }
 
-/* Skip layout/paint for below-fold sections until they scroll near viewport */
-#about,
-#experience,
-#projects,
-#skills,
-#contact {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 800px;
-}
+/* content-visibility removed — contain: paint clips .section__num at top: -120px */

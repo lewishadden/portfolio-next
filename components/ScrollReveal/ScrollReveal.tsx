@@ -1,61 +1,34 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useRef, HTMLAttributes, ButtonHTMLAttributes } from 'react';
+import { motion, useScroll, useTransform, MotionProps } from 'framer-motion';
 
-import { useInViewport } from '@/hooks/useInViewport';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
-
-import type { CSSProperties, ReactNode } from 'react';
-
-type ScrollRevealProps = {
-  children: ReactNode;
-  animation: string;
-  duration?: number;
-  delay?: number;
+type ScrollRevealProps = MotionProps & Omit<HTMLAttributes<HTMLElement> & ButtonHTMLAttributes<HTMLButtonElement>, keyof MotionProps> & {
+  as?: 'div' | 'li' | 'aside' | 'button' | 'h3';
+  children?: React.ReactNode;
   className?: string;
-  style?: CSSProperties;
+  style?: React.CSSProperties;
 };
 
-const emptySubscribe = () => () => {};
+export const ScrollReveal = ({ children, as = 'div', style, ...props }: ScrollRevealProps) => {
+  const ref = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start 95%', 'start 40%']
+  });
 
-const ScrollReveal = ({
-  children,
-  animation,
-  duration,
-  delay,
-  className,
-  style,
-}: ScrollRevealProps) => {
-  const { ref, inViewport } = useInViewport();
-  const reduceMotion = useReducedMotion();
-  const [isVisible, setIsVisible] = useState(false);
-  const isMounted = useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false
-  );
+  const opacity = useTransform(scrollYProgress, [0, 1], [0, 1]);
+  const y = useTransform(scrollYProgress, [0, 1], [100, 0]);
 
-  if (inViewport && !isVisible) {
-    setIsVisible(true);
-  }
-
-  const animationClassName = isVisible && !reduceMotion ? `animated ${animation}` : '';
-  const mergedStyle: CSSProperties = {
-    ...style,
-    ...(duration ? { animationDuration: `${duration}s` } : {}),
-    ...(delay ? { animationDelay: `${delay}s` } : {}),
-    opacity: isVisible ? undefined : isMounted ? 0 : undefined,
-  };
+  const MotionComponent = motion[as as keyof typeof motion] as React.ElementType;
 
   return (
-    <div
+    <MotionComponent
       ref={ref}
-      className={`${className ?? ''} ${animationClassName}`.trim()}
-      style={mergedStyle}
+      style={{ ...style, opacity, y }}
+      {...props}
     >
       {children}
-    </div>
+    </MotionComponent>
   );
 };
-
-export default ScrollReveal;

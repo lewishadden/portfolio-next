@@ -1,110 +1,75 @@
 'use client';
 
-import { useState } from 'react';
 import { Icon } from '@iconify/react';
+import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
 
-import { useColumns } from '@/hooks/useColumns';
-import { buildPyramidRows } from '@/utils/buildPyramidRows';
-import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
-
-import { Icon as IconType, Skills as SkillsProps } from '@/types';
+import { Skills as SkillsProps } from '@/types';
 
 import './Skills.scss';
 
-const topSkillsCount = 16;
-const staggerDelay = 0.1;
-
-const breakpoints = [
-  { min: 1200, cols: 8 },
-  { min: 992, cols: 6 },
-  { min: 768, cols: 5 },
-  { min: 480, cols: 4 },
-  { min: 0, cols: 3 },
-];
-
-function sortByLevelDesc(a: IconType, b: IconType): number {
-  return parseInt(b.level, 10) - parseInt(a.level, 10);
-}
-
 export const Skills = ({ skills }: { skills: SkillsProps }) => {
-  const { title, label, icons } = skills;
-  const [expanded, setExpanded] = useState(false);
-
-  const sortedIcons = [...icons].sort(sortByLevelDesc);
-  const topIcons = sortedIcons.slice(0, topSkillsCount);
-  const restIcons = sortedIcons.slice(topSkillsCount);
-  const displayedIcons = expanded ? sortedIcons : topIcons;
-  const hasMore = restIcons.length > 0;
-
-  const columns = useColumns(breakpoints);
-  const pyramidRows = buildPyramidRows(displayedIcons, columns);
+  const { title, label, tagline, marquee, categories, icons } = skills;
+  const marqueeItems = [...marquee, ...marquee];
 
   return (
-    <section id="skills" className="skills" aria-labelledby="skills-heading">
-      <div className="skills__container">
-        <div className="skills__heading-wrapper">
-          <ScrollReveal animation="slideUp">
-            <span className="skills__label">{label}</span>
-          </ScrollReveal>
-          <ScrollReveal animation="slideUp" delay={0.1}>
-            <h2 id="skills-heading" className="skills__title">
-              {title}
-            </h2>
-          </ScrollReveal>
+    <section id="skills" className="section skills" aria-labelledby="skills-heading">
+      <div className="section__num">04</div>
+      <ScrollReveal className="section__head section__head--centered">
+        <span className="section__label section__label--centered">{label}</span>
+        <h2 id="skills-heading" className="section__title">
+          {title} &amp; <span className="section__title-accent">Stack</span>
+        </h2>
+        <p className="section__sub">{tagline}</p>
+      </ScrollReveal>
+
+      <div className="marquee" aria-hidden="true">
+        <div className="marquee__track">
+          {marqueeItems.map((m, i) => (
+            <span className="marquee__item" key={`${m}-${i}`}>
+              {m}
+              <span className="marquee__sep" />
+            </span>
+          ))}
         </div>
-        <div id="skills-list" className="skills__list" aria-label="Technical skills" role="list">
-          {pyramidRows.map((row, rowIndex) => {
-            const rowStartIndex = pyramidRows
-              .slice(0, rowIndex)
-              .reduce((sum, r) => sum + r.length, 0);
-            return (
-              <div key={rowIndex} className="skills__list__row">
-                {row.map((skill, colIndex) => {
-                  const i = rowStartIndex + colIndex;
-                  return (
-                    <div key={i} className="skills__list__tile" role="listitem">
-                      <ScrollReveal animation="flipInX" delay={colIndex * staggerDelay}>
-                        <div className="skills__list__tile__icon-wrapper">
-                          <Icon
-                            icon={skill.class}
-                            className="skills__list__tile__icon"
-                            aria-hidden="true"
-                          />
-                          <div className="skills__list__tile__icon-glow" />
-                        </div>
-                        <p className="skills__list__tile__name" title={skill.name}>
-                          {skill.name}
-                        </p>
-                        <div className="skills__list__tile__tooltip" aria-hidden="true">
-                          <div className="skills__list__tile__tooltip__bar">
-                            <div
-                              className="skills__list__tile__tooltip__fill"
-                              style={{ width: `${skill.level}%` }}
-                            />
-                          </div>
-                          <span className="skills__list__tile__tooltip__label">{skill.level}%</span>
-                        </div>
-                      </ScrollReveal>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-        {hasMore && (
-          <div className="skills__expand-wrapper">
-            <button
-              type="button"
-              className="skills__expand-btn"
-              onClick={() => setExpanded((prev) => !prev)}
-              aria-expanded={expanded}
-              aria-controls="skills-list"
+      </div>
+
+      <div className="skills__groups">
+        {categories.map((cat, i) => {
+          const catSkills = icons.filter((icon) => icon.category === cat.categoryKey);
+          return (
+            <ScrollReveal
+              key={cat.categoryKey}
+              className="skill-card"
+              style={{ '--reveal-delay': `${i * 120}ms` } as React.CSSProperties}
+              onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+                e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+              }}
             >
-              {expanded ? 'Show less' : `Show ${restIcons.length} more`}
-            </button>
-          </div>
-        )}
+              <div className="skill-card__head">
+                <Icon icon={cat.icon} width={28} height={28} aria-hidden="true" />
+                <h3>{cat.title}</h3>
+              </div>
+              <div className="skill-card__grid">
+                {catSkills.map((s) => (
+                  <div className="skill-tile" key={s.name}>
+                    <div className="skill-tile__inner">
+                      <div className="skill-tile__front" aria-hidden="true">
+                        <Icon icon={s.class} width={32} height={32} />
+                      </div>
+                      <div className="skill-tile__back" aria-hidden="true">
+                        <span>{s.name}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollReveal>
+          );
+        })}
       </div>
     </section>
   );
