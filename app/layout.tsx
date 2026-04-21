@@ -1,6 +1,7 @@
 import './globals.scss';
 import './theme-variables.scss';
 
+import { JetBrains_Mono } from 'next/font/google';
 import { geolocation, ipAddress } from '@vercel/functions';
 import { headers } from 'next/headers';
 
@@ -12,6 +13,13 @@ import type { Metadata, Viewport } from 'next';
 
 import content from '../content/content.json';
 import { ContactInfo, Social } from '@/types';
+
+const jetBrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['700', '800'],
+  variable: '--font-jetbrains-mono',
+  display: 'swap',
+});
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'https://portfolio.lewishadden.com';
@@ -223,7 +231,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const geoData = { ip, geo };
 
   return (
-    <html lang="en-GB" suppressHydrationWarning>
+    <html lang="en-GB" suppressHydrationWarning className={jetBrainsMono.variable}>
       <head>
         <ThemeScript />
         <link rel="dns-prefetch" href="https://api.iconify.design" />

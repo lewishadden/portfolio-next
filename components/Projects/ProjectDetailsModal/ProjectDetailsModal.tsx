@@ -67,14 +67,14 @@ const ProjectDetailsModal = ({
   // Lock body scroll when open
   useEffect(() => {
     if (show) {
-      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
       scrollModalToTop();
       setTimeout(() => dialogRef.current?.focus(), 50);
     } else {
-      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     };
   }, [show, scrollModalToTop]);
 

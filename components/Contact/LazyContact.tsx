@@ -6,19 +6,16 @@ import { Contact as ContactProps } from '@/types';
 
 function ContactSkeleton() {
   return (
-    <section className="contact" aria-busy="true" aria-label="Loading contact section">
-      <div className="contact__container">
-        <div className="contact__heading-wrapper">
-          <div className="contact__skeleton contact__skeleton--label" />
-          <div className="contact__skeleton contact__skeleton--title" />
-          <div className="contact__skeleton contact__skeleton--tagline" />
-        </div>
-        <div className="contact__body">
-          <div className="contact__info">
-            <div className="contact__skeleton contact__skeleton--card" />
-          </div>
-          <div className="contact__skeleton contact__skeleton--form" />
-        </div>
+    <section
+      id="contact"
+      className="section contact"
+      aria-busy="true"
+      aria-label="Loading contact section"
+    >
+      <div className="section__num">05</div>
+      <div className="contact__grid">
+        <div className="contact__side" aria-hidden="true" />
+        <div className="contact__panel" aria-hidden="true" />
       </div>
     </section>
   );

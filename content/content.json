@@ -1,12 +1,29 @@
 {
   "global": {
     "openToWork": true,
+    "openToWorkText": "Open to Work · UK & EU Remote",
+    "location": "Peterborough, UK",
     "navItems": [
-      { "href": "#about", "label": "About" },
-      { "href": "#experience", "label": "Experience" },
-      { "href": "#projects", "label": "Projects" },
-      { "href": "#skills", "label": "Skills" },
-      { "href": "#contact", "label": "Contact" }
+      {
+        "href": "#about",
+        "label": "About"
+      },
+      {
+        "href": "#experience",
+        "label": "Experience"
+      },
+      {
+        "href": "#projects",
+        "label": "Projects"
+      },
+      {
+        "href": "#skills",
+        "label": "Skills"
+      },
+      {
+        "href": "#contact",
+        "label": "Contact"
+      }
     ]
   },
   "header": {
@@ -20,36 +37,58 @@
     }
   },
   "home": {
+    "title": "Lewis Hadden",
     "name": "Lewis Hadden",
     "titles": [
       "Senior Full Stack Engineer",
       "Lead Frontend Developer",
-      "Lead Software Engineer",
-      "Infrastructure Architect"
+      "Cloud Infrastructure Architect",
+      "Lead Software Engineer"
     ],
-    "tagline": "Building exceptional digital experiences with modern web technologies",
-    "openToWorkText": "Open to Work",
+    "tagline": "Senior full stack engineer based in Peterborough, UK. Nine years shipping React, Next.js & Azure at IBM, ADP, ERGO. Currently specialising in modernising platforms that refuse to be simple.",
     "cta": {
       "primary": {
         "text": "Let's Talk",
         "url": "#contact",
-        "icon": "mdi:email",
+        "icon": "mdi:message-text-outline",
         "ariaLabel": "Contact me"
       },
       "secondary": {
         "text": "View Work",
         "url": "#projects",
-        "icon": "mdi:image-multiple",
+        "icon": "mdi:eye-outline",
         "ariaLabel": "View my work"
       }
-    }
+    },
+    "stats": [
+      {
+        "value": 9,
+        "suffix": "+",
+        "label": "Years Experience"
+      },
+      {
+        "value": 8,
+        "suffix": "",
+        "label": "Tech Stacks"
+      },
+      {
+        "value": 30,
+        "suffix": "+",
+        "label": "Projects Delivered"
+      },
+      {
+        "value": 9,
+        "suffix": "",
+        "label": "Industries"
+      }
+    ]
   },
   "about": {
-    "title": "About Me",
+    "title": "About",
     "label": "Get to know me",
     "openToWorkText": "Available for opportunities",
-    "descriptionHeader": "Hello! <span class='wave'>👋</span>",
-    "description": "My name is Lewis, and I’m a highly experienced senior full stack engineer based in Peterborough, UK, available for remote and on-site work across the UK and Europe. I've been working in the web development industry for almost 9 years. I have led several development teams for large-scale projects and worked as an independent developer on both in-house and public-facing products.<br /><br />In my free time, I enjoy going to the gym, boxing, and playing the guitar.<br /><br />I am currently seeking my next opportunity as a Senior or Lead Full Stack developer, either as a freelancer or under permanent employment.<br /><br />Keep scrolling to see my past projects, skills and experience.",
+    "descriptionHeader": "",
+    "description": "<p><strong>Hi, I’m Lewis</strong> — a <em>senior full stack engineer</em> based in Peterborough, UK, with <strong>nine years</strong> of shipping production software across automotive, insurance, payroll, and government sectors.</p><p>I’ve led engineering teams at <strong>IBM, Sopra Steria, and ERGO</strong>, architected cloud infrastructure on <em>Azure and AWS</em>, and delivered everything from <em>React SPAs and Next.js platforms</em> to serverless backends and real-time data pipelines — always with a focus on code that’s fast, secure, and built to last.</p><p>Currently contracted to <strong>ADP</strong> on their flagship <em>RUN payroll platform</em>. I’m open to my next senior or lead role — remote, UK or EU — whether freelance or permanent.</p>",
     "image": {
       "url": "/static/images/portrait.png",
       "size": {
@@ -70,9 +109,32 @@
       "secondary": {
         "text": "Get in Touch",
         "url": "#contact",
+        "icon": "mdi:message-text-outline",
         "ariaLabel": "Go to contact section"
       }
-    }
+    },
+    "highlights": [
+      {
+        "icon": "mdi:react",
+        "title": "React & Next.js",
+        "sub": "Enterprise SPAs and platforms shipped for IBM, ADP & ERGO"
+      },
+      {
+        "icon": "mdi:microsoft-azure",
+        "title": "Cloud Architect",
+        "sub": "Azure (Cosmos DB, Functions, Event Hubs) & AWS (Lambda, EC2, S3)"
+      },
+      {
+        "icon": "mdi:account-group",
+        "title": "Team Lead",
+        "sub": "Led engineering teams at IBM, Sopra Steria & ERGO"
+      },
+      {
+        "icon": "mdi:shield-check",
+        "title": "Secure & Compliant",
+        "sub": "Payroll, insurance, sanctions & GDPR delivered at scale"
+      }
+    ]
   },
   "experience": {
     "title": "Experience",
@@ -85,30 +147,26 @@
         "company": "ADP",
         "title": "Senior Full Stack Engineer (Contractor)",
         "years": "Jan 2025 - Present",
-        "mainTech": ["React", "Tailwind CSS", "Cypress", "Webpack"],
+        "description": "Building enterprise features for ADP's payroll platform, used by 950,000+ clients worldwide. Focused on React migrations, WCAG accessibility compliance, and controlled feature rollouts via feature flags.",
+        "mainTech": ["React", "Tailwind CSS", "Cypress", "React Testing Library", "Webpack"],
         "icon": "devicon:react",
-        "technologies": [
-          "React Testing Library",
-          "JavaScript",
-          "REST API",
-          "Jest",
-          "Virtual Machines"
-        ]
+        "technologies": ["JavaScript", "REST API", "Jest", "Virtual Machines"]
       },
       {
         "company": "ERGO Travel Insurance",
         "title": "Lead Full Stack Engineer",
         "years": "Apr 2024 - Nov 2024",
-        "mainTech": ["Next.js", "Azure", "React", "TypeScript", "CSS Modules"],
+        "description": "Led full-stack delivery of production digital services for a travel insurance MGA. Defined company-wide dev standards, architected Azure infrastructure, and established the foundational UI boilerplate and local development tooling.",
+        "mainTech": ["Next.js", "TypeScript", "Azure", "Cosmos DB", "Serverless Functions"],
         "icon": "devicon:nextjs",
         "technologies": [
-          "Function Apps",
-          "Cosmos DB",
+          "React",
+          "CSS Modules",
+          "Node.js",
           "Event Hubs",
           "Blob & Table Storage",
           "DevOps Pipelines",
           "Docker",
-          "Node.js",
           "Jest"
         ]
       },
@@ -116,21 +174,17 @@
         "company": "Sopra Steria",
         "title": "Cloud Infrastructure Architect",
         "years": "Jun 2023 – Dec 2023",
-        "mainTech": ["Azure"],
+        "description": "Sole architect of a greenfield Azure cloud infrastructure for UK Power Networks. Designed the database schema, security model, and produced comprehensive architecture documentation for a new energy sector microsite.",
+        "mainTech": ["Azure", "Cosmos DB", "REST API"],
         "icon": "devicon:azure",
-        "technologies": [
-          "REST API",
-          "Cosmos DB",
-          "Serverless Function",
-          "Content Delivery Network",
-          "Blob Storage"
-        ]
+        "technologies": ["Serverless Functions", "Content Delivery Network", "Blob Storage"]
       },
       {
         "company": "Sopra Steria",
         "title": "Lead Software Engineer",
         "years": "Aug 2022 - Apr 2023",
-        "mainTech": ["Angular 8+", "React", "Flutter", "TypeScript"],
+        "description": "Led development of real-time traffic management dashboards for the Singapore Land Transport Authority. Delivered complex Angular components and engineered a bespoke split-tunnel VPN solution for secure environment access.",
+        "mainTech": ["Angular 8+", "TypeScript", "React", "Flutter"],
         "icon": "devicon:angularjs",
         "technologies": [
           "Node.js",
@@ -145,25 +199,18 @@
         "company": "IBM",
         "title": "Senior Full Stack Developer",
         "years": "Jan 2022 - Jul 2022",
-        "mainTech": ["React", "Redux", "TypeScript", "AWS"],
+        "description": "Led an agile team delivering a new e-commerce journey for Audi UK. Architected the full AWS stack — Lambda, DynamoDB, EC2, API Gateway — while managing sprints, presenting to stakeholders, and mentoring engineers.",
+        "mainTech": ["React", "Redux", "TypeScript", "AWS", "Node.js", "DynamoDB"],
         "icon": "devicon:react",
         "technologies": [
           "JavaScript",
-          "Node.js",
           "Carbon Design System",
-          "HTML5",
-          "SCSS / CSS3",
           "Jest + Enzyme",
           "CloudFormation",
-          "DynamoDB",
-          "CodeCommit",
-          "CodeBuild",
-          "CodePipeline",
           "Lambda",
           "EC2",
           "S3",
           "API Gateway",
-          "IAM",
           "JIRA"
         ]
       },
@@ -171,17 +218,15 @@
         "company": "IBM",
         "title": "Lead Front End Developer",
         "years": "Jan 2021 - Jan 2022",
-        "mainTech": ["React", "Redux", "TypeScript", "AWS"],
+        "description": "Led a frontend team building a drag-and-drop micro-frontend platform for Audi UK, enabling content editors to create bespoke SPAs without writing code. Pioneered a shared Redux store across independent React apps and achieved 100% test coverage.",
+        "mainTech": ["React", "Redux", "TypeScript", "Micro-Frontends", "Adobe Experience Manager"],
         "icon": "devicon:react",
         "technologies": [
-          "HTML5",
-          "SCSS / CSS3",
+          "JavaScript",
           "Jest + Enzyme",
-          "Micro-Frontends",
-          "Carbon Design System",
+          "AWS",
           "FeatureHub",
           "GitHub Workflows",
-          "Adobe Experience Manager",
           "Adobe Launch",
           "JIRA"
         ]
@@ -190,40 +235,28 @@
         "company": "IBM",
         "title": "Front End Developer",
         "years": "Aug 2018 - Jan 2021",
-        "mainTech": ["React", "Redux", "TypeScript", "Adobe Experience Manager"],
+        "description": "Contributed to the Audi UK website in a fast-paced agile team. Built React/Redux features, wrote automated test suites with WebdriverIO and BrowserStack, and helped migrate the legacy tech stack to AWS.",
+        "mainTech": ["React", "Redux", "TypeScript", "AWS", "Adobe Experience Manager"],
         "icon": "devicon:react",
         "technologies": [
           "JavaScript",
           "Webpack",
           "Babel",
-          "HTML5",
-          "SCSS / CSS3",
           "Jest + Enzyme",
+          "WebdriverIO",
+          "BrowserStack",
           "Carbon Design System",
-          "Adobe Dynamic Tag Manager",
-          "Cookie Control (CIVIC)",
-          "Docker",
-          "Linux / Bash",
-          "Apache",
-          "AWS"
+          "Docker"
         ]
       },
       {
         "company": "IBM",
         "title": "QA Tester",
         "years": "Jan 2018 - Aug 2018",
-        "mainTech": ["Selenium", "WebdriverIO", "Cucumber / Gherkin"],
+        "description": "Performed manual and automated testing across IBM web applications. Wrote automated test suites using WebdriverIO and Selenium with BrowserStack cross-browser coverage, and managed defect escalation through JIRA.",
+        "mainTech": ["Selenium", "WebdriverIO", "Cucumber / Gherkin", "BrowserStack", "JIRA"],
         "icon": "skill-icons:selenium",
-        "technologies": [
-          "BrowserStack",
-          "Appium",
-          "Node.js",
-          "JIRA",
-          "React",
-          "JavaScript",
-          "HTML",
-          "CSS"
-        ]
+        "technologies": ["Appium", "Node.js", "React", "JavaScript", "HTML", "CSS"]
       }
     ]
   },
@@ -802,281 +835,389 @@
   "skills": {
     "title": "Skills",
     "label": "My toolkit",
+    "tagline": "Nine years of production JavaScript, picked up the ecosystem along the way.",
+    "marquee": [
+      "React",
+      "Next.js",
+      "JavaScript",
+      "SCSS",
+      "NodeJS",
+      "Redux",
+      "TypeScript",
+      "CSS Modules",
+      "REST API",
+      "Docker",
+      "Jest",
+      "Git",
+      "Tailwind CSS",
+      "Mantine UI",
+      "Cypress",
+      "Selenium",
+      "Cucumber / Gherkin",
+      "CI/CD Pipelines",
+      "Postman",
+      "Azure",
+      "AWS",
+      "WebdriverIO",
+      "Bash",
+      "Linux"
+    ],
+    "categories": [
+      {
+        "title": "Frontend",
+        "icon": "mdi:monitor",
+        "categoryKey": "frontend"
+      },
+      {
+        "title": "Backend & Cloud",
+        "icon": "mdi:cloud-outline",
+        "categoryKey": "backend"
+      },
+      {
+        "title": "Testing",
+        "icon": "mdi:flask-outline",
+        "categoryKey": "testing"
+      },
+      {
+        "title": "Tooling & DevOps",
+        "icon": "mdi:wrench-outline",
+        "categoryKey": "tooling"
+      }
+    ],
     "icons": [
       {
         "name": "React",
         "class": "devicon:react",
-        "level": "100"
+        "level": "100",
+        "category": "frontend"
       },
       {
         "name": "Next.js",
         "class": "devicon:nextjs",
-        "level": "100"
+        "level": "100",
+        "category": "frontend"
       },
       {
         "name": "Redux",
         "class": "devicon:redux",
-        "level": "95"
+        "level": "95",
+        "category": "frontend"
       },
       {
         "name": "TypeScript",
         "class": "devicon:typescript",
-        "level": "95"
+        "level": "95",
+        "category": "frontend"
       },
       {
         "name": "JavaScript",
         "class": "devicon:javascript",
-        "level": "100"
-      },
-      {
-        "name": "NodeJS",
-        "class": "devicon:nodejs",
-        "level": "100"
-      },
-      {
-        "name": "ViteJS",
-        "class": "devicon:vitejs",
-        "level": "70"
-      },
-      {
-        "name": "Bun",
-        "class": "devicon:bun",
-        "level": "80"
-      },
-      {
-        "name": "SCSS",
-        "class": "devicon:sass",
-        "level": "100"
+        "level": "100",
+        "category": "frontend"
       },
       {
         "name": "HTML5",
         "class": "devicon:html5",
-        "level": "100"
+        "level": "100",
+        "category": "frontend"
       },
       {
         "name": "CSS Modules",
         "class": "devicon:css3",
-        "level": "95"
+        "level": "95",
+        "category": "frontend"
+      },
+      {
+        "name": "SCSS",
+        "class": "devicon:sass",
+        "level": "100",
+        "category": "frontend"
       },
       {
         "name": "Tailwind CSS",
         "class": "devicon:tailwindcss",
-        "level": "90"
-      },
-      {
-        "name": "Storybook",
-        "class": "devicon:storybook",
-        "level": "85"
-      },
-      {
-        "name": "Webpack",
-        "class": "devicon:webpack",
-        "level": "75"
-      },
-      {
-        "name": "Babel",
-        "class": "devicon:babel",
-        "level": "70"
-      },
-      {
-        "name": "Jest",
-        "class": "logos:jest",
-        "level": "95"
-      },
-      {
-        "name": "Enzyme",
-        "class": "logos:airbnb-icon",
-        "level": "85"
-      },
-      {
-        "name": "Cypress",
-        "class": "devicon:cypressio",
-        "level": "90"
+        "level": "90",
+        "category": "frontend"
       },
       {
         "name": "Angular 8+",
         "class": "devicon:angularjs",
-        "level": "60"
-      },
-      {
-        "name": "REST API",
-        "class": "material-symbols:api",
-        "level": "95"
-      },
-      {
-        "name": "Postman",
-        "class": "devicon:postman",
-        "level": "90"
-      },
-      {
-        "name": "MongoDB",
-        "class": "devicon:mongodb",
-        "level": "85"
-      },
-      {
-        "name": "Cosmos DB",
-        "class": "devicon:cosmosdb-wordmark",
-        "level": "85"
-      },
-      {
-        "name": "PowerBI",
-        "class": "logos:microsoft-power-bi",
-        "level": "35"
-      },
-      {
-        "name": "AWS",
-        "class": "devicon:amazonwebservices",
-        "level": "85"
-      },
-      {
-        "name": "Azure",
-        "class": "devicon:azure",
-        "level": "85"
-      },
-      {
-        "name": "DevOps",
-        "class": "devicon:azuredevops",
-        "level": "85"
-      },
-      {
-        "name": "Azure Functions",
-        "class": "mdi:function-variant",
-        "level": "85"
+        "level": "60",
+        "category": "frontend"
       },
       {
         "name": "Flutter",
         "class": "devicon:flutter",
-        "level": "80"
-      },
-      {
-        "name": "Cookie Control",
-        "class": "emojione:cookie",
-        "level": "90"
-      },
-      {
-        "name": "Docker",
-        "class": "devicon:docker",
-        "level": "95"
-      },
-      {
-        "name": "Bash",
-        "class": "devicon-plain:bash",
-        "level": "90"
-      },
-      {
-        "name": "Apache",
-        "class": "devicon:apache",
-        "level": "75"
-      },
-      {
-        "name": "NGINX",
-        "class": "devicon:nginx",
-        "level": "85"
-      },
-      {
-        "name": "Linux",
-        "class": "devicon:linux",
-        "level": "90"
+        "level": "80",
+        "category": "frontend"
       },
       {
         "name": "Mantine UI",
         "class": "logos:mantine-icon",
-        "level": "90"
+        "level": "90",
+        "category": "frontend"
       },
       {
         "name": "Bootstrap",
         "class": "devicon:bootstrap",
-        "level": "80"
+        "level": "80",
+        "category": "frontend"
       },
       {
         "name": "Carbon Design System",
         "class": "carbon:carbon",
-        "level": "85"
+        "level": "85",
+        "category": "frontend"
       },
       {
         "name": "Material UI",
         "class": "devicon:materialui",
-        "level": "60"
+        "level": "60",
+        "category": "frontend"
       },
       {
         "name": "Shopify",
         "class": "logos:shopify",
-        "level": "70"
+        "level": "70",
+        "category": "frontend"
       },
       {
-        "name": "Adobe Experience Manager",
-        "class": "arcticons:adobe-experience-manager",
-        "level": "85"
+        "name": "NodeJS",
+        "class": "devicon:nodejs",
+        "level": "100",
+        "category": "backend"
       },
       {
-        "name": "Adobe Dynamic Tag Manager",
-        "class": "arcticons:adobe-analytics",
-        "level": "85"
+        "name": "Bun",
+        "class": "devicon:bun",
+        "level": "80",
+        "category": "backend"
       },
       {
-        "name": "Split Tunnel VPN",
-        "class": "vscode-icons:file-type-ovpn",
-        "level": "65"
+        "name": "REST API",
+        "class": "material-symbols:api",
+        "level": "95",
+        "category": "backend"
       },
       {
-        "name": "Git",
-        "class": "devicon:git",
-        "level": "95"
+        "name": "MongoDB",
+        "class": "devicon:mongodb",
+        "level": "85",
+        "category": "backend"
       },
       {
-        "name": "GitHub Actions",
-        "class": "devicon:githubactions",
-        "level": "80"
+        "name": "Cosmos DB",
+        "class": "devicon:cosmosdb-wordmark",
+        "level": "85",
+        "category": "backend"
       },
       {
-        "name": "CI/CD Pipelines",
-        "class": "vscode-icons:file-type-azurepipelines",
-        "level": "90"
+        "name": "AWS",
+        "class": "devicon:amazonwebservices",
+        "level": "85",
+        "category": "backend"
       },
       {
-        "name": "WebdriverIO",
-        "class": "logos:webdriverio",
-        "level": "85"
+        "name": "Azure",
+        "class": "devicon:azure",
+        "level": "85",
+        "category": "backend"
       },
       {
-        "name": "Cucumber / Gherkin",
-        "class": "logos:cucumber",
-        "level": "90"
+        "name": "Azure Functions",
+        "class": "mdi:function-variant",
+        "level": "85",
+        "category": "backend"
+      },
+      {
+        "name": "Docker",
+        "class": "devicon:docker",
+        "level": "95",
+        "category": "backend"
+      },
+      {
+        "name": "Apache",
+        "class": "devicon:apache",
+        "level": "75",
+        "category": "backend"
+      },
+      {
+        "name": "NGINX",
+        "class": "devicon:nginx",
+        "level": "85",
+        "category": "backend"
+      },
+      {
+        "name": "Jest",
+        "class": "logos:jest",
+        "level": "95",
+        "category": "testing"
+      },
+      {
+        "name": "Cypress",
+        "class": "devicon:cypressio",
+        "level": "90",
+        "category": "testing"
+      },
+      {
+        "name": "Enzyme",
+        "class": "logos:airbnb-icon",
+        "level": "85",
+        "category": "testing"
       },
       {
         "name": "Selenium",
         "class": "skill-icons:selenium",
-        "level": "90"
+        "level": "90",
+        "category": "testing"
+      },
+      {
+        "name": "WebdriverIO",
+        "class": "logos:webdriverio",
+        "level": "85",
+        "category": "testing"
+      },
+      {
+        "name": "Cucumber / Gherkin",
+        "class": "logos:cucumber",
+        "level": "90",
+        "category": "testing"
       },
       {
         "name": "BrowserStack",
         "class": "devicon:browserstack",
-        "level": "70"
+        "level": "70",
+        "category": "testing"
       },
       {
         "name": "Appium",
         "class": "logos:appium",
-        "level": "50"
+        "level": "50",
+        "category": "testing"
+      },
+      {
+        "name": "Git",
+        "class": "devicon:git",
+        "level": "95",
+        "category": "tooling"
+      },
+      {
+        "name": "GitHub Actions",
+        "class": "devicon:githubactions",
+        "level": "80",
+        "category": "tooling"
+      },
+      {
+        "name": "CI/CD Pipelines",
+        "class": "vscode-icons:file-type-azurepipelines",
+        "level": "90",
+        "category": "tooling"
+      },
+      {
+        "name": "DevOps",
+        "class": "devicon:azuredevops",
+        "level": "85",
+        "category": "tooling"
+      },
+      {
+        "name": "Storybook",
+        "class": "devicon:storybook",
+        "level": "85",
+        "category": "tooling"
+      },
+      {
+        "name": "ViteJS",
+        "class": "devicon:vitejs",
+        "level": "70",
+        "category": "tooling"
+      },
+      {
+        "name": "Webpack",
+        "class": "devicon:webpack",
+        "level": "75",
+        "category": "tooling"
+      },
+      {
+        "name": "Babel",
+        "class": "devicon:babel",
+        "level": "70",
+        "category": "tooling"
+      },
+      {
+        "name": "Postman",
+        "class": "devicon:postman",
+        "level": "90",
+        "category": "tooling"
+      },
+      {
+        "name": "Bash",
+        "class": "devicon-plain:bash",
+        "level": "90",
+        "category": "tooling"
+      },
+      {
+        "name": "Linux",
+        "class": "devicon:linux",
+        "level": "90",
+        "category": "tooling"
+      },
+      {
+        "name": "Adobe Experience Manager",
+        "class": "arcticons:adobe-experience-manager",
+        "level": "85",
+        "category": "tooling"
+      },
+      {
+        "name": "Adobe Dynamic Tag Manager",
+        "class": "arcticons:adobe-analytics",
+        "level": "85",
+        "category": "tooling"
+      },
+      {
+        "name": "PowerBI",
+        "class": "logos:microsoft-power-bi",
+        "level": "35",
+        "category": "tooling"
       },
       {
         "name": "JIRA",
         "class": "devicon:jira",
-        "level": "90"
+        "level": "90",
+        "category": "tooling"
       },
       {
         "name": "Notion",
         "class": "devicon:notion",
-        "level": "75"
+        "level": "75",
+        "category": "tooling"
+      },
+      {
+        "name": "Cookie Control",
+        "class": "emojione:cookie",
+        "level": "90",
+        "category": "tooling"
+      },
+      {
+        "name": "Split Tunnel VPN",
+        "class": "vscode-icons:file-type-ovpn",
+        "level": "65",
+        "category": "tooling"
+      },
+      {
+        "name": "Claude",
+        "class": "logos:claude-icon",
+        "level": "95",
+        "category": "tooling"
       }
     ]
   },
   "contact": {
-    "title": "Contact Me",
+    "title": "Contact",
     "label": "Let's connect",
     "tagline": "Let's work together on your next project",
     "contactInfo": {
-      "title": "Get in touch",
-      "description": "Feel free to reach out. I'm always open to discussing new projects and opportunities.",
+      "title": "Get in touch.",
+      "description": "The fastest way is email. I reply within a working day.",
       "items": [
         {
           "name": "Email",
@@ -1085,22 +1226,35 @@
           "link": "mailto:lewishadden@gmail.com"
         },
         {
-          "name": "Mobile",
+          "name": "Phone",
           "class": "clarity:phone-handset-solid",
-          "value": "+447714512514",
+          "value": "+44 7714 512514",
           "link": "tel:+447714512514"
         },
         {
+          "name": "Based in",
+          "class": "mdi:map-marker",
+          "value": "Peterborough, UK"
+        }
+      ],
+      "socialLinks": [
+        {
           "name": "LinkedIn",
           "class": "mdi:linkedin",
-          "value": "@lewishadden",
-          "link": "https://www.linkedin.com/in/lewishadden/"
+          "link": "https://www.linkedin.com/in/lewishadden/",
+          "ariaLabel": "LinkedIn profile"
         },
         {
           "name": "GitHub",
           "class": "mdi:github",
-          "value": "@lewishadden",
-          "link": "https://github.com/lewishadden"
+          "link": "https://github.com/lewishadden",
+          "ariaLabel": "GitHub profile"
+        },
+        {
+          "name": "Email",
+          "class": "clarity:email-solid",
+          "link": "mailto:lewishadden@gmail.com",
+          "ariaLabel": "Send email"
         }
       ]
     },
@@ -1133,7 +1287,9 @@
     }
   },
   "footer": {
+    "name": "Lewis Hadden",
     "tagline": "Senior Full Stack Engineer crafting modern web experiences.",
+    "description": "Senior Full Stack Engineer crafting modern web experiences. Available for freelance and permanent roles, UK and EU.",
     "social": [
       {
         "name": "GitHub",
@@ -1147,11 +1303,16 @@
       }
     ],
     "home": {
-      "text": "LH",
+      "text": "Lewis Hadden",
       "url": "#home",
       "ariaLabel": "Back to top"
     },
+    "navigateText": "Navigate",
+    "elsewhereText": "Elsewhere",
     "connectText": "Connect",
+    "version": "v3.0 · 2026",
+    "madeInPrefix": "Made in",
+    "copyright": "Designed & built with care.",
     "builtWith": {
       "pretext": "Built with ",
       "icon": "mdi:heart",

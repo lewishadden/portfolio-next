@@ -3,10 +3,8 @@
 import Image, { ImageLoader } from 'next/image';
 import { Icon } from '@iconify/react';
 
-import ScrollReveal from '@/components/ScrollReveal/ScrollReveal';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
-
-import { About as AboutProps } from '@/types';
+import { About as AboutProps, Global } from '@/types';
+import Magnet from 'components/Magnet/Magnet';
 
 import './About.scss';
 
@@ -16,90 +14,113 @@ const aboutImageLoader: ImageLoader = ({ src, width, quality }) => {
   return `/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=${quality || 75}`;
 };
 
-export const About = ({ about, openToWork }: { about: AboutProps; openToWork: boolean }) => {
-  const { openToWorkText, image, title, label, description, descriptionHeader, cta, cv } = about;
-  const isDesktop = useMediaQuery('(min-width: 768px)');
+export const About = ({
+  about,
+  openToWork,
+  name,
+  location,
+}: {
+  about: AboutProps;
+  openToWork: boolean;
+  name: string;
+  location: string;
+}) => {
+  const { image, label, title, description, descriptionHeader, highlights, cta, cv } = about;
 
   return (
-    <section id="about" className="about" aria-labelledby="about-heading">
-      <div className="about__container">
-        <div className="about__heading-wrapper">
-          <ScrollReveal animation="slideUp">
-            <span className="about__label">{label}</span>
-          </ScrollReveal>
-          <ScrollReveal animation="slideUp" delay={0.1}>
-            <h2 id="about-heading" className="about__heading">
-              {title}
-            </h2>
-          </ScrollReveal>
+    <section id="about" className="section about" aria-labelledby="about-heading">
+      <div className="section__num">01</div>
+      <div className="section__head reveal">
+        <span className="section__label">{label}</span>
+        <h2 id="about-heading" className="section__title">
+          {title} <span className="section__title-accent">Me</span>
+        </h2>
+      </div>
+
+      <div className="about__grid">
+        <div className="about__media reveal">
+          <Image
+            src={image.url}
+            className="about__media-img"
+            width={image.size.width}
+            height={image.size.height}
+            alt={`Portrait of ${name}`}
+            loader={aboutImageLoader}
+            sizes="(min-width: 900px) 520px, calc(100vw - 40px)"
+            priority
+          />
+          <div className="about__media-tag">
+            <div>
+              <b>{name}</b>
+              <span>{location}</span>
+            </div>
+            {openToWork && <small>● Available</small>}
+          </div>
         </div>
 
-        <ScrollReveal animation="fadeIn">
-          <div className="about__card">
-            <div className="about__card__image-col">
-              <div className="about__card__image-wrapper">
-                <Image
-                  src={image.url}
-                  className="about__card__image"
-                  width={image.size.width}
-                  height={image.size.height}
-                  alt="Portrait photo of Lewis Hadden"
-                  loader={aboutImageLoader}
-                  sizes="(min-width: 1170px) 471px, (min-width: 992px) calc((100vw - 2.5rem) * 0.417), calc(100vw - 2.5rem)"
-                  loading={isDesktop ? 'eager' : 'lazy'}
-                  fetchPriority={isDesktop ? 'high' : 'low'}
-                  priority={Boolean(isDesktop)}
-                />
+        <div className="about__body">
+          {descriptionHeader && (
+            <h3
+              className="about__title reveal"
+              dangerouslySetInnerHTML={{ __html: descriptionHeader }}
+            />
+          )}
+          <div
+            className="about__copy reveal"
+            style={{ '--reveal-delay': '120ms' } as React.CSSProperties}
+            dangerouslySetInnerHTML={{ __html: description }}
+          />
+
+          <div
+            className="about__highlights reveal"
+            style={{ '--reveal-delay': '260ms' } as React.CSSProperties}
+          >
+            {highlights.map((h) => (
+              <div className="about__hl" key={h.title}>
+                <Icon icon={h.icon} width={24} height={24} aria-hidden="true" />
+                <b>{h.title}</b>
+                <span>{h.sub}</span>
               </div>
-            </div>
-
-            <div className="about__card__content">
-              {openToWork && (
-                <div className="about__card__status">
-                  <span className="about__card__status-dot" />
-                  <span className="about__card__status-text">{openToWorkText}</span>
-                </div>
-              )}
-
-              <h3
-                dangerouslySetInnerHTML={{ __html: descriptionHeader }}
-                className="about__card__title"
-              />
-
-              <div
-                dangerouslySetInnerHTML={{ __html: description }}
-                className="about__card__description"
-              />
-
-              <div className="about__card__actions">
-                <a
-                  href={cta.primary.url}
-                  download={cv.download}
-                  className="about__card__btn about__card__btn--primary"
-                  aria-label={cta.primary.ariaLabel}
-                >
-                  {cta.primary.icon && (
-                    <Icon icon={cta.primary.icon} width={20} height={20} aria-hidden="true" />
-                  )}
-                  {cta.primary.text}
-                </a>
-                <a
-                  href={cta.secondary.url}
-                  className="about__card__btn about__card__btn--secondary"
-                  aria-label={cta.secondary.ariaLabel}
-                >
-                  {cta.secondary.icon && (
-                    <Icon icon={cta.secondary.icon} width={20} height={20} aria-hidden="true" />
-                  )}
-                  {cta.secondary.text}
-                </a>
-              </div>
-            </div>
+            ))}
           </div>
-        </ScrollReveal>
+
+          <div
+            className="about__actions reveal"
+            style={{ '--reveal-delay': '380ms' } as React.CSSProperties}
+          >
+            <Magnet>
+              <a
+                href={cta.primary.url}
+                download={cv.download}
+                className="btn btn--primary"
+                aria-label={cta.primary.ariaLabel}
+              >
+                {cta.primary.icon && (
+                  <Icon icon={cta.primary.icon} width={18} height={18} aria-hidden="true" />
+                )}
+                <span>{cta.primary.text}</span>
+              </a>
+            </Magnet>
+            <Magnet>
+              <a
+                href={cta.secondary.url}
+                className="btn btn--secondary"
+                aria-label={cta.secondary.ariaLabel}
+              >
+                {cta.secondary.icon && (
+                  <Icon icon={cta.secondary.icon} width={18} height={18} aria-hidden="true" />
+                )}
+                <span>{cta.secondary.text}</span>
+              </a>
+            </Magnet>
+          </div>
+        </div>
       </div>
     </section>
   );
 };
+
+// Helper type so we re-export Global (currently unused, but keeps imports tidy)
+export type { Global };
 
 export default About;

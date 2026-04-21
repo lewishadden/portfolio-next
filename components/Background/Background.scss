@@ -1,93 +1,112 @@
-@use 'sass:math';
-
-/* ── Fixed background container ── */
 .bg-container {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  z-index: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: 0;
   contain: layout style;
 
-  /* Noise grain overlay */
-  &::after {
-    content: '';
+  &__dots {
     position: absolute;
     inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-repeat: repeat;
-    background-size: 256px 256px;
-    opacity: 0.04;
+    background-image: radial-gradient(circle at 1px 1px, var(--dot-grid-color) 1px, transparent 0);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(ellipse at 50% 40%, #000 20%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 20%, transparent 80%);
+  }
+
+  &__orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    will-change: transform;
+    mix-blend-mode: screen;
+
+    [data-theme='light'] & {
+      mix-blend-mode: multiply;
+    }
+
+    &--1 {
+      width: 760px;
+      height: 760px;
+      top: -180px;
+      left: -200px;
+      background: radial-gradient(circle, var(--orb-color-1), transparent 70%);
+      animation: orb-drift-1 40s ease-in-out infinite;
+    }
+
+    &--2 {
+      width: 620px;
+      height: 620px;
+      bottom: -160px;
+      right: -180px;
+      background: radial-gradient(circle, var(--orb-color-2), transparent 70%);
+      animation: orb-drift-2 48s ease-in-out infinite;
+    }
+
+    &--3 {
+      width: 500px;
+      height: 500px;
+      top: 40%;
+      left: 36%;
+      background: radial-gradient(circle, var(--orb-color-3), transparent 70%);
+      animation: orb-drift-3 55s ease-in-out infinite;
+    }
+  }
+
+  &__particles {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  &__grain {
+    position: absolute;
+    inset: 0;
+    opacity: 0.05;
     mix-blend-mode: overlay;
-    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 
     [data-theme='light'] & {
       opacity: 0.03;
       mix-blend-mode: soft-light;
     }
   }
-}
 
-/* ── Ambient gradient orbs ── */
-.bg-container__orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  will-change: transform;
-
-  &--1 {
-    width: 700px;
-    height: 700px;
-    top: -15%;
-    left: -10%;
-    background: radial-gradient(circle, var(--orb-color-1) 0%, transparent 70%);
-    animation: orb-drift-1 35s ease-in-out infinite;
-  }
-
-  &--2 {
-    width: 600px;
-    height: 600px;
-    bottom: -10%;
-    right: -5%;
-    background: radial-gradient(circle, var(--orb-color-2) 0%, transparent 70%);
-    animation: orb-drift-2 40s ease-in-out infinite;
-  }
-
-  &--3 {
-    width: 500px;
-    height: 500px;
-    bottom: 20%;
-    left: 30%;
-    background: radial-gradient(circle, var(--orb-color-3) 0%, transparent 70%);
-    animation: orb-drift-3 45s ease-in-out infinite;
+  &__scan {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent calc(var(--scroll-pct, 0%) - 2%),
+      color-mix(in oklab, var(--accent-primary) 14%, transparent) var(--scroll-pct, 0%),
+      transparent calc(var(--scroll-pct, 0%) + 2%),
+      transparent 100%
+    );
+    opacity: 0.6;
+    pointer-events: none;
   }
 }
 
 @keyframes orb-drift-1 {
   0%,
   100% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(0, 0);
   }
-  33% {
-    transform: translate(60px, 40px) scale(1.05);
-  }
-  66% {
-    transform: translate(-30px, 60px) scale(0.95);
+  50% {
+    transform: translate(120px, 80px);
   }
 }
 
 @keyframes orb-drift-2 {
   0%,
   100% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(0, 0);
   }
-  33% {
-    transform: translate(-50px, -30px) scale(0.95);
-  }
-  66% {
-    transform: translate(40px, -50px) scale(1.05);
+  50% {
+    transform: translate(-100px, -60px);
   }
 }
 
@@ -96,123 +115,13 @@
   100% {
     transform: translate(0, 0) scale(1);
   }
-  33% {
-    transform: translate(30px, -40px) scale(1.08);
-  }
-  66% {
-    transform: translate(-40px, 30px) scale(0.92);
-  }
-}
-
-/* ── Particles wrapper ── */
-.bg-container__particles {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-/* ── Floating particles ── */
-.bg-particle {
-  $particleNum: 100;
-
-  position: absolute;
-  transform: translateY(-10vh);
-  animation-iteration-count: infinite;
-  animation-timing-function: linear;
-
-  &__dot {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    mix-blend-mode: screen;
-    background-image: radial-gradient(
-      var(--bg-particle-color),
-      var(--bg-particle-color) 10%,
-      transparent 56%
-    );
-    animation:
-      particle-fade 200ms infinite,
-      particle-scale 2s infinite;
-    opacity: 0.5;
-
-    [data-theme='light'] & {
-      opacity: 0.3;
-      mix-blend-mode: multiply;
-    }
-  }
-
-  $particleBaseSize: 8;
-
-  @for $i from 1 through $particleNum {
-    &:nth-child(#{$i}) {
-      $circleSize: math.random($particleBaseSize);
-      width: $circleSize + px;
-      height: $circleSize + px;
-
-      $startPositionY: math.random(10) + 100;
-      $framesName: 'particle-move-' + $i;
-      $moveDuration: 28000 + math.random(9000) + ms;
-
-      animation-name: #{$framesName};
-      animation-duration: $moveDuration;
-      animation-delay: math.random(37000) + ms;
-
-      @keyframes #{$framesName} {
-        from {
-          transform: translate3d(#{math.random(100) + vw}, #{$startPositionY + vh}, 0);
-        }
-
-        to {
-          transform: translate3d(
-            #{math.random(100) + vw},
-            #{- $startPositionY - math.random(30) + vh},
-            0
-          );
-        }
-      }
-
-      .bg-particle__dot {
-        animation-delay: math.random(4000) + ms;
-      }
-    }
-  }
-}
-
-@keyframes particle-fade {
-  0% {
-    opacity: 1;
-  }
   50% {
-    opacity: 0.7;
-  }
-  100% {
-    opacity: 1;
+    transform: translate(-80px, 120px) scale(1.15);
   }
 }
 
-@keyframes particle-scale {
-  0% {
-    transform: scale3d(0.4, 0.4, 1);
-  }
-  50% {
-    transform: scale3d(2.2, 2.2, 1);
-  }
-  100% {
-    transform: scale3d(0.4, 0.4, 1);
-  }
-}
-
-/* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
-  .bg-container__orb,
-  .bg-particle,
-  .bg-particle__dot {
+  .bg-container__orb {
     animation: none !important;
-  }
-
-  .bg-particle__dot {
-    opacity: 0.3;
-    transform: scale3d(1, 1, 1);
   }
 }
