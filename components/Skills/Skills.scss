@@ -80,9 +80,14 @@
   gap: 20px;
   box-shadow: var(--shadow-soft);
   overflow: clip;
-  transition: border-color 0.3s var(--ease-standard), box-shadow 0.3s var(--ease-standard);
+  transition: border-color 0.3s var(--ease-standard), box-shadow 0.3s var(--ease-standard), background 0.3s;
 
   &:hover {
+    background: radial-gradient(
+      800px circle at var(--mouse-x, 0) var(--mouse-y, 0),
+      rgba(255, 255, 255, 0.04),
+      transparent 40%
+    ), var(--card-bg);
     border-color: color-mix(in oklab, var(--accent-primary) 30%, transparent);
     box-shadow: var(--shadow-hover);
   }

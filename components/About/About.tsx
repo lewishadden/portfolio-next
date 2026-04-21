@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react';
 
 import { About as AboutProps, Global } from '@/types';
 import Magnet from 'components/Magnet/Magnet';
+import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
 
 import './About.scss';
 
@@ -30,15 +31,15 @@ export const About = ({
   return (
     <section id="about" className="section about" aria-labelledby="about-heading">
       <div className="section__num">01</div>
-      <div className="section__head reveal">
+      <ScrollReveal className="section__head">
         <span className="section__label">{label}</span>
         <h2 id="about-heading" className="section__title">
           {title} <span className="section__title-accent">Me</span>
         </h2>
-      </div>
+      </ScrollReveal>
 
       <div className="about__grid">
-        <div className="about__media reveal">
+        <ScrollReveal className="about__media">
           <Image
             src={image.url}
             className="about__media-img"
@@ -56,36 +57,47 @@ export const About = ({
             </div>
             {openToWork && <small>● Available</small>}
           </div>
-        </div>
+        </ScrollReveal>
 
         <div className="about__body">
           {descriptionHeader && (
-            <h3
-              className="about__title reveal"
+            <ScrollReveal
+              as="h3"
+              className="about__title"
               dangerouslySetInnerHTML={{ __html: descriptionHeader }}
             />
           )}
-          <div
-            className="about__copy reveal"
+          <ScrollReveal
+            className="about__copy"
             style={{ '--reveal-delay': '120ms' } as React.CSSProperties}
             dangerouslySetInnerHTML={{ __html: description }}
           />
 
-          <div
-            className="about__highlights reveal"
+          <ScrollReveal
+            className="about__highlights"
             style={{ '--reveal-delay': '260ms' } as React.CSSProperties}
           >
             {highlights.map((h) => (
-              <div className="about__hl" key={h.title}>
+              <div
+                className="about__hl"
+                key={h.title}
+                onMouseMove={(e: React.MouseEvent<HTMLDivElement>) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const y = e.clientY - rect.top;
+                  e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+                  e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+                }}
+              >
                 <Icon icon={h.icon} width={24} height={24} aria-hidden="true" />
                 <b>{h.title}</b>
                 <span>{h.sub}</span>
               </div>
             ))}
-          </div>
+          </ScrollReveal>
 
-          <div
-            className="about__actions reveal"
+          <ScrollReveal
+            className="about__actions"
             style={{ '--reveal-delay': '380ms' } as React.CSSProperties}
           >
             <Magnet>
@@ -113,7 +125,7 @@ export const About = ({
                 <span>{cta.secondary.text}</span>
               </a>
             </Magnet>
-          </div>
+          </ScrollReveal>
         </div>
       </div>
     </section>

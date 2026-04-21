@@ -69,9 +69,14 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-card);
     position: relative;
-    transition: all 0.4s var(--ease-standard);
+    transition: transform 0.4s var(--ease-standard), box-shadow 0.4s var(--ease-standard), border-color 0.4s var(--ease-standard), background 0.4s;
 
     &:hover {
+      background: radial-gradient(
+        800px circle at var(--mouse-x, 0) var(--mouse-y, 0),
+        rgba(255, 255, 255, 0.04),
+        transparent 40%
+      ), var(--card-bg);
       border-color: color-mix(in oklab, var(--accent-primary) 40%, transparent);
       transform: translateY(-4px);
       box-shadow: var(--shadow-hover);

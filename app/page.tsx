@@ -1,7 +1,6 @@
 import { Header } from 'components/Header/Header';
 import { Background } from 'components/Background/Background';
 import { ScrollProgress } from 'components/ScrollProgress/ScrollProgress';
-import { RevealMount } from 'components/RevealMount/RevealMount';
 import { Home } from 'components/Home/Home';
 import { StatsStrip } from 'components/StatsStrip/StatsStrip';
 import { About } from 'components/About/About';
@@ -24,7 +23,6 @@ export default async function Page() {
   return (
     <>
       <ScrollProgress />
-      <RevealMount />
       <Header header={header} navItems={global.navItems} />
       <main id="main-content">
         <Home home={home} openToWork={global.openToWork} openToWorkText={global.openToWorkText} />

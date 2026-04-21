@@ -34,22 +34,29 @@ export const Home = ({
           &nbsp;Hi, I&rsquo;m
         </p>
 
-        <svg className="hero__name-svg" viewBox="0 0 1100 200" aria-labelledby="home-heading">
-          <title id="home-heading">{name}</title>
-          <defs>
-            <linearGradient id="hero-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="var(--gradient-start)" />
-              <stop offset="50%" stopColor="var(--gradient-mid)" />
-              <stop offset="100%" stopColor="var(--gradient-end)" />
-            </linearGradient>
-          </defs>
-          <text className="hero__name-stroke" x="50%" y="145" textAnchor="middle">
-            {name}
-          </text>
-          <text className="hero__name-fill" x="50%" y="145" textAnchor="middle">
-            {name}
-          </text>
-        </svg>
+        <div className="hero__name-container">
+          <div className="hero__aurora" aria-hidden="true">
+            <div className="hero__aurora-item hero__aurora-item--1" />
+            <div className="hero__aurora-item hero__aurora-item--2" />
+            <div className="hero__aurora-item hero__aurora-item--3" />
+          </div>
+          <svg className="hero__name-svg" viewBox="0 0 1100 200" aria-labelledby="home-heading">
+            <title id="home-heading">{name}</title>
+            <defs>
+              <linearGradient id="hero-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="var(--gradient-start)" />
+                <stop offset="50%" stopColor="var(--gradient-mid)" />
+                <stop offset="100%" stopColor="var(--gradient-end)" />
+              </linearGradient>
+            </defs>
+            <text className="hero__name-stroke" x="50%" y="145" textAnchor="middle">
+              {name}
+            </text>
+            <text className="hero__name-fill" x="50%" y="145" textAnchor="middle">
+              {name}
+            </text>
+          </svg>
+        </div>
 
         <div className="hero__role">
           <TypeAnimationClient titles={titles} />

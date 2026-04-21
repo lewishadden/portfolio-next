@@ -1,4 +1,7 @@
+'use client';
+
 import { Icon } from '@iconify/react';
+import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
 
 import { Skills as SkillsProps } from '@/types';
 
@@ -11,13 +14,13 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
   return (
     <section id="skills" className="section skills" aria-labelledby="skills-heading">
       <div className="section__num">04</div>
-      <div className="section__head section__head--centered reveal">
+      <ScrollReveal className="section__head section__head--centered">
         <span className="section__label section__label--centered">{label}</span>
         <h2 id="skills-heading" className="section__title">
           {title} &amp; <span className="section__title-accent">Stack</span>
         </h2>
         <p className="section__sub">{tagline}</p>
-      </div>
+      </ScrollReveal>
 
       <div className="marquee" aria-hidden="true">
         <div className="marquee__track">
@@ -34,10 +37,17 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
         {categories.map((cat, i) => {
           const catSkills = icons.filter((icon) => icon.category === cat.categoryKey);
           return (
-            <div
+            <ScrollReveal
               key={cat.categoryKey}
-              className="skill-card reveal"
+              className="skill-card"
               style={{ '--reveal-delay': `${i * 120}ms` } as React.CSSProperties}
+              onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+                e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+              }}
             >
               <div className="skill-card__head">
                 <Icon icon={cat.icon} width={28} height={28} aria-hidden="true" />
@@ -57,7 +67,7 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
                   </div>
                 ))}
               </div>
-            </div>
+            </ScrollReveal>
           );
         })}
       </div>

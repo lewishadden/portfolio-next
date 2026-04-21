@@ -128,21 +128,8 @@ iconify-icon {
 }
 
 /* =============================================================
-   Reveal-on-scroll
+   Reveal-on-scroll (Removed in favor of Framer Motion)
    ============================================================= */
-.reveal {
-  opacity: 0;
-  transform: translateY(40px);
-  transition:
-    opacity 0.9s var(--ease-standard),
-    transform 0.9s var(--ease-standard);
-  transition-delay: var(--reveal-delay, 0ms);
-
-  &.is-in {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 /* =============================================================
    Reusable building blocks

@@ -1,13 +1,14 @@
 import './globals.scss';
 import './theme-variables.scss';
 
-import { JetBrains_Mono } from 'next/font/google';
+import { JetBrains_Mono, Inter } from 'next/font/google';
 import { geolocation, ipAddress } from '@vercel/functions';
 import { headers } from 'next/headers';
 
 import { ThemeProvider } from 'contexts/ThemeContext';
 import { GoogleAnalyticsDeferred } from 'components/GoogleAnalyticsDeferred/GoogleAnalyticsDeferred';
 import { ThemeScript } from 'components/ThemeScript/ThemeScript';
+import { CustomCursor } from 'components/CustomCursor/CustomCursor';
 
 import type { Metadata, Viewport } from 'next';
 
@@ -18,6 +19,12 @@ const jetBrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   weight: ['700', '800'],
   variable: '--font-jetbrains-mono',
+  display: 'swap',
+});
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
   display: 'swap',
 });
 
@@ -231,7 +238,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const geoData = { ip, geo };
 
   return (
-    <html lang="en-GB" suppressHydrationWarning className={jetBrainsMono.variable}>
+    <html lang="en-GB" suppressHydrationWarning className={`${inter.variable} ${jetBrainsMono.variable}`}>
       <head>
         <ThemeScript />
         <link rel="dns-prefetch" href="https://api.iconify.design" />
@@ -239,6 +246,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body data-theme="dark" suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
+        <CustomCursor />
         <JsonLd />
         <GoogleAnalyticsDeferred
           gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''}

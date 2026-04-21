@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { Icon } from '@iconify/react';
+import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
 
 import { Projects as ProjectsProps, Project } from '@/types';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
@@ -16,7 +17,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   return (
     <section id="projects" className="section projects" aria-labelledby="projects-heading">
       <div className="section__num">03</div>
-      <div className="section__head section__head--centered reveal">
+      <ScrollReveal className="section__head section__head--centered">
         <span className="section__label section__label--centered">{label}</span>
         <h2 id="projects-heading" className="section__title">
           <span className="section__title-accent">Selected</span> {title}
@@ -25,7 +26,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
           A cross-section of platforms, tools, and architectures — from passion projects to
           enterprise-grade applications shipped in production.
         </p>
-      </div>
+      </ScrollReveal>
 
       <div className="projects__editorial">
         {items.map((p, i) => {
@@ -36,12 +37,20 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
             .join(' · ');
 
           return (
-            <button
+            <ScrollReveal
+              as="button"
               key={p.title}
               type="button"
-              className="proj-row reveal"
+              className="proj-row"
               onClick={() => setSelectedProject(p)}
               aria-label={`View details for ${p.title}`}
+              onMouseMove={(e: React.MouseEvent<HTMLButtonElement>) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+                e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+              }}
             >
               <span className="proj-row__num">{String(i + 1).padStart(2, '0')}</span>
               <div className="proj-row__text">
@@ -66,7 +75,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
                   />
                 </div>
               )}
-            </button>
+            </ScrollReveal>
           );
         })}
       </div>

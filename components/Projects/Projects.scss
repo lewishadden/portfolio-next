@@ -29,7 +29,11 @@
     background 0.4s;
 
   &:hover {
-    background: color-mix(in oklab, var(--accent-primary) 4%, transparent);
+    background: radial-gradient(
+      800px circle at var(--mouse-x, 0) var(--mouse-y, 0),
+      rgba(255, 255, 255, 0.06),
+      transparent 40%
+    ), color-mix(in oklab, var(--accent-primary) 4%, transparent);
     padding-left: 40px;
     padding-right: 40px;
 

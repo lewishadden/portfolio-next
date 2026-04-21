@@ -6,6 +6,7 @@ import { Icon } from '@iconify/react';
 
 import { Contact as ContactProps, SocialLink } from '@/types';
 import ContactForm from './ContactForm/ContactForm';
+import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
 
 import './Contact.scss';
 
@@ -47,16 +48,26 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
   return (
     <section id="contact" className="section contact" aria-labelledby="contact-heading">
       <div className="section__num">05</div>
-      <div className="section__head section__head--centered reveal">
+      <ScrollReveal className="section__head section__head--centered">
         <span className="section__label section__label--centered">{label}</span>
         <h2 id="contact-heading" className="section__title">
           {title} <span className="section__title-accent">Me</span>
         </h2>
         <p className="section__sub">{tagline}</p>
-      </div>
+      </ScrollReveal>
 
       <div className="contact__grid">
-        <aside className="contact__side reveal">
+        <ScrollReveal
+          as="aside"
+          className="contact__side"
+          onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+            e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+          }}
+        >
           <div className="contact__intro">
             <h3>{contactInfo.title}</h3>
             <p>{contactInfo.description}</p>
@@ -116,11 +127,18 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
               ))}
             </div>
           )}
-        </aside>
+        </ScrollReveal>
 
-        <div
-          className={`contact__panel reveal${submitted ? ' contact__panel--submitted' : ''}`}
+        <ScrollReveal
+          className={`contact__panel${submitted ? ' contact__panel--submitted' : ''}`}
           style={{ '--reveal-delay': '120ms' } as React.CSSProperties}
+          onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+            e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+          }}
         >
           {submitted ? (
             <div className="contact__success">
@@ -146,7 +164,7 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
               }}
             />
           )}
-        </div>
+        </ScrollReveal>
       </div>
 
       {showToast && (
