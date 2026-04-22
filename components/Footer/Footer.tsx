@@ -14,14 +14,9 @@ export const Footer = ({ footer, navItems }: { footer: FooterProps; navItems: Na
     <footer className="footer" role="contentinfo">
       <div className="footer__inner">
         <div className="footer__brand">
-          <button
-            type="button"
-            className="footer__logo"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            aria-label={home.ariaLabel}
-          >
+          <Link href={home.url} className="footer__logo" aria-label={home.ariaLabel}>
             {home.text}
-          </button>
+          </Link>
           <p className="footer__tagline">{tagline}</p>
         </div>
 
@@ -30,9 +25,9 @@ export const Footer = ({ footer, navItems }: { footer: FooterProps; navItems: Na
           <ul className="footer__nav-list">
             {navItems.map((item) => (
               <li key={item.href}>
-                <a href={item.href} className="footer__nav-link">
+                <Link href={item.href} className="footer__nav-link">
                   {item.label}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>

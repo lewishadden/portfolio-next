@@ -1,4 +1,5 @@
 import { Icon } from '@iconify/react';
+import Link from 'next/link';
 import Magnet from 'components/Magnet/Magnet';
 import { TypeAnimationClient } from './TypeAnimationClient';
 
@@ -66,7 +67,7 @@ export const Home = ({
 
         <div className="hero__ctas">
           <Magnet>
-            <a
+            <Link
               href={cta.primary.url}
               className="btn btn--primary"
               aria-label={cta.primary.ariaLabel}
@@ -75,10 +76,10 @@ export const Home = ({
                 <Icon icon={cta.primary.icon} width={18} height={18} aria-hidden="true" />
               )}
               <span>{cta.primary.text}</span>
-            </a>
+            </Link>
           </Magnet>
           <Magnet>
-            <a
+            <Link
               href={cta.secondary.url}
               className="btn btn--secondary"
               aria-label={cta.secondary.ariaLabel}
@@ -87,7 +88,7 @@ export const Home = ({
                 <Icon icon={cta.secondary.icon} width={18} height={18} aria-hidden="true" />
               )}
               <span>{cta.secondary.text}</span>
-            </a>
+            </Link>
           </Magnet>
         </div>
       </div>
