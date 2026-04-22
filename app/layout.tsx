@@ -5,10 +5,11 @@ import { JetBrains_Mono, Inter } from 'next/font/google';
 import { geolocation, ipAddress } from '@vercel/functions';
 import { headers } from 'next/headers';
 
-import { ThemeProvider } from 'contexts/ThemeContext';
-import { GoogleAnalyticsDeferred } from 'components/GoogleAnalyticsDeferred/GoogleAnalyticsDeferred';
-import { ThemeScript } from 'components/ThemeScript/ThemeScript';
-import { CustomCursor } from 'components/CustomCursor/CustomCursor';
+import { ClientProviders } from '@/components/ClientProviders/ClientProviders';
+import { GoogleAnalyticsDeferred } from '@/components/GoogleAnalyticsDeferred/GoogleAnalyticsDeferred';
+import { ThemeScript } from '@/components/ThemeScript/ThemeScript';
+import { CustomCursor } from '@/components/CustomCursor/CustomCursor';
+import { Grain } from '@/components/Grain/Grain';
 
 import type { Metadata, Viewport } from 'next';
 
@@ -238,14 +239,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const geoData = { ip, geo };
 
   return (
-    <html lang="en-GB" suppressHydrationWarning className={`${inter.variable} ${jetBrainsMono.variable}`}>
+    <html
+      lang="en-GB"
+      suppressHydrationWarning
+      className={`${inter.variable} ${jetBrainsMono.variable}`}
+    >
       <head>
         <ThemeScript />
         <link rel="dns-prefetch" href="https://api.iconify.design" />
         <link rel="preconnect" href="https://api.iconify.design" crossOrigin="anonymous" />
       </head>
       <body data-theme="dark" suppressHydrationWarning>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ClientProviders>
+          {children}
+          <Grain />
+        </ClientProviders>
         <CustomCursor />
         <JsonLd />
         <GoogleAnalyticsDeferred
