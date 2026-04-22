@@ -153,11 +153,13 @@
     transition: all 0.3s var(--ease-standard);
 
     &:hover {
-      background: radial-gradient(
-        800px circle at var(--mouse-x, 0) var(--mouse-y, 0),
-        rgba(255, 255, 255, 0.05),
-        transparent 40%
-      ), color-mix(in oklab, var(--card-bg) 60%, transparent);
+      background:
+        radial-gradient(
+          800px circle at var(--mouse-x, 0) var(--mouse-y, 0),
+          rgba(255, 255, 255, 0.05),
+          transparent 40%
+        ),
+        color-mix(in oklab, var(--card-bg) 60%, transparent);
       border-color: color-mix(in oklab, var(--accent-primary) 40%, transparent);
       transform: translateY(-3px);
     }

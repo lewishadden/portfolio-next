@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { Icon } from '@iconify/react';
 import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
+import Magnet from 'components/Magnet/Magnet';
 
 import { Skills as SkillsProps } from '@/types';
 
@@ -71,6 +73,21 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
           );
         })}
       </div>
+
+      <ScrollReveal className="section__page-nav">
+        <Magnet>
+          <Link href="/contact" className="btn btn--primary">
+            <Icon icon="ph:envelope-simple" width={18} height={18} aria-hidden="true" />
+            <span>Get in Touch</span>
+          </Link>
+        </Magnet>
+        <Magnet>
+          <Link href="/projects" className="btn btn--secondary">
+            <Icon icon="ph:folder-open" width={18} height={18} aria-hidden="true" />
+            <span>View Projects</span>
+          </Link>
+        </Magnet>
+      </ScrollReveal>
     </section>
   );
 };

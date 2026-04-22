@@ -1,6 +1,7 @@
 'use client';
 
 import Image, { ImageLoader } from 'next/image';
+import Link from 'next/link';
 import { Icon } from '@iconify/react';
 
 import { About as AboutProps, Global } from '@/types';
@@ -114,7 +115,7 @@ export const About = ({
               </a>
             </Magnet>
             <Magnet>
-              <a
+              <Link
                 href={cta.secondary.url}
                 className="btn btn--secondary"
                 aria-label={cta.secondary.ariaLabel}
@@ -123,11 +124,26 @@ export const About = ({
                   <Icon icon={cta.secondary.icon} width={18} height={18} aria-hidden="true" />
                 )}
                 <span>{cta.secondary.text}</span>
-              </a>
+              </Link>
             </Magnet>
           </ScrollReveal>
         </div>
       </div>
+
+      <ScrollReveal className="section__page-nav">
+        <Magnet>
+          <Link href="/experience" className="btn btn--primary">
+            <Icon icon="ph:briefcase" width={18} height={18} aria-hidden="true" />
+            <span>View Experience</span>
+          </Link>
+        </Magnet>
+        <Magnet>
+          <Link href="/projects" className="btn btn--secondary">
+            <Icon icon="ph:folder-open" width={18} height={18} aria-hidden="true" />
+            <span>See Projects</span>
+          </Link>
+        </Magnet>
+      </ScrollReveal>
     </section>
   );
 };

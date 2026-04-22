@@ -71,17 +71,27 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
         message: '',
       }}
     >
-      {({ handleSubmit: formikSubmit, handleChange, handleBlur, values, errors, touched }) => {
+      {({
+        handleSubmit: formikSubmit,
+        handleChange,
+        handleBlur,
+        values,
+        errors,
+        touched,
+        submitCount,
+      }) => {
         const showError = (field: keyof typeof errors) => touched[field] && errors[field];
+        const errorCount = Object.keys(errors).length;
+        const errorSummary =
+          submitCount > 0 && errorCount > 0
+            ? `${errorCount} error${errorCount > 1 ? 's' : ''}: ${Object.values(errors).join('. ')}`
+            : '';
 
         return (
-          <form
-            noValidate
-            onSubmit={formikSubmit}
-            className="contact-form"
-            aria-busy={loading}
-            aria-live="polite"
-          >
+          <form noValidate onSubmit={formikSubmit} className="contact-form" aria-busy={loading}>
+            <div aria-live="assertive" aria-atomic="true" className="sr-only">
+              {errorSummary}
+            </div>
             <div className="contact-form__row">
               <div className="contact-form__field">
                 <label htmlFor="formFirstName" className="contact-form__label">

@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 import { ThemeToggle } from 'components/ThemeToggle/ThemeToggle';
 
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { useActiveSection } from '@/hooks/useActiveSection';
 
 import { Header as HeaderProps, NavItem } from '@/types';
 
@@ -19,8 +21,9 @@ export const Header = ({ header, navItems }: { header: HeaderProps; navItems: Na
   const mobileMenuRef = useFocusTrap<HTMLDivElement>(mobileOpen);
   const [indicator, setIndicator] = useState({ x: 0, w: 0, show: false });
 
-  const sectionIds = navItems.map((i) => i.href.replace(/^#/, ''));
-  const active = useActiveSection(sectionIds);
+  const pathname = usePathname();
+  const isActive = (href: string) =>
+    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 
   useEffect(() => {
     const onScroll = () => {
@@ -43,7 +46,7 @@ export const Header = ({ header, navItems }: { header: HeaderProps; navItems: Na
     } else {
       setIndicator((i) => ({ ...i, show: false }));
     }
-  }, [active]);
+  }, [pathname]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -53,20 +56,6 @@ export const Header = ({ header, navItems }: { header: HeaderProps; navItems: Na
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [mobileOpen]);
-
-  const handleNavClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
-    const href = e.currentTarget.getAttribute('href');
-    if (!href?.startsWith('#')) return;
-    const target = document.getElementById(href.slice(1));
-    if (!target) return;
-
-    const targetTop = target.getBoundingClientRect().top + window.scrollY;
-    const isScrollingDown = targetTop > window.scrollY;
-    if (isScrollingDown) {
-      e.preventDefault();
-      window.scrollTo({ top: targetTop - 20, behavior: 'smooth' });
-    }
-  }, []);
 
   return (
     <>
@@ -81,23 +70,24 @@ export const Header = ({ header, navItems }: { header: HeaderProps; navItems: Na
       )}
       <header className={`header${hidden ? ' header--hidden' : ''}`} role="banner">
         <nav className="header__nav" aria-label="Main navigation">
-          <a href={header.home.href} className="header__logo" aria-label={header.home.ariaLabel}>
-            {header.home.label}
-          </a>
+          <Link href={header.home.href} className="header__logo" aria-label={header.home.ariaLabel}>
+            <Image
+              src="/static/images/portfolio-brand-icon.png"
+              alt=""
+              width={36}
+              height={36}
+              priority
+            />
+          </Link>
 
           <ul className="header__links" ref={linksRef}>
             {navItems.map(({ href, label }) => {
-              const id = href.replace(/^#/, '');
-              const isActive = active === id;
+              const active = isActive(href);
               return (
                 <li key={href}>
-                  <a
-                    href={href}
-                    className={`header__link${isActive ? ' is-active' : ''}`}
-                    onClick={handleNavClick}
-                  >
+                  <Link href={href} className={`header__link${active ? ' is-active' : ''}`}>
                     {label}
-                  </a>
+                  </Link>
                 </li>
               );
             })}
@@ -136,18 +126,15 @@ export const Header = ({ header, navItems }: { header: HeaderProps; navItems: Na
           <ul className="header__mobile-links">
             {navItems.map(({ href, label }) => (
               <li key={href}>
-                <a
+                <Link
                   href={href}
                   className="header__mobile-link"
                   tabIndex={mobileOpen ? 0 : -1}
-                  onClick={(e) => {
-                    setMobileOpen(false);
-                    handleNavClick(e);
-                  }}
+                  onClick={() => setMobileOpen(false)}
                 >
                   <Icon icon={header.mobile.icon} width={14} aria-hidden="true" />
                   {label}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>

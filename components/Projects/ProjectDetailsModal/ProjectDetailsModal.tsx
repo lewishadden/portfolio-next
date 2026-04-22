@@ -327,6 +327,7 @@ const ProjectDetailsModal = ({
           ref={modalBodyRef}
           tabIndex={-1}
           onKeyDown={handleCarouselKeyDown}
+          data-lenis-prevent
         >
           <div className="project-details__modal__body__inner">
             {images.length > 0 && getImageSlides()}

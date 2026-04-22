@@ -220,6 +220,20 @@ iconify-icon {
 }
 
 /* =============================================================
+   Page navigation CTA — shared bottom-of-section prompt
+   ============================================================= */
+.section__page-nav {
+  margin-top: 80px;
+  padding-top: 48px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* =============================================================
    Responsive
    ============================================================= */
 @media (max-width: 640px) {

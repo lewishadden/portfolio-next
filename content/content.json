@@ -5,32 +5,32 @@
     "location": "Peterborough, UK",
     "navItems": [
       {
-        "href": "#about",
+        "href": "/about",
         "label": "About"
       },
       {
-        "href": "#experience",
+        "href": "/experience",
         "label": "Experience"
       },
       {
-        "href": "#projects",
+        "href": "/projects",
         "label": "Projects"
       },
       {
-        "href": "#skills",
+        "href": "/skills",
         "label": "Skills"
       },
       {
-        "href": "#contact",
+        "href": "/contact",
         "label": "Contact"
       }
     ]
   },
   "header": {
     "home": {
-      "href": "#home",
+      "href": "/",
       "label": "LH",
-      "ariaLabel": "Go to top"
+      "ariaLabel": "Go to home"
     },
     "mobile": {
       "icon": "ph:arrow-up-right"
@@ -49,13 +49,13 @@
     "cta": {
       "primary": {
         "text": "Let's Talk",
-        "url": "#contact",
+        "url": "/contact",
         "icon": "mdi:message-text-outline",
         "ariaLabel": "Contact me"
       },
       "secondary": {
         "text": "View Work",
-        "url": "#projects",
+        "url": "/projects",
         "icon": "mdi:eye-outline",
         "ariaLabel": "View my work"
       }
@@ -108,9 +108,9 @@
       },
       "secondary": {
         "text": "Get in Touch",
-        "url": "#contact",
+        "url": "/contact",
         "icon": "mdi:message-text-outline",
-        "ariaLabel": "Go to contact section"
+        "ariaLabel": "Go to contact page"
       }
     },
     "highlights": [
@@ -1304,8 +1304,8 @@
     ],
     "home": {
       "text": "Lewis Hadden",
-      "url": "#home",
-      "ariaLabel": "Back to top"
+      "url": "/",
+      "ariaLabel": "Back to home"
     },
     "navigateText": "Navigate",
     "elsewhereText": "Elsewhere",

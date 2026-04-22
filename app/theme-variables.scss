@@ -40,9 +40,9 @@
 
   /* Typography — system stack + JetBrains Mono display */
   --font-sans:
-    var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-display:
-    var(--font-jetbrains-mono), 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+    var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-display: var(--font-jetbrains-mono), 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
 
   /* Type scale */
   --fs-display: clamp(2rem, 5vw, 5.5rem);
@@ -136,7 +136,7 @@
   --accent-secondary: #0ea5e9;
   --bg-particle-color: hsl(220, 80%, 65%);
   --orb-color-1: rgba(99, 102, 241, 0.12);
-  --orb-color-2: rgba(59, 130, 246, 0.10);
+  --orb-color-2: rgba(59, 130, 246, 0.1);
   --orb-color-3: rgba(14, 165, 233, 0.08);
   --dot-grid-color: rgba(59, 130, 246, 0.06);
   --gradient-start: #6366f1;

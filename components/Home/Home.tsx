@@ -1,4 +1,5 @@
 import { Icon } from '@iconify/react';
+import Link from 'next/link';
 import Magnet from 'components/Magnet/Magnet';
 import { TypeAnimationClient } from './TypeAnimationClient';
 
@@ -35,13 +36,15 @@ export const Home = ({
         </p>
 
         <div className="hero__name-container">
+          <h1 id="home-heading" className="sr-only">
+            {name}
+          </h1>
           <div className="hero__aurora" aria-hidden="true">
             <div className="hero__aurora-item hero__aurora-item--1" />
             <div className="hero__aurora-item hero__aurora-item--2" />
             <div className="hero__aurora-item hero__aurora-item--3" />
           </div>
-          <svg className="hero__name-svg" viewBox="0 0 1100 200" aria-labelledby="home-heading">
-            <title id="home-heading">{name}</title>
+          <svg className="hero__name-svg" viewBox="0 0 1100 200" aria-hidden="true">
             <defs>
               <linearGradient id="hero-grad" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="var(--gradient-start)" />
@@ -66,7 +69,7 @@ export const Home = ({
 
         <div className="hero__ctas">
           <Magnet>
-            <a
+            <Link
               href={cta.primary.url}
               className="btn btn--primary"
               aria-label={cta.primary.ariaLabel}
@@ -75,10 +78,10 @@ export const Home = ({
                 <Icon icon={cta.primary.icon} width={18} height={18} aria-hidden="true" />
               )}
               <span>{cta.primary.text}</span>
-            </a>
+            </Link>
           </Magnet>
           <Magnet>
-            <a
+            <Link
               href={cta.secondary.url}
               className="btn btn--secondary"
               aria-label={cta.secondary.ariaLabel}
@@ -87,7 +90,7 @@ export const Home = ({
                 <Icon icon={cta.secondary.icon} width={18} height={18} aria-hidden="true" />
               )}
               <span>{cta.secondary.text}</span>
-            </a>
+            </Link>
           </Magnet>
         </div>
       </div>
