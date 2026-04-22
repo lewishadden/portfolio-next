@@ -129,6 +129,21 @@ export const About = ({
           </ScrollReveal>
         </div>
       </div>
+
+      <ScrollReveal className="section__page-nav">
+        <Magnet>
+          <Link href="/experience" className="btn btn--primary">
+            <Icon icon="ph:briefcase" width={18} height={18} aria-hidden="true" />
+            <span>View Experience</span>
+          </Link>
+        </Magnet>
+        <Magnet>
+          <Link href="/projects" className="btn btn--secondary">
+            <Icon icon="ph:folder-open" width={18} height={18} aria-hidden="true" />
+            <span>See Projects</span>
+          </Link>
+        </Magnet>
+      </ScrollReveal>
     </section>
   );
 };

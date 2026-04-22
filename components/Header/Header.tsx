@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 import { ThemeToggle } from 'components/ThemeToggle/ThemeToggle';
@@ -70,7 +71,13 @@ export const Header = ({ header, navItems }: { header: HeaderProps; navItems: Na
       <header className={`header${hidden ? ' header--hidden' : ''}`} role="banner">
         <nav className="header__nav" aria-label="Main navigation">
           <Link href={header.home.href} className="header__logo" aria-label={header.home.ariaLabel}>
-            {header.home.label}
+            <Image
+              src="/static/images/portfolio-brand-icon.png"
+              alt=""
+              width={36}
+              height={36}
+              priority
+            />
           </Link>
 
           <ul className="header__links" ref={linksRef}>

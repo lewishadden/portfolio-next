@@ -9,9 +9,7 @@ export function ClientProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
       <ReactLenis root options={{ lerp: 0.1, duration: 1.2, smoothWheel: true }}>
-        <LazyMotion features={domAnimation}>
-          {children}
-        </LazyMotion>
+        <LazyMotion features={domAnimation}>{children}</LazyMotion>
       </ReactLenis>
     </ThemeProvider>
   );

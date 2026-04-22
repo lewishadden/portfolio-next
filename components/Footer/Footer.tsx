@@ -2,6 +2,7 @@
 
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 import { Footer as FooterProps, NavItem } from '@/types';
 
@@ -15,7 +16,8 @@ export const Footer = ({ footer, navItems }: { footer: FooterProps; navItems: Na
       <div className="footer__inner">
         <div className="footer__brand">
           <Link href={home.url} className="footer__logo" aria-label={home.ariaLabel}>
-            {home.text}
+            <Image src="/static/images/portfolio-brand-icon.png" alt="" width={32} height={32} />
+            <span>{home.text}</span>
           </Link>
           <p className="footer__tagline">{tagline}</p>
         </div>

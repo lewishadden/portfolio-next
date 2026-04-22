@@ -77,13 +77,13 @@
     [data-theme='light'] & {
       opacity: 0.25;
     }
-    
+
     &-item {
       position: absolute;
       border-radius: 50%;
       mix-blend-mode: screen;
       animation: aurora-morph 15s ease-in-out infinite alternate;
-      
+
       [data-theme='light'] & {
         mix-blend-mode: multiply;
       }
@@ -96,7 +96,7 @@
         left: 0;
         animation-delay: 0s;
       }
-      
+
       &--2 {
         width: 80%;
         height: 60%;
@@ -105,7 +105,7 @@
         right: 0;
         animation-delay: -5s;
       }
-      
+
       &--3 {
         width: 60%;
         height: 80%;
@@ -270,10 +270,18 @@
 }
 
 @keyframes aurora-morph {
-  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-  33% { transform: translate(8%, -15%) scale(1.1) rotate(15deg); }
-  66% { transform: translate(-10%, 8%) scale(0.9) rotate(-10deg); }
-  100% { transform: translate(5%, 15%) scale(1.15) rotate(5deg); }
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(8%, -15%) scale(1.1) rotate(15deg);
+  }
+  66% {
+    transform: translate(-10%, 8%) scale(0.9) rotate(-10deg);
+  }
+  100% {
+    transform: translate(5%, 15%) scale(1.15) rotate(5deg);
+  }
 }
 
 @keyframes hero-bob {

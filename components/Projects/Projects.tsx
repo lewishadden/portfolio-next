@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { Icon } from '@iconify/react';
 import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
+import Magnet from 'components/Magnet/Magnet';
 
 import { Projects as ProjectsProps, Project } from '@/types';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
@@ -63,8 +65,11 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
               <div className="proj-row__cta">
                 View <Icon icon="ph:arrow-up-right" width={14} height={14} aria-hidden="true" />
               </div>
-              {preview && (
-                <div className="proj-row__preview" aria-hidden="true">
+              <div
+                className={`proj-row__preview${preview ? '' : ' proj-row__preview--placeholder'}`}
+                aria-hidden="true"
+              >
+                {preview ? (
                   <Image
                     src={preview.url}
                     alt=""
@@ -73,12 +78,29 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
                     sizes="260px"
                     loading="lazy"
                   />
-                </div>
-              )}
+                ) : (
+                  <Icon icon="ph:code" width={32} height={32} />
+                )}
+              </div>
             </ScrollReveal>
           );
         })}
       </div>
+
+      <ScrollReveal className="section__page-nav">
+        <Magnet>
+          <Link href="/contact" className="btn btn--primary">
+            <Icon icon="ph:envelope-simple" width={18} height={18} aria-hidden="true" />
+            <span>Work Together</span>
+          </Link>
+        </Magnet>
+        <Magnet>
+          <Link href="/skills" className="btn btn--secondary">
+            <Icon icon="ph:stack" width={18} height={18} aria-hidden="true" />
+            <span>Explore Skills</span>
+          </Link>
+        </Magnet>
+      </ScrollReveal>
 
       {selectedProject && (
         <ProjectDetailsModal

@@ -36,13 +36,15 @@ export const Home = ({
         </p>
 
         <div className="hero__name-container">
+          <h1 id="home-heading" className="sr-only">
+            {name}
+          </h1>
           <div className="hero__aurora" aria-hidden="true">
             <div className="hero__aurora-item hero__aurora-item--1" />
             <div className="hero__aurora-item hero__aurora-item--2" />
             <div className="hero__aurora-item hero__aurora-item--3" />
           </div>
-          <svg className="hero__name-svg" viewBox="0 0 1100 200" aria-labelledby="home-heading">
-            <title id="home-heading">{name}</title>
+          <svg className="hero__name-svg" viewBox="0 0 1100 200" aria-hidden="true">
             <defs>
               <linearGradient id="hero-grad" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="var(--gradient-start)" />

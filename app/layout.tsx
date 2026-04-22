@@ -7,9 +7,9 @@ import { geolocation, ipAddress } from '@vercel/functions';
 import { headers } from 'next/headers';
 
 import { ClientProviders } from '@/components/ClientProviders/ClientProviders';
+import { PageTransition } from '@/components/PageTransition/PageTransition';
 import { GoogleAnalyticsDeferred } from '@/components/GoogleAnalyticsDeferred/GoogleAnalyticsDeferred';
 import { ThemeScript } from '@/components/ThemeScript/ThemeScript';
-import { CustomCursor } from '@/components/CustomCursor/CustomCursor';
 import { Grain } from '@/components/Grain/Grain';
 import { Header } from '@/components/Header/Header';
 import { Footer } from '@/components/Footer/Footer';
@@ -258,12 +258,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ClientProviders>
           <ScrollProgress />
           <Header header={content.header} navItems={content.global.navItems} />
-          <main id="main-content">{children}</main>
+          <main id="main-content">
+            <PageTransition>{children}</PageTransition>
+          </main>
           <Footer footer={content.footer} navItems={content.global.navItems} />
           <Background />
           <Grain />
         </ClientProviders>
-        <CustomCursor />
         <JsonLd />
         <GoogleAnalyticsDeferred
           gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''}

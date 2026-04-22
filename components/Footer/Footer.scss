@@ -22,25 +22,38 @@
   }
 
   &__logo {
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 1.4rem;
-    letter-spacing: -0.5px;
-    background: linear-gradient(
-      135deg,
-      var(--gradient-start, var(--accent-primary)),
-      var(--gradient-mid, var(--accent-secondary)),
-      var(--gradient-end, var(--accent-primary))
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     text-decoration: none;
     align-self: flex-start;
-    cursor: pointer;
-    border: none;
-    padding: 0;
-    background-color: transparent;
+    transition: opacity 0.2s;
+
+    img {
+      display: block;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    span {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.4rem;
+      letter-spacing: -0.5px;
+      background: linear-gradient(
+        135deg,
+        var(--gradient-start, var(--accent-primary)),
+        var(--gradient-mid, var(--accent-secondary)),
+        var(--gradient-end, var(--accent-primary))
+      );
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    &:hover {
+      opacity: 0.8;
+    }
   }
 
   &__tagline {

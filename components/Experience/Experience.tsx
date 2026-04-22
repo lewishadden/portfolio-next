@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { Icon } from '@iconify/react';
 import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
+import Magnet from 'components/Magnet/Magnet';
 
 import { Experience as ExperienceProps } from '@/types';
 
@@ -63,9 +65,7 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
                 <div className="xp__date">{item.years}</div>
                 <h3 className="xp__role">{item.title}</h3>
                 <p className="xp__co">{item.company}</p>
-                {item.description && (
-                  <p className="xp__desc">{item.description}</p>
-                )}
+                {item.description && <p className="xp__desc">{item.description}</p>}
                 <div className="xp__tech">
                   {item.mainTech.map((t) => (
                     <span className="chip" key={t}>
@@ -86,6 +86,21 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
           </span>
         </div>
       </div>
+
+      <ScrollReveal className="section__page-nav">
+        <Magnet>
+          <Link href="/projects" className="btn btn--primary">
+            <Icon icon="ph:folder-open" width={18} height={18} aria-hidden="true" />
+            <span>See Projects</span>
+          </Link>
+        </Magnet>
+        <Magnet>
+          <Link href="/contact" className="btn btn--secondary">
+            <Icon icon="ph:envelope-simple" width={18} height={18} aria-hidden="true" />
+            <span>Work Together</span>
+          </Link>
+        </Magnet>
+      </ScrollReveal>
     </section>
   );
 };
