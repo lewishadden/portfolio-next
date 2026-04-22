@@ -11,27 +11,28 @@ This is a **Next.js 16** portfolio website built with **React 19**, **TypeScript
 - **Styling:** SCSS (BEM naming convention), CSS Modules (for select components)
 - **Icons:** `@iconify/react`
 - **Forms:** Formik + Yup
-- **Animations:** animate.css, react-type-animation
+- **Animations:** Framer Motion (scroll-driven), react-type-animation (typing effect)
 - **Linting:** ESLint, Stylelint, Prettier
 - **Package Manager:** npm
-- **Node Version:** See `.nvmrc`
+- **Node Version:** See `.nvmrc` (v24.x)
 - **Email:** `nodemailer` via Next.js API route (`app/api/sendmail/route.ts`)
-- **Legacy APIs:** Serverless (DigitalOcean) and Express (Bun) email endpoints in `api/` (unused, kept for reference)
+- **Geolocation:** `@vercel/functions` (used in `app/layout.tsx` to pass geo data to analytics)
+- **Legacy APIs:** Serverless (DigitalOcean) and Express (Bun) endpoints in `api/` (unused, kept for reference)
 
 ## Project Structure
 
 ```
-app/              # Next.js App Router (layout, pages, API routes, global styles, theme variables)
-components/       # React components, each with its own .tsx, .scss, and test files
-config/           # App configuration (header links, GitHub URL)
+app/              # Next.js App Router (layout, page, API routes, global styles, theme variables)
+components/       # React components, each with its own .tsx and .scss
+config/           # App configuration (GitHub URL)
 content/          # Static content (content.json — the single data source)
 contexts/         # React contexts (ThemeContext)
+hooks/            # Custom React hooks (useActiveSection, useCountUp, useFocusTrap, etc.)
 icons/            # Custom SVG icon components
 public/           # Static assets served at root
 types/            # TypeScript type definitions (index.d.ts)
-utils/            # Utility functions (serverUtils.ts for reading content)
+utils/            # Utility functions (serverUtils.ts, buildPyramidRows.ts)
 api/              # Legacy backend API implementations (serverless + express), unused
-docs/             # Documentation (accessibility, SEO, etc.)
 ```
 
 ## Key Conventions
@@ -66,6 +67,7 @@ Each group must be separated by a newline for clarity and consistency.
   - `<ComponentName>.tsx` — the React component (client or server)
   - `<ComponentName>.scss` — scoped styles using BEM naming (`.component__element--modifier`)
 - Components marked `'use client'` are client components; otherwise they are server components.
+- There are no test files — no testing infrastructure is currently set up.
 
 ### Styling
 
@@ -79,8 +81,22 @@ Each group must be separated by a newline for clarity and consistency.
 ### TypeScript Types
 
 - All shared types are in `types/index.d.ts`
-- Key interfaces: `ResumeData`, `BasicInfo`, `Project`, `Theme`, `Experience`, `ExperienceItem`, `Skills`, `Icon`, `Contact`, `Technology`, `Social`, `ContactInfo`, `SectionName`
+- Key interfaces: `ResumeData`, `Global`, `Header`, `Home`, `StatItem`, `About`, `Highlight`, `Experience`, `ExperienceItem`, `Projects`, `Project`, `Technology`, `Skills`, `SkillCategory`, `SkillIcon`, `Contact`, `ContactInfo`, `SocialLink`, `Footer`, `NavItem`, `Theme`, `CtaPair`, `Cta`, `Icon`
 - Use `@/types` path alias form for imports
+
+### Custom Hooks (`hooks/`)
+
+- `useActiveSection` — detects which section is in viewport via scroll/resize listeners
+- `useColumns` — responsive column count via rAF-throttled resize
+- `useCountUp` — animates a number from 0 to target with cubic easing, triggers on intersection
+- `useFocusTrap` — traps keyboard focus within a container (used in modals and mobile menu)
+- `useHeadroom` — returns whether the header should be visible (pin/unpin on scroll direction)
+- `useInViewport` — simple IntersectionObserver ref + boolean
+- `useMediaQuery` — subscribes to a CSS media query, SSR-safe
+- `useReducedMotion` — returns `prefers-reduced-motion: reduce`, SSR-safe
+- `useReveal` / `useGlobalReveal` — scroll-triggered reveal for individual elements and `.reveal` class globally
+- `useScrollProgress` — tracks scroll percentage, sets `--scroll-pct` CSS variable
+- `useTilt` — 3D tilt effect on mousemove using perspective transforms
 
 ### Data Flow
 
@@ -108,7 +124,9 @@ npm run dev          # Start Next.js dev server
 ### Building
 
 ```sh
-npm run build        # Full production build (next build + sitemap)
+npm run build        # Production build (next build)
+npm run analyze      # Build with bundle analyzer (ANALYZE=true)
+npm run purgecss     # Remove unused CSS from .next output
 ```
 
 ### Linting & Formatting
@@ -119,6 +137,7 @@ npm run lint:fix          # Auto-fix ESLint + Stylelint issues
 npm run prettier:check    # Check formatting
 npm run prettier:write    # Auto-format all files
 npm run typecheck         # TypeScript type checking (tsc --noEmit)
+npm run verify            # prettier:check + lint + typecheck (CI script — run before committing)
 ```
 
 ## Accessibility
@@ -136,9 +155,9 @@ npm run typecheck         # TypeScript type checking (tsc --noEmit)
 ## SEO
 
 - Metadata is configured in `app/layout.tsx` (Open Graph, Twitter Cards, robots, etc.)
-- JSON-LD structured data schemas: Person, WebSite, BreadcrumbList, ProfilePage
-- Sitemap generated via `next-sitemap` (config in `next-sitemap.config.js`)
-- Google Tag Manager integration via `GoogleTagManagerDeferred` component
+- JSON-LD structured data schemas: Person, WebSite, ProfilePage
+- Sitemap generated natively via `app/sitemap.ts` (no extra package needed — serves `/sitemap.xml` at runtime)
+- Google Analytics via `GoogleAnalyticsDeferred` component (loads after browser idle via `requestIdleCallback`)
 
 ## Git Workflow
 
@@ -155,4 +174,6 @@ npm run typecheck         # TypeScript type checking (tsc --noEmit)
 - Images use the built-in Next.js `<Image>` component with server-side optimization
 - The `api/` directory contains legacy standalone backend services (a DigitalOcean serverless function and an Express/Bun server) — these are no longer used; the contact form email is handled by `app/api/sendmail/route.ts`
 - SMTP configuration is provided via environment variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL`, `SMTP_PASS`
-- PostCSS config (`postcss.config.cjs`) includes `postcss-simple-vars` with breakpoint variables
+- The `Contact` component is lazy-loaded via `LazyContact.tsx` (dynamic import, SSR disabled) to reduce initial bundle size
+- `ThemeScript` runs as an inline script before hydration to prevent theme flash on page load
+- `Background` component uses a canvas-based particle system with `requestIdleCallback` for deferred rendering; respects `prefers-reduced-motion`
