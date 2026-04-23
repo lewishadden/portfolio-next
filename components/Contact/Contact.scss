@@ -19,6 +19,11 @@
     overflow: hidden;
     transition: background 0.3s;
 
+    @media (max-width: 540px) {
+      padding: 22px;
+      gap: 20px;
+    }
+
     &:hover {
       background:
         radial-gradient(
@@ -57,6 +62,10 @@
       letter-spacing: -0.8px;
       margin: 0 0 8px;
       color: var(--text-primary);
+
+      @media (max-width: 540px) {
+        font-size: 1.4rem;
+      }
     }
 
     p {
@@ -180,6 +189,10 @@
     display: flex;
     flex-direction: column;
     transition: background 0.3s;
+
+    @media (max-width: 540px) {
+      padding: 22px;
+    }
 
     &:hover {
       background:
@@ -337,6 +350,15 @@
   border: 1px solid var(--border-color);
   box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.18);
 
+  @media (max-width: 640px) {
+    height: 240px;
+    margin: 32px auto 0;
+  }
+
+  @media (max-width: 480px) {
+    height: 200px;
+  }
+
   .location-map__canvas {
     position: absolute;
     inset: 0;
@@ -433,5 +455,11 @@
   .contact__grid {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .contact__grid {
+    gap: 16px;
   }
 }

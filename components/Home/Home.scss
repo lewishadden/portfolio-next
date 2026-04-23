@@ -8,6 +8,15 @@
   position: relative;
   overflow: hidden;
 
+  @media (max-width: 640px) {
+    padding: 112px 20px 80px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 96px 16px 64px;
+    min-height: unset;
+  }
+
   &__inner {
     max-width: 1200px;
     width: 100%;
@@ -50,6 +59,11 @@
       max-width: 280px;
       order: -1;
     }
+
+    @media (max-width: 480px) {
+      width: 220px;
+      max-width: 220px;
+    }
   }
 
   &__visual-img {
@@ -76,6 +90,12 @@
     color: var(--status-ok);
     backdrop-filter: blur(12px);
     margin-bottom: 36px;
+
+    @media (max-width: 480px) {
+      padding: 6px 14px;
+      font-size: var(--fs-2xs);
+      margin-bottom: 24px;
+    }
   }
 
   &__badge-dot {
@@ -247,6 +267,12 @@
     @media (max-width: 900px) {
       margin: 0 auto 44px;
     }
+
+    @media (max-width: 480px) {
+      font-size: var(--fs-body);
+      line-height: 1.6;
+      margin: 0 auto 32px;
+    }
   }
 
   &__ctas {
@@ -256,6 +282,18 @@
 
     @media (max-width: 900px) {
       justify-content: center;
+    }
+
+    @media (max-width: 420px) {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+      gap: 10px;
+
+      .magnet,
+      .magnet > * {
+        width: 100%;
+      }
     }
   }
 
@@ -278,6 +316,10 @@
       width: 22px;
       height: 22px;
       stroke: currentColor;
+    }
+
+    @media (max-width: 480px) {
+      display: none;
     }
   }
 }

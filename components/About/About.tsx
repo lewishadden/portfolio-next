@@ -10,7 +10,7 @@ import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
 
 import './About.scss';
 
-const maxImageWidth = 640;
+const maxImageWidth = 1200;
 const aboutImageLoader: ImageLoader = ({ src, width, quality }) => {
   const w = Math.min(width, maxImageWidth);
   return `/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=${quality || 75}`;
@@ -48,7 +48,7 @@ export const About = ({
             height={image.size.height}
             alt={`Portrait of ${name}`}
             loader={aboutImageLoader}
-            sizes="(min-width: 900px) 520px, calc(100vw - 40px)"
+            sizes="(min-width: 900px) 520px, (min-width: 541px) 560px, calc(100vw - 32px)"
             priority
           />
           <div className="about__media-tag">

@@ -105,7 +105,7 @@ export const Home = ({
             height={561}
             className="hero__visual-img"
             priority
-            sizes="(min-width: 900px) 480px, 0px"
+            sizes="(max-width: 480px) 220px, (max-width: 900px) 280px, 480px"
           />
         </div>
       </div>

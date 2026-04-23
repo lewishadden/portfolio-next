@@ -23,8 +23,13 @@
     @media (max-width: 900px) {
       position: relative;
       top: 0;
-      max-width: 420px;
+      width: 100%;
+      max-width: 560px;
       margin: 0 auto;
+    }
+
+    @media (max-width: 540px) {
+      max-width: none;
     }
 
     &::after {
@@ -93,6 +98,10 @@
     display: flex;
     flex-direction: column;
     gap: 28px;
+
+    @media (max-width: 540px) {
+      gap: 20px;
+    }
   }
 
   &__title {
@@ -103,12 +112,21 @@
     line-height: 1.3;
     margin: 0;
     color: var(--text-primary);
+
+    @media (max-width: 480px) {
+      font-size: var(--fs-h4);
+    }
   }
 
   &__copy {
     font-size: var(--fs-body-lg);
     line-height: 1.85;
     color: var(--text-secondary);
+
+    @media (max-width: 480px) {
+      font-size: var(--fs-body);
+      line-height: 1.7;
+    }
 
     p {
       margin: 0 0 16px;
@@ -153,6 +171,10 @@
     transition: all 0.3s var(--ease-standard);
     position: relative;
     overflow: hidden;
+
+    @media (max-width: 540px) {
+      padding: 16px;
+    }
 
     /* Large faded icon watermark */
     &::after {
@@ -213,5 +235,15 @@
     gap: 14px;
     flex-wrap: wrap;
     margin-top: 8px;
+
+    @media (max-width: 420px) {
+      flex-direction: column;
+      align-items: stretch;
+
+      .magnet,
+      .magnet > * {
+        width: 100%;
+      }
+    }
   }
 }

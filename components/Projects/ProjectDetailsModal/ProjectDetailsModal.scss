@@ -10,6 +10,11 @@
   animation: modalFadeIn 0.2s ease;
   overscroll-behavior: none;
   touch-action: none;
+
+  @media (max-width: 540px) {
+    padding: 0.5rem;
+    align-items: flex-end;
+  }
 }
 
 // ── Clickable backdrop ──
@@ -42,6 +47,11 @@
   animation: modalSlideUp 0.25s ease;
   outline: none;
 
+  @media (max-width: 540px) {
+    max-height: 94vh;
+    border-radius: 20px 20px 12px 12px;
+  }
+
   [data-theme='light'] & {
     box-shadow:
       0 20px 80px rgba(15, 23, 42, 0.2),
@@ -68,6 +78,13 @@
   transition: all 0.2s ease;
   z-index: 1;
 
+  @media (max-width: 540px) {
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 32px;
+    height: 32px;
+  }
+
   &:hover {
     color: var(--text-primary);
     background: var(--bg-tertiary);
@@ -85,6 +102,18 @@
       transparent 100%
     );
     border-radius: 24px 24px 0 0;
+
+    @media (max-width: 640px) {
+      padding: 1.25rem 1.5rem 1rem;
+    }
+
+    @media (max-width: 540px) {
+      border-radius: 20px 20px 0 0;
+    }
+
+    @media (max-width: 480px) {
+      padding: 1rem 1.25rem 0.875rem;
+    }
 
     &__title {
       font-size: 2rem;
@@ -107,6 +136,12 @@
       @media (min-width: 768px) {
         font-size: 2.25rem;
       }
+
+      @media (max-width: 540px) {
+        font-size: 1.4rem;
+        padding-right: 2rem;
+        text-align: left;
+      }
     }
   }
 
@@ -117,6 +152,14 @@
     min-height: 0;
     overscroll-behavior: contain;
     touch-action: pan-y;
+
+    @media (max-width: 640px) {
+      padding: 1.5rem;
+    }
+
+    @media (max-width: 480px) {
+      padding: 1.25rem;
+    }
 
     &__inner {
       max-width: 780px;
@@ -133,6 +176,11 @@
       font-size: 1.0625rem;
       line-height: 1.85;
       color: var(--text-secondary);
+
+      @media (max-width: 540px) {
+        font-size: var(--fs-body);
+        line-height: 1.7;
+      }
     }
 
     // --- Live site link button ---
@@ -203,6 +251,11 @@
       display: inline-flex;
       flex-direction: column;
       align-items: center;
+
+      @media (max-width: 540px) {
+        font-size: 2.25rem;
+        margin: 0.5rem 0.625rem;
+      }
 
       &:hover {
         transform: scale(1.15);

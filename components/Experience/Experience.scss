@@ -40,6 +40,10 @@
     @media (max-width: 900px) {
       left: 30px;
     }
+
+    @media (max-width: 480px) {
+      left: 22px;
+    }
   }
 
   &__items {
@@ -60,10 +64,23 @@
     @media (max-width: 900px) {
       grid-template-columns: 60px 1fr;
     }
+
+    @media (max-width: 480px) {
+      grid-template-columns: 44px 1fr;
+      min-height: 0;
+    }
   }
 
   &__content {
     padding: 28px;
+
+    @media (max-width: 640px) {
+      padding: 20px;
+    }
+
+    @media (max-width: 480px) {
+      padding: 16px;
+    }
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
@@ -182,6 +199,11 @@
     @media (max-width: 900px) {
       grid-column: 1;
     }
+
+    @media (max-width: 480px) {
+      width: 40px;
+      height: 40px;
+    }
   }
 
   &__dot-text {
@@ -193,6 +215,10 @@
     text-transform: uppercase;
     white-space: nowrap;
     user-select: none;
+
+    @media (max-width: 480px) {
+      font-size: 8px;
+    }
   }
 
   &__item:hover &__dot {
@@ -214,6 +240,10 @@
     color: var(--text-primary);
     margin: 0 0 4px;
     letter-spacing: -0.3px;
+
+    @media (max-width: 480px) {
+      font-size: 1.05rem;
+    }
   }
 
   &__co {

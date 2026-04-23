@@ -297,5 +297,55 @@ iconify-icon {
   .section__num {
     top: -80px;
     font-size: 7rem;
+    letter-spacing: -3px;
+  }
+  .section__head {
+    margin-bottom: 40px;
+  }
+  .section__sub {
+    font-size: var(--fs-body);
+  }
+  .section__page-nav {
+    margin-top: 56px;
+    padding-top: 32px;
+    gap: 12px;
+  }
+  .btn {
+    padding: 13px 22px;
+    font-size: var(--fs-body-sm);
+  }
+}
+
+@media (max-width: 480px) {
+  .section {
+    padding: 88px 16px 60px;
+  }
+  .section__num {
+    top: -60px;
+    font-size: 5.2rem;
+    letter-spacing: -2px;
+  }
+  .section__label {
+    font-size: var(--fs-2xs);
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+  .section__head {
+    margin-bottom: 32px;
+  }
+  .section__page-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 48px;
+    padding-top: 28px;
+  }
+  .section__page-nav .magnet,
+  .section__page-nav .magnet > * {
+    width: 100%;
+  }
+  .btn {
+    padding: 14px 20px;
+    width: 100%;
   }
 }
