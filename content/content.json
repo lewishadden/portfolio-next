@@ -48,10 +48,10 @@
     "tagline": "Senior full stack engineer based in Peterborough, UK. Nine years shipping React, Next.js & Azure at IBM, ADP, ERGO. Currently specialising in modernising platforms that refuse to be simple.",
     "cta": {
       "primary": {
-        "text": "Let's Talk",
-        "url": "/contact",
-        "icon": "mdi:message-text-outline",
-        "ariaLabel": "Contact me"
+        "text": "About Me",
+        "url": "/about",
+        "icon": "mdi:account-outline",
+        "ariaLabel": "Learn more about me"
       },
       "secondary": {
         "text": "View Work",
@@ -1232,29 +1232,16 @@
           "link": "tel:+447714512514"
         },
         {
-          "name": "Based in",
-          "class": "mdi:map-marker",
-          "value": "Peterborough, UK"
-        }
-      ],
-      "socialLinks": [
-        {
           "name": "LinkedIn",
           "class": "mdi:linkedin",
-          "link": "https://www.linkedin.com/in/lewishadden/",
-          "ariaLabel": "LinkedIn profile"
+          "value": "in/lewishadden",
+          "link": "https://www.linkedin.com/in/lewishadden/"
         },
         {
           "name": "GitHub",
           "class": "mdi:github",
-          "link": "https://github.com/lewishadden",
-          "ariaLabel": "GitHub profile"
-        },
-        {
-          "name": "Email",
-          "class": "clarity:email-solid",
-          "link": "mailto:lewishadden@gmail.com",
-          "ariaLabel": "Send email"
+          "value": "lewishadden",
+          "link": "https://github.com/lewishadden"
         }
       ]
     },

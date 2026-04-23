@@ -323,6 +323,112 @@
   }
 }
 
+/* =============================================================
+   Location Visual
+   ============================================================= */
+.contact__location {
+  position: relative;
+  height: 320px;
+  width: 100%;
+  margin: 48px auto 0;
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  background: color-mix(in oklab, var(--bg-secondary) 80%, transparent);
+  border: 1px solid var(--border-color);
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.18);
+
+  .location-map__canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    z-index: 0;
+  }
+
+  [data-theme='dark'] & .location-map__canvas {
+    filter: invert(0.88) hue-rotate(180deg) brightness(1) contrast(1.05) saturate(0.85);
+  }
+
+  .leaflet-control-attribution {
+    font-size: 10px;
+    background: color-mix(in oklab, var(--bg-secondary) 85%, transparent);
+    color: var(--text-muted);
+
+    a {
+      color: var(--accent-primary);
+    }
+  }
+
+  &-pin {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    color: var(--accent-primary);
+    z-index: 2;
+    filter:
+      drop-shadow(0 6px 16px color-mix(in oklab, var(--accent-primary) 60%, transparent))
+      drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    pointer-events: none;
+  }
+
+  &-pulse {
+    position: absolute;
+    top: 48%;
+    left: 50%;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--accent-primary) 65%, transparent);
+    animation: location-pulse 2.5s ease-in-out infinite;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  [data-theme='dark'] & &-pin {
+    color: var(--accent-secondary);
+    filter:
+      drop-shadow(0 6px 16px color-mix(in oklab, var(--accent-secondary) 60%, transparent))
+      drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  }
+
+  [data-theme='dark'] & &-pulse {
+    background: color-mix(in oklab, var(--accent-secondary) 65%, transparent);
+  }
+
+  &-label {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    background: color-mix(in oklab, var(--bg-secondary) 85%, transparent);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border-color);
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    z-index: 2;
+    pointer-events: none;
+  }
+}
+
+@keyframes location-pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
+}
+
 @media (max-width: 900px) {
   .contact__grid {
     grid-template-columns: 1fr;

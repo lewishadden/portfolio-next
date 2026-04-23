@@ -65,8 +65,13 @@
   gap: 20px;
 
   @media (min-width: 900px) {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-flow: dense;
+    gap: 24px;
+
+    > :has(.skill-card--wide) {
+      grid-column: span 2;
+    }
   }
 }
 
@@ -181,6 +186,11 @@
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     border: none;
     padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 
     span {
       font-size: var(--fs-xs);
@@ -188,6 +198,23 @@
       color: #fff;
       text-align: center;
       line-height: 1.15;
+    }
+  }
+
+  &__dots {
+    display: flex;
+    gap: 3px;
+  }
+
+  &__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+
+    &--filled {
+      background: #fff;
+      box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
     }
   }
 }

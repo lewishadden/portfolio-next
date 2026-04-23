@@ -81,7 +81,7 @@ Each group must be separated by a newline for clarity and consistency.
 ### TypeScript Types
 
 - All shared types are in `types/index.d.ts`
-- Key interfaces: `ResumeData`, `Global`, `Header`, `Home`, `StatItem`, `About`, `Highlight`, `Experience`, `ExperienceItem`, `Projects`, `Project`, `Technology`, `Skills`, `SkillCategory`, `SkillIcon`, `Contact`, `ContactInfo`, `SocialLink`, `Footer`, `NavItem`, `Theme`, `CtaPair`, `Cta`, `Icon`
+- Key interfaces: `ResumeData`, `Global`, `Header`, `Home`, `StatItem`, `About`, `Highlight`, `Experience`, `ExperienceItem`, `Projects`, `Project`, `Technology`, `Skills`, `SkillCategory`, `SkillIcon`, `Contact`, `ContactInfo`, `Footer`, `NavItem`, `Theme`, `CtaPair`, `Cta`, `Icon`
 - Use `@/types` path alias form for imports
 
 ### Custom Hooks (`hooks/`)

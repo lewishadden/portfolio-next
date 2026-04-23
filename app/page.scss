@@ -42,6 +42,31 @@ iconify-icon {
   position: relative;
 }
 
+/* Section divider — gradient horizontal rule between sections */
+.section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(600px, 80%);
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--gradient-start) 50%, transparent) 20%,
+    color-mix(in oklab, var(--gradient-mid) 60%, transparent) 50%,
+    color-mix(in oklab, var(--gradient-end) 50%, transparent) 80%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* First section on a page has no top divider */
+.section:first-child::before {
+  display: none;
+}
+
 .section__num {
   position: absolute;
   top: -120px;
@@ -165,6 +190,29 @@ iconify-icon {
   overflow: hidden;
   cursor: pointer;
 
+  /* Shimmer sweep — shared by both variants */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      105deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.15) 50%,
+      transparent 70%
+    );
+    transition: none;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  &:hover::after {
+    animation: btn-shimmer 0.7s ease forwards;
+  }
+
   &--primary {
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     color: #fff;
@@ -210,6 +258,12 @@ iconify-icon {
       border-color: color-mix(in oklab, var(--accent-primary) 50%, transparent);
       transform: translateY(-2px);
     }
+  }
+}
+
+@keyframes btn-shimmer {
+  to {
+    left: 130%;
   }
 }
 

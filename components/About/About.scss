@@ -151,6 +151,27 @@
     flex-direction: column;
     gap: 8px;
     transition: all 0.3s var(--ease-standard);
+    position: relative;
+    overflow: hidden;
+
+    /* Large faded icon watermark */
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      right: -10px;
+      width: 100px;
+      height: 100px;
+      background: currentColor;
+      opacity: 0.04;
+      border-radius: 50%;
+      pointer-events: none;
+      transition: opacity 0.4s;
+    }
+
+    &:hover::after {
+      opacity: 0.08;
+    }
 
     &:hover {
       background:
@@ -166,18 +187,24 @@
 
     svg {
       color: var(--accent-primary);
+      position: relative;
+      z-index: 1;
     }
 
     b {
       font-size: var(--fs-body);
       color: var(--text-primary);
       font-weight: 600;
+      position: relative;
+      z-index: 1;
     }
 
     span {
       font-size: var(--fs-caption);
       color: var(--text-muted);
       line-height: 1.5;
+      position: relative;
+      z-index: 1;
     }
   }
 

@@ -47,14 +47,17 @@
       135deg,
       var(--gradient-start),
       var(--gradient-mid) 50%,
-      var(--gradient-end)
+      var(--gradient-end),
+      var(--gradient-start)
     );
+    background-size: 300% 100%;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     margin-bottom: 8px;
     position: relative;
     z-index: 1;
+    animation: stats-gradient-shift 6s ease-in-out infinite;
   }
 
   &__label {
@@ -71,6 +74,22 @@
 @media (max-width: 900px) {
   .stats {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@keyframes stats-gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stats__value {
+    animation: none;
   }
 }
 

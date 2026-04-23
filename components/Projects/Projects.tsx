@@ -30,22 +30,23 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         </p>
       </ScrollReveal>
 
-      <div className="projects__editorial">
+      <div className="projects__bento">
         {items.map((p, i) => {
           const preview = p.images?.[0];
-          const techSummary = p.technologies
-            .slice(0, 3)
-            .map((t) => t.name)
-            .join(' · ');
+          const featured = i === 0 || i === 3 || i === 8;
+          const techSummary = p.technologies.slice(0, 4);
+          const descriptionSnippet =
+            p.description.length > 120 ? `${p.description.slice(0, 120)}…` : p.description;
 
           return (
             <ScrollReveal
               as="button"
               key={p.title}
               type="button"
-              className="proj-row"
+              className={`proj-card${featured ? ' proj-card--featured' : ''}`}
               onClick={() => setSelectedProject(p)}
               aria-label={`View details for ${p.title}`}
+              style={{ '--reveal-delay': `${(i % 3) * 100}ms` } as React.CSSProperties}
               onMouseMove={(e: React.MouseEvent<HTMLButtonElement>) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -54,20 +55,8 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
                 e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
               }}
             >
-              <span className="proj-row__num">{String(i + 1).padStart(2, '0')}</span>
-              <div className="proj-row__text">
-                <h3 className="proj-row__title">{p.title}</h3>
-                <p className="proj-row__sub">{techSummary}</p>
-              </div>
-              <div className="proj-row__meta">
-                <b>{p.startDate}</b>
-              </div>
-              <div className="proj-row__cta">
-                View <Icon icon="ph:arrow-up-right" width={14} height={14} aria-hidden="true" />
-              </div>
               <div
-                className={`proj-row__preview${preview ? '' : ' proj-row__preview--placeholder'}`}
-                aria-hidden="true"
+                className={`proj-card__image${!preview ? ' proj-card__image--placeholder' : ''}`}
               >
                 {preview ? (
                   <Image
@@ -75,12 +64,36 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
                     alt=""
                     width={preview.size.width}
                     height={preview.size.height}
-                    sizes="260px"
-                    loading="lazy"
+                    sizes={
+                      featured
+                        ? '(min-width: 900px) 720px, 100vw'
+                        : '(min-width: 900px) 380px, 100vw'
+                    }
+                    loading={i < 4 ? 'eager' : 'lazy'}
                   />
                 ) : (
-                  <Icon icon="ph:code" width={32} height={32} />
+                  <Icon icon={p.thumbnail || 'ph:code'} width={48} height={48} />
                 )}
+              </div>
+              <div className="proj-card__body">
+                <div className="proj-card__header">
+                  <h3 className="proj-card__title">{p.title}</h3>
+                  <span className="proj-card__year">{p.startDate}</span>
+                </div>
+                <p className="proj-card__desc">{descriptionSnippet}</p>
+                <div className="proj-card__footer">
+                  <div className="proj-card__tech">
+                    {techSummary.map((t) => (
+                      <span className="chip" key={t.name}>
+                        <Icon icon={t.class} width={14} height={14} aria-hidden="true" />
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="proj-card__cta">
+                    View <Icon icon="ph:arrow-up-right" width={14} height={14} aria-hidden="true" />
+                  </span>
+                </div>
               </div>
             </ScrollReveal>
           );

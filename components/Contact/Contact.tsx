@@ -1,12 +1,18 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
 
-import { Contact as ContactProps, SocialLink } from '@/types';
+import { Contact as ContactProps } from '@/types';
 import ContactForm from './ContactForm/ContactForm';
 import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
+
+const LocationMap = dynamic(
+  () => import('components/LocationMap/LocationMap').then((m) => m.LocationMap),
+  { ssr: false }
+);
 
 import './Contact.scss';
 
@@ -110,23 +116,6 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
               )}
             </ul>
           </address>
-          {contactInfo.socialLinks?.length > 0 && (
-            <div className="contact__social">
-              {contactInfo.socialLinks.map((s: SocialLink) => (
-                <Link
-                  key={s.name}
-                  href={s.link}
-                  prefetch={false}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="contact__social-btn"
-                  aria-label={s.ariaLabel}
-                >
-                  <Icon icon={s.class} width={20} height={20} aria-hidden="true" />
-                </Link>
-              ))}
-            </div>
-          )}
         </ScrollReveal>
 
         <ScrollReveal
@@ -166,6 +155,15 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
           )}
         </ScrollReveal>
       </div>
+
+      <ScrollReveal className="contact__location">
+        <LocationMap />
+        <span className="contact__location-pulse" aria-hidden="true" />
+        <div className="contact__location-pin" aria-hidden="true">
+          <Icon icon="mdi:map-marker" width={56} height={56} />
+        </div>
+        <span className="contact__location-label">Peterborough, UK</span>
+      </ScrollReveal>
 
       {showToast && (
         <div

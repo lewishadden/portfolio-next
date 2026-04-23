@@ -10,6 +10,16 @@ import { Experience as ExperienceProps } from '@/types';
 
 import './Experience.scss';
 
+const companyAbbreviations: Record<string, string> = {
+  ADP: 'ADP',
+  'ERGO Travel Insurance': 'ERGO',
+  'Sopra Steria': 'SS',
+  IBM: 'IBM',
+};
+
+const getCompanyInitials = (company: string): string =>
+  companyAbbreviations[company] || company.slice(0, 2).toUpperCase();
+
 export const Experience = ({ experience }: { experience: ExperienceProps }) => {
   const { title, label, items, done } = experience;
   const railRef = useRef<HTMLDivElement | null>(null);
@@ -47,37 +57,39 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
         <div className="xp__rail" ref={railRef} aria-hidden="true" />
         <ol className="xp__items">
           {items.map((item, i) => (
-            <ScrollReveal
-              as="li"
+            <li
               key={`${item.company}-${item.years}`}
               className={`xp__item xp__item--${i % 2 === 0 ? 'left' : 'right'}`}
             >
-              <div
-                className="xp__content"
-                onMouseMove={(e: React.MouseEvent<HTMLDivElement>) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const x = e.clientX - rect.left;
-                  const y = e.clientY - rect.top;
-                  e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
-                  e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
-                }}
-              >
-                <div className="xp__date">{item.years}</div>
-                <h3 className="xp__role">{item.title}</h3>
-                <p className="xp__co">{item.company}</p>
-                {item.description && <p className="xp__desc">{item.description}</p>}
-                <div className="xp__tech">
-                  {item.mainTech.map((t) => (
-                    <span className="chip" key={t}>
-                      {t}
-                    </span>
-                  ))}
-                </div>
+              <div className="xp__content-wrapper">
+                <ScrollReveal
+                  className="xp__content"
+                  variant={i % 2 === 0 ? 'slide-left' : 'slide-right'}
+                  onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+                    e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+                  }}
+                >
+                  <div className="xp__date">{item.years}</div>
+                  <h3 className="xp__role">{item.title}</h3>
+                  <p className="xp__co">{item.company}</p>
+                  {item.description && <p className="xp__desc">{item.description}</p>}
+                  <div className="xp__tech">
+                    {item.mainTech.map((t) => (
+                      <span className="chip" key={t}>
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </ScrollReveal>
               </div>
               <div className="xp__dot" aria-hidden="true">
-                <Icon icon={item.icon} width={22} height={22} />
+                <span className="xp__dot-text">{getCompanyInitials(item.company)}</span>
               </div>
-            </ScrollReveal>
+            </li>
           ))}
         </ol>
         <div className="xp__end">

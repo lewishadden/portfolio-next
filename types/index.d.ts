@@ -111,7 +111,6 @@ export interface Contact {
     title: string;
     description: string;
     items: ContactInfo[];
-    socialLinks: SocialLink[];
   };
   send: {
     icon: string;
@@ -176,13 +175,6 @@ export interface ContactInfo {
   class: string;
   value: string;
   link?: string;
-}
-
-export interface SocialLink {
-  name: string;
-  class: string;
-  link: string;
-  ariaLabel: string;
 }
 
 export interface Project {

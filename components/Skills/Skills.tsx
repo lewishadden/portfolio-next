@@ -38,10 +38,12 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
       <div className="skills__groups">
         {categories.map((cat, i) => {
           const catSkills = icons.filter((icon) => icon.category === cat.categoryKey);
+          const wide = catSkills.length >= 12;
           return (
             <ScrollReveal
               key={cat.categoryKey}
-              className="skill-card"
+              className={`skill-card${wide ? ' skill-card--wide' : ''}`}
+              variant="scale"
               style={{ '--reveal-delay': `${i * 120}ms` } as React.CSSProperties}
               onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -56,18 +58,30 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
                 <h3>{cat.title}</h3>
               </div>
               <div className="skill-card__grid">
-                {catSkills.map((s) => (
-                  <div className="skill-tile" key={s.name}>
-                    <div className="skill-tile__inner">
-                      <div className="skill-tile__front" aria-hidden="true">
-                        <Icon icon={s.class} width={32} height={32} />
-                      </div>
-                      <div className="skill-tile__back" aria-hidden="true">
-                        <span>{s.name}</span>
+                {catSkills.map((s) => {
+                  const level = parseInt(s.level, 10) || 0;
+                  const dots = Math.round(level / 20);
+                  return (
+                    <div className="skill-tile" key={s.name}>
+                      <div className="skill-tile__inner">
+                        <div className="skill-tile__front" aria-hidden="true">
+                          <Icon icon={s.class} width={32} height={32} />
+                        </div>
+                        <div className="skill-tile__back" aria-hidden="true">
+                          <span>{s.name}</span>
+                          <span className="skill-tile__dots">
+                            {Array.from({ length: 5 }, (_, d) => (
+                              <span
+                                key={d}
+                                className={`skill-tile__dot${d < dots ? ' skill-tile__dot--filled' : ''}`}
+                              />
+                            ))}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollReveal>
           );
