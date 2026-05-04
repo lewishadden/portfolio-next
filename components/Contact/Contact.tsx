@@ -53,7 +53,6 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
 
   return (
     <section id="contact" className="section contact" aria-labelledby="contact-heading">
-      <div className="section__num">05</div>
       <ScrollReveal className="section__head section__head--centered">
         <span className="section__label section__label--centered">{label}</span>
         <h2 id="contact-heading" className="section__title">

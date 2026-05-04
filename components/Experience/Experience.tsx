@@ -41,7 +41,6 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
 
   return (
     <section id="experience" className="section xp" aria-labelledby="experience-heading">
-      <div className="section__num">02</div>
       <ScrollReveal className="section__head section__head--centered">
         <span className="section__label section__label--centered">{label}</span>
         <h2 id="experience-heading" className="section__title">

@@ -12,7 +12,6 @@ function ContactSkeleton() {
       aria-busy="true"
       aria-label="Loading contact section"
     >
-      <div className="section__num">05</div>
       <div className="contact__grid">
         <div className="contact__side" aria-hidden="true" />
         <div className="contact__panel" aria-hidden="true" />

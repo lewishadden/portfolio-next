@@ -31,7 +31,6 @@ export const About = ({
 
   return (
     <section id="about" className="section about" aria-labelledby="about-heading">
-      <div className="section__num">01</div>
       <ScrollReveal className="section__head">
         <span className="section__label">{label}</span>
         <h2 id="about-heading" className="section__title">
