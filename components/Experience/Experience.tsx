@@ -6,6 +6,7 @@ import { Icon } from '@iconify/react';
 import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
 import Magnet from 'components/Magnet/Magnet';
 
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Experience as ExperienceProps } from '@/types';
 
 import './Experience.scss';
@@ -23,6 +24,7 @@ const getCompanyInitials = (company: string): string =>
 export const Experience = ({ experience }: { experience: ExperienceProps }) => {
   const { title, label, items, done } = experience;
   const railRef = useRef<HTMLDivElement | null>(null);
+  const isMobileTimeline = useMediaQuery('(max-width: 900px)');
 
   useEffect(() => {
     const onScroll = () => {
@@ -66,7 +68,9 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
               <div className="xp__content-wrapper">
                 <ScrollReveal
                   className="xp__content"
-                  variant={i % 2 === 0 ? 'slide-left' : 'slide-right'}
+                  variant={
+                    isMobileTimeline ? 'slide-right' : i % 2 === 0 ? 'slide-left' : 'slide-right'
+                  }
                   onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left;
