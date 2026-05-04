@@ -31,6 +31,9 @@ export const About = ({
 
   return (
     <section id="about" className="section about" aria-labelledby="about-heading">
+      <span className="section__slug" aria-hidden="true">
+        {'// about'}
+      </span>
       <ScrollReveal className="section__head">
         <span className="section__label">{label}</span>
         <h2 id="about-heading" className="section__title">

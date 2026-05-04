@@ -67,6 +67,20 @@ iconify-icon {
   display: none;
 }
 
+/* Top-right page slug — JetBrains Mono accent echoing the `//` greeting in Hero */
+.section__slug {
+  position: absolute;
+  top: 56px;
+  right: 32px;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-size: var(--fs-caption);
+  letter-spacing: 1px;
+  color: color-mix(in oklab, var(--text-primary) 32%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
 .section__head {
   margin-bottom: 64px;
   position: relative;
@@ -316,6 +330,11 @@ iconify-icon {
   .section {
     padding: 100px 20px 72px;
   }
+  .section__slug {
+    top: 40px;
+    right: 20px;
+    font-size: var(--fs-2xs);
+  }
   .section__head {
     margin-bottom: 40px;
   }
@@ -336,6 +355,10 @@ iconify-icon {
 @media (max-width: 480px) {
   .section {
     padding: 88px 16px 60px;
+  }
+  .section__slug {
+    top: 32px;
+    right: 16px;
   }
   .section__label {
     font-size: var(--fs-2xs);

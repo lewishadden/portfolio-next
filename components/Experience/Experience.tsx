@@ -41,6 +41,9 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
 
   return (
     <section id="experience" className="section xp" aria-labelledby="experience-heading">
+      <span className="section__slug" aria-hidden="true">
+        {'// experience'}
+      </span>
       <ScrollReveal className="section__head section__head--centered">
         <span className="section__label section__label--centered">{label}</span>
         <h2 id="experience-heading" className="section__title">

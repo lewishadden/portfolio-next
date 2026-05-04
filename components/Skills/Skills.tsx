@@ -15,6 +15,9 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
 
   return (
     <section id="skills" className="section skills" aria-labelledby="skills-heading">
+      <span className="section__slug" aria-hidden="true">
+        {'// skills'}
+      </span>
       <ScrollReveal className="section__head section__head--centered">
         <span className="section__label section__label--centered">{label}</span>
         <h2 id="skills-heading" className="section__title">

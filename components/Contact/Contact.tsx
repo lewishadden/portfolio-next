@@ -53,6 +53,9 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
 
   return (
     <section id="contact" className="section contact" aria-labelledby="contact-heading">
+      <span className="section__slug" aria-hidden="true">
+        {'// contact'}
+      </span>
       <ScrollReveal className="section__head section__head--centered">
         <span className="section__label section__label--centered">{label}</span>
         <h2 id="contact-heading" className="section__title">
