@@ -274,7 +274,9 @@ iconify-icon {
 }
 
 /* =============================================================
-   Page navigation CTA — shared bottom-of-section prompt
+   Page navigation CTA — shared bottom-of-section prompt.
+   Styled as wayfinding, not action — the gradient/ghost CTA pair is
+   reserved for page-level conversions (e.g. About: Download CV / Contact).
    ============================================================= */
 .section__page-nav {
   margin-top: 80px;
@@ -283,8 +285,44 @@ iconify-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
+
+  .btn,
+  .btn--primary,
+  .btn--secondary {
+    padding: 12px 22px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    box-shadow: none;
+    font-weight: 500;
+    backdrop-filter: none;
+
+    &::before,
+    &::after {
+      display: none;
+    }
+
+    &:hover {
+      transform: translateY(-2px);
+      color: var(--text-primary);
+      background: color-mix(in oklab, var(--accent-primary) 8%, transparent);
+      border-color: color-mix(in oklab, var(--accent-primary) 45%, transparent);
+      box-shadow: none;
+    }
+  }
+
+  /* Subtle accent on the recommended next page */
+  .btn--primary {
+    color: var(--text-primary);
+    border-color: color-mix(in oklab, var(--accent-primary) 35%, transparent);
+
+    &:hover {
+      background: color-mix(in oklab, var(--accent-primary) 14%, transparent);
+      border-color: color-mix(in oklab, var(--accent-primary) 60%, transparent);
+    }
+  }
 }
 
 /* =============================================================

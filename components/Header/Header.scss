@@ -63,9 +63,7 @@
     text-decoration: none;
     flex-shrink: 0;
     overflow: hidden;
-    transition:
-      transform 0.25s ease,
-      box-shadow 0.25s ease;
+    transition: transform 0.25s ease;
 
     img {
       display: block;
@@ -75,7 +73,6 @@
 
     &:hover {
       transform: scale(1.08);
-      box-shadow: 0 4px 20px color-mix(in oklab, var(--gradient-start) 40%, transparent);
     }
   }
 
