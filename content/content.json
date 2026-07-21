@@ -269,6 +269,98 @@
     "label": "What I've built",
     "items": [
       {
+        "title": "ZGS Carpentry",
+        "startDate": "2026",
+        "description": "ZGS Carpentry is a marketing website I designed and built from scratch for ZGS Carpentry — a Caddington-based carpenter, joiner and tiler run by Zak Sanders, covering Hertfordshire and Bedfordshire. The site breaks the trade down into thirteen individual, SEO-friendly service pages — from bespoke staircases and fitted wardrobes to tiling, plastering and garden turfing — and features an interactive 3D showcase of carpentry tools, a hammer, handsaw and pencil modelled in Three.js that visitors can grab and spin. A stylised, blueprint-style coverage map places Caddington at the hub with spokes out to every town covered, each linking through to its own local area page. A category-filtered gallery of photos and video showcases completed jobs, backed by an FAQ, honest service breakdowns and a quote form that emails enquiries straight to Zak via Resend. Built with Next.js (App Router), React 19, TypeScript and Tailwind CSS v4, the site is statically generated and deployed on Vercel with rich LocalBusiness JSON-LD, dynamically generated Open Graph images, a sitemap and per-page metadata for strong local search visibility.",
+        "theme": {
+          "text": "light",
+          "border": "light",
+          "background": "dark"
+        },
+        "thumbnail": "mdi:hand-saw",
+        "images": [
+          {
+            "url": "/static/images/projects/zgs-carpentry/home.avif",
+            "alt": "ZGS Carpentry home page with the 'Graft you can trust' hero",
+            "size": {
+              "width": 3200,
+              "height": 1800
+            }
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/services.avif",
+            "alt": "ZGS Carpentry services page covering all thirteen trades",
+            "size": {
+              "width": 3200,
+              "height": 1800
+            }
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/gallery.avif",
+            "alt": "ZGS Carpentry gallery of completed carpentry, joinery and tiling work",
+            "size": {
+              "width": 3200,
+              "height": 1800
+            }
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/areas.avif",
+            "alt": "ZGS Carpentry blueprint-style coverage map of the towns served across Hertfordshire and Bedfordshire",
+            "size": {
+              "width": 3200,
+              "height": 1800
+            }
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/about.avif",
+            "alt": "About ZGS Carpentry and its owner Zak Sanders",
+            "size": {
+              "width": 3200,
+              "height": 1800
+            }
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/quote.avif",
+            "alt": "ZGS Carpentry free, no-obligation quote request form",
+            "size": {
+              "width": 3200,
+              "height": 1800
+            }
+          }
+        ],
+        "url": "https://zgs-carpentry.co.uk",
+        "technologies": [
+          {
+            "class": "devicon:nextjs",
+            "name": "Next.js"
+          },
+          {
+            "class": "devicon:react",
+            "name": "React"
+          },
+          {
+            "class": "devicon:typescript",
+            "name": "TypeScript"
+          },
+          {
+            "class": "devicon:tailwindcss",
+            "name": "Tailwind CSS"
+          },
+          {
+            "class": "devicon:threejs",
+            "name": "Three.js"
+          },
+          {
+            "class": "simple-icons:resend",
+            "name": "Resend"
+          },
+          {
+            "class": "devicon:vercel",
+            "name": "Vercel"
+          }
+        ]
+      },
+      {
         "title": "Sidenote",
         "startDate": "2026",
         "description": "Sidenote is a passion project I designed and built from scratch — a Chrome extension that turns the browser side panel into an AI-powered reading assistant for articles, PDFs, research papers and uploaded documents. It summarises any page in seconds at three depths — a quick TL;DR, a standard overview, or a structured deep-read — and lets you chat with the document, where every answer is backed by numbered citations that scroll to and highlight the exact source passage when clicked. An Explain Simply tool rewrites dense, jargon-heavy passages at a chosen reading level without losing accuracy, and an automatically generated glossary defines every key term and links back to where it first appears on the page. Built as a pnpm monorepo, Sidenote pairs a Vite and React 19 Manifest V3 extension with a Next.js 16 backend deployed on Vercel, backed by Supabase (Postgres with pgvector) for storage and authentication, Anthropic's Claude models for generation, and Voyage AI embeddings for citation retrieval. It ships with passwordless magic-link sign-in, Stripe billing and a free tier.",
