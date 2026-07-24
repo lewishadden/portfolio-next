@@ -1,0 +1,74 @@
+/* =============================================================
+   Doodles — hand-drawn SVG accents with stroke draw-on reveal
+   ============================================================= */
+.doodle {
+  overflow: visible;
+  color: var(--accent-primary);
+
+  path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--doodle-stroke, 3px);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    vector-effect: non-scaling-stroke;
+
+    /* Hidden until revealed — round caps otherwise poke through at offset 1 */
+    opacity: 0;
+  }
+
+  &.is-in path {
+    stroke-dashoffset: 0;
+    opacity: 1;
+    transition:
+      stroke-dashoffset 0.9s cubic-bezier(0.65, 0, 0.35, 1),
+      opacity 0.01s linear;
+    transition-delay: var(--doodle-delay, 0s);
+
+    /* Multi-stroke doodles draw one stroke after another */
+    &:nth-of-type(2) {
+      transition-delay: calc(var(--doodle-delay, 0s) + 0.22s);
+    }
+
+    &:nth-of-type(3) {
+      transition-delay: calc(var(--doodle-delay, 0s) + 0.38s);
+    }
+
+    &:nth-of-type(4) {
+      transition-delay: calc(var(--doodle-delay, 0s) + 0.5s);
+    }
+
+    &:nth-of-type(5) {
+      transition-delay: calc(var(--doodle-delay, 0s) + 0.6s);
+    }
+
+    &:nth-of-type(6) {
+      transition-delay: calc(var(--doodle-delay, 0s) + 0.68s);
+    }
+  }
+
+  /* Dashed strokes can't draw-on via dashoffset — fade them in instead */
+  &--dotted path {
+    stroke-dasharray: 0.012 0.022;
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+
+  &--dotted.is-in path {
+    opacity: 1;
+    transition: opacity 1.1s ease;
+    transition-delay: var(--doodle-delay, 0s);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doodle path {
+    stroke-dashoffset: 0;
+  }
+
+  .doodle--dotted path {
+    opacity: 1;
+  }
+}

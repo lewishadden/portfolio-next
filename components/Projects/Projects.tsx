@@ -22,6 +22,9 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         {'// projects'}
       </span>
       <ScrollReveal className="section__head section__head--centered">
+        <span className="section__num" aria-hidden="true">
+          03
+        </span>
         <span className="section__label section__label--centered">{label}</span>
         <h2 id="projects-heading" className="section__title">
           <span className="section__title-accent">Selected</span> {title}
@@ -49,13 +52,6 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
               onClick={() => setSelectedProject(p)}
               aria-label={`View details for ${p.title}`}
               style={{ '--reveal-delay': `${(i % 3) * 100}ms` } as React.CSSProperties}
-              onMouseMove={(e: React.MouseEvent<HTMLButtonElement>) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
-                e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
-              }}
             >
               <div
                 className={`proj-card__image${!preview ? ' proj-card__image--placeholder' : ''}`}
@@ -79,7 +75,12 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
               </div>
               <div className="proj-card__body">
                 <div className="proj-card__header">
-                  <h3 className="proj-card__title">{p.title}</h3>
+                  <h3 className="proj-card__title">
+                    <span className="proj-card__no" aria-hidden="true">
+                      {`№${String(i + 1).padStart(2, '0')}`}
+                    </span>
+                    {p.title}
+                  </h3>
                   <span className="proj-card__year">{p.startDate}</span>
                 </div>
                 <p className="proj-card__desc">{descriptionSnippet}</p>

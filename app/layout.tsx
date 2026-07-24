@@ -2,7 +2,7 @@ import './globals.scss';
 import './theme-variables.scss';
 import './page.scss';
 
-import { JetBrains_Mono, Inter } from 'next/font/google';
+import { JetBrains_Mono, Fraunces, Instrument_Sans } from 'next/font/google';
 import { geolocation, ipAddress } from '@vercel/functions';
 import { headers } from 'next/headers';
 
@@ -15,6 +15,7 @@ import { Header } from '@/components/Header/Header';
 import { Footer } from '@/components/Footer/Footer';
 import { Background } from '@/components/Background/Background';
 import { ScrollProgress } from '@/components/ScrollProgress/ScrollProgress';
+import { RevealMount } from '@/components/RevealMount/RevealMount';
 
 import type { Metadata, Viewport } from 'next';
 
@@ -23,14 +24,23 @@ import { ContactInfo, Social } from '@/types';
 
 const jetBrainsMono = JetBrains_Mono({
   subsets: ['latin'],
-  weight: ['700', '800'],
+  weight: ['400', '500', '700'],
   variable: '--font-jetbrains-mono',
   display: 'swap',
 });
 
-const inter = Inter({
+const fraunces = Fraunces({
   subsets: ['latin'],
-  variable: '--font-inter',
+  style: ['normal', 'italic'],
+  axes: ['SOFT', 'WONK', 'opsz'],
+  variable: '--font-fraunces',
+  display: 'swap',
+});
+
+const instrumentSans = Instrument_Sans({
+  subsets: ['latin'],
+  style: ['normal', 'italic'],
+  variable: '--font-instrument-sans',
   display: 'swap',
 });
 
@@ -70,7 +80,7 @@ const keywords = [
   'JavaScript Developer',
   'Web Developer',
 ];
-const profileImage = content.about?.image?.url || '/static/images/portrait.png';
+const profileImage = content.about?.image?.url || '/static/images/bio-pic.jpeg';
 const sameAs = (content.footer?.social || []).map((s: Social) => s.url).filter(Boolean);
 
 export const viewport: Viewport = {
@@ -247,7 +257,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang="en-GB"
       suppressHydrationWarning
-      className={`${inter.variable} ${jetBrainsMono.variable}`}
+      className={`${fraunces.variable} ${instrumentSans.variable} ${jetBrainsMono.variable}`}
     >
       <head>
         <ThemeScript />
@@ -256,6 +266,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body data-theme="dark" suppressHydrationWarning>
         <ClientProviders>
+          <RevealMount />
           <ScrollProgress />
           <Header header={content.header} navItems={content.global.navItems} />
           <main id="main-content">

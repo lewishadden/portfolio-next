@@ -1,0 +1,46 @@
+/* =============================================================
+   Stamp — slow-spinning circular text seal
+   ============================================================= */
+.stamp {
+  position: relative;
+  width: var(--stamp-size, 128px);
+  height: var(--stamp-size, 128px);
+  display: grid;
+  place-items: center;
+  user-select: none;
+}
+
+.stamp__ring {
+  position: absolute;
+  inset: 0;
+  animation: stamp-spin 22s linear infinite;
+}
+
+.stamp__text {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+  fill: var(--text-secondary);
+}
+
+.stamp__center {
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--accent-primary);
+  display: grid;
+  place-items: center;
+}
+
+@keyframes stamp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp__ring {
+    animation: none;
+  }
+}

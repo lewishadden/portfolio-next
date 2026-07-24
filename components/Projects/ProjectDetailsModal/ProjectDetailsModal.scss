@@ -95,12 +95,7 @@
   &__header {
     padding: var(--padding-y-large) var(--padding-x-large) var(--padding-y-md);
     border-bottom: 1px solid var(--border-color);
-    background: linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--gradient-start) 8%, transparent) 0%,
-      color-mix(in oklab, var(--gradient-mid) 8%, transparent) 50%,
-      transparent 100%
-    );
+    background: transparent;
     border-radius: 24px 24px 0 0;
 
     @media (max-width: 640px) {
@@ -116,18 +111,13 @@
     }
 
     &__title {
+      font-family: var(--font-display);
+      font-variation-settings: var(--title-axis);
       font-size: 2rem;
-      font-weight: 700;
+      font-weight: 560;
+      letter-spacing: var(--tr-title);
       text-align: center;
-      background: linear-gradient(
-        135deg,
-        var(--gradient-start) 0%,
-        var(--gradient-mid) 50%,
-        var(--gradient-end) 100%
-      );
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+      color: var(--text-primary);
       display: inline-block;
       line-height: 1.3;
       margin: 0;
@@ -189,13 +179,14 @@
       align-items: center;
       gap: 0.5rem;
       padding: var(--padding-y-xs) var(--padding-x-md);
-      background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
-      color: #fff;
+      background: var(--text-primary);
+      color: var(--bg-primary);
       font-weight: 600;
       font-size: 0.9375rem;
-      border-radius: 12px;
+      border-radius: var(--radius-pill);
       text-decoration: none;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 0 0 color-mix(in oklab, var(--accent-primary) 90%, transparent);
       margin-bottom: var(--padding-y-large);
 
       svg {
@@ -204,9 +195,9 @@
 
       &:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 24px var(--gradient-shadow);
+        background: var(--accent-primary);
         color: #fff;
-        filter: brightness(1.1);
+        box-shadow: 0 4px 0 0 color-mix(in oklab, var(--accent-secondary) 80%, transparent);
       }
 
       &:active {

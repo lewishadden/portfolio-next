@@ -9,18 +9,16 @@
     position: relative;
     display: flex;
     align-items: center;
-    width: 64px;
-    height: 32px;
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    width: 60px;
+    height: 30px;
+    background: transparent;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-color);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(10px);
   }
 
   &:hover &__track {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: var(--accent-primary);
   }
 
   &__icon-container {
@@ -28,19 +26,19 @@
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    padding: 0 6px;
+    padding: 0 7px;
     position: relative;
     z-index: 1;
   }
 
   &__icon {
-    width: 16px;
-    height: 16px;
-    color: #fff;
+    width: 14px;
+    height: 14px;
+    color: var(--text-primary);
     transition: all 0.3s ease;
 
     &--sun {
-      opacity: 0.4;
+      opacity: 0.35;
     }
 
     &--moon {
@@ -51,33 +49,20 @@
   &__thumb {
     position: absolute;
     left: 3px;
-    width: 24px;
-    height: 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    width: 22px;
+    height: 22px;
+    background: var(--accent-primary);
     border-radius: 50%;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     z-index: 2;
   }
 
   &:active &__thumb {
-    width: 28px;
+    width: 26px;
   }
 
   // Light mode styles
-  &--light &__track {
-    background: #e2e8f0;
-    border-color: #cbd5e1;
-  }
-
-  &--light:hover &__track {
-    background: #cbd5e1;
-    border-color: #94a3b8;
-  }
-
   &--light &__icon {
-    color: #0f172a;
-
     &--sun {
       opacity: 1;
     }
@@ -88,8 +73,6 @@
   }
 
   &--light &__thumb {
-    left: 37px;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+    left: 33px;
   }
 }

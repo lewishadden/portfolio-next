@@ -57,6 +57,9 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
         {'// contact'}
       </span>
       <ScrollReveal className="section__head section__head--centered">
+        <span className="section__num" aria-hidden="true">
+          05
+        </span>
         <span className="section__label section__label--centered">{label}</span>
         <h2 id="contact-heading" className="section__title">
           {title} <span className="section__title-accent">Me</span>
@@ -65,17 +68,7 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
       </ScrollReveal>
 
       <div className="contact__grid">
-        <ScrollReveal
-          as="aside"
-          className="contact__side"
-          onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
-            e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
-          }}
-        >
+        <ScrollReveal as="aside" className="contact__side">
           <div className="contact__intro">
             <h3>{contactInfo.title}</h3>
             <p>{contactInfo.description}</p>
@@ -123,13 +116,6 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
         <ScrollReveal
           className={`contact__panel${submitted ? ' contact__panel--submitted' : ''}`}
           style={{ '--reveal-delay': '120ms' } as React.CSSProperties}
-          onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
-            e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
-          }}
         >
           {submitted ? (
             <div className="contact__success">

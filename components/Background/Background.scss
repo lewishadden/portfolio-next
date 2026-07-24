@@ -6,13 +6,12 @@
   pointer-events: none;
   contain: layout style;
 
-  &__dots {
+  &__contours {
     position: absolute;
     inset: 0;
-    background-image: radial-gradient(circle at 1px 1px, var(--dot-grid-color) 1px, transparent 0);
-    background-size: 32px 32px;
-    mask-image: radial-gradient(ellipse at 50% 40%, #000 20%, transparent 80%);
-    -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 20%, transparent 80%);
+    width: 100%;
+    height: 100%;
+    mask-image: radial-gradient(ellipse at 50% 35%, #000 15%, transparent 78%);
   }
 
   &__orb {
@@ -53,41 +52,6 @@
       animation: orb-drift-3 55s ease-in-out infinite;
     }
   }
-
-  &__particles {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
-
-  &__grain {
-    position: absolute;
-    inset: 0;
-    opacity: 0.05;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-
-    [data-theme='light'] & {
-      opacity: 0.03;
-      mix-blend-mode: soft-light;
-    }
-  }
-
-  &__scan {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      to bottom,
-      transparent 0%,
-      transparent calc(var(--scroll-pct, 0%) - 2%),
-      color-mix(in oklab, var(--accent-primary) 14%, transparent) var(--scroll-pct, 0%),
-      transparent calc(var(--scroll-pct, 0%) + 2%),
-      transparent 100%
-    );
-    opacity: 0.6;
-    pointer-events: none;
-  }
 }
 
 @keyframes orb-drift-1 {
@@ -95,6 +59,7 @@
   100% {
     transform: translate(0, 0);
   }
+
   50% {
     transform: translate(120px, 80px);
   }
@@ -105,6 +70,7 @@
   100% {
     transform: translate(0, 0);
   }
+
   50% {
     transform: translate(-100px, -60px);
   }
@@ -115,6 +81,7 @@
   100% {
     transform: translate(0, 0) scale(1);
   }
+
   50% {
     transform: translate(-80px, 120px) scale(1.15);
   }

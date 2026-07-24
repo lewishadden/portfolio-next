@@ -1,8 +1,10 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
+
 import Magnet from 'components/Magnet/Magnet';
-import { TypeAnimationClient } from './TypeAnimationClient';
+import { Marquee } from 'components/Marquee/Marquee';
+import { ArrowScribble, Spark, Squiggle } from 'components/Doodles/Doodles';
+import { Stamp } from 'components/Doodles/Stamp';
 
 import { Home as HomeProps } from '@/types';
 
@@ -18,54 +20,51 @@ export const Home = ({
   openToWorkText: string;
 }) => {
   const { name, titles, tagline, cta } = home;
+  const [firstName, ...restName] = name.split(' ');
+  const surname = restName.join(' ');
+  // First item repeated at the end so the CSS rotator loops seamlessly
+  const rotatorTitles = [...titles, titles[0]];
 
   return (
     <section id="home" className="hero" aria-labelledby="home-heading">
       <div className="hero__inner">
         <div className="hero__content">
           {openToWork && (
-            <div className="hero__badge">
+            <p className="hero__badge">
               <span className="hero__badge-dot" aria-hidden="true" />
               {openToWorkText}
-            </div>
+            </p>
           )}
 
           <p className="hero__greeting">
-            <span className="hero__greeting-slash" aria-hidden="true">
-              {'//'}
-            </span>{' '}
-            hello, I&rsquo;m
+            <span aria-hidden="true">( </span>hello, I&rsquo;m
+            <span aria-hidden="true"> )</span>
           </p>
 
-          <div className="hero__name-container">
-            <h1 id="home-heading" className="sr-only">
-              {name}
-            </h1>
-            <div className="hero__aurora" aria-hidden="true">
-              <div className="hero__aurora-item hero__aurora-item--1" />
-              <div className="hero__aurora-item hero__aurora-item--2" />
-              <div className="hero__aurora-item hero__aurora-item--3" />
-            </div>
-            <svg className="hero__name-svg" viewBox="0 0 1100 200" aria-hidden="true">
-              <defs>
-                <linearGradient id="hero-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="var(--gradient-start)" />
-                  <stop offset="50%" stopColor="var(--gradient-mid)" />
-                  <stop offset="100%" stopColor="var(--gradient-end)" />
-                </linearGradient>
-              </defs>
-              <text className="hero__name-stroke" x="0" y="145" textAnchor="start">
-                {name}
-              </text>
-              <text className="hero__name-fill" x="0" y="145" textAnchor="start">
-                {name}
-              </text>
-            </svg>
-          </div>
+          <h1 id="home-heading" className="hero__name">
+            <span className="hero__word">
+              <span className="hero__word-inner">{firstName}</span>
+            </span>{' '}
+            <span className="hero__word hero__word--accent">
+              <span className="hero__word-inner">
+                {surname}
+                <Squiggle className="hero__squiggle" delay={1.1} />
+              </span>
+            </span>
+          </h1>
 
-          <div className="hero__role">
-            <TypeAnimationClient titles={titles} />
-          </div>
+          <p className="hero__role">
+            <span className="sr-only">{titles.join(', ')}</span>
+            <span className="hero__roles" aria-hidden="true">
+              <span className="hero__roles-list">
+                {rotatorTitles.map((t, i) => (
+                  <span className="hero__roles-item" key={`${t}-${i}`}>
+                    {t}
+                  </span>
+                ))}
+              </span>
+            </span>
+          </p>
 
           <p className="hero__tag">{tagline}</p>
 
@@ -97,30 +96,18 @@ export const Home = ({
           </div>
         </div>
 
-        <div className="hero__visual" aria-hidden="true">
-          <Image
-            src="/static/images/hero-3d-code-block.png"
-            alt=""
-            width={819}
-            height={561}
-            className="hero__visual-img"
-            priority
-            sizes="(max-width: 480px) 220px, (max-width: 900px) 280px, 480px"
-          />
+        <div className="hero__aside" aria-hidden="true">
+          <Spark className="hero__spark" delay={1.5} />
+          <Stamp text={`${openToWorkText} ✳ `} id="hero-stamp" className="hero__stamp" />
+          <ArrowScribble className="hero__arrow" delay={1.8} />
         </div>
       </div>
 
+      <Marquee items={[...titles, openToWorkText]} className="hero__marquee" duration={44} />
+
       <div className="hero__scroll-cue" aria-hidden="true">
-        Scroll
-        <svg viewBox="0 0 24 24" fill="none">
-          <path
-            d="M6 9l6 6 6-6"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <span className="hero__scroll-text">scroll</span>
+        <span className="hero__scroll-line" />
       </div>
     </section>
   );

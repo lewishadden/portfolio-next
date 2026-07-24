@@ -1,142 +1,33 @@
-'use client';
-
-import { useEffect, useRef, useState, useCallback } from 'react';
-
-import { useReducedMotion } from '@/hooks/useReducedMotion';
-
 import './Background.scss';
 
-type IdleDeadlineLike = {
-  didTimeout: boolean;
-  timeRemaining: () => number;
-};
-
-type IdleCallbackLike = (deadline: IdleDeadlineLike) => void;
-
-export const Background = () => {
-  const [ready, setReady] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const reducedMotion = useReducedMotion();
-
-  const requestIdle = useCallback((cb: IdleCallbackLike) => {
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      return requestIdleCallback(cb, { timeout: 4000 });
-    }
-    const start = Date.now();
-    return setTimeout(() => {
-      cb({
-        didTimeout: false,
-        timeRemaining: () => Math.max(0, 50 - (Date.now() - start)),
-      });
-    }, 400);
-  }, []);
-
-  const cancelIdle = useCallback((id: number) => {
-    if (typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
-      cancelIdleCallback(id);
-    } else {
-      clearTimeout(id);
-    }
-  }, []);
-
-  useEffect(() => {
-    const id = requestIdle(() => setReady(true)) as number;
-    return () => cancelIdle(id);
-  }, [requestIdle, cancelIdle]);
-
-  useEffect(() => {
-    if (!ready || reducedMotion) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let w = 0;
-    let h = 0;
-    let particles: {
-      x: number;
-      y: number;
-      r: number;
-      vx: number;
-      vy: number;
-      a: number;
-    }[] = [];
-    let raf = 0;
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const isMobile = window.innerWidth < 768;
-    const count = isMobile ? 36 : 60;
-
-    const resize = () => {
-      w = canvas.width = canvas.offsetWidth * dpr;
-      h = canvas.height = canvas.offsetHeight * dpr;
-    };
-    const reset = () => {
-      particles = Array.from({ length: count }, () => ({
-        x: Math.random() * w,
-        y: Math.random() * h,
-        r: (Math.random() * 2 + 0.5) * dpr,
-        vy: -(Math.random() * 0.4 + 0.1) * dpr,
-        vx: (Math.random() - 0.5) * 0.2 * dpr,
-        a: Math.random() * 0.6 + 0.2,
-      }));
-    };
-
-    const getColor = () =>
-      getComputedStyle(document.documentElement).getPropertyValue('--bg-particle-color').trim() ||
-      '#9fb8ff';
-
-    const draw = () => {
-      ctx.clearRect(0, 0, w, h);
-      const color = getColor();
-      ctx.fillStyle = color;
-      for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.y < -10) {
-          p.y = h + 10;
-          p.x = Math.random() * w;
-        }
-        if (p.x < -10) p.x = w + 10;
-        if (p.x > w + 10) p.x = -10;
-        ctx.globalAlpha = p.a;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      raf = requestAnimationFrame(draw);
-    };
-
-    resize();
-    reset();
-    draw();
-
-    const onResize = () => {
-      resize();
-      reset();
-    };
-    window.addEventListener('resize', onResize);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('resize', onResize);
-    };
-  }, [ready, reducedMotion]);
-
-  return (
-    <div className="bg-container" aria-hidden="true">
-      <div className="bg-container__dots" />
-      {ready && (
-        <>
-          <div className="bg-container__orb bg-container__orb--1" />
-          <div className="bg-container__orb bg-container__orb--2" />
-          <div className="bg-container__orb bg-container__orb--3" />
-          {!reducedMotion && <canvas ref={canvasRef} className="bg-container__particles" />}
-          <div className="bg-container__scan" />
-          <div className="bg-container__grain" />
-        </>
-      )}
-    </div>
-  );
-};
+/**
+ * Fixed atmosphere layer: faint topographic contour linework under three
+ * slow-drifting ember orbs. Pure CSS/SVG — no canvas, no client JS.
+ */
+export const Background = () => (
+  <div className="bg-container" aria-hidden="true">
+    <svg className="bg-container__contours" focusable="false">
+      <defs>
+        <pattern id="bg-topo" width="560" height="560" patternUnits="userSpaceOnUse">
+          <g fill="none" stroke="var(--dot-grid-color)" strokeWidth="1.1">
+            <path d="M150 60 C 220 52, 268 96, 262 158 C 256 222, 196 262, 136 252 C 78 242, 44 190, 54 136 C 64 84, 96 66, 150 60 Z" />
+            <path d="M152 92 C 202 86, 234 116, 230 160 C 226 206, 184 232, 140 224 C 98 216, 76 180, 84 142 C 92 106, 112 96, 152 92 Z" />
+            <path d="M154 124 C 186 120, 204 138, 200 162 C 196 190, 170 204, 142 198 C 118 193, 106 170, 112 148 C 118 128, 130 126, 154 124 Z" />
+            <path d="M400 300 C 470 292, 520 336, 514 400 C 508 466, 446 508, 384 496 C 324 484, 290 430, 302 374 C 312 322, 344 306, 400 300 Z" />
+            <path d="M402 334 C 452 328, 486 360, 480 404 C 474 450, 430 478, 386 468 C 344 458, 322 420, 332 382 C 340 346, 362 338, 402 334 Z" />
+            <path d="M404 366 C 436 362, 456 382, 452 406 C 448 434, 420 450, 392 442 C 368 435, 356 412, 362 390 C 368 370, 380 368, 404 366 Z" />
+            <path d="M-20 420 C 60 400, 140 440, 220 420 C 300 400, 340 350, 420 340" />
+            <path d="M140 560 C 200 520, 300 540, 380 520 C 460 500, 520 540, 580 520" />
+            <path d="M320 20 C 380 40, 440 20, 500 40 C 540 53, 560 80, 580 120" />
+          </g>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#bg-topo)" />
+    </svg>
+    <div className="bg-container__orb bg-container__orb--1" />
+    <div className="bg-container__orb bg-container__orb--2" />
+    <div className="bg-container__orb bg-container__orb--3" />
+  </div>
+);
 
 export default Background;

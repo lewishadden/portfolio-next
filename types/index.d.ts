@@ -162,6 +162,12 @@ export interface Footer {
     icon: string;
     posttext: string;
   };
+  cta?: {
+    pretext: string;
+    text: string;
+    accent: string;
+    url: string;
+  };
 }
 
 export interface Social {

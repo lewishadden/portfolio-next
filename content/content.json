@@ -94,7 +94,7 @@
     "descriptionHeader": "",
     "description": "<p><strong>Hi, I’m Lewis</strong> — a <em>senior full stack engineer</em> based in Peterborough, UK, with <strong>nine years</strong> of shipping production software across automotive, insurance, payroll, and government sectors.</p><p>I’ve led engineering teams at <strong>IBM, Sopra Steria, and ERGO</strong>, architected cloud infrastructure on <em>Azure and AWS</em>, and delivered everything from <em>React SPAs and Next.js platforms</em> to serverless backends and real-time data pipelines — always with a focus on code that’s fast, secure, and built to last.</p><p>Currently contracted to <strong>ADP</strong> on their flagship <em>RUN payroll platform</em>. I’m open to my next senior or lead role — remote, UK or EU — whether freelance or permanent.</p>",
     "image": {
-      "url": "/static/images/portrait.png",
+      "url": "/static/images/bio-pic.jpeg",
       "size": {
         "width": 2252,
         "height": 2526
@@ -150,7 +150,7 @@
       {
         "company": "ADP",
         "title": "Senior Full Stack Engineer (Contractor)",
-        "years": "Jan 2025 - Present",
+        "years": "Jan 2025 - Jun 2026",
         "description": "Building enterprise features for ADP's payroll platform, used by 950,000+ clients worldwide. Focused on React migrations, WCAG accessibility compliance, and controlled feature rollouts via feature flags.",
         "mainTech": ["React", "Tailwind CSS", "Cypress", "React Testing Library", "Webpack"],
         "icon": "devicon:react",
@@ -1620,6 +1620,12 @@
       "pretext": "Built with ",
       "icon": "mdi:heart",
       "posttext": " & Next.js"
+    },
+    "cta": {
+      "pretext": "Have a project in mind?",
+      "text": "Let’s build",
+      "accent": "something",
+      "url": "/contact"
     }
   }
 }

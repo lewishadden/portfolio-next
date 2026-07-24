@@ -3,10 +3,10 @@
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
+
 import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
 import Magnet from 'components/Magnet/Magnet';
 
-import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Experience as ExperienceProps } from '@/types';
 
 import './Experience.scss';
@@ -22,9 +22,8 @@ const getCompanyInitials = (company: string): string =>
   companyAbbreviations[company] || company.slice(0, 2).toUpperCase();
 
 export const Experience = ({ experience }: { experience: ExperienceProps }) => {
-  const { title, label, items, done } = experience;
+  const { title, label, items } = experience;
   const railRef = useRef<HTMLDivElement | null>(null);
-  const isMobileTimeline = useMediaQuery('(max-width: 900px)');
 
   useEffect(() => {
     const onScroll = () => {
@@ -46,8 +45,11 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
       <span className="section__slug" aria-hidden="true">
         {'// experience'}
       </span>
-      <ScrollReveal className="section__head section__head--centered">
-        <span className="section__label section__label--centered">{label}</span>
+      <ScrollReveal className="section__head">
+        <span className="section__num" aria-hidden="true">
+          02
+        </span>
+        <span className="section__label">{label}</span>
         <h2 id="experience-heading" className="section__title">
           {title}
         </h2>
@@ -61,48 +63,34 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
         <div className="xp__rail" ref={railRef} aria-hidden="true" />
         <ol className="xp__items">
           {items.map((item, i) => (
-            <li
-              key={`${item.company}-${item.years}`}
-              className={`xp__item xp__item--${i % 2 === 0 ? 'left' : 'right'}`}
-            >
-              <div className="xp__content-wrapper">
-                <ScrollReveal
-                  className="xp__content"
-                  variant={
-                    isMobileTimeline ? 'slide-right' : i % 2 === 0 ? 'slide-left' : 'slide-right'
-                  }
-                  onMouseMove={(e: React.MouseEvent<HTMLElement>) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
-                    e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
-                  }}
-                >
-                  <div className="xp__date">{item.years}</div>
-                  <h3 className="xp__role">{item.title}</h3>
-                  <p className="xp__co">{item.company}</p>
-                  {item.description && <p className="xp__desc">{item.description}</p>}
-                  <div className="xp__tech">
-                    {item.mainTech.map((t) => (
-                      <span className="chip" key={t}>
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </ScrollReveal>
-              </div>
+            <li key={`${item.company}-${item.years}`} className="xp__item">
               <div className="xp__dot" aria-hidden="true">
                 <span className="xp__dot-text">{getCompanyInitials(item.company)}</span>
               </div>
+              <ScrollReveal className="xp__content" variant="slide-right">
+                <div className="xp__meta">
+                  <span className="xp__index" aria-hidden="true">
+                    {String(items.length - i).padStart(2, '0')}
+                  </span>
+                  <span className="xp__date">{item.years}</span>
+                </div>
+                <h3 className="xp__role">{item.title}</h3>
+                <p className="xp__co">{item.company}</p>
+                {item.description && <p className="xp__desc">{item.description}</p>}
+                <div className="xp__tech">
+                  {item.mainTech.map((t) => (
+                    <span className="chip" key={t}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </ScrollReveal>
             </li>
           ))}
         </ol>
-        <div className="xp__end">
-          <span className="xp__end-dot">
-            <Icon icon={done.icon} width={22} height={22} aria-hidden="true" />
-          </span>
-        </div>
+        <p className="xp__end" aria-hidden="true">
+          — began <span className="xp__end-year">2018</span>, still shipping
+        </p>
       </div>
 
       <ScrollReveal className="section__page-nav">

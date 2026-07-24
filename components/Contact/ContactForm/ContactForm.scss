@@ -94,23 +94,25 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    padding: 14px 22px;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: #fff;
+    padding: 14px 26px;
+    background: var(--text-primary);
+    color: var(--bg-primary);
     font-weight: 600;
     font-size: var(--fs-body-sm);
     font-family: inherit;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-pill);
     cursor: pointer;
     transition: all 0.25s var(--ease-standard);
-    box-shadow: 0 6px 18px var(--gradient-shadow);
+    box-shadow: 0 2px 0 0 color-mix(in oklab, var(--accent-primary) 90%, transparent);
     align-self: flex-start;
     margin-top: 4px;
 
     &:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 10px 24px var(--gradient-shadow);
+      background: var(--accent-primary);
+      color: #fff;
+      box-shadow: 0 4px 0 0 color-mix(in oklab, var(--accent-secondary) 80%, transparent);
     }
 
     &:active:not(:disabled) {

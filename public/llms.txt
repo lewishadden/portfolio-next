@@ -17,7 +17,7 @@ Lewis Hadden is a highly experienced senior full stack engineer based in Peterbo
 ## Experience
 
 ### ADP — Senior Full Stack Engineer (Contractor)
-*Jan 2025 – Present*
+*Jan 2025 – Jun 2026*
 React, Tailwind CSS, Cypress, Webpack, React Testing Library, JavaScript, REST API, Jest, Virtual Machines
 
 ### ERGO Travel Insurance — Lead Full Stack Engineer

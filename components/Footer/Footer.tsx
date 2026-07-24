@@ -2,22 +2,42 @@
 
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
-import Image from 'next/image';
+
+import { ArrowScribble } from 'components/Doodles/Doodles';
 
 import { Footer as FooterProps, NavItem } from '@/types';
 
 import './Footer.scss';
 
 export const Footer = ({ footer, navItems }: { footer: FooterProps; navItems: NavItem[] }) => {
-  const { tagline, social, name, home, connectText, builtWith } = footer;
+  const { tagline, social, name, home, connectText, builtWith, cta } = footer;
 
   return (
     <footer className="footer" role="contentinfo">
+      {cta && (
+        <div className="footer__cta">
+          <Link href={cta.url} className="footer__cta-link">
+            <span className="footer__cta-eyebrow">
+              <span aria-hidden="true">( </span>
+              {cta.pretext}
+              <span aria-hidden="true"> )</span>
+            </span>
+            <span className="footer__cta-title">
+              {cta.text} <em>{cta.accent}</em>
+              <Icon icon="ph:arrow-up-right" className="footer__cta-arrow" aria-hidden="true" />
+            </span>
+          </Link>
+          <ArrowScribble className="footer__cta-doodle" delay={0.4} />
+        </div>
+      )}
+
       <div className="footer__inner">
         <div className="footer__brand">
           <Link href={home.url} className="footer__logo" aria-label={home.ariaLabel}>
-            <Image src="/static/images/portfolio-brand-icon.png" alt="" width={32} height={32} />
             <span>{home.text}</span>
+            <span className="footer__logo-dot" aria-hidden="true">
+              .
+            </span>
           </Link>
           <p className="footer__tagline">{tagline}</p>
         </div>

@@ -7,6 +7,7 @@ import { Icon } from '@iconify/react';
 import { About as AboutProps, Global } from '@/types';
 import Magnet from 'components/Magnet/Magnet';
 import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
+import { CircleScribble, Spark } from 'components/Doodles/Doodles';
 
 import './About.scss';
 
@@ -35,14 +36,22 @@ export const About = ({
         {'// about'}
       </span>
       <ScrollReveal className="section__head">
+        <span className="section__num" aria-hidden="true">
+          01
+        </span>
         <span className="section__label">{label}</span>
         <h2 id="about-heading" className="section__title">
-          {title} <span className="section__title-accent">Me</span>
+          {title}{' '}
+          <span className="section__title-accent about__accent">
+            Me
+            <CircleScribble className="about__accent-circle" delay={0.5} />
+          </span>
         </h2>
       </ScrollReveal>
 
       <div className="about__grid">
         <ScrollReveal className="about__media">
+          <Spark className="about__media-spark" delay={0.7} />
           <Image
             src={image.url}
             className="about__media-img"
@@ -81,17 +90,7 @@ export const About = ({
             style={{ '--reveal-delay': '260ms' } as React.CSSProperties}
           >
             {highlights.map((h) => (
-              <div
-                className="about__hl"
-                key={h.title}
-                onMouseMove={(e: React.MouseEvent<HTMLDivElement>) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const x = e.clientX - rect.left;
-                  const y = e.clientY - rect.top;
-                  e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
-                  e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
-                }}
-              >
+              <div className="about__hl" key={h.title}>
                 <Icon icon={h.icon} width={24} height={24} aria-hidden="true" />
                 <b>{h.title}</b>
                 <span>{h.sub}</span>

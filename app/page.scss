@@ -42,39 +42,50 @@ iconify-icon {
   position: relative;
 }
 
-/* Section divider — gradient horizontal rule between sections */
+/* Section divider — plain print hairline with a centred asterisk fleuron */
 .section::before {
+  content: '✳';
+  position: absolute;
+  top: -0.7em;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: var(--fs-caption);
+  line-height: 1;
+  color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
+  background: var(--bg-primary);
+  padding: 0 14px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.section::after {
   content: '';
   position: absolute;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(600px, 80%);
+  left: 0;
+  right: 0;
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in oklab, var(--gradient-start) 50%, transparent) 20%,
-    color-mix(in oklab, var(--gradient-mid) 60%, transparent) 50%,
-    color-mix(in oklab, var(--gradient-end) 50%, transparent) 80%,
-    transparent
-  );
+  background: var(--border-color);
   pointer-events: none;
 }
 
 /* First section on a page has no top divider */
+.section:first-child::after {
+  display: none;
+}
+
 .section:first-child::before {
   display: none;
 }
 
-/* Top-right page slug — JetBrains Mono accent echoing the `//` greeting in Hero */
+/* Top-right page slug — small mono annotation, like a printer's mark */
 .section__slug {
   position: absolute;
   top: 56px;
   right: 32px;
   z-index: 1;
-  font-family: var(--font-display);
-  font-size: var(--fs-caption);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   letter-spacing: 1px;
   color: color-mix(in oklab, var(--text-primary) 32%, transparent);
   pointer-events: none;
@@ -90,50 +101,70 @@ iconify-icon {
   }
 }
 
+/* Ghost index numeral — huge Fraunces figure sitting behind the heading */
+.section__num {
+  position: absolute;
+  top: -0.35em;
+  left: -0.06em;
+  z-index: 0;
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-axis);
+  font-weight: 300;
+  font-style: italic;
+  font-size: clamp(7rem, 18vw, 15rem);
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in oklab, var(--text-primary) 14%, transparent);
+  pointer-events: none;
+  user-select: none;
+
+  .section__head--centered & {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
 .section__label {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 3px;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: var(--tr-label);
+  text-transform: lowercase;
   color: var(--accent-primary);
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 
   &::before {
-    content: '';
-    width: 32px;
-    height: 1px;
-    background: currentColor;
+    content: '( ';
+    white-space: pre;
+    color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
   }
 
-  &--centered::before {
-    display: none;
+  &::after {
+    content: ' )';
+    white-space: pre;
+    color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
   }
 }
 
 .section__title {
   font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(2.5rem, 5vw, 4.5rem);
-  letter-spacing: -2px;
-  line-height: 1;
+  font-variation-settings: var(--title-axis);
+  font-weight: var(--fw-display);
+  font-size: clamp(2.75rem, 6.5vw, 5.25rem);
+  letter-spacing: var(--tr-display);
+  line-height: var(--lh-display);
   margin: 0;
   color: var(--text-primary);
   position: relative;
   z-index: 1;
 
   &-accent {
-    background: linear-gradient(
-      135deg,
-      var(--gradient-start),
-      var(--gradient-mid),
-      var(--gradient-end)
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    font-style: italic;
+    font-weight: 420;
+    font-variation-settings: var(--display-axis);
+    color: var(--accent-primary);
   }
 }
 
@@ -162,13 +193,25 @@ iconify-icon {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
+  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   font-weight: 500;
-  background: color-mix(in oklab, var(--bg-tertiary) 60%, transparent);
+  letter-spacing: 0.02em;
+  background: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   white-space: nowrap;
+  transition:
+    border-color 0.25s var(--ease-standard),
+    color 0.25s var(--ease-standard),
+    transform 0.25s var(--ease-standard);
+
+  &:hover {
+    border-color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
+    color: var(--text-primary);
+    transform: translateY(-1px) rotate(-0.5deg);
+  }
 }
 
 .btn {
@@ -179,89 +222,58 @@ iconify-icon {
   font-family: inherit;
   font-weight: 600;
   font-size: var(--fs-body-sm);
-  border: none;
-  border-radius: var(--radius-md);
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
   padding: 15px 30px;
   white-space: nowrap;
-  transition: all 0.3s var(--ease-standard);
+  transition:
+    transform 0.3s var(--ease-standard),
+    background-color 0.3s var(--ease-standard),
+    border-color 0.3s var(--ease-standard),
+    box-shadow 0.3s var(--ease-standard),
+    color 0.3s var(--ease-standard);
   position: relative;
-  overflow: hidden;
   cursor: pointer;
 
-  /* Shimmer sweep — shared by both variants */
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(
-      105deg,
-      transparent 30%,
-      rgba(255, 255, 255, 0.15) 50%,
-      transparent 70%
-    );
-    transition: none;
-    pointer-events: none;
-    z-index: 2;
+  /* Icons nudge on hover — small, physical, no shimmer */
+  svg {
+    transition: transform 0.3s var(--ease-standard);
   }
 
-  &:hover::after {
-    animation: btn-shimmer 0.7s ease forwards;
+  &:hover svg {
+    transform: translateX(2px) rotate(-4deg);
   }
 
   &--primary {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: #fff;
-    box-shadow: 0 8px 28px color-mix(in oklab, var(--accent-primary) 30%, transparent);
-
-    &::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        135deg,
-        var(--gradient-start),
-        var(--gradient-mid),
-        var(--gradient-end)
-      );
-      opacity: 0;
-      transition: opacity 0.35s;
-    }
-
-    > * {
-      position: relative;
-      z-index: 1;
-    }
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    box-shadow: 0 2px 0 0 color-mix(in oklab, var(--accent-primary) 90%, transparent);
 
     &:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 14px 40px color-mix(in oklab, var(--accent-primary) 40%, transparent);
+      transform: translateY(-2px);
+      background: var(--accent-primary);
+      color: #fff;
+      box-shadow: 0 4px 0 0 color-mix(in oklab, var(--accent-secondary) 80%, transparent);
     }
 
-    &:hover::before {
-      opacity: 1;
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 0 0 color-mix(in oklab, var(--accent-secondary) 80%, transparent);
     }
   }
 
   &--secondary {
-    background: color-mix(in oklab, var(--bg-tertiary) 70%, transparent);
+    background: transparent;
     color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    backdrop-filter: blur(12px);
+    border-color: color-mix(in oklab, var(--text-primary) 30%, transparent);
 
     &:hover {
-      background: color-mix(in oklab, var(--accent-primary) 12%, transparent);
-      border-color: color-mix(in oklab, var(--accent-primary) 50%, transparent);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
       transform: translateY(-2px);
+      background: color-mix(in oklab, var(--accent-primary) 6%, transparent);
     }
-  }
-}
-
-@keyframes btn-shimmer {
-  to {
-    left: 130%;
   }
 }
 

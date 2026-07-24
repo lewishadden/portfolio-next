@@ -1,26 +1,105 @@
+/* =============================================================
+   Footer — giant editorial sign-off + colophon columns
+   ============================================================= */
 .footer {
-  max-width: 1280px;
+  max-width: var(--max-width);
   margin: 60px auto 0;
-  padding: 48px 32px 40px;
-  border-top: 1px solid var(--border-color);
+  padding: 0 32px 40px;
 
   @media (max-width: 640px) {
-    padding: 40px 20px 32px;
+    padding: 0 20px 32px;
     margin-top: 40px;
   }
 
-  @media (max-width: 480px) {
-    padding: 32px 16px 28px;
+  /* ---- Giant CTA ------------------------------------------- */
+  &__cta {
+    position: relative;
+    border-top: 1px solid var(--border-color);
+    padding: 72px 0 64px;
+
+    @media (max-width: 640px) {
+      padding: 48px 0 40px;
+    }
   }
 
+  &__cta-link {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 18px;
+    text-decoration: none;
+  }
+
+  &__cta-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--fs-caption);
+    font-weight: 500;
+    letter-spacing: var(--tr-label);
+    text-transform: lowercase;
+    color: var(--accent-primary);
+  }
+
+  &__cta-title {
+    font-family: var(--font-display);
+    font-variation-settings: var(--display-axis);
+    font-weight: var(--fw-display);
+    font-size: clamp(2.6rem, 7vw, 5.5rem);
+    letter-spacing: var(--tr-display);
+    line-height: 1.02;
+    color: var(--text-primary);
+    transition: color 0.3s var(--ease-standard);
+
+    em {
+      font-style: italic;
+      font-weight: 420;
+      color: var(--accent-primary);
+    }
+  }
+
+  &__cta-arrow {
+    font-size: 0.55em;
+    vertical-align: 0.28em;
+    margin-left: 0.15em;
+    color: var(--accent-primary);
+    transition: transform 0.35s var(--ease-standard);
+  }
+
+  &__cta-link:hover &__cta-title {
+    color: var(--accent-primary);
+
+    em {
+      color: var(--text-primary);
+    }
+  }
+
+  &__cta-link:hover &__cta-arrow {
+    transform: translate(6px, -6px) rotate(8deg);
+  }
+
+  &__cta-doodle {
+    position: absolute;
+    right: 8%;
+    bottom: 42px;
+    width: 90px;
+    color: var(--text-muted);
+    transform: scaleX(-1) rotate(-24deg);
+
+    @media (max-width: 760px) {
+      display: none;
+    }
+  }
+
+  /* ---- Colophon columns ------------------------------------- */
   &__inner {
     display: grid;
     grid-template-columns: 2fr 1fr 1fr;
     gap: 48px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 48px;
 
     @media (max-width: 760px) {
       grid-template-columns: 1fr;
       gap: 32px;
+      padding-top: 36px;
     }
   }
 
@@ -32,37 +111,28 @@
 
   &__logo {
     display: inline-flex;
-    align-items: center;
-    gap: 10px;
+    align-items: baseline;
     text-decoration: none;
     align-self: flex-start;
     transition: opacity 0.2s;
 
-    img {
-      display: block;
-      border-radius: 8px;
-      flex-shrink: 0;
-    }
-
     span {
       font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 1.4rem;
-      letter-spacing: -0.5px;
-      background: linear-gradient(
-        135deg,
-        var(--gradient-start, var(--accent-primary)),
-        var(--gradient-mid, var(--accent-secondary)),
-        var(--gradient-end, var(--accent-primary))
-      );
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+      font-variation-settings: var(--title-axis);
+      font-style: italic;
+      font-weight: 560;
+      font-size: 1.5rem;
+      letter-spacing: var(--tr-title);
+      color: var(--text-primary);
     }
 
     &:hover {
-      opacity: 0.8;
+      opacity: 0.75;
     }
+  }
+
+  &__logo-dot {
+    color: var(--accent-primary);
   }
 
   &__tagline {
@@ -74,12 +144,23 @@
   }
 
   &__col-title {
+    font-family: var(--font-mono);
     font-size: var(--fs-2xs);
-    letter-spacing: 2px;
-    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    text-transform: lowercase;
     color: var(--text-muted);
-    font-weight: 700;
+    font-weight: 500;
     margin: 0 0 18px;
+
+    &::before {
+      content: '( ';
+      color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
+    }
+
+    &::after {
+      content: ' )';
+      color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
+    }
   }
 
   &__nav-list,
@@ -97,7 +178,9 @@
     color: var(--text-secondary);
     font-size: var(--fs-caption);
     text-decoration: none;
-    transition: color 0.2s;
+    transition:
+      color 0.2s,
+      padding-left 0.25s var(--ease-standard);
     display: inline-flex;
     align-items: center;
     gap: 10px;
@@ -108,6 +191,7 @@
 
     &:hover {
       color: var(--accent-primary);
+      padding-left: 6px;
     }
   }
 
@@ -132,7 +216,9 @@
   }
 
   &__copy {
-    font-size: var(--fs-caption);
+    font-family: var(--font-mono);
+    font-size: var(--fs-2xs);
+    letter-spacing: 0.04em;
     color: var(--text-muted);
     margin: 0;
   }
@@ -141,14 +227,15 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    font-family: var(--font-mono);
     font-size: var(--fs-2xs);
     color: var(--text-muted);
     margin: 0;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.04em;
   }
 
   &__heart {
-    color: #ef4444;
+    color: var(--accent-secondary);
     font-size: 0.9rem;
   }
 }

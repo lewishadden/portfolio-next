@@ -10,56 +10,32 @@
   &__side {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-2xl);
+    border-radius: var(--radius-sm);
     padding: 32px;
     display: flex;
     flex-direction: column;
     gap: 24px;
     position: relative;
-    overflow: hidden;
-    transition: background 0.3s;
+    transform: rotate(-0.6deg);
+    transition: transform 0.4s var(--ease-standard);
+
+    &:hover {
+      transform: rotate(0deg);
+    }
 
     @media (max-width: 540px) {
       padding: 22px;
       gap: 20px;
-    }
-
-    &:hover {
-      background:
-        radial-gradient(
-          800px circle at var(--mouse-x, 0) var(--mouse-y, 0),
-          rgba(255, 255, 255, 0.04),
-          transparent 40%
-        ),
-        var(--card-bg);
-    }
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: -100px;
-      right: -100px;
-      width: 300px;
-      height: 300px;
-      border-radius: 50%;
-      background: radial-gradient(circle, var(--orb-1, var(--accent-primary)), transparent 70%);
-      filter: blur(40px);
-      opacity: 0.5;
-      pointer-events: none;
-    }
-
-    > * {
-      position: relative;
-      z-index: 1;
     }
   }
 
   &__intro {
     h3 {
       font-family: var(--font-display);
-      font-weight: 800;
+      font-variation-settings: var(--title-axis);
+      font-weight: 560;
       font-size: 1.75rem;
-      letter-spacing: -0.8px;
+      letter-spacing: var(--tr-title);
       margin: 0 0 8px;
       color: var(--text-primary);
 
@@ -124,9 +100,19 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      background: transparent;
+      border: 1px solid color-mix(in oklab, var(--accent-primary) 50%, transparent);
+      color: var(--accent-primary);
+      transition:
+        background 0.25s var(--ease-standard),
+        color 0.25s var(--ease-standard),
+        transform 0.25s var(--ease-standard);
+    }
+
+    &-item:hover &-ic {
+      background: var(--accent-primary);
       color: #fff;
-      box-shadow: 0 4px 12px var(--gradient-shadow);
+      transform: rotate(-6deg);
     }
 
     &-text {
@@ -136,10 +122,11 @@
 
       b {
         display: block;
-        font-size: var(--fs-2xs);
-        font-weight: 600;
+        font-family: var(--font-mono);
+        font-size: var(--fs-tiny);
+        font-weight: 500;
         color: var(--text-muted);
-        letter-spacing: 1px;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
         margin-bottom: 2px;
       }
@@ -184,24 +171,13 @@
   &__panel {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-2xl);
+    border-radius: var(--radius-sm);
     padding: 32px;
     display: flex;
     flex-direction: column;
-    transition: background 0.3s;
 
     @media (max-width: 540px) {
       padding: 22px;
-    }
-
-    &:hover {
-      background:
-        radial-gradient(
-          800px circle at var(--mouse-x, 0) var(--mouse-y, 0),
-          rgba(255, 255, 255, 0.04),
-          transparent 40%
-        ),
-        var(--card-bg);
     }
 
     &--submitted {
@@ -424,15 +400,16 @@
     position: absolute;
     bottom: 16px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) rotate(-1deg);
     padding: 6px 12px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-xs);
     background: color-mix(in oklab, var(--bg-secondary) 85%, transparent);
     backdrop-filter: blur(8px);
     border: 1px solid var(--border-color);
+    font-family: var(--font-mono);
     font-size: var(--fs-2xs);
-    font-weight: 600;
-    letter-spacing: 2px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--text-primary);
     z-index: 2;
