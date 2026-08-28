@@ -50,9 +50,9 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
           02
         </span>
         <span className="section__label">{label}</span>
-        <h2 id="experience-heading" className="section__title">
+        <h1 id="experience-heading" className="section__title">
           {title}
-        </h2>
+        </h1>
         <p className="section__sub">
           Almost a decade across IBM, Sopra Steria, ERGO Travel and ADP — frontend, full stack, and
           cloud architecture.

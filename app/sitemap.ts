@@ -1,11 +1,11 @@
 import { MetadataRoute } from 'next';
 
+import { siteUrl, contentUpdated } from 'utils/seo';
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://portfolio.lewishadden.com').replace(
-    /\/$/,
-    ''
-  );
-  const lastModified = new Date();
+  // Real content-change date (content.json global.contentUpdated), not the build time —
+  // Google ignores lastmod once it detects inaccurate values.
+  const lastModified = new Date(contentUpdated);
 
   const routes: Array<{
     path: string;
@@ -21,7 +21,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ];
 
   return routes.map(({ path, priority, changeFrequency }) => ({
-    url: `${baseUrl}${path === '/' ? '' : path}`,
+    url: `${siteUrl}${path === '/' ? '' : path}`,
     lastModified,
     changeFrequency,
     priority,

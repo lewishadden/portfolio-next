@@ -7,7 +7,7 @@ type RevealVariant = 'fade-up' | 'scale' | 'slide-left' | 'slide-right';
 
 type ScrollRevealProps = MotionProps &
   Omit<HTMLAttributes<HTMLElement> & ButtonHTMLAttributes<HTMLButtonElement>, keyof MotionProps> & {
-    as?: 'div' | 'li' | 'aside' | 'button' | 'h3';
+    as?: 'div' | 'li' | 'aside' | 'article' | 'button' | 'h3';
     children?: React.ReactNode;
     className?: string;
     style?: React.CSSProperties;

@@ -40,13 +40,13 @@ export const About = ({
           01
         </span>
         <span className="section__label">{label}</span>
-        <h2 id="about-heading" className="section__title">
+        <h1 id="about-heading" className="section__title">
           {title}{' '}
           <span className="section__title-accent about__accent">
             Me
             <CircleScribble className="about__accent-circle" delay={0.5} />
           </span>
-        </h2>
+        </h1>
       </ScrollReveal>
 
       <div className="about__grid">

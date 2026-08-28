@@ -26,9 +26,9 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
           03
         </span>
         <span className="section__label section__label--centered">{label}</span>
-        <h2 id="projects-heading" className="section__title">
+        <h1 id="projects-heading" className="section__title">
           <span className="section__title-accent">Selected</span> {title}
-        </h2>
+        </h1>
         <p className="section__sub">
           A cross-section of platforms, tools, and architectures — from passion projects to
           enterprise-grade applications shipped in production.
@@ -59,7 +59,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
                 {preview ? (
                   <Image
                     src={preview.url}
-                    alt=""
+                    alt={preview.alt || `Screenshot of ${p.title}`}
                     width={preview.size.width}
                     height={preview.size.height}
                     sizes={

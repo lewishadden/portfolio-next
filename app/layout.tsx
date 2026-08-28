@@ -3,8 +3,6 @@ import './theme-variables.scss';
 import './page.scss';
 
 import { JetBrains_Mono, Fraunces, Instrument_Sans } from 'next/font/google';
-import { geolocation, ipAddress } from '@vercel/functions';
-import { headers } from 'next/headers';
 
 import { ClientProviders } from '@/components/ClientProviders/ClientProviders';
 import { PageTransition } from '@/components/PageTransition/PageTransition';
@@ -20,6 +18,7 @@ import { RevealMount } from '@/components/RevealMount/RevealMount';
 import type { Metadata, Viewport } from 'next';
 
 import content from '../content/content.json';
+import { siteUrl, personName, siteDescription as description } from 'utils/seo';
 import { ContactInfo, Social } from '@/types';
 
 const jetBrainsMono = JetBrains_Mono({
@@ -44,42 +43,6 @@ const instrumentSans = Instrument_Sans({
   display: 'swap',
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'https://portfolio.lewishadden.com';
-
-const personName = content.home?.name || 'Portfolio';
-const description =
-  'Freelance React & Next.js developer, Peterborough UK. Senior full stack engineer. 9+ years at IBM, ADP & ERGO. Remote contracts across the UK and Europe.';
-const keywords = [
-  'Lewis Hadden',
-  'Freelance React Developer UK',
-  'Hire React Developer UK',
-  'Contract Next.js Developer UK',
-  'React Contractor UK',
-  'Freelance TypeScript Developer UK',
-  'Freelance Node.js Developer UK',
-  'Freelance Full Stack Developer UK',
-  'Senior Full Stack Developer UK',
-  'Freelance Web Developer Peterborough',
-  'Freelance Developer Peterborough',
-  'Full Stack Developer',
-  'React Developer',
-  'Next.js Developer',
-  'TypeScript Developer',
-  'Frontend Developer',
-  'Backend Developer',
-  'Freelance Developer',
-  'Contract Developer',
-  'Azure Developer',
-  'AWS Developer',
-  'Node.js Developer',
-  'Software Engineer',
-  'Lead Developer',
-  'Senior Developer',
-  'UK Developer',
-  'JavaScript Developer',
-  'Web Developer',
-];
 const profileImage = content.about?.image?.url || '/static/images/bio-pic.jpeg';
 const sameAs = (content.footer?.social || []).map((s: Social) => s.url).filter(Boolean);
 
@@ -96,7 +59,6 @@ export const metadata: Metadata = {
     template: `%s | ${personName}`,
   },
   description,
-  keywords: keywords.join(', '),
   authors: [
     {
       name: personName,
@@ -111,6 +73,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/',
   },
+  // og:image / twitter:image come from the app/opengraph-image.tsx file convention
   openGraph: {
     type: 'website',
     url: siteUrl,
@@ -118,21 +81,11 @@ export const metadata: Metadata = {
     title: `Freelance React & Next.js Developer UK | ${personName}`,
     description,
     locale: 'en_GB',
-    images: [
-      {
-        url: profileImage,
-        width: content.about?.image?.size?.width || 1200,
-        height: content.about?.image?.size?.height || 630,
-        alt: `${personName} - Full Stack Developer Portfolio`,
-        type: 'image/png',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: `${personName} — Freelance Full Stack Developer`,
     description,
-    images: [profileImage],
     creator: '@lewishadden',
   },
   robots: {
@@ -220,23 +173,10 @@ function JsonLd() {
     inLanguage: 'en-GB',
   };
 
-  // ProfilePage Schema
-  const profilePageSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'ProfilePage',
-    mainEntity: {
-      '@id': `${siteUrl}/#person`,
-    },
-    url: siteUrl,
-    name: `${personName} - Professional Portfolio`,
-    description,
-    dateCreated: '2020-01-01T00:00:00.000Z',
-    dateModified: new Date().toISOString(),
-  };
-
+  // ProfilePage schema lives on the home page only (app/page.tsx)
   return (
     <>
-      {[personSchema, websiteSchema, profilePageSchema].map((schema, i) => (
+      {[personSchema, websiteSchema].map((schema, i) => (
         <script
           key={i}
           type="application/ld+json"
@@ -247,12 +187,7 @@ function JsonLd() {
   );
 }
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const headersData = await headers();
-  const ip = ipAddress({ headers: headersData }) || 'Unknown';
-  const geo = geolocation({ headers: headersData });
-  const geoData = { ip, geo };
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en-GB"
@@ -261,8 +196,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     >
       <head>
         <ThemeScript />
-        <link rel="dns-prefetch" href="https://api.iconify.design" />
-        <link rel="preconnect" href="https://api.iconify.design" crossOrigin="anonymous" />
       </head>
       <body data-theme="dark" suppressHydrationWarning>
         <ClientProviders>
@@ -277,10 +210,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Grain />
         </ClientProviders>
         <JsonLd />
-        <GoogleAnalyticsDeferred
-          gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''}
-          geoData={geoData}
-        />
+        <GoogleAnalyticsDeferred gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
       </body>
     </html>
   );

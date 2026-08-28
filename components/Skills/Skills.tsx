@@ -24,9 +24,9 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
           04
         </span>
         <span className="section__label section__label--centered">{label}</span>
-        <h2 id="skills-heading" className="section__title">
+        <h1 id="skills-heading" className="section__title">
           {title} &amp; <span className="section__title-accent">Stack</span>
-        </h2>
+        </h1>
         <p className="section__sub">{tagline}</p>
       </ScrollReveal>
 
@@ -38,6 +38,7 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
           const wide = catSkills.length >= 12;
           return (
             <ScrollReveal
+              as="article"
               key={cat.categoryKey}
               className={`skill-card${wide ? ' skill-card--wide' : ''}`}
               variant="scale"

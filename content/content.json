@@ -3,6 +3,7 @@
     "openToWork": true,
     "openToWorkText": "Open to Work · UK & EU Remote",
     "location": "Peterborough, UK",
+    "contentUpdated": "2026-08-28",
     "navItems": [
       {
         "href": "/",
@@ -101,7 +102,7 @@
       }
     },
     "cv": {
-      "download": "Lewis Hadden - Senior Full Stack Engineer V2.pdf"
+      "download": "Lewis Hadden - Senior Full Stack Engineer.pdf"
     },
     "cta": {
       "primary": {

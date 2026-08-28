@@ -17,28 +17,47 @@ type GeoData = {
   };
 };
 
+const emptyGeoData: GeoData = { ip: '', geo: {} };
+
 /**
  * Defers Google Analytics loading until the browser is idle,
  * keeping gtag out of Lighthouse's critical rendering path.
+ * Geo data comes from /api/geo so the rest of the site can stay static.
  */
-export const GoogleAnalyticsDeferred = ({ gaId, geoData }: { gaId: string; geoData: GeoData }) => {
-  const [shouldLoad, setShouldLoad] = useState(false);
+export const GoogleAnalyticsDeferred = ({ gaId }: { gaId: string }) => {
+  const [geoData, setGeoData] = useState<GeoData | null>(null);
 
   useEffect(() => {
     if (!gaId) return;
 
-    const load = () => setShouldLoad(true);
+    let cancelled = false;
+    const load = async () => {
+      let data = emptyGeoData;
+      try {
+        const res = await fetch('/api/geo');
+        if (res.ok) data = (await res.json()) as GeoData;
+      } catch {
+        // GA still loads without geo user properties
+      }
+      if (!cancelled) setGeoData(data);
+    };
 
     if (typeof requestIdleCallback === 'function') {
       const id = requestIdleCallback(load, { timeout: 4000 });
-      return () => cancelIdleCallback(id);
+      return () => {
+        cancelled = true;
+        cancelIdleCallback(id);
+      };
     }
 
     const timer = setTimeout(load, 3500);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [gaId]);
 
-  if (!gaId || !shouldLoad) return null;
+  if (!gaId || !geoData) return null;
 
   return (
     <>

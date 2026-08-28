@@ -61,9 +61,9 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
           05
         </span>
         <span className="section__label section__label--centered">{label}</span>
-        <h2 id="contact-heading" className="section__title">
+        <h1 id="contact-heading" className="section__title">
           {title} <span className="section__title-accent">Me</span>
-        </h2>
+        </h1>
         <p className="section__sub">{tagline}</p>
       </ScrollReveal>
 

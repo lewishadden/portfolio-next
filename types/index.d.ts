@@ -14,6 +14,8 @@ export interface Global {
   openToWork: boolean;
   openToWorkText: string;
   location: string;
+  /** ISO date of the last meaningful content change; feeds sitemap lastmod and ProfilePage dateModified */
+  contentUpdated: string;
   navItems: NavItem[];
 }
 export interface Header {

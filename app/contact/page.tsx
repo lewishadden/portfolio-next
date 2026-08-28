@@ -1,21 +1,27 @@
 import { LazyContact } from 'components/Contact/LazyContact';
+import { PageJsonLd } from 'components/Seo/PageJsonLd';
 
 import { getPageContent } from 'utils/serverUtils';
+import { pageMetadata } from 'utils/seo';
 
 import { ResumeData } from '@/types';
 
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: 'Contact',
-  description:
-    'Get in touch — available for senior or lead full stack roles, UK & EU remote, freelance or permanent.',
-  alternates: { canonical: '/contact' },
-};
+const title = 'Contact — Hire a Freelance React Developer';
+const description =
+  'Get in touch — available for senior or lead full stack roles, UK & EU remote, freelance or permanent.';
+
+export const metadata: Metadata = pageMetadata({ path: '/contact', title, description });
 
 export default async function ContactPage() {
   const pageData: ResumeData = await getPageContent();
   const { contact } = pageData;
 
-  return <LazyContact contact={contact} />;
+  return (
+    <>
+      <PageJsonLd path="/contact" name="Contact" description={description} type="ContactPage" />
+      <LazyContact contact={contact} />
+    </>
+  );
 }

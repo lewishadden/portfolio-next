@@ -23,8 +23,8 @@ function ContactSkeleton() {
   );
 }
 
+// SSR stays on so crawlers see the full contact content; dynamic() still code-splits
 const Contact = dynamic(() => import('./Contact').then((m) => m.Contact), {
-  ssr: false,
   loading: () => <ContactSkeleton />,
 });
 
