@@ -22,6 +22,14 @@
   flex: 1;
 }
 
+/* Tall viewports: bottom-pinned content would leave a large empty band at the
+   top of the 100svh cover, so centre it in the leftover space instead */
+@media (min-height: 1000px) {
+  .hero__inner {
+    align-items: center;
+  }
+}
+
 .hero__content {
   display: flex;
   flex-direction: column;
