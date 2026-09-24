@@ -2,16 +2,20 @@
 
 ## Project Overview
 
-This is a **Next.js 16** portfolio website built with **React 19**, **TypeScript**, and **SCSS**. The site is a single-page portfolio with sections: Home, About, Experience, Projects, Skills, Contact, and Footer. It uses server-side rendering with a Next.js API route for the contact form email endpoint.
+This is a **Next.js 16** portfolio website built with **React 19**, **TypeScript**, and **SCSS**. Each section is its own route (`/`, `/about`, `/experience`, `/projects`, `/skills`, `/contact`) sharing a header and footer. Behind every page sits one persistent **WebGL world** (three.js via React Three Fiber) — each route is a "station" in space and navigating flies the camera between them. It uses server-side rendering with a Next.js API route for the contact form email endpoint.
+
+The visual design ("Orbit" — dark sci-fi glow + light "daylight lab" theme) is documented in `docs/superpowers/specs/2026-09-24-orbit-redesign.md`.
 
 ## Tech Stack
 
 - **Framework:** Next.js 16 (App Router)
 - **Language:** TypeScript
 - **Styling:** SCSS (BEM naming convention), CSS Modules (for select components)
-- **Icons:** `@iconify/react`
+- **3D:** `three`, `@react-three/fiber`, `@react-three/drei`, `@react-three/postprocessing`, `maath` (see `components/World`)
+- **Fonts:** Unbounded (display), Geist (body), Geist Mono (labels) via `next/font/google`
+- **Icons:** `@iconify/react` with an offline bundle (`components/IconifyLoader/iconify-bundle.json`)
 - **Forms:** Formik + Yup
-- **Animations:** Framer Motion (scroll-driven), react-type-animation (typing effect)
+- **Animations:** Framer Motion (`m` components under `LazyMotion` + `MotionConfig reducedMotion="user"`), CSS keyframes, Lenis smooth scroll
 - **Linting:** ESLint, Stylelint, Prettier
 - **Package Manager:** npm
 - **Node Version:** See `.nvmrc` (v24.x)
@@ -24,14 +28,17 @@ This is a **Next.js 16** portfolio website built with **React 19**, **TypeScript
 ```
 app/              # Next.js App Router (layout, page, API routes, global styles, theme variables)
 components/       # React components, each with its own .tsx and .scss
+  World/          # Persistent WebGL world: canvas, camera rig, stations, shaders, post-processing
+  Motion/         # Shared animation primitives (Reveal, SplitText, ScrambleText)
 config/           # App configuration (GitHub URL)
 content/          # Static content (content.json — the single data source)
 contexts/         # React contexts (ThemeContext)
 hooks/            # Custom React hooks (useActiveSection, useCountUp, useFocusTrap, etc.)
 icons/            # Custom SVG icon components
-public/           # Static assets served at root
+public/           # Static assets served at root (3D models in public/static/models)
 types/            # TypeScript type definitions (index.d.ts)
-utils/            # Utility functions (serverUtils.ts, buildPyramidRows.ts)
+utils/            # Utility functions (serverUtils.ts, seo.ts, buildPyramidRows.ts)
+scripts/          # Build-time generators (icon bundle, globe land points, IndexNow)
 api/              # Legacy backend API implementations (serverless + express), unused
 ```
 
@@ -73,8 +80,10 @@ Each group must be separated by a newline for clarity and consistency.
 
 - Use **SCSS** with **BEM naming**: `.block__element--modifier`
 - Theme variables are defined in `app/theme-variables.scss` as CSS custom properties on `[data-theme='dark']` and `[data-theme='light']`
-- Reference theme values via `var(--variable-name)` (e.g., `var(--bg-primary)`, `var(--text-primary)`, `var(--accent-primary)`)
-- Gradient variables: `--gradient-start`, `--gradient-mid`, `--gradient-end`
+- Reference theme values via `var(--variable-name)` (e.g., `var(--bg-primary)`, `var(--text-primary)`, `var(--accent-primary)`, `var(--surface)`)
+- Gradient variables: `--gradient-start`, `--gradient-mid`, `--gradient-end`, and `--gradient-brand` (the ready-made violet → cyan gradient)
+- Shared page system lives in `app/page.scss`: `.page`, `.page-head`, `.eyebrow`, `.page-title`, `.page-sub`, `.text-gradient`, `.glass`, `.spotlight` (pair with `usePointerGlow`), `.chip`, `.btn--primary` / `.btn--ghost`, `.page-nav`
+- Inner pages start with `<PageHead>` (numbered eyebrow + title with gradient accent word); see `components/About` as the reference page
 - Support both dark (default) and light themes; use `[data-theme='light'] &` for light-theme overrides
 - Respect `prefers-reduced-motion` — see `app/globals.scss`
 
@@ -87,6 +96,7 @@ Each group must be separated by a newline for clarity and consistency.
 ### Custom Hooks (`hooks/`)
 
 - `useActiveSection` — detects which section is in viewport via scroll/resize listeners
+- `usePointerGlow` — sets `--mx` / `--my` on an element for the `.spotlight` glow, with optional 3D tilt
 - `useColumns` — responsive column count via rAF-throttled resize
 - `useCountUp` — animates a number from 0 to target with cubic easing, triggers on intersection
 - `useFocusTrap` — traps keyboard focus within a container (used in modals and mobile menu)
@@ -94,14 +104,14 @@ Each group must be separated by a newline for clarity and consistency.
 - `useInViewport` — simple IntersectionObserver ref + boolean
 - `useMediaQuery` — subscribes to a CSS media query, SSR-safe
 - `useReducedMotion` — returns `prefers-reduced-motion: reduce`, SSR-safe
-- `useReveal` / `useGlobalReveal` — scroll-triggered reveal for individual elements and `.reveal` class globally
 - `useScrollProgress` — tracks scroll percentage, sets `--scroll-pct` CSS variable
 - `useTilt` — 3D tilt effect on mousemove using perspective transforms
 
 ### Data Flow
 
 - Content is loaded from `content/content.json` via `utils/serverUtils.ts` (`getPageContent()`)
-- Page data is fetched in `app/page.tsx` (server component) and passed as props to child components
+- Page data is fetched in each `app/**/page.tsx` (server components) and passed as props to child components
+- The root layout passes a small serialisable slice of content (`WorldContent`: project images, skill icons, experience count) to the 3D world
 - No client-side data fetching for portfolio content
 - The contact form submits to `/api/sendmail` (Next.js API route) which sends email via nodemailer
 
@@ -174,6 +184,17 @@ npm run verify            # prettier:check + lint + typecheck (CI script — run
 - Images use the built-in Next.js `<Image>` component with server-side optimization
 - The `api/` directory contains legacy standalone backend services (a DigitalOcean serverless function and an Express/Bun server) — these are no longer used; the contact form email is handled by `app/api/sendmail/route.ts`
 - SMTP configuration is provided via environment variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL`, `SMTP_PASS`
-- The `Contact` component is lazy-loaded via `LazyContact.tsx` (dynamic import, SSR disabled) to reduce initial bundle size
+- The `Contact` component is code-split via `LazyContact.tsx` (dynamic import, SSR kept on for crawlers)
 - `ThemeScript` runs as an inline script before hydration to prevent theme flash on page load
-- `Background` component uses a canvas-based particle system with `requestIdleCallback` for deferred rendering; respects `prefers-reduced-motion`
+
+## 3D World (`components/World`)
+
+- `World.tsx` (DOM side, in the root layout) decides whether to render: it sets `html[data-world='on'|'off']` (off for no WebGL / Save-Data), feeds scroll + pointer into `worldStore`, and lazy-loads `WorldCanvas` on `requestIdleCallback` so three.js never blocks first paint
+- `WorldCanvas.tsx` is the single `<Canvas>`: lighting, local `Environment` lightformers (no HDR downloads), nebula, starfield, dust, stations and `Effects` (bloom, velocity-driven chromatic aberration, vignette)
+- `stations.ts` maps routes to station positions (`stationForPath`) and defines each station's camera pose for page scroll (`stationCamera`). `CameraRig.tsx` flies between stations and writes camera speed to `worldStore.velocity` (drives FOV kick / aberration / star stretch)
+- Stations (`stations/*.tsx`) mount on first visit and stay mounted; each hides itself when the camera is far away (`stationInRange`)
+- Materials: build station materials with a module-level factory + `useThemedMaterials(factory, theme)`; mutate uniforms per frame only through helpers like `setUniform()` (the React Compiler lint rules forbid mutating hook return values in components). Additive glow materials are tagged with `asGlow()` so light mode can switch them to normal blending
+- Models are GLBs in `public/static/models` loaded via `<Model>` (meshopt supported, **no Draco** — it would fetch a decoder from a CDN). A missing/failed model falls back to a procedural `HoloCore`
+- `prefers-reduced-motion`: the canvas renders on demand and the camera snaps instead of flying
+- The contact form calls `requestLaunch()` from `worldStore` after a successful send — the rocket on `/contact` launches
+- Regenerate the globe's land dots with `node scripts/generate-globe-points.mjs`; regenerate the icon bundle with `node scripts/generate-iconify-bundle.mjs` (reads local `@iconify-json/*` packages first, then the Iconify API)

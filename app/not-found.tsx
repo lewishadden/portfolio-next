@@ -3,10 +3,10 @@ import { PageNotFound } from 'components/PageNotFound/PageNotFound';
 export default function NotFound() {
   return (
     <PageNotFound
-      title="Nothing to see here"
-      description="The page you are trying to open does not exist. You may have mistyped the address, or the page has been moved to another URL. If you think this is an error contact support."
+      title="Lost in space"
+      description="This page drifted out of orbit — the link may be broken, or the page has moved. Let’s get you back to base."
       cta={{
-        text: 'Back to home page',
+        text: 'Back to base',
       }}
     />
   );

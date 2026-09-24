@@ -3,16 +3,17 @@ import { Fragment } from 'react';
 import './Marquee.scss';
 
 /**
- * Slow infinite ticker. Items alternate between italic serif and mono
- * so the strip reads like set type, not a component library.
- * The track is duplicated once (aria-hidden) for a seamless loop.
+ * Infinite ticker. Items alternate between display type and outlined mono so
+ * the strip reads like a HUD readout. The track is duplicated once
+ * (aria-hidden) for a seamless loop; hover pauses it.
  */
 export const Marquee = ({
   items,
-  separator = '✳',
+  separator = '✦',
   duration = 36,
   className = '',
   reverse = false,
+  label,
 }: {
   items: string[];
   separator?: string;
@@ -20,12 +21,14 @@ export const Marquee = ({
   duration?: number;
   className?: string;
   reverse?: boolean;
+  /** Accessible summary; the moving text itself is hidden from screen readers */
+  label?: string;
 }) => {
   const row = (hidden: boolean) => (
     <div className="marquee__row" aria-hidden={hidden || undefined}>
       {items.map((item, i) => (
         <Fragment key={`${item}-${i}`}>
-          <span className={`marquee__item marquee__item--${i % 2 ? 'mono' : 'serif'}`}>{item}</span>
+          <span className={`marquee__item marquee__item--${i % 2 ? 'alt' : 'main'}`}>{item}</span>
           <span className="marquee__sep" aria-hidden="true">
             {separator}
           </span>
@@ -35,7 +38,11 @@ export const Marquee = ({
   );
 
   return (
-    <div className={`marquee ${reverse ? 'marquee--reverse' : ''} ${className}`}>
+    <div
+      className={`marquee ${reverse ? 'marquee--reverse' : ''} ${className}`}
+      role={label ? 'marquee' : undefined}
+      aria-label={label}
+    >
       <div
         className="marquee__track"
         style={{ '--marquee-duration': `${duration}s` } as React.CSSProperties}

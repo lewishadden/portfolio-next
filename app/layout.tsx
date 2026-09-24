@@ -2,18 +2,17 @@ import './globals.scss';
 import './theme-variables.scss';
 import './page.scss';
 
-import { JetBrains_Mono, Fraunces, Instrument_Sans } from 'next/font/google';
+import { Geist, Geist_Mono, Unbounded } from 'next/font/google';
 
 import { ClientProviders } from '@/components/ClientProviders/ClientProviders';
 import { PageTransition } from '@/components/PageTransition/PageTransition';
 import { GoogleAnalyticsDeferred } from '@/components/GoogleAnalyticsDeferred/GoogleAnalyticsDeferred';
 import { ThemeScript } from '@/components/ThemeScript/ThemeScript';
-import { Grain } from '@/components/Grain/Grain';
 import { Header } from '@/components/Header/Header';
 import { Footer } from '@/components/Footer/Footer';
-import { Background } from '@/components/Background/Background';
+import { World } from '@/components/World/World';
+import { Cursor } from '@/components/Cursor/Cursor';
 import { ScrollProgress } from '@/components/ScrollProgress/ScrollProgress';
-import { RevealMount } from '@/components/RevealMount/RevealMount';
 
 import type { Metadata, Viewport } from 'next';
 
@@ -21,27 +20,35 @@ import content from '../content/content.json';
 import { siteUrl, personName, siteDescription as description } from 'utils/seo';
 import { ContactInfo, Social } from '@/types';
 
-const jetBrainsMono = JetBrains_Mono({
+import type { WorldContent } from '@/components/World/types';
+
+const unbounded = Unbounded({
   subsets: ['latin'],
-  weight: ['400', '500', '700'],
-  variable: '--font-jetbrains-mono',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-unbounded',
   display: 'swap',
 });
 
-const fraunces = Fraunces({
+const geist = Geist({
   subsets: ['latin'],
-  style: ['normal', 'italic'],
-  axes: ['SOFT', 'WONK', 'opsz'],
-  variable: '--font-fraunces',
+  variable: '--font-geist',
   display: 'swap',
 });
 
-const instrumentSans = Instrument_Sans({
+const geistMono = Geist_Mono({
   subsets: ['latin'],
-  style: ['normal', 'italic'],
-  variable: '--font-instrument-sans',
+  weight: ['400', '500', '600'],
+  variable: '--font-geist-mono',
   display: 'swap',
 });
+
+// Serialisable slice of content.json the 3D world needs (project screens, skill badges)
+const worldContent: WorldContent = {
+  projects: content.projects.items.map((p) => ({ title: p.title, image: p.images[0]?.url })),
+  skills: content.skills.icons.map((s) => ({ name: s.name, icon: s.class, category: s.category })),
+  categories: content.skills.categories.map((c) => c.categoryKey),
+  experienceCount: content.experience.items.length,
+};
 
 const profileImage = content.about?.image?.url || '/static/images/bio-pic.jpeg';
 const sameAs = (content.footer?.social || []).map((s: Social) => s.url).filter(Boolean);
@@ -192,22 +199,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en-GB"
       suppressHydrationWarning
-      className={`${fraunces.variable} ${instrumentSans.variable} ${jetBrainsMono.variable}`}
+      className={`${unbounded.variable} ${geist.variable} ${geistMono.variable}`}
     >
       <head>
         <ThemeScript />
       </head>
       <body data-theme="dark" suppressHydrationWarning>
         <ClientProviders>
-          <RevealMount />
+          <a href="#main-content" className="skip-link">
+            Skip to content
+          </a>
+          <World content={worldContent} />
           <ScrollProgress />
-          <Header header={content.header} navItems={content.global.navItems} />
+          <Header
+            header={content.header}
+            navItems={content.global.navItems}
+            available={content.global.openToWork}
+          />
           <main id="main-content">
             <PageTransition>{children}</PageTransition>
           </main>
           <Footer footer={content.footer} navItems={content.global.navItems} />
-          <Background />
-          <Grain />
+          <Cursor />
         </ClientProviders>
         <JsonLd />
         <GoogleAnalyticsDeferred gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />

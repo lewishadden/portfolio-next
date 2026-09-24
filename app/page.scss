@@ -1,5 +1,7 @@
 /* =============================================================
-   Portfolio Redesign — global app shell
+   "Orbit" — global app shell + shared page system
+   Pages, headings, buttons, chips, glass cards and utilities
+   shared by every route.
    ============================================================= */
 
 html {
@@ -17,382 +19,366 @@ body {
   overflow-x: hidden;
 }
 
-iconify-icon {
-  display: inline-block;
-  vertical-align: middle;
-}
-
 ::selection {
-  background: color-mix(in oklab, var(--accent-primary) 40%, transparent);
+  background: color-mix(in oklab, var(--accent-primary) 45%, transparent);
   color: var(--text-primary);
 }
 
 #main-content {
   position: relative;
   z-index: 1;
+  min-height: 100vh;
 }
 
 /* =============================================================
-   Section layout — shared by About, Experience, Projects, Skills, Contact
+   Page layout — every route renders one <section class="page">
    ============================================================= */
-.section {
-  max-width: 1280px;
+.page {
+  position: relative;
+  max-width: var(--max-width);
   margin: 0 auto;
-  padding: 140px 32px 100px;
+  padding: calc(var(--header-h) + clamp(3rem, 9vh, 6.5rem)) var(--gutter) clamp(4rem, 10vh, 7rem);
+}
+
+.page-head {
   position: relative;
-}
+  display: grid;
+  gap: 1.25rem;
+  max-width: 44rem;
+  margin-bottom: clamp(3rem, 8vh, 5.5rem);
 
-/* Section divider — plain print hairline with a centred asterisk fleuron */
-.section::before {
-  content: '✳';
-  position: absolute;
-  top: -0.7em;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: var(--fs-caption);
-  line-height: 1;
-  color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
-  background: var(--bg-primary);
-  padding: 0 14px;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.section::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--border-color);
-  pointer-events: none;
-}
-
-/* First section on a page has no top divider */
-.section:first-child::after {
-  display: none;
-}
-
-.section:first-child::before {
-  display: none;
-}
-
-/* Top-right page slug — small mono annotation, like a printer's mark */
-.section__slug {
-  position: absolute;
-  top: 56px;
-  right: 32px;
-  z-index: 1;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  letter-spacing: 1px;
-  color: color-mix(in oklab, var(--text-primary) 32%, transparent);
-  pointer-events: none;
-  user-select: none;
-}
-
-.section__head {
-  margin-bottom: 64px;
-  position: relative;
-
-  &--centered {
+  &--center {
+    margin-inline: auto;
     text-align: center;
+    justify-items: center;
+  }
+
+  /* Leaves the right side of the header free for the 3D station on wide screens */
+  &--stage {
+    min-height: clamp(18rem, 44vh, 28rem);
+    align-content: center;
+  }
+
+  /* Narrow screens: the station floats in this space above the title */
+  &__stage {
+    display: none;
   }
 }
 
-/* Ghost index numeral — huge Fraunces figure sitting behind the heading */
-.section__num {
-  position: absolute;
-  top: -0.35em;
-  left: -0.06em;
-  z-index: 0;
-  font-family: var(--font-display);
-  font-variation-settings: var(--display-axis);
-  font-weight: 300;
-  font-style: italic;
-  font-size: clamp(7rem, 18vw, 15rem);
-  line-height: 1;
-  color: transparent;
-  -webkit-text-stroke: 1px color-mix(in oklab, var(--text-primary) 14%, transparent);
-  pointer-events: none;
-  user-select: none;
+@media (max-width: 899px), (max-aspect-ratio: 11 / 10) {
+  .page-head--stage {
+    min-height: 0;
+  }
 
-  .section__head--centered & {
-    left: 50%;
-    transform: translateX(-50%);
+  .page-head__stage {
+    display: block;
+    height: clamp(11rem, 30svh, 18rem);
+    margin-top: calc(-1 * clamp(1.5rem, 5vh, 3rem));
   }
 }
 
-.section__label {
+.eyebrow {
   display: inline-flex;
   align-items: center;
+  gap: 0.75rem;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   letter-spacing: var(--tr-label);
-  text-transform: lowercase;
-  color: var(--accent-primary);
-  margin-bottom: 20px;
+  text-transform: uppercase;
+  color: var(--accent-secondary);
+
+  &__index {
+    display: inline-grid;
+    place-items: center;
+    min-width: 2.25rem;
+    height: 1.5rem;
+    padding: 0 0.5rem;
+    border: 1px solid color-mix(in oklab, var(--accent-secondary) 45%, transparent);
+    border-radius: var(--radius-pill);
+    color: var(--text-primary);
+    background: color-mix(in oklab, var(--accent-secondary) 12%, transparent);
+    letter-spacing: 0.08em;
+  }
+
+  &__line {
+    width: 2.5rem;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent-secondary), transparent);
+  }
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tr-display);
+  text-wrap: balance;
+}
+
+.page-sub {
+  max-width: 38rem;
+  font-size: var(--fs-body-lg);
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.text-gradient {
+  background: var(--gradient-brand);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: text-gradient-pan 8s var(--ease-in-out) infinite alternate;
+}
+
+@keyframes text-gradient-pan {
+  to {
+    background-position: 100% 0;
+  }
+}
+
+/* =============================================================
+   Glass surfaces
+   ============================================================= */
+.glass {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* Mouse-follow spotlight — pair with useSpotlight() which sets --mx / --my */
+.spotlight {
+  isolation: isolate;
+  overflow: hidden;
 
   &::before {
-    content: '( ';
-    white-space: pre;
-    color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(
+      420px circle at var(--mx, 50%) var(--my, -20%),
+      color-mix(in oklab, var(--accent-primary) 18%, transparent),
+      transparent 60%
+    );
+    opacity: 0;
+    transition: opacity var(--dur-med) ease;
+    pointer-events: none;
   }
 
   &::after {
-    content: ' )';
-    white-space: pre;
-    color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: radial-gradient(
+      260px circle at var(--mx, 50%) var(--my, -20%),
+      var(--accent-secondary),
+      var(--accent-primary) 40%,
+      transparent 70%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity var(--dur-med) ease;
+    pointer-events: none;
   }
-}
 
-.section__title {
-  font-family: var(--font-display);
-  font-variation-settings: var(--title-axis);
-  font-weight: var(--fw-display);
-  font-size: clamp(2.75rem, 6.5vw, 5.25rem);
-  letter-spacing: var(--tr-display);
-  line-height: var(--lh-display);
-  margin: 0;
-  color: var(--text-primary);
-  position: relative;
-  z-index: 1;
-
-  &-accent {
-    font-style: italic;
-    font-weight: 420;
-    font-variation-settings: var(--display-axis);
-    color: var(--accent-primary);
-  }
-}
-
-.section__sub {
-  margin: 18px 0 0;
-  font-size: var(--fs-body-lg);
-  color: var(--text-secondary);
-  max-width: 620px;
-  line-height: var(--lh-loose);
-
-  .section__head--centered & {
-    margin-left: auto;
-    margin-right: auto;
+  &:hover::before,
+  &:hover::after,
+  &:focus-visible::before,
+  &:focus-visible::after {
+    opacity: 1;
   }
 }
 
 /* =============================================================
-   Reveal-on-scroll (Removed in favor of Framer Motion)
-   ============================================================= */
-
-/* =============================================================
-   Reusable building blocks
+   Chips
    ============================================================= */
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
   font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  background: transparent;
+  font-size: var(--fs-tiny);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.04em;
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--bg-tertiary) 55%, transparent);
   white-space: nowrap;
-  transition:
-    border-color 0.25s var(--ease-standard),
-    color 0.25s var(--ease-standard),
-    transform 0.25s var(--ease-standard);
-
-  &:hover {
-    border-color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
-    color: var(--text-primary);
-    transform: translateY(-1px) rotate(-0.5deg);
-  }
 }
 
+/* =============================================================
+   Buttons
+   ============================================================= */
 .btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  font-family: inherit;
-  font-weight: 600;
-  font-size: var(--fs-body-sm);
-  letter-spacing: 0.01em;
-  border: 1px solid transparent;
+  gap: 0.6rem;
+  min-height: 3.25rem;
+  padding: 0 1.6rem;
   border-radius: var(--radius-pill);
-  padding: 15px 30px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-body-sm);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.01em;
   white-space: nowrap;
+  isolation: isolate;
+  overflow: hidden;
   transition:
-    transform 0.3s var(--ease-standard),
-    background-color 0.3s var(--ease-standard),
-    border-color 0.3s var(--ease-standard),
-    box-shadow 0.3s var(--ease-standard),
-    color 0.3s var(--ease-standard);
-  position: relative;
-  cursor: pointer;
+    transform var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out),
+    color var(--dur-fast) ease;
 
-  /* Icons nudge on hover — small, physical, no shimmer */
   svg {
-    transition: transform 0.3s var(--ease-standard);
+    flex-shrink: 0;
+    transition: transform var(--dur-med) var(--ease-out);
   }
 
-  &:hover svg {
-    transform: translateX(2px) rotate(-4deg);
+  &:hover svg:last-child:not(:first-child) {
+    transform: translateX(3px);
   }
 
+  &:active {
+    transform: scale(0.97);
+  }
+
+  /* Gradient fill with a light sweep on hover */
   &--primary {
-    background: var(--text-primary);
-    color: var(--bg-primary);
-    box-shadow: 0 2px 0 0 color-mix(in oklab, var(--accent-primary) 90%, transparent);
+    color: var(--accent-contrast);
+    background: var(--gradient-brand);
+    background-size: 160% 100%;
+    box-shadow:
+      0 10px 30px -10px var(--glow-violet),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
 
-    &:hover {
-      transform: translateY(-2px);
-      background: var(--accent-primary);
-      color: #fff;
-      box-shadow: 0 4px 0 0 color-mix(in oklab, var(--accent-secondary) 80%, transparent);
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background: linear-gradient(
+        110deg,
+        transparent 20%,
+        rgba(255, 255, 255, 0.45) 45%,
+        transparent 70%
+      );
+      transform: translateX(-120%);
+      transition: transform 0.8s var(--ease-out);
     }
 
-    &:active {
-      transform: translateY(0);
-      box-shadow: 0 1px 0 0 color-mix(in oklab, var(--accent-secondary) 80%, transparent);
+    &:hover {
+      box-shadow:
+        0 16px 44px -10px var(--glow-violet),
+        0 0 0 4px color-mix(in oklab, var(--accent-primary) 20%, transparent);
+
+      &::after {
+        transform: translateX(120%);
+      }
     }
   }
 
-  &--secondary {
-    background: transparent;
+  /* Glass pill with a rotating conic border on hover */
+  &--ghost {
     color: var(--text-primary);
-    border-color: color-mix(in oklab, var(--text-primary) 30%, transparent);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      z-index: -1;
+      border-radius: inherit;
+      padding: 1px;
+      background: conic-gradient(
+        from var(--spin),
+        transparent 0 60%,
+        var(--accent-secondary) 75%,
+        var(--accent-primary) 90%,
+        transparent
+      );
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity var(--dur-med) ease;
+      animation: spin-border 2.4s linear infinite;
+    }
 
     &:hover {
-      border-color: var(--accent-primary);
-      color: var(--accent-primary);
-      transform: translateY(-2px);
-      background: color-mix(in oklab, var(--accent-primary) 6%, transparent);
+      background: var(--surface-hover);
+
+      &::before {
+        opacity: 1;
+      }
     }
+  }
+}
+
+@keyframes spin-border {
+  to {
+    --spin: 360deg;
   }
 }
 
 .magnet {
-  display: inline-block;
-  will-change: transform;
-  transition: transform 0.25s var(--ease-standard);
+  display: inline-flex;
 }
 
 /* =============================================================
-   Page navigation CTA — shared bottom-of-section prompt.
-   Styled as wayfinding, not action — the gradient/ghost CTA pair is
-   reserved for page-level conversions (e.g. About: Download CV / Contact).
+   Next-page navigation shown at the end of every route
    ============================================================= */
-.section__page-nav {
-  margin-top: 80px;
-  padding-top: 48px;
-  border-top: 1px solid var(--border-color);
+.page-nav {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
   flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: clamp(4rem, 10vh, 6rem);
+}
 
-  .btn,
-  .btn--primary,
-  .btn--secondary {
-    padding: 12px 22px;
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-    box-shadow: none;
-    font-weight: 500;
-    backdrop-filter: none;
+/* =============================================================
+   Static renders shown when WebGL is unavailable
+   (World sets html[data-world='off'])
+   ============================================================= */
+.station-fallback {
+  display: none;
+}
 
-    &::before,
-    &::after {
-      display: none;
-    }
-
-    &:hover {
-      transform: translateY(-2px);
-      color: var(--text-primary);
-      background: color-mix(in oklab, var(--accent-primary) 8%, transparent);
-      border-color: color-mix(in oklab, var(--accent-primary) 45%, transparent);
-      box-shadow: none;
-    }
-  }
-
-  /* Subtle accent on the recommended next page */
-  .btn--primary {
-    color: var(--text-primary);
-    border-color: color-mix(in oklab, var(--accent-primary) 35%, transparent);
-
-    &:hover {
-      background: color-mix(in oklab, var(--accent-primary) 14%, transparent);
-      border-color: color-mix(in oklab, var(--accent-primary) 60%, transparent);
-    }
-  }
+[data-world='off'] .station-fallback {
+  display: block;
 }
 
 /* =============================================================
    Responsive
    ============================================================= */
 @media (max-width: 640px) {
-  .section {
-    padding: 100px 20px 72px;
+  .page {
+    padding-top: calc(var(--header-h) + 2.5rem);
   }
-  .section__slug {
-    top: 40px;
-    right: 20px;
-    font-size: var(--fs-2xs);
-  }
-  .section__head {
-    margin-bottom: 40px;
-  }
-  .section__sub {
-    font-size: var(--fs-body);
-  }
-  .section__page-nav {
-    margin-top: 56px;
-    padding-top: 32px;
-    gap: 12px;
-  }
-  .btn {
-    padding: 13px 22px;
-    font-size: var(--fs-body-sm);
-  }
-}
 
-@media (max-width: 480px) {
-  .section {
-    padding: 88px 16px 60px;
-  }
-  .section__slug {
-    top: 32px;
-    right: 16px;
-  }
-  .section__label {
-    font-size: var(--fs-2xs);
-    letter-spacing: 2px;
-    margin-bottom: 12px;
-  }
-  .section__head {
-    margin-bottom: 32px;
-  }
-  .section__page-nav {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    margin-top: 48px;
-    padding-top: 28px;
-  }
-  .section__page-nav .magnet,
-  .section__page-nav .magnet > * {
-    width: 100%;
-  }
   .btn {
-    padding: 14px 20px;
-    width: 100%;
+    min-height: 3rem;
+    padding: 0 1.3rem;
   }
 }

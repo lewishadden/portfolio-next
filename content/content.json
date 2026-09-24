@@ -53,16 +53,16 @@
     "tagline": "Senior full stack engineer based in Peterborough, UK. Nine years shipping React, Next.js & Azure at IBM, ADP, ERGO. Currently specialising in modernising platforms that refuse to be simple.",
     "cta": {
       "primary": {
-        "text": "About Me",
-        "url": "/about",
-        "icon": "mdi:account-outline",
-        "ariaLabel": "Learn more about me"
+        "text": "Explore my work",
+        "url": "/projects",
+        "icon": "ph:planet-bold",
+        "ariaLabel": "Explore my projects"
       },
       "secondary": {
-        "text": "View Work",
-        "url": "/projects",
-        "icon": "mdi:eye-outline",
-        "ariaLabel": "View my work"
+        "text": "About me",
+        "url": "/about",
+        "icon": "ph:user-circle-bold",
+        "ariaLabel": "Learn more about me"
       }
     },
     "stats": [
@@ -85,6 +85,34 @@
         "value": 9,
         "suffix": "",
         "label": "Industries"
+      }
+    ],
+    "exploreLabel": "Mission control",
+    "exploreTitle": "Pick a destination",
+    "explore": [
+      {
+        "href": "/about",
+        "title": "About",
+        "text": "Nine years, four enterprises and a habit of modernising platforms that refuse to be simple.",
+        "icon": "ph:user-focus-bold"
+      },
+      {
+        "href": "/experience",
+        "title": "Experience",
+        "text": "The mission log — lead roles at IBM, Sopra Steria, ERGO and ADP.",
+        "icon": "ph:rocket-launch-bold"
+      },
+      {
+        "href": "/projects",
+        "title": "Projects",
+        "text": "Fifteen shipped builds, from AI Chrome extensions to payroll at enterprise scale.",
+        "icon": "ph:cube-focus-bold"
+      },
+      {
+        "href": "/skills",
+        "title": "Skills",
+        "text": "The toolkit — React, Next.js, TypeScript, Azure, AWS and friends.",
+        "icon": "ph:atom-bold"
       }
     ]
   },
@@ -1563,11 +1591,11 @@
       ]
     },
     "send": {
-      "icon": "mdi:send",
+      "icon": "ph:rocket-launch-bold",
       "text": "Send Message"
     },
     "sendAgain": {
-      "icon": "mdi:email-edit-outline",
+      "icon": "ph:arrow-counter-clockwise-bold",
       "text": "Send another message"
     },
     "submitting": {

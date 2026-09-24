@@ -95,13 +95,13 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
             <div className="contact-form__row">
               <div className="contact-form__field">
                 <label htmlFor="formFirstName" className="contact-form__label">
-                  First Name
+                  First name <span aria-hidden="true">*</span>
                 </label>
                 <input
                   type="text"
                   id="formFirstName"
                   className={`contact-form__input${showError('firstName') ? ' contact-form__input--invalid' : ''}`}
-                  placeholder="First Name *"
+                  placeholder="Ada"
                   name="firstName"
                   value={values.firstName}
                   onChange={handleChange}
@@ -119,13 +119,13 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
               </div>
               <div className="contact-form__field">
                 <label htmlFor="formLastName" className="contact-form__label">
-                  Last Name
+                  Last name <span aria-hidden="true">*</span>
                 </label>
                 <input
                   type="text"
                   id="formLastName"
                   className={`contact-form__input${showError('lastName') ? ' contact-form__input--invalid' : ''}`}
-                  placeholder="Last Name *"
+                  placeholder="Lovelace"
                   name="lastName"
                   value={values.lastName}
                   onChange={handleChange}
@@ -145,13 +145,13 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
 
             <div className="contact-form__field">
               <label htmlFor="formEmail" className="contact-form__label">
-                Email address
+                Email address <span aria-hidden="true">*</span>
               </label>
               <input
                 type="email"
                 id="formEmail"
                 className={`contact-form__input${showError('email') ? ' contact-form__input--invalid' : ''}`}
-                placeholder="Email *"
+                placeholder="you@company.com"
                 name="email"
                 value={values.email}
                 onChange={handleChange}
@@ -170,13 +170,13 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
 
             <div className="contact-form__field">
               <label htmlFor="formMessage" className="contact-form__label">
-                Message
+                Message <span aria-hidden="true">*</span>
               </label>
               <textarea
                 id="formMessage"
                 className={`contact-form__input contact-form__textarea${showError('message') ? ' contact-form__input--invalid' : ''}`}
-                rows={4}
-                placeholder="Your message *"
+                rows={5}
+                placeholder="Tell me about the project, the team and the timeline…"
                 name="message"
                 value={values.message}
                 onChange={handleChange}
@@ -212,8 +212,8 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
                 </>
               ) : (
                 <>
-                  <Icon icon={send.icon} className="contact-form__submit-icon" aria-hidden="true" />
                   <span>{send.text}</span>
+                  <Icon icon={send.icon} className="contact-form__submit-icon" aria-hidden="true" />
                 </>
               )}
             </button>

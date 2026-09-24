@@ -6,33 +6,22 @@ import './ThemeToggle.scss';
 
 export const ThemeToggle = () => {
   const { theme, toggleTheme } = useTheme();
+  const next = theme === 'light' ? 'dark' : 'light';
 
   return (
     <button
       onClick={toggleTheme}
-      className={`theme-toggle ${theme === 'light' ? 'theme-toggle--light' : 'theme-toggle--dark'}`}
-      aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-      title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+      className={`theme-toggle theme-toggle--${theme}`}
+      aria-label={`Switch to ${next} mode`}
+      title={`Switch to ${next} mode`}
       type="button"
       role="switch"
       aria-checked={theme === 'light'}
     >
-      <span className="theme-toggle__track">
-        <span className="theme-toggle__icon-container">
-          <Icon
-            icon="ph:sun-fill"
-            className="theme-toggle__icon theme-toggle__icon--sun"
-            aria-hidden="true"
-          />
-          <Icon
-            icon="ph:moon-fill"
-            className="theme-toggle__icon theme-toggle__icon--moon"
-            aria-hidden="true"
-          />
-        </span>
-        <span className="theme-toggle__thumb"></span>
+      <span className="theme-toggle__orbit" aria-hidden="true">
+        <Icon icon="ph:sun-bold" className="theme-toggle__icon theme-toggle__icon--sun" />
+        <Icon icon="ph:moon-stars-bold" className="theme-toggle__icon theme-toggle__icon--moon" />
       </span>
-      <span className="sr-only">{theme === 'light' ? 'Light' : 'Dark'} Mode</span>
     </button>
   );
 };

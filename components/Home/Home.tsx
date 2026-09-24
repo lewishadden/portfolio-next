@@ -3,8 +3,10 @@ import { Icon } from '@iconify/react';
 
 import Magnet from 'components/Magnet/Magnet';
 import { Marquee } from 'components/Marquee/Marquee';
-import { ArrowScribble, Spark, Squiggle } from 'components/Doodles/Doodles';
-import { Stamp } from 'components/Doodles/Stamp';
+import { ScrambleText } from 'components/Motion/ScrambleText';
+import { SplitText } from 'components/Motion/SplitText';
+import { HeroHud } from './HeroHud';
+import { RoleRotator } from './RoleRotator';
 
 import { Home as HomeProps } from '@/types';
 
@@ -14,20 +16,23 @@ export const Home = ({
   home,
   openToWork,
   openToWorkText,
+  location,
 }: {
   home: HomeProps;
   openToWork: boolean;
   openToWorkText: string;
+  location: string;
 }) => {
   const { name, titles, tagline, cta } = home;
   const [firstName, ...restName] = name.split(' ');
   const surname = restName.join(' ');
-  // First item repeated at the end so the CSS rotator loops seamlessly
-  const rotatorTitles = [...titles, titles[0]];
 
   return (
-    <section id="home" className="hero" aria-labelledby="home-heading">
-      <div className="hero__inner">
+    <>
+      <section id="home" className="hero" aria-labelledby="home-heading">
+        {/* On narrow screens the astronaut floats in this space above the copy */}
+        <div className="hero__stage" aria-hidden="true" />
+
         <div className="hero__content">
           {openToWork && (
             <p className="hero__badge">
@@ -37,34 +42,19 @@ export const Home = ({
           )}
 
           <p className="hero__greeting">
-            <span aria-hidden="true">( </span>hello, I&rsquo;m
-            <span aria-hidden="true"> )</span>
+            <ScrambleText text="// hello world, I'm" trigger="mount" delay={150} />
           </p>
 
           <h1 id="home-heading" className="hero__name">
-            <span className="hero__word">
-              <span className="hero__word-inner">{firstName}</span>
-            </span>{' '}
-            <span className="hero__word hero__word--accent">
-              <span className="hero__word-inner">
-                {surname}
-                <Squiggle className="hero__squiggle" delay={1.1} />
-              </span>
+            <span className="hero__line">
+              <SplitText text={firstName} delay={250} />
+            </span>
+            <span className="hero__line">
+              <SplitText text={surname} delay={520} gradient />
             </span>
           </h1>
 
-          <p className="hero__role">
-            <span className="sr-only">{titles.join(', ')}</span>
-            <span className="hero__roles" aria-hidden="true">
-              <span className="hero__roles-list">
-                {rotatorTitles.map((t, i) => (
-                  <span className="hero__roles-item" key={`${t}-${i}`}>
-                    {t}
-                  </span>
-                ))}
-              </span>
-            </span>
-          </p>
+          <RoleRotator titles={titles} />
 
           <p className="hero__tag">{tagline}</p>
 
@@ -84,7 +74,7 @@ export const Home = ({
             <Magnet>
               <Link
                 href={cta.secondary.url}
-                className="btn btn--secondary"
+                className="btn btn--ghost"
                 aria-label={cta.secondary.ariaLabel}
               >
                 {cta.secondary.icon && (
@@ -96,20 +86,16 @@ export const Home = ({
           </div>
         </div>
 
-        <div className="hero__aside" aria-hidden="true">
-          <Spark className="hero__spark" delay={1.5} />
-          <Stamp text={`${openToWorkText} ✳ `} id="hero-stamp" className="hero__stamp" />
-          <ArrowScribble className="hero__arrow" delay={1.8} />
-        </div>
-      </div>
+        <HeroHud location={location} />
+      </section>
 
-      <Marquee items={[...titles, openToWorkText]} className="hero__marquee" duration={44} />
-
-      <div className="hero__scroll-cue" aria-hidden="true">
-        <span className="hero__scroll-text">scroll</span>
-        <span className="hero__scroll-line" />
-      </div>
-    </section>
+      <Marquee
+        items={[...titles, openToWorkText]}
+        className="hero__marquee"
+        duration={40}
+        label={titles.join(', ')}
+      />
+    </>
   );
 };
 

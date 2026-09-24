@@ -36,6 +36,16 @@ export interface Home {
   tagline: string;
   cta: CtaPair;
   stats: StatItem[];
+  exploreLabel: string;
+  exploreTitle: string;
+  explore: ExploreItem[];
+}
+
+export interface ExploreItem {
+  href: string;
+  title: string;
+  text: string;
+  icon: string;
 }
 
 export interface StatItem {

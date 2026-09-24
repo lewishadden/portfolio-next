@@ -1,0 +1,50 @@
+.split {
+  display: inline-block;
+
+  &__letters {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  &__char {
+    display: inline-block;
+    transform-origin: 50% 100%;
+    animation: split-rise 1.1s var(--ease-out) both;
+    animation-delay: var(--delay);
+    will-change: transform, filter;
+  }
+
+  &--gradient &__char {
+    background: var(--gradient-brand);
+    background-size: calc(var(--n) * 100%) 100%;
+    background-position: calc(var(--i) / max(var(--n) - 1, 1) * 100%) 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+@keyframes split-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0.55em) rotate(10deg) scale(0.9);
+    filter: blur(12px);
+  }
+
+  60% {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split__char {
+    animation: none;
+  }
+}

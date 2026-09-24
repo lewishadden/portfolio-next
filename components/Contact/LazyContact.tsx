@@ -8,16 +8,13 @@ function ContactSkeleton() {
   return (
     <section
       id="contact"
-      className="section contact"
+      className="page contact"
       aria-busy="true"
       aria-label="Loading contact section"
     >
-      <span className="section__slug" aria-hidden="true">
-        {'// contact'}
-      </span>
       <div className="contact__grid">
-        <div className="contact__side" aria-hidden="true" />
-        <div className="contact__panel" aria-hidden="true" />
+        <div className="contact__skeleton" aria-hidden="true" />
+        <div className="contact__skeleton" aria-hidden="true" />
       </div>
     </section>
   );

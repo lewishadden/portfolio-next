@@ -74,7 +74,7 @@ html {
   top: -40px;
   left: 0;
   background: var(--accent-primary);
-  color: #fff;
+  color: var(--accent-contrast);
   padding: 8px 16px;
   text-decoration: none;
   z-index: 10000;
@@ -83,6 +83,7 @@ html {
 
   &:focus {
     top: 0;
+    left: 16px;
   }
 }
 
@@ -139,4 +140,3 @@ select:focus-visible,
   clip: auto;
   white-space: normal;
 }
-

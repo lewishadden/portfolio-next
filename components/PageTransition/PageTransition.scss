@@ -1,0 +1,14 @@
+.page-sweep {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  height: 2px;
+  transform-origin: 0 50%;
+  background: var(--gradient-brand);
+  box-shadow:
+    0 0 18px var(--glow-cyan),
+    0 0 40px var(--glow-violet);
+  pointer-events: none;
+}
