@@ -92,7 +92,7 @@ function attachTexture(material: ShaderMaterial, texture: Texture) {
 }
 
 /** Optimised (and cached) through the Next.js image endpoint */
-const optimisedImage = (src: string) => `/_next/image?url=${encodeURIComponent(src)}&w=640&q=70`;
+const optimisedImage = (src: string) => `/_next/image?url=${encodeURIComponent(src)}&w=640&q=75`;
 
 /** `/projects` — the terminal inside a slowly turning helix of project screens */
 export function ProjectsStation({

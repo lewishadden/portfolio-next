@@ -41,6 +41,8 @@ const cardVariants: Variants = {
     x: 0,
     filter: 'blur(0px)',
     transition: { duration: 1, ease, staggerChildren: 0.07, delayChildren: 0.15 },
+    // Drop the filter afterwards so the card's glass can blur the 3D scene
+    transitionEnd: { filter: 'none' },
   },
 };
 

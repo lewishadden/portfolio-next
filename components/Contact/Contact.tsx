@@ -166,7 +166,12 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
                 key="success"
                 className="contact__success"
                 initial={{ opacity: 0, scale: 0.92, filter: 'blur(8px)' }}
-                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  filter: 'blur(0px)',
+                  transitionEnd: { filter: 'none' },
+                }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               >

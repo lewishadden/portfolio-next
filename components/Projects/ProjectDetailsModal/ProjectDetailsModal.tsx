@@ -319,7 +319,13 @@ export function ProjectDetailsModal({
         tabIndex={-1}
         onKeyDown={onKeyDown}
         initial={{ opacity: 0, y: 48, scale: 0.92, filter: 'blur(16px)' }}
-        animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+        animate={{
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          filter: 'blur(0px)',
+          transitionEnd: { filter: 'none' },
+        }}
         exit={{
           opacity: 0,
           y: 28,

@@ -38,7 +38,15 @@ export function Reveal({
   return (
     <Component
       initial={{ opacity: 0, y, x, scale, filter: blur ? 'blur(10px)' : 'blur(0px)' }}
-      whileInView={{ opacity: 1, y: 0, x: 0, scale: 1, filter: 'blur(0px)' }}
+      whileInView={{
+        opacity: 1,
+        y: 0,
+        x: 0,
+        scale: 1,
+        filter: 'blur(0px)',
+        // A lingering filter would stop descendant glass (backdrop-filter) seeing the 3D scene
+        transitionEnd: { filter: 'none' },
+      }}
       viewport={{ once, margin: '0px 0px -8% 0px', ...viewport }}
       transition={{ duration: 0.9, delay, ease, ...transition }}
       {...props}
@@ -87,6 +95,7 @@ export function RevealItem({
           y: 0,
           filter: 'blur(0px)',
           transition: { duration: 0.8, ease },
+          transitionEnd: { filter: 'none' },
         },
       }}
       {...props}

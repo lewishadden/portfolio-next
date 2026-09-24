@@ -37,7 +37,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
       <m.div
         key={pathname}
         initial={{ opacity: 0, y: reduceMotion ? 0 : 28, filter: 'blur(14px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
         transition={{ duration: 0.9, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
         style={{ overflow: 'clip' }}
       >

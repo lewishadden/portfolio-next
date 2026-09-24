@@ -1,7 +1,7 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 
 import Magnet from 'components/Magnet/Magnet';
@@ -19,8 +19,15 @@ export type PageNotFoundProps = {
   };
 };
 
+const noopSubscribe = () => () => {};
+
 export const PageNotFound = ({ title, description, cta }: PageNotFoundProps) => {
-  const pathname = usePathname();
+  // The 404 page is prerendered, so the requested path only exists on the client
+  const pathname = useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.pathname,
+    () => null
+  );
 
   return (
     <section className="page lost" aria-labelledby="lost-heading">

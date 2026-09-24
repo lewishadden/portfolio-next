@@ -190,6 +190,7 @@
   /* ---------- Scrolling body ---------- */
   &__body {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     flex: 1;
     gap: clamp(1.5rem, 3vw, 2.25rem);
     min-height: 0;
@@ -330,6 +331,7 @@
    ============================================================= */
 .pdm-gallery {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.9rem;
 
   &__stage {
