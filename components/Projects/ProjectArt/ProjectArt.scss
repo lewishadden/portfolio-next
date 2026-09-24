@@ -1,0 +1,127 @@
+.proj-art {
+  --art-a: var(--violet-500);
+  --art-b: var(--cyan-400);
+
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  container-type: size;
+  background:
+    radial-gradient(
+      70% 80% at 25% 15%,
+      color-mix(in oklab, var(--art-a) 42%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      60% 70% at 85% 95%,
+      color-mix(in oklab, var(--art-b) 30%, transparent),
+      transparent 70%
+    ),
+    var(--bg-secondary);
+
+  &--tone-1 {
+    --art-a: var(--cyan-400);
+    --art-b: var(--violet-400);
+  }
+
+  &--tone-2 {
+    --art-a: var(--pink-400);
+    --art-b: var(--violet-500);
+  }
+
+  /* Synthwave grid floor that scrolls towards the viewer */
+  &__floor {
+    position: absolute;
+    left: -60%;
+    right: -60%;
+    bottom: -8%;
+    height: 62%;
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--art-b) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--art-b) 55%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 36px 36px;
+    transform: perspective(260px) rotateX(64deg);
+    transform-origin: 50% 100%;
+    -webkit-mask-image: linear-gradient(to top, #000 15%, transparent 85%);
+    mask-image: linear-gradient(to top, #000 15%, transparent 85%);
+    animation: proj-art-floor 3.5s linear infinite;
+  }
+
+  /* Tilted dashed orbits around the core */
+  &__orbit {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 1.5px dashed color-mix(in oklab, var(--art-a) 70%, transparent);
+    transform: rotateX(66deg);
+    animation: proj-art-orbit 22s linear infinite;
+
+    &--outer {
+      width: 92cqmin;
+      margin: -46cqmin 0 0 -46cqmin;
+    }
+
+    &--inner {
+      width: 62cqmin;
+      margin: -31cqmin 0 0 -31cqmin;
+      border-style: solid;
+      border-color: color-mix(in oklab, var(--art-b) 45%, transparent);
+      border-top-color: var(--art-b);
+      animation-duration: 9s;
+      animation-direction: reverse;
+    }
+  }
+
+  &__core {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 34cqmin;
+    aspect-ratio: 1;
+    border-radius: 30%;
+    color: var(--text-primary);
+    background:
+      linear-gradient(
+          145deg,
+          color-mix(in oklab, var(--surface-strong) 85%, transparent),
+          color-mix(in oklab, var(--bg-tertiary) 70%, transparent)
+        )
+        padding-box,
+      linear-gradient(135deg, var(--art-a), var(--art-b)) border-box;
+    border: 1.5px solid transparent;
+    box-shadow:
+      0 0 40px -6px color-mix(in oklab, var(--art-a) 70%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    transition: transform 0.7s var(--ease-spring);
+
+    svg {
+      width: 48%;
+      height: 48%;
+      filter: drop-shadow(0 0 10px color-mix(in oklab, var(--art-a) 80%, transparent));
+    }
+  }
+}
+
+@keyframes proj-art-floor {
+  to {
+    background-position: 0 36px;
+  }
+}
+
+@keyframes proj-art-orbit {
+  from {
+    transform: rotateX(66deg) rotateZ(0deg);
+  }
+
+  to {
+    transform: rotateX(66deg) rotateZ(360deg);
+  }
+}
