@@ -1,7 +1,7 @@
 'use client';
 
 import { Component, Suspense, useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { easing } from 'maath';
 import { Box3, Group, Mesh, MeshStandardMaterial, Object3D, Vector3 } from 'three';
@@ -82,7 +82,10 @@ const box = new Box3();
 const size = new Vector3();
 const center = new Vector3();
 
-/** Clones the scene, centres it on the origin and scales it to `height` world units */
+/**
+ * Clones the scene, centres it on the origin and scales it to `height` world
+ * units. Tripo exports face -Z, so the result is turned to face the camera (+Z).
+ */
 function normaliseScene(scene: Object3D, height: number, envIntensity: number) {
   const clone = scene.clone(true);
   box.setFromObject(clone);
@@ -100,7 +103,10 @@ function normaliseScene(scene: Object3D, height: number, envIntensity: number) {
       material.needsUpdate = true;
     }
   });
-  return clone;
+  const holder = new Group();
+  holder.add(clone);
+  holder.rotation.y = Math.PI;
+  return holder;
 }
 
 function GltfModel({
@@ -119,15 +125,17 @@ function GltfModel({
     [scene, height, envIntensity]
   );
   const wrapperRef = useRef<Group>(null);
+  // On-demand rendering (reduced motion) has no frames to animate with — appear at full size
+  const popIn = useThree((s) => s.frameloop !== 'demand');
 
   // Pop in with a soft spring once loaded
   useFrame((_, delta) => {
     const wrapper = wrapperRef.current;
-    if (wrapper) easing.damp3(wrapper.scale, 1, 0.35, Math.min(delta, 1 / 20));
+    if (wrapper && popIn) easing.damp3(wrapper.scale, 1, 0.35, Math.min(delta, 1 / 20));
   });
 
   return (
-    <group ref={wrapperRef} scale={0.001}>
+    <group ref={wrapperRef} scale={popIn ? 0.001 : 1}>
       <primitive object={model} />
     </group>
   );

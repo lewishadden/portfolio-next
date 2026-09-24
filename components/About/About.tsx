@@ -6,6 +6,7 @@ import { Icon } from '@iconify/react';
 
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
+import { illustrations } from 'components/World/StationFallback';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
@@ -57,6 +58,7 @@ export const About = ({
         label={label}
         title={title}
         accent="me"
+        illustration={illustrations.helmet}
         sub={`Senior full stack engineer · ${location} · shipping production software since 2018.`}
       />
 

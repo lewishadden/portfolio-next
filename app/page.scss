@@ -359,14 +359,40 @@ body {
 
 /* =============================================================
    Static renders shown when WebGL is unavailable
-   (World sets html[data-world='off'])
+   (World sets html[data-world='off']). Positioned where the
+   3D station would be: right of the copy, or above it on narrow screens.
    ============================================================= */
 .station-fallback {
   display: none;
 }
 
 [data-world='off'] .station-fallback {
+  position: absolute;
+  top: calc(var(--header-h) + 3rem);
+  right: var(--gutter);
+  z-index: -1;
   display: block;
+  width: min(36vw, 28rem);
+  height: auto;
+  filter: drop-shadow(0 30px 60px var(--glow-violet));
+  animation: fallback-float 7s var(--ease-in-out) infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes fallback-float {
+  to {
+    transform: translateY(-18px) rotate(-2deg);
+  }
+}
+
+@media (max-width: 899px), (max-aspect-ratio: 11 / 10) {
+  [data-world='off'] .station-fallback {
+    top: calc(var(--header-h) + 0.5rem);
+    left: 50%;
+    right: auto;
+    width: min(62vw, 17rem);
+    margin-left: min(-31vw, -8.5rem);
+  }
 }
 
 /* =============================================================

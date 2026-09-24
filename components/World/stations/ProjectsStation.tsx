@@ -151,12 +151,16 @@ export function ProjectsStation({
     });
 
     const helix = helixRef.current;
-    if (helix) helix.rotation.y = t * 0.035 + worldStore.scroll * 1.2;
+    if (helix) {
+      helix.rotation.y = t * 0.035 + worldStore.scroll * 1.2;
+      // Screens orbit with the helix but always turn to face the viewer
+      helix.children.forEach((screen) => screen.lookAt(camera.position));
+    }
 
     const terminal = terminalRef.current;
     if (terminal) {
       terminal.position.y = Math.sin(t * 0.8) * 0.12;
-      terminal.rotation.y = -0.6 + Math.sin(t * 0.3) * 0.25 + worldStore.pointerX * 0.3;
+      terminal.rotation.y = 0.3 + Math.sin(t * 0.3) * 0.25 + worldStore.pointerX * 0.3;
     }
   });
 
@@ -184,7 +188,6 @@ export function ProjectsStation({
                 2.4 - i * 1.05,
                 Math.cos(angle) * helixRadius,
               ]}
-              rotation={[0, angle, 0]}
             >
               <mesh material={screenMaterials[i]} scale={[2.08, 1.3, 1]}>
                 <planeGeometry />

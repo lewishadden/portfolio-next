@@ -7,6 +7,7 @@ import { ScrambleText } from 'components/Motion/ScrambleText';
 import { SplitText } from 'components/Motion/SplitText';
 import { HeroHud } from './HeroHud';
 import { RoleRotator } from './RoleRotator';
+import { StationFallback, illustrations } from 'components/World/StationFallback';
 
 import { Home as HomeProps } from '@/types';
 
@@ -32,6 +33,7 @@ export const Home = ({
       <section id="home" className="hero" aria-labelledby="home-heading">
         {/* On narrow screens the astronaut floats in this space above the copy */}
         <div className="hero__stage" aria-hidden="true" />
+        <StationFallback src={illustrations.astronaut} />
 
         <div className="hero__content">
           {openToWork && (

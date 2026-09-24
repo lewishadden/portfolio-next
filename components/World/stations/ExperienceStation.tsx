@@ -15,7 +15,7 @@ import type { WorldPalette, WorldTheme } from '../utils';
 
 const buildMaterials = (p: WorldPalette) => ({
   core: createBeamMaterial({ color: p.cyan, intensity: 3, speed: 0.6 }),
-  glow: createBeamMaterial({ color: p.violet, intensity: 1.4, opacity: 0.35, speed: 0.25 }),
+  glow: createBeamMaterial({ color: p.violet, intensity: 1.3, opacity: 0.24, speed: 0.25 }),
   nodeRing: createRingMaterial({
     colorA: p.violet,
     colorB: p.cyan,
@@ -68,9 +68,10 @@ export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: 
       const angle = t * 0.35;
       const targetY = Math.min(1.6, localCameraY + 1.2);
       easing.damp(satellite.position, 'y', targetY, 0.4, dt);
-      satellite.position.x = Math.cos(angle) * 2.9;
-      satellite.position.z = Math.sin(angle) * 2.9;
-      satellite.rotation.y = -angle + Math.PI / 2;
+      satellite.position.x = Math.cos(angle) * 2.3;
+      satellite.position.z = Math.sin(angle) * 2.3;
+      // Keep the sensor eye turned towards the camera as it circles the beam
+      satellite.rotation.y = Math.sin(t * 0.3) * 0.4;
       satellite.rotation.z = Math.sin(t * 0.5) * 0.15;
     }
 
@@ -120,8 +121,8 @@ export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: 
         ))}
       </group>
 
-      <group ref={satelliteRef} position={[2.9, 1.6, 0]}>
-        <Model url={stationModels.experience!} height={2.1} theme={theme} />
+      <group ref={satelliteRef} position={[2.3, 1.6, 0]}>
+        <Model url={stationModels.experience!} height={1.6} theme={theme} />
       </group>
     </group>
   );

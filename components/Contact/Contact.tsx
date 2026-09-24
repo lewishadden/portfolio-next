@@ -7,6 +7,7 @@ import { AnimatePresence, m } from 'framer-motion';
 
 import ContactForm from './ContactForm/ContactForm';
 import { PageHead } from 'components/PageHead/PageHead';
+import { illustrations } from 'components/World/StationFallback';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 import { requestLaunch } from 'components/World/worldStore';
 
@@ -119,6 +120,7 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
         label={label}
         title="Let’s"
         accent="connect"
+        illustration={illustrations.rocket}
         sub={tagline}
       />
 

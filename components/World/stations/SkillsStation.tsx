@@ -91,8 +91,8 @@ const ringVertex = /* glsl */ `
   }
 `;
 
-const ringInner = 3.1;
-const ringOuter = 4.7;
+const ringInner = 2.6;
+const ringOuter = 3.9;
 
 const buildMaterials = (p: WorldPalette) => ({
   planet: new ShaderMaterial({
@@ -210,10 +210,10 @@ function orbitGeometry(radius: number) {
 }
 
 const orbitTilts: [number, number][] = [
-  [0.25, 0.1],
-  [-0.35, 0.5],
-  [0.55, -0.35],
-  [-0.15, -0.7],
+  [0.2, 0.1],
+  [-0.25, 0.4],
+  [0.4, -0.3],
+  [-0.12, -0.55],
 ];
 
 /** `/skills` — a gas giant with the toolkit orbiting as a constellation of badges */
@@ -236,7 +236,7 @@ export function SkillsStation({
     () =>
       categories.map((category, k) => {
         const members = skills.filter((s) => s.category === category);
-        const radius = 5.2 + k * 0.85;
+        const radius = 3.9 + k * 0.5;
         return {
           category,
           members,
@@ -284,10 +284,10 @@ export function SkillsStation({
     <group ref={groupRef} position={stationPositions.skills}>
       <group ref={planetRef} rotation={[0.3, 0, 0.2]}>
         <mesh material={materials.planet}>
-          <sphereGeometry args={[2.3, 96, 64]} />
+          <sphereGeometry args={[1.9, 96, 64]} />
         </mesh>
         <mesh material={materials.atmosphere} scale={1.12}>
-          <sphereGeometry args={[2.3, 64, 32]} />
+          <sphereGeometry args={[1.9, 64, 32]} />
         </mesh>
         <mesh material={materials.ring} rotation={[Math.PI / 2 - 0.35, 0, 0]}>
           <ringGeometry args={[ringInner, ringOuter, 160, 1]} />
@@ -304,20 +304,20 @@ export function SkillsStation({
                 opacity={theme === 'dark' ? 0.3 : 0.25}
               />
             </lineLoop>
+            {/* Sprites mount only once their badge textures exist: a material compiled
+                without a map would not pick one up later */}
             <group>
-              {orbit.members.map((skill, i) => {
+              {textures?.[k]?.map((texture, i) => {
                 const angle = (i / orbit.members.length) * Math.PI * 2 + k;
-                const texture = textures?.[k]?.[i];
                 return (
                   <sprite
-                    key={skill.name}
+                    key={orbit.members[i].name}
                     position={[Math.cos(angle) * orbit.radius, 0, Math.sin(angle) * orbit.radius]}
-                    scale={0.62}
+                    scale={0.44}
                   >
                     <spriteMaterial
-                      map={texture ?? null}
+                      map={texture}
                       transparent
-                      opacity={texture ? 1 : 0}
                       depthWrite={false}
                       toneMapped={false}
                     />

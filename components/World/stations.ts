@@ -92,7 +92,8 @@ export function stationCamera(
   // above the copy on narrow ones. Shift along the camera's own axes.
   forward.subVectors(look, pos).normalize();
   right.crossVectors(forward, up).normalize();
-  const shiftX = wide ? 3.3 : 0;
+  // The skills constellation is wider than the other stations — give it more room
+  const shiftX = wide ? (key === 'skills' ? 4.4 : 3.3) : 0;
   const shiftY = wide ? 0 : -2.5;
   pos.addScaledVector(right, -shiftX).addScaledVector(up, shiftY);
   look.addScaledVector(right, -shiftX).addScaledVector(up, shiftY);

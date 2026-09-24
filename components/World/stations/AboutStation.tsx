@@ -66,8 +66,8 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
 
     const helmet = helmetRef.current;
     if (helmet) {
-      helmet.position.y = Math.sin(t * 0.8) * 0.14;
-      helmet.rotation.y = -0.55 + Math.sin(t * 0.3) * 0.35 + worldStore.pointerX * 0.4;
+      helmet.position.y = 0.35 + Math.sin(t * 0.8) * 0.14;
+      helmet.rotation.y = 0.15 + Math.sin(t * 0.3) * 0.3 + worldStore.pointerX * 0.4;
       helmet.rotation.x = -worldStore.pointerY * 0.15;
     }
 

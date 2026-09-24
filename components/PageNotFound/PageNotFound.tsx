@@ -7,6 +7,7 @@ import { Icon } from '@iconify/react';
 import Magnet from 'components/Magnet/Magnet';
 import { Reveal } from 'components/Motion/Reveal';
 import { ScrambleText } from 'components/Motion/ScrambleText';
+import { StationFallback, illustrations } from 'components/World/StationFallback';
 
 import './PageNotFound.scss';
 
@@ -23,6 +24,7 @@ export const PageNotFound = ({ title, description, cta }: PageNotFoundProps) => 
 
   return (
     <section className="page lost" aria-labelledby="lost-heading">
+      <StationFallback src={illustrations.astronaut} />
       <div className="lost__inner">
         <p className="lost__code" data-text="404" aria-hidden="true">
           404
