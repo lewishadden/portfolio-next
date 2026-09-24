@@ -3,8 +3,8 @@ import { Fragment } from 'react';
 import './Marquee.scss';
 
 /**
- * Infinite ticker. Items alternate between display type and outlined mono so
- * the strip reads like a HUD readout. The track is duplicated once
+ * Infinite ticker. Items alternate between bold display type and a lighter
+ * accent weight so the strip reads like a HUD readout. The track is duplicated once
  * (aria-hidden) for a seamless loop; hover pauses it.
  */
 export const Marquee = ({

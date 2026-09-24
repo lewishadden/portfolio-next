@@ -41,10 +41,9 @@
     &--alt {
       font-family: var(--font-display);
       font-size: clamp(1.25rem, 2.6vw, 2rem);
-      font-weight: var(--fw-semibold);
+      font-weight: var(--fw-regular);
       letter-spacing: -0.03em;
-      color: transparent;
-      -webkit-text-stroke: 1px color-mix(in oklab, var(--accent-secondary) 70%, transparent);
+      color: var(--accent-secondary);
     }
   }
 
