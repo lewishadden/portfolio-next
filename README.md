@@ -18,6 +18,33 @@ This repo contains the code for my online web portfolio. It is built using [Next
 - Run `npm run dev` to start the dev server.
 - Make any required code changes. The dev server watches for changes and rebuilds in real-time.
 
+## Design & 3D world
+
+The site uses the "Orbit" design (dark sci-fi glow with a light "daylight lab" theme) — see
+`docs/superpowers/specs/2026-09-24-orbit-redesign.md`.
+
+A single persistent WebGL canvas (three.js + React Three Fiber, `components/World`) sits behind every
+page. Each route is a station in space; navigating flies the camera between them and page scroll moves
+it within a station. The canvas is lazy-loaded after first paint, renders on demand for
+`prefers-reduced-motion`, and is skipped entirely (CSS backdrop only) without WebGL or with Save-Data.
+
+### 3D models
+
+The station models (`public/static/models/*.glb`) were generated with Higgsfield (image → 3D).
+To replace or re-optimise them, export raw GLBs with the same file names into a folder and run:
+
+```sh
+node scripts/optimize-models.mjs path/to/raw-glbs
+```
+
+This applies meshopt compression and 1024px WebP textures. A missing model degrades to a procedural
+hologram, so the site never breaks on a failed download.
+
+### Generated data
+
+- `node scripts/generate-iconify-bundle.mjs` — offline icon bundle (run after adding icon names)
+- `node scripts/generate-globe-points.mjs` — land dots for the contact-page globe
+
 ## Contributing
 
 ### Add a new feature
@@ -52,7 +79,7 @@ This repo contains the code for my online web portfolio. It is built using [Next
 
 ### Testing scripts
 
-- `test` – full test suite: prettier:check + lint + typecheck
+- `verify` – full check suite: prettier:check + lint + typecheck
 - `typecheck` – checks TypeScript types
 - `lint` – runs ESLint + Stylelint
 - `prettier:check` – checks files with Prettier

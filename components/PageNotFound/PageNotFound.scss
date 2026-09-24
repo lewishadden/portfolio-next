@@ -1,0 +1,125 @@
+.lost {
+  display: flex;
+  align-items: center;
+  min-height: 100svh;
+
+  &__inner {
+    position: relative;
+    display: grid;
+    justify-items: start;
+    gap: 1.4rem;
+    max-width: 40rem;
+  }
+
+  /* Glitching "404" — two offset, clipped copies of the text */
+  &__code {
+    position: relative;
+    font-family: var(--font-display);
+    font-size: clamp(6rem, 22vw, 14rem);
+    font-weight: var(--fw-black);
+    line-height: 0.85;
+    letter-spacing: -0.07em;
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 40px var(--glow-violet));
+
+    &::before,
+    &::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      background: inherit;
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+
+    &::before {
+      transform: translateX(-3px);
+      clip-path: inset(10% 0 60% 0);
+      animation: glitch-a 2.6s steps(2) infinite;
+      opacity: 0.8;
+    }
+
+    &::after {
+      transform: translateX(3px);
+      clip-path: inset(55% 0 12% 0);
+      animation: glitch-b 3.1s steps(2) infinite;
+      opacity: 0.8;
+    }
+  }
+
+  &__terminal {
+    display: grid;
+    gap: 0.35rem;
+    width: 100%;
+    padding: 1.1rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+  }
+
+  &__prompt {
+    margin-right: 0.4rem;
+    color: var(--accent-secondary);
+  }
+
+  &__muted {
+    color: var(--status-err);
+  }
+
+  &__caret {
+    display: inline-block;
+    width: 0.55em;
+    height: 1em;
+    margin-left: 0.3rem;
+    vertical-align: text-bottom;
+    background: var(--accent-secondary);
+    animation: caret 1s steps(1) infinite;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+  }
+}
+
+@keyframes glitch-a {
+  0%,
+  100% {
+    clip-path: inset(10% 0 60% 0);
+    transform: translateX(-3px);
+  }
+
+  33% {
+    clip-path: inset(40% 0 30% 0);
+    transform: translateX(4px);
+  }
+
+  66% {
+    clip-path: inset(75% 0 5% 0);
+    transform: translateX(-5px);
+  }
+}
+
+@keyframes glitch-b {
+  0%,
+  100% {
+    clip-path: inset(55% 0 12% 0);
+    transform: translateX(3px);
+  }
+
+  40% {
+    clip-path: inset(5% 0 70% 0);
+    transform: translateX(-4px);
+  }
+
+  70% {
+    clip-path: inset(30% 0 45% 0);
+    transform: translateX(5px);
+  }
+}

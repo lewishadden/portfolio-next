@@ -1,0 +1,53 @@
+.world {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+
+  &__backdrop {
+    position: absolute;
+    inset: 0;
+    background: var(--backdrop);
+  }
+
+  &__canvas {
+    position: absolute !important;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1.4s var(--ease-out);
+  }
+
+  &--ready &__canvas {
+    opacity: 1;
+  }
+
+  /* Soft edge wash keeps copy legible over the brightest parts of the scene */
+  &__veil {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--bg-primary) 55%, transparent) 0%,
+        transparent 55%
+      ),
+      linear-gradient(
+        0deg,
+        color-mix(in oklab, var(--bg-primary) 40%, transparent),
+        transparent 30%
+      );
+  }
+}
+
+@media (max-width: 899px) {
+  .world__veil {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      transparent 30%,
+      color-mix(in oklab, var(--bg-primary) 55%, transparent) 55%,
+      color-mix(in oklab, var(--bg-primary) 70%, transparent) 100%
+    );
+  }
+}

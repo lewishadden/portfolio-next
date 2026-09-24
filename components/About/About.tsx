@@ -4,10 +4,14 @@ import Image, { ImageLoader } from 'next/image';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
 
-import { About as AboutProps, Global } from '@/types';
 import Magnet from 'components/Magnet/Magnet';
-import { ScrollReveal } from 'components/ScrollReveal/ScrollReveal';
-import { CircleScribble, Spark } from 'components/Doodles/Doodles';
+import { PageHead } from 'components/PageHead/PageHead';
+import { illustrations } from 'components/World/StationFallback';
+import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
+
+import { usePointerGlow } from '@/hooks/usePointerGlow';
+
+import { About as AboutProps, Highlight } from '@/types';
 
 import './About.scss';
 
@@ -15,6 +19,21 @@ const maxImageWidth = 1200;
 const aboutImageLoader: ImageLoader = ({ src, width, quality }) => {
   const w = Math.min(width, maxImageWidth);
   return `/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=${quality || 75}`;
+};
+
+const HighlightCard = ({ highlight }: { highlight: Highlight }) => {
+  const ref = usePointerGlow<HTMLDivElement>({ tilt: 6 });
+  return (
+    <RevealItem className="about__hl-cell">
+      <div className="about__hl glass spotlight" ref={ref}>
+        <span className="about__hl-icon" aria-hidden="true">
+          <Icon icon={highlight.icon} width={22} height={22} />
+        </span>
+        <h2 className="about__hl-title">{highlight.title}</h2>
+        <p className="about__hl-sub">{highlight.sub}</p>
+      </div>
+    </RevealItem>
+  );
 };
 
 export const About = ({
@@ -28,80 +47,74 @@ export const About = ({
   name: string;
   location: string;
 }) => {
-  const { image, label, title, description, descriptionHeader, highlights, cta, cv } = about;
+  const { image, label, title, description, highlights, cta, cv } = about;
+  const portraitRef = usePointerGlow<HTMLDivElement>({ tilt: 10 });
 
   return (
-    <section id="about" className="section about" aria-labelledby="about-heading">
-      <span className="section__slug" aria-hidden="true">
-        {'// about'}
-      </span>
-      <ScrollReveal className="section__head">
-        <span className="section__num" aria-hidden="true">
-          01
-        </span>
-        <span className="section__label">{label}</span>
-        <h1 id="about-heading" className="section__title">
-          {title}{' '}
-          <span className="section__title-accent about__accent">
-            Me
-            <CircleScribble className="about__accent-circle" delay={0.5} />
-          </span>
-        </h1>
-      </ScrollReveal>
+    <section id="about" className="page about" aria-labelledby="about-heading">
+      <PageHead
+        id="about-heading"
+        index="01"
+        label={label}
+        title={title}
+        accent="me"
+        illustration={illustrations.helmet}
+        sub={`Senior full stack engineer · ${location} · shipping production software since 2018.`}
+      />
 
       <div className="about__grid">
-        <ScrollReveal className="about__media">
-          <Spark className="about__media-spark" delay={0.7} />
-          <Image
-            src={image.url}
-            className="about__media-img"
-            width={image.size.width}
-            height={image.size.height}
-            alt={`Portrait of ${name}`}
-            loader={aboutImageLoader}
-            sizes="(min-width: 900px) 520px, (min-width: 541px) 560px, calc(100vw - 32px)"
-            priority
-          />
-          <div className="about__media-tag">
-            <div>
-              <b>{name}</b>
-              <span>{location}</span>
+        <Reveal className="about__media" y={60} scale={0.94}>
+          <div className="about__frame" ref={portraitRef}>
+            <div className="about__frame-inner">
+              <Image
+                src={image.url}
+                className="about__img"
+                width={image.size.width}
+                height={image.size.height}
+                alt={`Portrait of ${name}`}
+                loader={aboutImageLoader}
+                sizes="(min-width: 900px) 460px, calc(100vw - 48px)"
+                priority
+              />
+              <span className="about__scan" aria-hidden="true" />
+              <span className="about__grid-overlay" aria-hidden="true" />
             </div>
-            {openToWork && <small>● Available</small>}
+            {['tl', 'tr', 'bl', 'br'].map((corner) => (
+              <span
+                key={corner}
+                className={`about__corner about__corner--${corner}`}
+                aria-hidden="true"
+              />
+            ))}
+            <div className="about__tag glass">
+              <div>
+                <b>{name}</b>
+                <span>{location}</span>
+              </div>
+              {openToWork && (
+                <small>
+                  <span className="about__tag-dot" aria-hidden="true" />
+                  {about.openToWorkText}
+                </small>
+              )}
+            </div>
           </div>
-        </ScrollReveal>
+        </Reveal>
 
         <div className="about__body">
-          {descriptionHeader && (
-            <ScrollReveal
-              as="h3"
-              className="about__title"
-              dangerouslySetInnerHTML={{ __html: descriptionHeader }}
-            />
-          )}
-          <ScrollReveal
+          <Reveal
             className="about__copy"
-            style={{ '--reveal-delay': '120ms' } as React.CSSProperties}
+            delay={0.1}
             dangerouslySetInnerHTML={{ __html: description }}
           />
 
-          <ScrollReveal
-            className="about__highlights"
-            style={{ '--reveal-delay': '260ms' } as React.CSSProperties}
-          >
+          <RevealGroup className="about__highlights" stagger={0.09} delay={0.1}>
             {highlights.map((h) => (
-              <div className="about__hl" key={h.title}>
-                <Icon icon={h.icon} width={24} height={24} aria-hidden="true" />
-                <b>{h.title}</b>
-                <span>{h.sub}</span>
-              </div>
+              <HighlightCard key={h.title} highlight={h} />
             ))}
-          </ScrollReveal>
+          </RevealGroup>
 
-          <ScrollReveal
-            className="about__actions"
-            style={{ '--reveal-delay': '380ms' } as React.CSSProperties}
-          >
+          <Reveal className="about__actions" delay={0.15}>
             <Magnet>
               <a
                 href={cta.primary.url}
@@ -118,7 +131,7 @@ export const About = ({
             <Magnet>
               <Link
                 href={cta.secondary.url}
-                className="btn btn--secondary"
+                className="btn btn--ghost"
                 aria-label={cta.secondary.ariaLabel}
               >
                 {cta.secondary.icon && (
@@ -127,29 +140,27 @@ export const About = ({
                 <span>{cta.secondary.text}</span>
               </Link>
             </Magnet>
-          </ScrollReveal>
+          </Reveal>
         </div>
       </div>
 
-      <ScrollReveal className="section__page-nav">
+      <Reveal as="div" className="page-nav">
         <Magnet>
           <Link href="/experience" className="btn btn--primary">
-            <Icon icon="ph:briefcase" width={18} height={18} aria-hidden="true" />
-            <span>View Experience</span>
+            <Icon icon="ph:rocket-launch-bold" width={18} height={18} aria-hidden="true" />
+            <span>View experience</span>
+            <Icon icon="ph:arrow-right-bold" width={16} height={16} aria-hidden="true" />
           </Link>
         </Magnet>
         <Magnet>
-          <Link href="/projects" className="btn btn--secondary">
-            <Icon icon="ph:folder-open" width={18} height={18} aria-hidden="true" />
-            <span>See Projects</span>
+          <Link href="/projects" className="btn btn--ghost">
+            <Icon icon="ph:cube-focus-bold" width={18} height={18} aria-hidden="true" />
+            <span>See projects</span>
           </Link>
         </Magnet>
-      </ScrollReveal>
+      </Reveal>
     </section>
   );
 };
-
-// Helper type so we re-export Global (currently unused, but keeps imports tidy)
-export type { Global };
 
 export default About;

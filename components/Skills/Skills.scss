@@ -1,119 +1,459 @@
 /* =============================================================
-   Skills — spec-sheet panels + labelled tiles
+   Skills — crossing ticker bands, then a bento of glass category
+   cards filled with proficiency tiles.
    ============================================================= */
-.skills__marquee {
-  margin: 0 -32px 64px;
-
-  @media (max-width: 640px) {
-    margin: 0 -20px 44px;
-  }
-}
-
-.skills__groups {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 48px 56px;
-
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-    gap: 40px;
-  }
-}
-
-.skill-card {
-  position: relative;
-  padding-top: 22px;
-  border-top: 1px solid var(--border-color);
-
-  &--wide {
-    grid-column: 1 / -1;
-  }
-
-  @media (max-width: 900px) {
-    &--wide {
-      grid-column: auto;
-    }
-  }
-
-  &__head {
+.skills {
+  /* ---------- Header readout ---------- */
+  &__stats {
     display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.25rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__stat {
+    display: inline-flex;
     align-items: baseline;
-    gap: 12px;
-    margin-bottom: 22px;
+    gap: 0.45rem;
+    padding: 0.45rem 0.9rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
 
-    svg {
-      color: var(--accent-primary);
-      align-self: center;
-    }
-
-    h3 {
+    b {
       font-family: var(--font-display);
-      font-variation-settings: var(--title-axis);
-      font-weight: 560;
-      font-size: var(--fs-h3);
-      letter-spacing: var(--tr-title);
+      font-size: var(--fs-caption);
+      font-weight: var(--fw-semibold);
+      letter-spacing: -0.02em;
       color: var(--text-primary);
-      margin: 0;
     }
+  }
+
+  /* ---------- Ticker bands (full bleed, gently crossed) ---------- */
+  &__bands {
+    position: relative;
+    width: 100vw;
+    margin: 0 calc(50% - 50vw) clamp(3rem, 8vh, 5rem);
+    padding-block: 1.75rem;
+    overflow: hidden;
+  }
+
+  &__band {
+    position: relative;
+    width: 106vw;
+    margin-left: -3vw;
+    border-block: 1px solid var(--border-color);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+
+    .marquee {
+      padding: 0.95rem 0;
+    }
+
+    &--a {
+      z-index: 1;
+      background: var(--surface-strong);
+      box-shadow: 0 20px 40px -24px var(--glow-violet);
+      transform: rotate(-1.6deg);
+    }
+
+    &--b {
+      margin-top: 0.9rem;
+      background: linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--accent-primary) 16%, var(--surface)),
+        color-mix(in oklab, var(--accent-secondary) 16%, var(--surface))
+      );
+      transform: rotate(1.1deg);
+
+      .marquee {
+        padding: 0.7rem 0;
+      }
+
+      .marquee__item {
+        padding: 0 1.1rem;
+        font-family: var(--font-mono);
+        font-size: var(--fs-xs);
+        font-weight: var(--fw-medium);
+        letter-spacing: var(--tr-label);
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        -webkit-text-stroke: 0;
+      }
+
+      .marquee__sep {
+        font-family: var(--font-mono);
+        color: var(--accent-secondary);
+        text-shadow: none;
+      }
+    }
+  }
+
+  /* ---------- Bento grid ---------- */
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: clamp(1rem, 2vw, 1.5rem);
+  }
+
+  &__cell {
+    grid-column: span 12;
+    min-width: 0;
+
+    @for $cols from 4 through 8 {
+      &--span-#{$cols} {
+        grid-column: span $cols;
+      }
+    }
+  }
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    height: 100%;
+    padding: clamp(1.1rem, 2.4vw, 1.75rem);
+    transition:
+      transform 0.5s var(--ease-out),
+      border-color var(--dur-med) ease;
+
+    &:hover {
+      border-color: var(--border-strong);
+    }
+
+    &:hover .skills__card-icon {
+      transform: rotate(-8deg) scale(1.08);
+      box-shadow: 0 0 30px -4px var(--glow-cyan);
+    }
+  }
+
+  &__card-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  &__card-icon {
+    display: grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--accent-secondary);
+    background:
+      linear-gradient(var(--surface-strong), var(--surface-strong)) padding-box,
+      var(--gradient-brand) border-box;
+    transition:
+      transform 0.5s var(--ease-spring),
+      box-shadow 0.5s var(--ease-out);
+  }
+
+  &__card-titles {
+    display: grid;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  &__card-title {
+    font-family: var(--font-display);
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-semibold);
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+  }
+
+  &__card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.75rem;
   }
 
   &__count {
-    font-family: var(--font-mono);
-    font-size: var(--fs-xs);
-    color: var(--text-muted);
-    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+
+    b {
+      font-weight: var(--fw-bold);
+      color: var(--text-primary);
+    }
   }
 
-  &__grid {
+  /* The gauge shows the average on wider cards; the text takes over on phones */
+  &__avg {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* ---------- Average gauge ---------- */
+  &__gauge {
+    position: relative;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-    gap: 10px;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+
+    svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+      fill: none;
+      stroke-width: 3;
+    }
+  }
+
+  &__gauge-track {
+    stroke: var(--border-color);
+  }
+
+  &__gauge-arc {
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 4px var(--glow-cyan));
+  }
+
+  &__gauge-stop {
+    &--start {
+      stop-color: var(--gradient-start);
+    }
+
+    &--end {
+      stop-color: var(--gradient-end);
+    }
+  }
+
+  &__gauge-value {
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  /* ---------- Skill tiles ---------- */
+  &__tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    align-content: start;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__tile-cell {
+    min-width: 0;
+  }
+
+  &__tile {
+    position: relative;
+    display: grid;
+    grid-template:
+      'icon level' auto
+      'name name' 1fr
+      'meter meter' auto / auto minmax(0, 1fr);
+    gap: 0.65rem 0.5rem;
+    height: 100%;
+    padding: 0.8rem 0.8rem 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: color-mix(in oklab, var(--bg-tertiary) 45%, transparent);
+    isolation: isolate;
+    overflow: hidden;
+    transition:
+      transform 0.45s var(--ease-out),
+      border-color var(--dur-med) ease,
+      background var(--dur-med) ease,
+      box-shadow 0.45s var(--ease-out);
+
+    /* Soft glow that blooms behind the icon on hover */
+    &::before {
+      content: '';
+      position: absolute;
+      top: -30%;
+      left: -20%;
+      z-index: -1;
+      width: 90%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--glow-violet), transparent 65%);
+      opacity: 0;
+      transition: opacity var(--dur-med) ease;
+    }
+
+    &:hover {
+      transform: translateY(-4px);
+      border-color: color-mix(in oklab, var(--accent-primary) 50%, transparent);
+      background: var(--surface-hover);
+      box-shadow:
+        0 16px 30px -18px var(--glow-violet),
+        0 0 0 1px color-mix(in oklab, var(--accent-primary) 18%, transparent);
+
+      &::before {
+        opacity: 1;
+      }
+
+      .skills__tile-icon {
+        transform: scale(1.14) rotate(-8deg);
+      }
+
+      .skills__tile-level {
+        color: var(--accent-secondary);
+      }
+
+      .skills__meter-fill {
+        filter: brightness(1.25);
+      }
+    }
+  }
+
+  &__tile-icon {
+    grid-area: icon;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    background: color-mix(in oklab, var(--text-primary) 6%, transparent);
+    transition: transform 0.5s var(--ease-spring);
+  }
+
+  &__tile-level {
+    grid-area: level;
+    justify-self: end;
+    align-self: start;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    transition: color var(--dur-fast) ease;
+
+    small {
+      font-size: 0.85em;
+      opacity: 0.7;
+    }
+  }
+
+  &__tile-name {
+    grid-area: name;
+    align-self: end;
+    font-size: var(--fs-caption);
+    font-weight: var(--fw-medium);
+    line-height: 1.25;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+  }
+
+  &__meter {
+    grid-area: meter;
+    display: block;
+    height: 3px;
+    border-radius: var(--radius-pill);
+    background: color-mix(in oklab, var(--text-primary) 10%, transparent);
+    overflow: hidden;
+  }
+
+  &__meter-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--gradient-brand);
+    box-shadow: 0 0 10px var(--glow-cyan);
+    transform-origin: left center;
+    transition: filter var(--dur-fast) ease;
   }
 }
 
-.skill-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 8px 12px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  text-align: center;
-  transition:
-    transform 0.3s var(--ease-standard),
-    border-color 0.3s var(--ease-standard),
-    box-shadow 0.3s var(--ease-standard);
+@media (max-width: 1000px) {
+  .skills__cell[class*='--span-'] {
+    grid-column: span 12;
+  }
+}
 
-  &:hover {
-    transform: translateY(-4px) rotate(-1deg);
-    border-color: color-mix(in oklab, var(--accent-primary) 45%, transparent);
-    box-shadow: var(--shadow-card);
+@media (max-width: 520px) {
+  .skills__card-head {
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
-  &__name {
-    font-family: var(--font-mono);
-    font-size: var(--fs-tiny);
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    color: var(--text-secondary);
-    line-height: 1.3;
+  .skills__card-icon {
+    width: 2.75rem;
+    height: 2.75rem;
   }
 
-  &__dots {
-    display: inline-flex;
-    gap: 4px;
+  .skills__gauge {
+    display: none;
   }
 
-  &__dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--border-color);
+  .skills__avg {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
 
-    &--filled {
-      background: var(--accent-primary);
+  .skills__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  /* Compact tiles: icon on the left, name over the meter */
+  .skills__tile {
+    grid-template:
+      'icon name name' 1fr
+      'icon meter level' auto / auto minmax(0, 1fr) auto;
+    gap: 0.35rem 0.6rem;
+    align-items: center;
+    padding: 0.65rem 0.7rem;
+  }
+
+  .skills__tile-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+
+    svg {
+      width: 22px;
+      height: 22px;
     }
+  }
+
+  .skills__tile-name {
+    font-size: var(--fs-xs);
+  }
+
+  .skills__tile-level {
+    align-self: center;
+    font-size: 0.625rem;
+  }
+
+  .skills__band--a {
+    transform: rotate(-2.4deg);
+  }
+
+  .skills__band--b {
+    transform: rotate(1.8deg);
   }
 }

@@ -1,78 +1,53 @@
 .theme-toggle {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 0;
-  outline-offset: 4px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  overflow: hidden;
+  transition:
+    border-color var(--dur-fast) ease,
+    box-shadow var(--dur-med) ease;
 
-  &__track {
-    position: relative;
-    display: flex;
-    align-items: center;
-    width: 60px;
-    height: 30px;
-    background: transparent;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--border-color);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  &:hover {
+    border-color: var(--accent-secondary);
+    box-shadow: 0 0 20px -4px var(--glow-cyan);
   }
 
-  &:hover &__track {
-    border-color: var(--accent-primary);
+  /* Both icons ride a wheel; toggling spins the other one into view */
+  &__orbit {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 40px;
+    height: 80px;
+    transform-origin: 50% 50%;
+    transition: transform 0.7s var(--ease-spring);
   }
 
-  &__icon-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    padding: 0 7px;
-    position: relative;
-    z-index: 1;
+  &--light &__orbit {
+    transform: rotate(180deg);
   }
 
   &__icon {
-    width: 14px;
-    height: 14px;
-    color: var(--text-primary);
-    transition: all 0.3s ease;
-
-    &--sun {
-      opacity: 0.35;
-    }
-
-    &--moon {
-      opacity: 1;
-    }
-  }
-
-  &__thumb {
     position: absolute;
-    left: 3px;
-    width: 22px;
-    height: 22px;
-    background: var(--accent-primary);
-    border-radius: 50%;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 2;
-  }
-
-  &:active &__thumb {
-    width: 26px;
-  }
-
-  // Light mode styles
-  &--light &__icon {
-    &--sun {
-      opacity: 1;
-    }
+    left: 50%;
+    width: 18px;
+    height: 18px;
+    margin-left: -9px;
 
     &--moon {
-      opacity: 0.35;
+      top: 11px;
+      color: var(--violet-300);
     }
-  }
 
-  &--light &__thumb {
-    left: 33px;
+    &--sun {
+      top: 51px;
+      transform: rotate(180deg);
+      color: #b45309;
+    }
   }
 }

@@ -1,0 +1,57 @@
+.cursor {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+
+  &__ring,
+  &__dot {
+    position: fixed;
+    top: 0;
+    left: 0;
+    will-change: transform;
+  }
+
+  &__ring span {
+    position: absolute;
+    top: -18px;
+    left: -18px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in oklab, var(--accent-secondary) 70%, transparent);
+    box-shadow:
+      0 0 18px var(--glow-cyan),
+      inset 0 0 12px var(--glow-violet);
+    transition:
+      transform 0.35s var(--ease-out),
+      opacity 0.3s ease,
+      background-color 0.3s ease,
+      border-color 0.3s ease;
+  }
+
+  &__ring--active span {
+    transform: scale(1.7);
+    border-color: var(--accent-primary);
+    background: color-mix(in oklab, var(--accent-primary) 10%, transparent);
+  }
+
+  &__ring--down span {
+    transform: scale(0.8);
+  }
+
+  &__ring--hidden span,
+  &__dot--hidden {
+    opacity: 0;
+  }
+
+  &__dot {
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    border-radius: 50%;
+    background: var(--accent-secondary);
+    box-shadow: 0 0 10px var(--accent-secondary);
+    transition: opacity 0.3s ease;
+  }
+}
