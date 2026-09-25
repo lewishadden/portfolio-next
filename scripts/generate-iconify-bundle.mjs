@@ -4,7 +4,9 @@
  *
  * Scans content/content.json and component/app source for `prefix:name`
  * icon references and writes the minimal icon data per collection to
- * components/IconifyLoader/iconify-bundle.json. Icon data comes from a local
+ * components/IconifyLoader/iconify-bundle.json, plus the list of bundled prefixes
+ * to components/IconifyLoader/iconify-prefixes.json (IconifyLoader routes those
+ * prefixes to the bundle instead of the API). Icon data comes from a local
  * `@iconify-json/<prefix>` package when installed, otherwise the Iconify API,
  * otherwise the previously generated bundle.
  *
@@ -19,6 +21,7 @@ const require = createRequire(import.meta.url);
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const OUT = path.join(ROOT, 'components/IconifyLoader/iconify-bundle.json');
+const PREFIXES_OUT = path.join(ROOT, 'components/IconifyLoader/iconify-prefixes.json');
 const ICON_RE = /"([a-z0-9]+(?:-[a-z0-9]+)*):([a-z0-9]+(?:-[a-z0-9]+)*)"/g;
 
 async function collectFiles(dir, exts, files = []) {
@@ -101,6 +104,14 @@ for (const [prefix, names] of [...byPrefix.entries()].sort()) {
 }
 
 await writeFile(OUT, JSON.stringify(collections));
+await writeFile(
+  PREFIXES_OUT,
+  `${JSON.stringify(
+    collections.map((c) => c.prefix),
+    null,
+    2
+  )}\n`
+);
 const bytes = (await readFile(OUT)).length;
 console.log(
   `Wrote ${collections.length} collections (${collections.reduce(
