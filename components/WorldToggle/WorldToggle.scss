@@ -1,0 +1,54 @@
+.world-toggle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--accent-secondary);
+  transition:
+    border-color var(--dur-fast) ease,
+    box-shadow var(--dur-med) ease,
+    color var(--dur-fast) ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--accent-secondary);
+    box-shadow: 0 0 20px -4px var(--glow-cyan);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &__icon {
+    width: 19px;
+    height: 19px;
+    transition: transform 0.6s var(--ease-spring);
+  }
+
+  &:hover:not(:disabled) &__icon {
+    transform: rotate(-18deg) scale(1.08);
+  }
+
+  /* Diagonal strike drawn in when the world is off */
+  &__slash {
+    position: absolute;
+    width: 22px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentcolor;
+    transform: rotate(-45deg) scaleX(0);
+    transition: transform 0.35s var(--ease-out);
+  }
+
+  &--off {
+    color: var(--text-muted);
+  }
+
+  &--off &__slash {
+    transform: rotate(-45deg) scaleX(1);
+  }
+}

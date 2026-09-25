@@ -9,6 +9,7 @@ import { Vector2 } from 'three';
 import { palettes } from './utils';
 import { worldStore } from './worldStore';
 
+import type { QualityTier } from './quality';
 import type { WorldTheme } from './utils';
 
 function updateAberration(effect: ChromaticAberrationEffect | null, velocity: number) {
@@ -17,15 +18,21 @@ function updateAberration(effect: ChromaticAberrationEffect | null, velocity: nu
   effect.offset.set(amount, amount * 0.6);
 }
 
-/** Bloom + velocity-driven chromatic aberration + vignette */
-export function Effects({ theme, lite }: { theme: WorldTheme; lite: boolean }) {
+/**
+ * Post-processing per quality tier:
+ * high — bloom + velocity-driven chromatic aberration + vignette;
+ * medium — lighter bloom + vignette; low — none (plain render, cheapest).
+ */
+export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier }) {
   const palette = palettes[theme];
   const aberrationRef = useRef<ChromaticAberrationEffect>(null);
   const offset = useMemo(() => new Vector2(0, 0), []);
 
   useFrame(() => updateAberration(aberrationRef.current, worldStore.velocity));
 
-  if (lite) {
+  if (tier === 'low') return null;
+
+  if (tier === 'medium') {
     return (
       <EffectComposer multisampling={0}>
         <Bloom

@@ -198,13 +198,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en-GB"
+      data-theme="dark"
       suppressHydrationWarning
       className={`${unbounded.variable} ${geist.variable} ${geistMono.variable}`}
     >
       <head>
         <ThemeScript />
       </head>
-      <body data-theme="dark" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <ClientProviders>
           <a href="#main-content" className="skip-link">
             Skip to content

@@ -16,8 +16,10 @@ import { HomeStation } from './stations/HomeStation';
 import { LostStation } from './stations/LostStation';
 import { ProjectsStation } from './stations/ProjectsStation';
 import { SkillsStation } from './stations/SkillsStation';
+import { lowerTier, raiseTier, tierSettings } from './quality';
 import { palettes } from './utils';
 
+import type { QualityTier } from './quality';
 import type { StationKey } from './stations';
 import type { WorldContent } from './types';
 import type { WorldTheme } from './utils';
@@ -95,7 +97,14 @@ export default function WorldCanvas({
   const [visited, setVisited] = useState<StationKey[]>([station]);
   if (!visited.includes(station)) setVisited([...visited, station]);
 
-  const [dpr, setDpr] = useState(lite ? 1.25 : 1.5);
+  // Phones / touch devices start (and top out) one tier down
+  const ceiling: QualityTier = lite ? 'medium' : 'high';
+  const [tier, setTier] = useState<QualityTier>(ceiling);
+  const { dpr } = tierSettings[tier];
+
+  useEffect(() => {
+    document.documentElement.dataset.worldTier = tier;
+  }, [tier]);
   const palette = palettes[theme];
   const has = (key: StationKey) => visited.includes(key);
 
@@ -110,7 +119,12 @@ export default function WorldCanvas({
     >
       <color attach="background" args={[palette.background]} />
       <fog attach="fog" args={[palette.background, palette.fog[0], palette.fog[1]]} />
-      <PerformanceMonitor onDecline={() => setDpr(1)} />
+      <PerformanceMonitor
+        onDecline={() => setTier(lowerTier)}
+        onIncline={() => setTier((current) => raiseTier(current, ceiling))}
+        flipflops={4}
+        onFallback={() => setTier('low')}
+      />
       {reducedMotion && <DemandDriver station={station} theme={theme} />}
 
       <CameraRig station={station} reducedMotion={reducedMotion} />
@@ -136,7 +150,7 @@ export default function WorldCanvas({
       {has('contact') && <ContactStation theme={theme} />}
       {has('lost') && <LostStation theme={theme} />}
 
-      <Effects theme={theme} lite={lite} />
+      <Effects theme={theme} tier={tier} />
     </Canvas>
   );
 }
