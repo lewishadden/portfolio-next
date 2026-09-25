@@ -22,7 +22,8 @@ const require = createRequire(import.meta.url);
 const ROOT = new URL('..', import.meta.url).pathname;
 const OUT = path.join(ROOT, 'components/IconifyLoader/iconify-bundle.json');
 const PREFIXES_OUT = path.join(ROOT, 'components/IconifyLoader/iconify-prefixes.json');
-const ICON_RE = /"([a-z0-9]+(?:-[a-z0-9]+)*):([a-z0-9]+(?:-[a-z0-9]+)*)"/g;
+// "prefix:name" in JSON / JSX attributes, or 'prefix:name' in TS expressions
+const ICON_RE = /(["'])([a-z0-9]+(?:-[a-z0-9]+)*):([a-z0-9]+(?:-[a-z0-9]+)*)\1/g;
 
 async function collectFiles(dir, exts, files = []) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -43,7 +44,7 @@ const sources = [
 const byPrefix = new Map();
 for (const file of sources) {
   const text = await readFile(file, 'utf-8');
-  for (const [, prefix, name] of text.matchAll(ICON_RE)) {
+  for (const [, , prefix, name] of text.matchAll(ICON_RE)) {
     if (!byPrefix.has(prefix)) byPrefix.set(prefix, new Set());
     byPrefix.get(prefix).add(name);
   }

@@ -23,17 +23,25 @@ export function loadIconBundle() {
   return bundle;
 }
 
+async function loadFromBundle(names: string[], prefix: string) {
+  const collection = (await loadIconBundle()).find((c) => c.prefix === prefix) ?? null;
+  if (process.env.NODE_ENV !== 'production') {
+    const missing = names.filter((n) => !collection?.icons[n] && !collection?.aliases?.[n]);
+    if (missing.length)
+      console.warn(
+        `[icons] Not in the offline bundle: ${missing.map((n) => `${prefix}:${n}`).join(', ')}. ` +
+          'Run `node scripts/generate-iconify-bundle.mjs`.'
+      );
+  }
+  return collection;
+}
+
 // Route every bundled prefix through the bundle instead of api.iconify.design.
 // Registered at module scope so it is in place before the first <Icon> asks for
 // data; icons that render before the chunk arrives simply wait for it. Prefixes
 // that are not bundled still fall back to the public API.
 if (typeof window !== 'undefined') {
-  for (const prefix of bundledPrefixes) {
-    setCustomIconsLoader(
-      async () => (await loadIconBundle()).find((c) => c.prefix === prefix) ?? null,
-      prefix
-    );
-  }
+  for (const prefix of bundledPrefixes) setCustomIconsLoader(loadFromBundle, prefix);
 }
 
 /** Starts downloading the bundle as soon as the app mounts */
