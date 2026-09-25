@@ -51,11 +51,13 @@
     "yup": "^1.7.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^9.39.2",
     "@iconify-json/ph": "^1.2.2",
     "@iconify/utils": "^3.1.7",
     "@next/bundle-analyzer": "^16.1.6",
     "@next/eslint-plugin-next": "^16.1.6",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^25.1.0",
     "@types/nodemailer": "^7.0.10",
     "@types/react": "^19.2.10",
