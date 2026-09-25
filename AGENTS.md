@@ -12,7 +12,7 @@ The visual design ("Orbit" — dark sci-fi glow + light "daylight lab" theme) is
 - **Language:** TypeScript
 - **Styling:** SCSS (BEM naming convention), CSS Modules (for select components)
 - **3D:** `three`, `@react-three/fiber`, `@react-three/drei`, `@react-three/postprocessing`, `maath` (see `components/World`)
-- **Fonts:** Unbounded (display), Geist (body), Geist Mono (labels) via `next/font/google`
+- **Fonts:** Unbounded (display), Geist (body), Geist Mono (labels), self-hosted variable WOFF2s in `app/_fonts` via `next/font/local` — don't switch back to `next/font/google`: its build-time fetch intermittently breaks Turbopack builds (see `app/_fonts/README.md`)
 - **Icons:** `@iconify/react` with an offline bundle (`components/IconifyLoader/iconify-bundle.json`)
 - **Forms:** Formik + Yup
 - **Animations:** Framer Motion (`m` components under `LazyMotion` + `MotionConfig reducedMotion="user"`), CSS keyframes, Lenis smooth scroll

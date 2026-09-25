@@ -2,7 +2,7 @@ import './globals.scss';
 import './theme-variables.scss';
 import './page.scss';
 
-import { Geist, Geist_Mono, Unbounded } from 'next/font/google';
+import localFont from 'next/font/local';
 
 import { ClientProviders } from '@/components/ClientProviders/ClientProviders';
 import { PageTransition } from '@/components/PageTransition/PageTransition';
@@ -22,22 +22,26 @@ import { ContactInfo, Social } from '@/types';
 
 import type { WorldContent } from '@/components/World/types';
 
-const unbounded = Unbounded({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+// Self-hosted (app/_fonts, see its README) rather than next/font/google: builds
+// then never depend on Google Fonts, whose responses can break Turbopack's font
+// loader (vercel/next.js#99114). Each file is one variable font.
+const unbounded = localFont({
+  src: './_fonts/Unbounded-Variable.woff2',
+  weight: '400 800',
   variable: '--font-unbounded',
   display: 'swap',
 });
 
-const geist = Geist({
-  subsets: ['latin'],
+const geist = localFont({
+  src: './_fonts/Geist-Variable.woff2',
+  weight: '400 800',
   variable: '--font-geist',
   display: 'swap',
 });
 
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
+const geistMono = localFont({
+  src: './_fonts/GeistMono-Variable.woff2',
+  weight: '400 600',
   variable: '--font-geist-mono',
   display: 'swap',
 });
