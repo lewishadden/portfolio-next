@@ -22,19 +22,29 @@ const easeIn = [0.65, 0, 0.35, 1] as const;
 
 /* Page scroll lock shared by every open dialog (one may still be exiting as another opens) */
 let scrollLocks = 0;
+let lockedY = 0;
+
+// overflow: hidden stops the visitor scrolling, but not programmatic scrolls
+// (find-in-page, assistive tech, scrollIntoView) — put the page straight back
+const holdScroll = () => {
+  if (window.scrollY !== lockedY) window.scrollTo({ top: lockedY, behavior: 'instant' });
+};
 
 function lockScroll(lenis: Lenis | undefined) {
   scrollLocks += 1;
   if (scrollLocks > 1) return;
+  lockedY = window.scrollY;
   const root = document.documentElement;
   root.style.overflow = 'hidden';
   root.style.scrollbarGutter = 'stable';
   lenis?.stop();
+  window.addEventListener('scroll', holdScroll);
 }
 
 function unlockScroll(lenis: Lenis | undefined) {
   scrollLocks = Math.max(0, scrollLocks - 1);
   if (scrollLocks > 0) return;
+  window.removeEventListener('scroll', holdScroll);
   const root = document.documentElement;
   root.style.overflow = '';
   root.style.scrollbarGutter = '';
