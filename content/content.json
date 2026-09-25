@@ -1607,6 +1607,10 @@
       "bodyText": "Please try again soon, or contact me directly via email or phone",
       "icon": "mdi:alert-circle"
     },
+    "rateLimited": {
+      "headerText": "Slow down, space traveller",
+      "bodyText": "You’ve sent a few messages in a short time. Please try again in a few minutes, or email me directly."
+    },
     "success": {
       "status": "success",
       "headerText": "Message sent!",

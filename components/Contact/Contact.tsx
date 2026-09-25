@@ -89,11 +89,22 @@ const ContactCard = ({ info }: { info: ContactInfo }) => {
 };
 
 export const Contact = ({ contact }: { contact: ContactProps }) => {
-  const { label, tagline, contactInfo, sendAgain, error: errorContent, success, close } = contact;
+  const {
+    label,
+    tagline,
+    contactInfo,
+    sendAgain,
+    error: genericError,
+    rateLimited,
+    success,
+    close,
+  } = contact;
 
   const [submitted, setSubmitted] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [error, setError] = useState(false);
+  const [limited, setLimited] = useState(false);
+  const errorContent = limited ? { ...genericError, ...rateLimited } : genericError;
 
   const dismissToast = useCallback(() => {
     setError(false);
@@ -209,7 +220,8 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
                     setShowToast(true);
                     requestLaunch();
                   }}
-                  onFail={() => {
+                  onFail={(response) => {
+                    setLimited(response.status === 429);
                     setError(true);
                     setShowToast(true);
                   }}

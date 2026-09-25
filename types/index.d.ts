@@ -141,6 +141,10 @@ export interface Contact {
     bodyText: string;
     icon: string;
   };
+  rateLimited: {
+    headerText: string;
+    bodyText: string;
+  };
   success: {
     status: string;
     headerText: string;
