@@ -201,6 +201,8 @@ export interface ContactInfo {
 
 export interface Project {
   title: string;
+  /** URL segment for /projects/[slug] — unique, lowercase, hyphenated */
+  slug: string;
   startDate: string;
   description: string;
   theme: Theme;

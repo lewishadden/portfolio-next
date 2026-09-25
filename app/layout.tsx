@@ -44,7 +44,11 @@ const geistMono = Geist_Mono({
 
 // Serialisable slice of content.json the 3D world needs (project screens, skill badges)
 const worldContent: WorldContent = {
-  projects: content.projects.items.map((p) => ({ title: p.title, image: p.images[0]?.url })),
+  projects: content.projects.items.map((p) => ({
+    title: p.title,
+    slug: p.slug,
+    image: p.images[0]?.url,
+  })),
   skills: content.skills.icons.map((s) => ({ name: s.name, icon: s.class, category: s.category })),
   categories: content.skills.categories.map((c) => c.categoryKey),
   experienceCount: content.experience.items.length,

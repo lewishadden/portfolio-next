@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { AnimatePresence, m } from 'framer-motion';
 import { Icon } from '@iconify/react';
 
@@ -11,13 +12,14 @@ import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
+import { projectPath, projectSlugFromPath } from '@/utils/projectPaths';
 
 import { bentoLayout } from './bento';
 import ProjectArt from './ProjectArt/ProjectArt';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
 import { techIconClass } from './techIcon';
 
-import type { CSSProperties } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import type { BentoCell } from './bento';
 import type { Project, Projects as ProjectsProps, Technology } from '@/types';
 
@@ -84,10 +86,10 @@ const ProjectCard = ({
   number: number;
   cell: BentoCell;
   eager: boolean;
-  onOpen: () => void;
+  onOpen: (e: MouseEvent<HTMLAnchorElement>) => void;
 }) => {
   const ref = usePointerGlow<HTMLElement>({ tilt: 4 });
-  const { title, description, startDate, thumbnail, technologies, url } = project;
+  const { title, slug, description, startDate, thumbnail, technologies, url } = project;
   const preview = project.images?.[0];
   const logo = !!preview && isLogo(preview.size);
   const lgWide = cell.lg > 1;
@@ -195,8 +197,10 @@ const ProjectCard = ({
             )}
           </ul>
 
-          <button
-            type="button"
+          {/* A real link (crawlable, opens in a new tab) that opens the modal on a plain click */}
+          <Link
+            href={projectPath(slug)}
+            prefetch={false}
             className="proj-card__btn"
             onClick={onOpen}
             aria-haspopup="dialog"
@@ -206,7 +210,7 @@ const ProjectCard = ({
             <span className="proj-card__btn-icon" aria-hidden="true">
               <Icon icon="ph:arrow-up-right-bold" width={14} height={14} />
             </span>
-          </button>
+          </Link>
         </div>
       </article>
     </Reveal>
@@ -217,7 +221,12 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   const { label, items } = projects;
   const filters = useMemo(() => buildFilters(items), [items]);
   const [filterId, setFilterId] = useState('all');
-  const [selected, setSelected] = useState<number | null>(null);
+
+  // The open project lives in the URL: opening a card pushes /projects/<slug>
+  // without a navigation (the grid stays mounted underneath), so the address
+  // is shareable, refresh lands on the full project page and Back closes it.
+  const openSlug = projectSlugFromPath(usePathname());
+  const selected = openSlug ? items.findIndex((p) => p.slug === openSlug) : -1;
 
   const activeIndex = Math.max(
     0,
@@ -237,8 +246,19 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     [filters, items]
   );
 
-  const close = useCallback(() => setSelected(null), []);
-  const selectedProject = selected === null ? null : items[selected];
+  const open = useCallback((e: MouseEvent<HTMLAnchorElement>, slug: string) => {
+    // Modified / middle clicks keep their browser behaviour (new tab, etc.)
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    window.history.pushState({ projectModal: true }, '', projectPath(slug));
+  }, []);
+
+  const close = useCallback(() => {
+    if (window.history.state?.projectModal) window.history.back();
+    else window.history.replaceState(null, '', '/projects');
+  }, []);
+
+  const selectedProject = selected >= 0 ? items[selected] : null;
 
   return (
     <section className="page projects" aria-labelledby="projects-heading">
@@ -304,12 +324,12 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         >
           {visible.map(({ project, number }, i) => (
             <ProjectCard
-              key={project.title}
+              key={project.slug}
               project={project}
               number={number}
               cell={cells[i]}
               eager={i < 3}
-              onOpen={() => setSelected(number - 1)}
+              onOpen={(e) => open(e, project.slug)}
             />
           ))}
         </m.ul>
@@ -332,9 +352,9 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       </Reveal>
 
       <AnimatePresence>
-        {selectedProject && selected !== null && (
+        {selectedProject && (
           <ProjectDetailsModal
-            key={selectedProject.title}
+            key={selectedProject.slug}
             project={selectedProject}
             number={selected + 1}
             onClose={close}

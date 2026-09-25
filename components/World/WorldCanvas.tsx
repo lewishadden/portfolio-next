@@ -55,7 +55,15 @@ function StudioEnvironment() {
 }
 
 /** With frameloop="demand" (reduced motion), repaint on scroll, resize and route changes */
-function DemandDriver({ station, theme }: { station: StationKey; theme: WorldTheme }) {
+function DemandDriver({
+  station,
+  theme,
+  focusProject,
+}: {
+  station: StationKey;
+  theme: WorldTheme;
+  focusProject: number;
+}) {
   const invalidate = useThree((s) => s.invalidate);
 
   useEffect(() => {
@@ -70,7 +78,7 @@ function DemandDriver({ station, theme }: { station: StationKey; theme: WorldThe
       window.removeEventListener('resize', repaint);
       timers.forEach(clearTimeout);
     };
-  }, [invalidate, station, theme]);
+  }, [invalidate, station, theme, focusProject]);
 
   return null;
 }
@@ -81,6 +89,8 @@ export interface WorldCanvasProps {
   reducedMotion: boolean;
   lite: boolean;
   content: WorldContent;
+  /** Index of the project whose screen faces the camera, -1 for none */
+  focusProject: number;
   onReady: () => void;
 }
 
@@ -90,6 +100,7 @@ export default function WorldCanvas({
   reducedMotion,
   lite,
   content,
+  focusProject,
   onReady,
 }: WorldCanvasProps) {
   // Stations mount the first time they are visited and stay mounted so flights
@@ -125,7 +136,9 @@ export default function WorldCanvas({
         flipflops={4}
         onFallback={() => setTier('low')}
       />
-      {reducedMotion && <DemandDriver station={station} theme={theme} />}
+      {reducedMotion && (
+        <DemandDriver station={station} theme={theme} focusProject={focusProject} />
+      )}
 
       <CameraRig station={station} reducedMotion={reducedMotion} />
 
@@ -143,7 +156,9 @@ export default function WorldCanvas({
       {has('home') && <HomeStation theme={theme} />}
       {has('about') && <AboutStation theme={theme} />}
       {has('experience') && <ExperienceStation theme={theme} count={content.experienceCount} />}
-      {has('projects') && <ProjectsStation theme={theme} projects={content.projects} />}
+      {has('projects') && (
+        <ProjectsStation theme={theme} projects={content.projects} focus={focusProject} />
+      )}
       {has('skills') && (
         <SkillsStation theme={theme} skills={content.skills} categories={content.categories} />
       )}

@@ -1,12 +1,22 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { Color, DoubleSide, Group, ShaderMaterial, SRGBColorSpace, TextureLoader } from 'three';
+import { useFrame, useThree } from '@react-three/fiber';
+import { easing } from 'maath';
+import {
+  Color,
+  DoubleSide,
+  Group,
+  MathUtils,
+  ShaderMaterial,
+  SRGBColorSpace,
+  TextureLoader,
+  Vector3,
+} from 'three';
 
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
-import { stationInRange, useThemedMaterials } from '../stationHooks';
+import { stationInRange, useThemedMaterials, useWide } from '../stationHooks';
 import { stationModels, stationPositions } from '../stations';
 import { palettes, setUniform } from '../utils';
 import { worldStore } from '../worldStore';
@@ -14,8 +24,22 @@ import { worldStore } from '../worldStore';
 import type { Texture } from 'three';
 import type { WorldPalette, WorldTheme } from '../utils';
 
-const maxScreens = 12;
+const maxScreens = 15;
 const helixRadius = 5.4;
+/** Angle and height step between consecutive screens on the helix */
+const screenTurn = 0.78;
+const screenRise = 1.05;
+const screenTop = 2.4;
+const focusScale = 1.3;
+
+const toCamera = new Vector3();
+const screenY = (i: number) => screenTop - i * screenRise;
+/** Shortest signed angle from `a` to `b` */
+const angleDelta = (a: number, b: number) =>
+  MathUtils.euclideanModulo(b - a + Math.PI, Math.PI * 2) - Math.PI;
+/** Frame-rate independent exponential approach */
+const approach = (current: number, target: number, rate: number, dt: number) =>
+  current + (target - current) * (1 - Math.exp(-rate * dt));
 
 const screenVertex = /* glsl */ `
   varying vec2 vUv;
@@ -33,6 +57,7 @@ const screenFragment = /* glsl */ `
   uniform vec3 uEdge;
   uniform vec3 uTint;
   uniform float uAspect;
+  uniform float uDim;
   varying vec2 vUv;
   float roundedBox(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + r;
@@ -49,7 +74,9 @@ const screenFragment = /* glsl */ `
     float edge = smoothstep(-0.03, 0.0, d);
     col = mix(col, uEdge * 2.4, edge);
     float reveal = smoothstep(uReveal - 0.1, uReveal, 1.0 - vUv.y);
-    gl_FragColor = vec4(col, (1.0 - reveal) * 0.96);
+    // Screens other than the focused project recede
+    col *= 1.0 - uDim * 0.75;
+    gl_FragColor = vec4(col, (1.0 - reveal) * 0.96 * (1.0 - uDim * 0.6));
   }
 `;
 
@@ -75,6 +102,7 @@ function createScreenMaterial(edge: string, tint: string) {
       uEdge: { value: new Color(edge) },
       uTint: { value: new Color(tint) },
       uAspect: { value: 1.6 },
+      uDim: { value: 0 },
     },
     vertexShader: screenVertex,
     fragmentShader: screenFragment,
@@ -94,14 +122,24 @@ function attachTexture(material: ShaderMaterial, texture: Texture) {
 /** Optimised (and cached) through the Next.js image endpoint */
 const optimisedImage = (src: string) => `/_next/image?url=${encodeURIComponent(src)}&w=640&q=75`;
 
-/** `/projects` — the terminal inside a slowly turning helix of project screens */
+/**
+ * `/projects` — the terminal inside a slowly turning helix of project screens.
+ * With a `focus` (a project page or modal is open) the helix turns and rises
+ * to bring that project's screen in front of the camera, enlarged, while the
+ * rest dim.
+ */
 export function ProjectsStation({
   theme,
   projects,
+  focus = -1,
 }: {
   theme: WorldTheme;
   projects: { title: string; image?: string }[];
+  focus?: number;
 }) {
+  // On-demand rendering (reduced motion) snaps instead of easing
+  const snap = useThree((s) => s.frameloop === 'demand');
+  const wide = useWide();
   const groupRef = useRef<Group>(null);
   const helixRef = useRef<Group>(null);
   const terminalRef = useRef<Group>(null);
@@ -140,21 +178,55 @@ export function ProjectsStation({
     };
   }, [screens, screenMaterials]);
 
+  const settled = useRef(false);
+  const focused = focus >= 0 && focus < screens.length ? focus : -1;
+
   useFrame(({ camera, clock }, delta) => {
-    if (!stationInRange(groupRef.current, camera, 'projects')) return;
+    const group = groupRef.current;
+    if (!stationInRange(group, camera, 'projects')) return;
     const t = clock.elapsedTime;
+    const dt = Math.min(delta, 0.05);
+    const instant = snap || !settled.current;
+    settled.current = true;
     setUniform(materials.base, 'uTime', t);
     screenMaterials.forEach((material, i) => {
       setUniform(material, 'uTime', t + i);
       const reveal = material.uniforms.uReveal.value as number;
-      if (reveal < 1.1) setUniform(material, 'uReveal', reveal + Math.min(delta, 0.05) * 0.8);
+      if (reveal < 1.1) setUniform(material, 'uReveal', snap ? 1.1 : reveal + dt * 0.8);
+      const dim = focused >= 0 && i !== focused ? 1 : 0;
+      const current = material.uniforms.uDim.value as number;
+      setUniform(material, 'uDim', instant ? dim : approach(current, dim, 4, dt));
     });
 
     const helix = helixRef.current;
-    if (helix) {
-      helix.rotation.y = t * 0.035 + worldStore.scroll * 1.2;
-      // Screens orbit with the helix but always turn to face the viewer
-      helix.children.forEach((screen) => screen.lookAt(camera.position));
+    if (helix && group) {
+      let angle = t * 0.035 + worldStore.scroll * 1.2;
+      let lift = 0;
+      if (focused >= 0) {
+        // Turn the screen onto the line between the camera and the helix axis,
+        // and raise it to the height the camera frames the station at
+        // (see stationCamera: look sits 0.8 below the eye, narrow shifts it 2.5 down)
+        toCamera.subVectors(camera.position, group.position);
+        angle = Math.atan2(toCamera.x, toCamera.z) - focused * screenTurn;
+        lift = toCamera.y - 0.8 + (wide ? 0 : 2.5) - screenY(focused);
+      }
+      // Always take the short way round
+      angle = helix.rotation.y + angleDelta(helix.rotation.y, angle);
+      if (instant) {
+        helix.rotation.y = angle;
+        helix.position.y = lift;
+      } else {
+        easing.damp(helix.rotation, 'y', angle, 0.5, dt);
+        easing.damp(helix.position, 'y', lift, 0.5, dt);
+      }
+
+      helix.children.forEach((screen, i) => {
+        const scale = i === focused ? focusScale : 1;
+        if (instant) screen.scale.setScalar(scale);
+        else easing.damp3(screen.scale, scale, 0.35, dt);
+        // Screens orbit with the helix but always turn to face the viewer
+        screen.lookAt(camera.position);
+      });
     }
 
     const terminal = terminalRef.current;
@@ -179,15 +251,11 @@ export function ProjectsStation({
 
       <group ref={helixRef}>
         {screens.map((screen, i) => {
-          const angle = i * 0.78;
+          const angle = i * screenTurn;
           return (
             <group
               key={screen.title}
-              position={[
-                Math.sin(angle) * helixRadius,
-                2.4 - i * 1.05,
-                Math.cos(angle) * helixRadius,
-              ]}
+              position={[Math.sin(angle) * helixRadius, screenY(i), Math.cos(angle) * helixRadius]}
             >
               <mesh material={screenMaterials[i]} scale={[2.08, 1.3, 1]}>
                 <planeGeometry />

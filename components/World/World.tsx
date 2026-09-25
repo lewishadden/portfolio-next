@@ -7,7 +7,9 @@ import { usePathname } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useRouteKey } from '@/hooks/useRouteKey';
 import { useWorldPreference } from '@/hooks/useWorldPreference';
+import { projectSlugFromPath } from '@/utils/projectPaths';
 
 import { prefetchStationModel, stationForPath } from './routes';
 import { worldStore } from './worldStore';
@@ -72,6 +74,7 @@ function useWorldInputs() {
  */
 export function World({ content }: { content: WorldContent }) {
   const pathname = usePathname();
+  const routeKey = useRouteKey();
   const { theme } = useTheme();
   const reducedMotion = useReducedMotion();
   const lite = useMediaQuery('(max-width: 760px), (pointer: coarse)');
@@ -83,11 +86,16 @@ export function World({ content }: { content: WorldContent }) {
   useWorldInputs();
   useModelPrefetch(active);
 
-  // Scroll positions from the previous route must not leak into the next station
+  // Scroll positions from the previous route must not leak into the next station.
+  // Keyed by route: the project modal's shallow URL change keeps the grid's scroll.
   useEffect(() => {
     worldStore.scroll = 0;
     worldStore.screens = 0;
-  }, [pathname]);
+  }, [routeKey]);
+
+  // /projects/<slug> (page or modal) turns that project's screen to the camera
+  const slug = projectSlugFromPath(pathname);
+  const focusProject = slug ? content.projects.findIndex((p) => p.slug === slug) : -1;
 
   // html[data-world] switches the 2D station renders on (see .station-fallback)
   useEffect(() => {
@@ -119,6 +127,7 @@ export function World({ content }: { content: WorldContent }) {
           reducedMotion={reducedMotion}
           lite={lite}
           content={content}
+          focusProject={focusProject}
           onReady={() => setReady(true)}
         />
       )}
