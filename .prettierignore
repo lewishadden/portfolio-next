@@ -2,3 +2,6 @@
 .vscode
 .claude
 components/IconifyLoader/iconify-bundle.json
+test-results
+playwright-report
+blob-report

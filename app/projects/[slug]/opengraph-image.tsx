@@ -7,6 +7,14 @@ export const alt = 'Project by Lewis Hadden';
 export const size = ogSize;
 export const contentType = ogContentType;
 
+// Prerendered with the pages — the renderer reads its assets from disk at build time
+export const dynamicParams = false;
+
+export async function generateStaticParams() {
+  const { items } = ((await getPageContent()) as ResumeData).projects;
+  return items.map(({ slug }) => ({ slug }));
+}
+
 export default async function OpenGraphImage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { items } = ((await getPageContent()) as ResumeData).projects;
