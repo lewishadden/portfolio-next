@@ -1,6 +1,8 @@
 import { MetadataRoute } from 'next';
 
 import { siteUrl, contentUpdated } from 'utils/seo';
+import { projectPath } from 'utils/projectPaths';
+import content from '../content/content.json';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   // Real content-change date (content.json global.contentUpdated), not the build time —
@@ -18,6 +20,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/projects', priority: 0.9, changeFrequency: 'monthly' },
     { path: '/skills', priority: 0.8, changeFrequency: 'monthly' },
     { path: '/contact', priority: 0.8, changeFrequency: 'yearly' },
+    ...content.projects.items.map(({ slug }) => ({
+      path: projectPath(slug),
+      priority: 0.7,
+      changeFrequency: 'yearly' as const,
+    })),
   ];
 
   return routes.map(({ path, priority, changeFrequency }) => ({

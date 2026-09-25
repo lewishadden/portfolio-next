@@ -53,7 +53,7 @@ export function PageHead({
             {title}
             {accent && (
               <>
-                {' '}
+                {title && ' '}
                 <span className="text-gradient">{accent}</span>
               </>
             )}

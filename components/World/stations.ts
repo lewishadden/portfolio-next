@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import type { Vector3Tuple } from 'three';
 import type { StationKey } from './routes';
 
-export { stationForPath, stationKeys } from './routes';
+export { stationForPath, stationKeys, stationModels } from './routes';
 export type { StationKey } from './routes';
 
 /**
@@ -18,16 +18,6 @@ export const stationPositions: Record<StationKey, Vector3Tuple> = {
   skills: [-36, 14, -178],
   contact: [8, -6, -226],
   lost: [96, 44, 34],
-};
-
-/** GLB each station loads (optimised with scripts/optimize-models.mjs) */
-export const stationModels: Partial<Record<StationKey, string>> = {
-  home: '/static/models/astronaut.glb',
-  about: '/static/models/helmet.glb',
-  experience: '/static/models/satellite.glb',
-  projects: '/static/models/terminal.glb',
-  contact: '/static/models/rocket.glb',
-  lost: '/static/models/astronaut.glb',
 };
 
 /** Total fall of the camera through the experience beam (world units) */

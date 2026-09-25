@@ -14,13 +14,14 @@ export const siteDescription =
 // feeds sitemap lastModified and ProfilePage dateModified.
 export const contentUpdated = content.global?.contentUpdated || '2026-08-28';
 
-const ogImage = {
-  url: '/opengraph-image',
+/** Each route renders its own card via an opengraph-image.tsx next to its page */
+const ogImageFor = (path: string, alt: string) => ({
+  url: `${path === '/' ? '' : path}/opengraph-image`,
   width: 1200,
   height: 630,
-  alt: `${personName} — Freelance React & Next.js Developer, Peterborough UK`,
+  alt,
   type: 'image/png',
-};
+});
 
 /**
  * Complete per-page metadata. Next.js replaces (not merges) nested openGraph/twitter
@@ -37,6 +38,7 @@ export function pageMetadata({
   description: string;
 }): Metadata {
   const fullTitle = `${title} | ${personName}`;
+  const ogImage = ogImageFor(path, fullTitle);
   return {
     title,
     description,
@@ -55,7 +57,7 @@ export function pageMetadata({
       title: fullTitle,
       description,
       creator: '@lewishadden',
-      images: ['/opengraph-image'],
+      images: [ogImage.url],
     },
   };
 }

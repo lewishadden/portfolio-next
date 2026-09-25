@@ -63,8 +63,9 @@ export function useFocusTrap<T extends HTMLElement>(active: boolean) {
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      // Restore focus to previously focused element
-      previousFocusRef.current?.focus();
+      // Hand focus back to whatever opened the trap, without scrolling to it —
+      // the page should stay exactly where the visitor left it
+      previousFocusRef.current?.focus({ preventScroll: true });
     };
   }, [active, getFocusableElements]);
 

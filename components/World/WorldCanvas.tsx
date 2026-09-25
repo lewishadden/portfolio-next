@@ -16,8 +16,10 @@ import { HomeStation } from './stations/HomeStation';
 import { LostStation } from './stations/LostStation';
 import { ProjectsStation } from './stations/ProjectsStation';
 import { SkillsStation } from './stations/SkillsStation';
+import { lowerTier, raiseTier, tierSettings } from './quality';
 import { palettes } from './utils';
 
+import type { QualityTier } from './quality';
 import type { StationKey } from './stations';
 import type { WorldContent } from './types';
 import type { WorldTheme } from './utils';
@@ -53,7 +55,15 @@ function StudioEnvironment() {
 }
 
 /** With frameloop="demand" (reduced motion), repaint on scroll, resize and route changes */
-function DemandDriver({ station, theme }: { station: StationKey; theme: WorldTheme }) {
+function DemandDriver({
+  station,
+  theme,
+  focusProject,
+}: {
+  station: StationKey;
+  theme: WorldTheme;
+  focusProject: number;
+}) {
   const invalidate = useThree((s) => s.invalidate);
 
   useEffect(() => {
@@ -68,7 +78,7 @@ function DemandDriver({ station, theme }: { station: StationKey; theme: WorldThe
       window.removeEventListener('resize', repaint);
       timers.forEach(clearTimeout);
     };
-  }, [invalidate, station, theme]);
+  }, [invalidate, station, theme, focusProject]);
 
   return null;
 }
@@ -79,6 +89,8 @@ export interface WorldCanvasProps {
   reducedMotion: boolean;
   lite: boolean;
   content: WorldContent;
+  /** Index of the project whose screen faces the camera, -1 for none */
+  focusProject: number;
   onReady: () => void;
 }
 
@@ -88,6 +100,7 @@ export default function WorldCanvas({
   reducedMotion,
   lite,
   content,
+  focusProject,
   onReady,
 }: WorldCanvasProps) {
   // Stations mount the first time they are visited and stay mounted so flights
@@ -95,7 +108,14 @@ export default function WorldCanvas({
   const [visited, setVisited] = useState<StationKey[]>([station]);
   if (!visited.includes(station)) setVisited([...visited, station]);
 
-  const [dpr, setDpr] = useState(lite ? 1.25 : 1.5);
+  // Phones / touch devices start (and top out) one tier down
+  const ceiling: QualityTier = lite ? 'medium' : 'high';
+  const [tier, setTier] = useState<QualityTier>(ceiling);
+  const { dpr } = tierSettings[tier];
+
+  useEffect(() => {
+    document.documentElement.dataset.worldTier = tier;
+  }, [tier]);
   const palette = palettes[theme];
   const has = (key: StationKey) => visited.includes(key);
 
@@ -110,8 +130,15 @@ export default function WorldCanvas({
     >
       <color attach="background" args={[palette.background]} />
       <fog attach="fog" args={[palette.background, palette.fog[0], palette.fog[1]]} />
-      <PerformanceMonitor onDecline={() => setDpr(1)} />
-      {reducedMotion && <DemandDriver station={station} theme={theme} />}
+      <PerformanceMonitor
+        onDecline={() => setTier(lowerTier)}
+        onIncline={() => setTier((current) => raiseTier(current, ceiling))}
+        flipflops={4}
+        onFallback={() => setTier('low')}
+      />
+      {reducedMotion && (
+        <DemandDriver station={station} theme={theme} focusProject={focusProject} />
+      )}
 
       <CameraRig station={station} reducedMotion={reducedMotion} />
 
@@ -129,14 +156,16 @@ export default function WorldCanvas({
       {has('home') && <HomeStation theme={theme} />}
       {has('about') && <AboutStation theme={theme} />}
       {has('experience') && <ExperienceStation theme={theme} count={content.experienceCount} />}
-      {has('projects') && <ProjectsStation theme={theme} projects={content.projects} />}
+      {has('projects') && (
+        <ProjectsStation theme={theme} projects={content.projects} focus={focusProject} />
+      )}
       {has('skills') && (
         <SkillsStation theme={theme} skills={content.skills} categories={content.categories} />
       )}
       {has('contact') && <ContactStation theme={theme} />}
       {has('lost') && <LostStation theme={theme} />}
 
-      <Effects theme={theme} lite={lite} />
+      <Effects theme={theme} tier={tier} />
     </Canvas>
   );
 }

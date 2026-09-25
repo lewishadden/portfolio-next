@@ -7,8 +7,11 @@ import { usePathname } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useRouteKey } from '@/hooks/useRouteKey';
+import { useWorldPreference } from '@/hooks/useWorldPreference';
+import { projectSlugFromPath } from '@/utils/projectPaths';
 
-import { stationForPath } from './routes';
+import { prefetchStationModel, stationForPath } from './routes';
 import { worldStore } from './worldStore';
 
 import type { WorldContent } from './types';
@@ -23,18 +26,21 @@ type IdleWindow = Window & {
   cancelIdleCallback?: (id: number) => void;
 };
 
-function supportsWebGL() {
-  try {
-    const canvas = document.createElement('canvas');
-    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'));
-  } catch {
-    return false;
-  }
-}
-
-function prefersSaveData() {
-  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-  return !!connection?.saveData;
+/** Hovering or focusing an internal link starts downloading that station's model */
+function useModelPrefetch(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const onIntent = (e: Event) => {
+      const link = e.target instanceof Element ? e.target.closest('a[href^="/"]') : null;
+      if (link instanceof HTMLAnchorElement) prefetchStationModel(new URL(link.href).pathname);
+    };
+    document.addEventListener('pointerover', onIntent, { passive: true });
+    document.addEventListener('focusin', onIntent);
+    return () => {
+      document.removeEventListener('pointerover', onIntent);
+      document.removeEventListener('focusin', onIntent);
+    };
+  }, [active]);
 }
 
 /** Feeds scroll + pointer into the world store without touching React state */
@@ -68,46 +74,60 @@ function useWorldInputs() {
  */
 export function World({ content }: { content: WorldContent }) {
   const pathname = usePathname();
+  const routeKey = useRouteKey();
   const { theme } = useTheme();
   const reducedMotion = useReducedMotion();
   const lite = useMediaQuery('(max-width: 760px), (pointer: coarse)');
-  const [enabled, setEnabled] = useState(false);
+  const { enabled, supported } = useWorldPreference();
+  const active = enabled && supported;
+  const [idle, setIdle] = useState(false);
   const [ready, setReady] = useState(false);
 
   useWorldInputs();
+  useModelPrefetch(active);
 
-  // Scroll positions from the previous route must not leak into the next station
+  // Scroll positions from the previous route must not leak into the next station.
+  // Keyed by route: the project modal's shallow URL change keeps the grid's scroll.
   useEffect(() => {
     worldStore.scroll = 0;
     worldStore.screens = 0;
-  }, [pathname]);
+  }, [routeKey]);
 
+  // /projects/<slug> (page or modal) turns that project's screen to the camera
+  const slug = projectSlugFromPath(pathname);
+  const focusProject = slug ? content.projects.findIndex((p) => p.slug === slug) : -1;
+
+  // html[data-world] switches the 2D station renders on (see .station-fallback)
   useEffect(() => {
-    const root = document.documentElement;
-    if (!supportsWebGL() || prefersSaveData()) {
-      root.dataset.world = 'off';
-      return;
-    }
-    root.dataset.world = 'on';
+    document.documentElement.dataset.world = active ? 'on' : 'off';
+  }, [active]);
+
+  // First mount waits for an idle moment so three.js never competes with first paint
+  useEffect(() => {
+    if (!active || idle) return;
     const w = window as IdleWindow;
     if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(() => setEnabled(true), { timeout: 1800 });
+      const id = w.requestIdleCallback(() => setIdle(true), { timeout: 1800 });
       return () => w.cancelIdleCallback?.(id);
     }
-    const id = window.setTimeout(() => setEnabled(true), 300);
+    const id = window.setTimeout(() => setIdle(true), 300);
     return () => window.clearTimeout(id);
-  }, []);
+  }, [active, idle]);
+
+  // Switching the world off unmounts the canvas, which frees the GPU context
+  const showCanvas = active && idle;
 
   return (
-    <div className={`world${ready ? ' world--ready' : ''}`} aria-hidden="true">
+    <div className={`world${showCanvas && ready ? ' world--ready' : ''}`} aria-hidden="true">
       <div className="world__backdrop" />
-      {enabled && (
+      {showCanvas && (
         <WorldCanvas
           station={stationForPath(pathname)}
           theme={theme}
           reducedMotion={reducedMotion}
           lite={lite}
           content={content}
+          focusProject={focusProject}
           onReady={() => setReady(true)}
         />
       )}

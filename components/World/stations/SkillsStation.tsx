@@ -13,6 +13,7 @@ import {
   SRGBColorSpace,
 } from 'three';
 
+import { loadIconBundle } from 'components/IconifyLoader/IconifyLoader';
 import { asGlow, createFresnelMaterial, noiseGlsl } from '../materials';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { stationPositions } from '../stations';
@@ -188,8 +189,8 @@ function useIconCollections() {
   const [collections, setCollections] = useState<IconifyJSON[] | null>(null);
   useEffect(() => {
     let active = true;
-    import('components/IconifyLoader/iconify-bundle.json').then((m) => {
-      if (active) setCollections(m.default as unknown as IconifyJSON[]);
+    loadIconBundle().then((loaded) => {
+      if (active) setCollections(loaded);
     });
     return () => {
       active = false;

@@ -3,6 +3,15 @@
   flex-direction: column;
   gap: 1.2rem;
 
+  /* Off-screen rather than display:none — some bots skip hidden inputs */
+  &__trap {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
   &__row {
     display: grid;
     grid-template-columns: 1fr;

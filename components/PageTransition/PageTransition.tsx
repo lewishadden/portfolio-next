@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { m } from 'framer-motion';
-import { usePathname } from 'next/navigation';
 import { useLenis } from 'lenis/react';
 
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useRouteKey } from '@/hooks/useRouteKey';
 
 import './PageTransition.scss';
 
@@ -14,19 +14,20 @@ import './PageTransition.scss';
  * crosses the viewport, and the new page de-blurs in just behind it.
  */
 export function PageTransition({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  // Keyed by route, not URL — the project modal's shallow URL change must not remount the grid
+  const routeKey = useRouteKey();
   const reduceMotion = useReducedMotion();
   const lenis = useLenis();
 
   useEffect(() => {
     lenis?.scrollTo(0, { immediate: true });
-  }, [pathname, lenis]);
+  }, [routeKey, lenis]);
 
   return (
     <>
       {!reduceMotion && (
         <m.div
-          key={`sweep-${pathname}`}
+          key={`sweep-${routeKey}`}
           className="page-sweep"
           aria-hidden="true"
           initial={{ scaleX: 0, opacity: 1 }}
@@ -35,7 +36,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
         />
       )}
       <m.div
-        key={pathname}
+        key={routeKey}
         initial={{ opacity: 0, y: reduceMotion ? 0 : 28, filter: 'blur(14px)' }}
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
         transition={{ duration: 0.9, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}

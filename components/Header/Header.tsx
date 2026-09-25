@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 
 import { ThemeToggle } from 'components/ThemeToggle/ThemeToggle';
+import { WorldToggle } from 'components/WorldToggle/WorldToggle';
 import { ScrambleText } from 'components/Motion/ScrambleText';
 
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -130,6 +131,7 @@ export const Header = ({
         </div>
 
         <div className="header__actions">
+          <WorldToggle />
           <ThemeToggle />
           <Link href="/contact" className="header__cta">
             {available && <span className="header__cta-dot" aria-hidden="true" />}

@@ -1,5 +1,5 @@
 /* =============================================================
-   Skills — crossing ticker bands, then a bento of glass category
+   Skills — tilted ticker bands, then a bento of glass category
    cards filled with proficiency tiles.
    ============================================================= */
 .skills {
@@ -38,12 +38,18 @@
     }
   }
 
-  /* ---------- Ticker bands (full bleed, gently crossed) ---------- */
+  /* ---------- Ticker bands (full bleed, tilted together) ----------
+     Both bands share one angle so the gap between them is constant at
+     every width. Opposite tilts converge at one edge — the 106vw bands
+     drift ~53vw * tan(angle) up or down at their ends — and overlap on
+     wide screens. Padding scales with vw so tilted ends never clip. */
   &__bands {
+    --band-tilt: -1.6deg;
+
     position: relative;
     width: 100vw;
     margin: 0 calc(50% - 50vw) clamp(3rem, 8vh, 5rem);
-    padding-block: 1.75rem;
+    padding-block: max(1.75rem, 2.2vw);
     overflow: hidden;
   }
 
@@ -63,7 +69,7 @@
       z-index: 1;
       background: var(--surface-strong);
       box-shadow: 0 20px 40px -24px var(--glow-violet);
-      transform: rotate(-1.6deg);
+      transform: rotate(var(--band-tilt));
     }
 
     &--b {
@@ -73,7 +79,7 @@
         color-mix(in oklab, var(--accent-primary) 16%, var(--surface)),
         color-mix(in oklab, var(--accent-secondary) 16%, var(--surface))
       );
-      transform: rotate(1.1deg);
+      transform: rotate(var(--band-tilt));
 
       .marquee {
         padding: 0.7rem 0;
@@ -449,11 +455,7 @@
     font-size: 0.625rem;
   }
 
-  .skills__band--a {
-    transform: rotate(-2.4deg);
-  }
-
-  .skills__band--b {
-    transform: rotate(1.8deg);
+  .skills__bands {
+    --band-tilt: -2.4deg;
   }
 }

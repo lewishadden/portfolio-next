@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Formik } from 'formik';
 import { object, string } from 'yup';
 import { Icon } from '@iconify/react';
+
+import { contactLimits, honeypotField } from 'utils/contactValidation';
 
 import { Contact as ContactProps } from '@/types';
 
@@ -19,13 +21,30 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
   const { submitting, send } = contact;
 
   const [loading, setLoading] = useState(false);
+  // When the form appeared — the API treats near-instant submissions as bots
+  const startedAt = useRef(0);
+  const honeypotRef = useRef<HTMLInputElement>(null);
 
-  const maxMessageLength = 1000;
+  useEffect(() => {
+    startedAt.current = Date.now();
+  }, []);
+
+  const maxMessageLength = contactLimits.message;
 
   const formSchema = object().shape({
-    firstName: string().required('Enter your first name'),
-    lastName: string().required('Enter your last name'),
-    email: string().email('Enter a valid email address').required('Enter your email'),
+    firstName: string()
+      .trim()
+      .required('Enter your first name')
+      .max(contactLimits.name, `First name must be ${contactLimits.name} characters or fewer`),
+    lastName: string()
+      .trim()
+      .required('Enter your last name')
+      .max(contactLimits.name, `Last name must be ${contactLimits.name} characters or fewer`),
+    email: string()
+      .trim()
+      .email('Enter a valid email address')
+      .max(contactLimits.email, 'Enter a shorter email address')
+      .required('Enter your email'),
     message: string()
       .required('Please write a message')
       .max(maxMessageLength, `Message must be ${maxMessageLength} characters or fewer`),
@@ -46,7 +65,14 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
     try {
       const response = await fetch('/api/sendmail', {
         method: 'POST',
-        body: JSON.stringify({ firstName, lastName, email, message }),
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          message,
+          startedAt: startedAt.current,
+          [honeypotField]: honeypotRef.current?.value ?? '',
+        }),
         headers: { 'Content-Type': 'application/json' },
       });
       setLoading(false);
@@ -91,6 +117,19 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
           <form noValidate onSubmit={formikSubmit} className="contact-form" aria-busy={loading}>
             <div aria-live="assertive" aria-atomic="true" className="sr-only">
               {errorSummary}
+            </div>
+            {/* Honeypot: hidden from people and assistive tech, irresistible to bots */}
+            <div className="contact-form__trap" aria-hidden="true">
+              <label htmlFor="formCompany">Company</label>
+              <input
+                ref={honeypotRef}
+                type="text"
+                id="formCompany"
+                name={honeypotField}
+                tabIndex={-1}
+                autoComplete="off"
+                defaultValue=""
+              />
             </div>
             <div className="contact-form__row">
               <div className="contact-form__field">
