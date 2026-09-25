@@ -1,8 +1,8 @@
-import { expect, test } from './fixtures';
+import { expect, openHydrated, test } from './fixtures';
 
 test.describe('project grid modal', () => {
   test('opens at the project URL and closes back to the grid', async ({ page }) => {
-    await page.goto('/projects');
+    await openHydrated(page, '/projects');
     const card = page.getByRole('link', { name: 'View details for Drive King' });
     await expect(card).toHaveAttribute('href', '/projects/drive-king');
 
@@ -20,7 +20,7 @@ test.describe('project grid modal', () => {
   });
 
   test('the Back button closes it and Forward reopens it', async ({ page }) => {
-    await page.goto('/projects');
+    await openHydrated(page, '/projects');
     await page.getByRole('link', { name: 'View details for Sidenote' }).click();
     const dialog = page.getByRole('dialog', { name: 'Sidenote' });
     await expect(dialog).toBeVisible();
@@ -35,16 +35,30 @@ test.describe('project grid modal', () => {
   });
 
   test('keeps the grid scroll position', async ({ page }) => {
-    await page.goto('/projects');
-    // click() scrolls the card into view first; measure once the dialog is up
-    await page.getByRole('link', { name: 'View details for Audex' }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
-    const before = await page.evaluate(() => Math.round(window.scrollY));
-    expect(before).toBeGreaterThan(0);
+    await openHydrated(page, '/projects');
+    const card = page.getByRole('link', { name: 'View details for Audex' });
+    const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
 
+    // Where the visitor left the grid: scroll the card into view and let the
+    // smooth scrolling (CSS + Lenis) settle before clicking
+    await card.scrollIntoViewIfNeeded();
+    let settled = -1;
+    await expect
+      .poll(async () => {
+        const start = await scrollY();
+        await page.waitForTimeout(250);
+        settled = await scrollY();
+        return settled === start;
+      })
+      .toBe(true);
+    expect(settled).toBeGreaterThan(0);
+
+    await card.click();
+    await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Close project details' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
-    expect(await page.evaluate(() => Math.round(window.scrollY))).toBe(before);
+    // The dialog pins the page while open, snapping back anything that scrolls it
+    await expect.poll(scrollY).toBe(settled);
   });
 });
 

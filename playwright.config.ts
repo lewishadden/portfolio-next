@@ -4,6 +4,7 @@ const port = Number(process.env.PORT || 3100);
 // Point at an already running server (e.g. `npm run dev`) instead of starting one
 const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
 const baseURL = externalBaseUrl || `http://localhost:${port}`;
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined;
 
 /**
  * End-to-end tests against a production build: run `npm run build` first,
@@ -22,13 +23,32 @@ export default defineConfig({
   use: {
     baseURL,
     trace: 'retain-on-failure',
-    launchOptions: {
-      executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined,
-      // Software WebGL, so the 3D world can run on GPU-less CI machines
-      args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-    },
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      grepInvert: /@webgl/,
+      use: { ...devices['Desktop Chrome'], launchOptions: { executablePath } },
+    },
+    {
+      // Only tests tagged @webgl get software WebGL: with these flags recent
+      // Chrome stalls every other navigation for seconds, which starves the
+      // rest of the suite on CI machines
+      name: 'chromium-webgl',
+      grep: /@webgl/,
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          executablePath,
+          args: [
+            '--use-angle=swiftshader',
+            '--enable-unsafe-swiftshader',
+            '--ignore-gpu-blocklist',
+          ],
+        },
+      },
+    },
+  ],
   webServer: externalBaseUrl
     ? undefined
     : {

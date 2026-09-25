@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 
-import { expect, revealAll, routes, test } from './fixtures';
+import { expect, openHydrated, revealAll, routes, test } from './fixtures';
 
 const pages = [...routes, '/projects/drive-king', '/this-page-does-not-exist'];
 const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
@@ -22,7 +22,7 @@ for (const theme of ['dark', 'light'] as const) {
     }
 
     test('the project dialog has no WCAG 2.1 A/AA violations', async ({ page }) => {
-      await page.goto('/projects');
+      await openHydrated(page, '/projects');
       await page.getByRole('link', { name: 'View details for Drive King' }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();

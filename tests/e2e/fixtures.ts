@@ -33,6 +33,17 @@ export const test = base.extend<SiteOptions>({
 
 export { expect };
 
+/**
+ * Opens a page and waits until React has hydrated it. Clicking a link before
+ * then is a plain navigation (the site works without JS), so tests that
+ * exercise client-side behaviour must not race hydration. ThemeProvider sets
+ * body[data-theme] in an effect, i.e. once the root has hydrated.
+ */
+export async function openHydrated(page: Page, path: string) {
+  await page.goto(path);
+  await page.waitForSelector('body[data-theme]', { state: 'attached' });
+}
+
 /** Scrolls through the page so every scroll-triggered reveal has played */
 export async function revealAll(page: Page) {
   await page.evaluate(async () => {

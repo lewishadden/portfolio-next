@@ -76,7 +76,7 @@ Each group must be separated by a newline for clarity and consistency.
   - `<ComponentName>.tsx` — the React component (client or server)
   - `<ComponentName>.scss` — scoped styles using BEM naming (`.component__element--modifier`)
 - Components marked `'use client'` are client components; otherwise they are server components.
-- End-to-end tests live in `tests/e2e` (Playwright). Import `test`/`expect` from `tests/e2e/fixtures.ts`, which seeds the theme and switches the 3D world off by default (`test.use({ world: 'on' })` to opt in). There are no unit tests.
+- End-to-end tests live in `tests/e2e` (Playwright). Import `test`/`expect` from `tests/e2e/fixtures.ts`, which seeds the theme and switches the 3D world off by default (`test.use({ world: 'on' })` to opt in). Open pages with `openHydrated()` before clicking anything client-side — a click that lands before hydration is a plain navigation. Tests that need real WebGL are tagged `@webgl` and run in the separate `chromium-webgl` project; don't add the SwiftShader flags to the default project (they make recent Chrome stall navigations for seconds). There are no unit tests.
 
 ### Styling
 

@@ -1,6 +1,6 @@
 import { contactLimits, honeypotField } from '../../utils/contactValidation';
 
-import { expect, test } from './fixtures';
+import { expect, openHydrated, test } from './fixtures';
 
 // The limiter is keyed by client IP (and remembers across runs against a
 // long-lived server) — give every test its own address
@@ -73,8 +73,9 @@ test.describe('POST /api/sendmail', () => {
 });
 
 test('the contact form explains missing fields', async ({ page }) => {
-  await page.goto('/contact');
-  // The form is code-split; click() waits for it to hydrate and scrolls it into view
+  await openHydrated(page, '/contact');
+  // The form is code-split: let its chunk arrive and hydrate before submitting
+  await page.waitForLoadState('networkidle');
   await page.locator('.contact-form__submit').click();
   await expect(page.locator('#formFirstName-error')).toHaveText('Enter your first name');
   // Screen readers get a single summary of everything that needs fixing
