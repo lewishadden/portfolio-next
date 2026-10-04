@@ -8,7 +8,13 @@ import { Group, Mesh, MeshStandardMaterial } from 'three';
 import { createBeamMaterial, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
-import { experienceDepth, stationModels, stationPositions } from '../stations';
+import {
+  experienceDepth,
+  framedHeight,
+  isWideViewport,
+  stationModels,
+  stationPositions,
+} from '../stations';
 import { palettes, setUniform } from '../utils';
 
 import type { WorldPalette, WorldTheme } from '../utils';
@@ -52,7 +58,7 @@ export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: 
     [count]
   );
 
-  useFrame(({ camera, clock }, delta) => {
+  useFrame(({ camera, clock, size }, delta) => {
     const group = groupRef.current;
     if (!stationInRange(group, camera, 'experience') || !group) return;
     const t = clock.elapsedTime;
@@ -66,7 +72,11 @@ export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: 
     const satellite = satelliteRef.current;
     if (satellite) {
       const angle = t * 0.35;
-      const targetY = Math.min(1.6, localCameraY + 1.2);
+      // Wide: up beside the copy. Narrow: centred in the stage slot above it
+      const framedY = framedHeight('experience', localCameraY, size.width, size.height);
+      const targetY = isWideViewport(size.width, size.height)
+        ? Math.min(1.6, framedY + 1.8)
+        : framedY;
       easing.damp(satellite.position, 'y', targetY, 0.4, dt);
       satellite.position.x = Math.cos(angle) * 2.3;
       satellite.position.z = Math.sin(angle) * 2.3;

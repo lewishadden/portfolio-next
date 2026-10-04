@@ -1,0 +1,160 @@
+/* =============================================================
+   Contact — dotted map with the Peterborough beacon
+   ============================================================= */
+.location-map {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0.75rem 0.75rem 1rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+
+  &__chart {
+    position: relative;
+    border-radius: var(--radius-md);
+    background:
+      radial-gradient(
+        120% 90% at 40% 55%,
+        color-mix(in oklab, var(--accent-primary) 10%, transparent),
+        transparent 70%
+      ),
+      color-mix(in oklab, var(--bg-primary) 35%, transparent);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+  }
+
+  &__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  &__stop-start {
+    stop-color: var(--gradient-start);
+  }
+
+  &__stop-end {
+    stop-color: var(--gradient-end);
+  }
+
+  &__glow-core {
+    stop-color: var(--accent-primary);
+    stop-opacity: 0.35;
+  }
+
+  &__glow-edge {
+    stop-color: var(--accent-primary);
+    stop-opacity: 0;
+  }
+
+  &__graticule line {
+    stroke: var(--border-strong);
+    stroke-width: 1;
+    stroke-dasharray: 2 6;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__halo {
+    fill: url('#location-map-glow');
+  }
+
+  /* Dots: zero-length path segments drawn with round caps */
+  &__land,
+  &__uk {
+    fill: none;
+    stroke-linecap: round;
+  }
+
+  &__land {
+    stroke: var(--text-muted);
+    stroke-width: 2.6;
+    opacity: 0.6;
+
+    [data-theme='light'] & {
+      opacity: 0.45;
+    }
+  }
+
+  &__uk {
+    stroke: url('#location-map-uk');
+    stroke-width: 3.4;
+  }
+
+  &__pin {
+    fill: var(--accent-tertiary);
+    stroke: var(--bg-primary);
+    stroke-width: 1.5;
+  }
+
+  &__ping {
+    fill: none;
+    stroke: var(--accent-tertiary);
+    stroke-width: 1.5;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: location-map-ping 2.4s var(--ease-out) infinite;
+
+    &--late {
+      animation-delay: 1.2s;
+    }
+  }
+
+  /* HTML label, positioned over the beacon */
+  &__label {
+    position: absolute;
+    transform: translate(0.9rem, -130%);
+    padding: 0.3rem 0.55rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid color-mix(in oklab, var(--accent-tertiary) 45%, transparent);
+    background: color-mix(in oklab, var(--bg-primary) 70%, transparent);
+    box-shadow: 0 0 18px -6px var(--accent-tertiary);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  &__caption {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding-inline: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    line-height: 1.7;
+    color: var(--text-secondary);
+
+    b {
+      color: var(--accent-secondary);
+      font-weight: var(--fw-medium);
+    }
+  }
+
+  &__caption-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    color: var(--accent-tertiary);
+    border: 1px solid color-mix(in oklab, var(--accent-tertiary) 40%, transparent);
+  }
+}
+
+@keyframes location-map-ping {
+  from {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+
+  to {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}

@@ -5,7 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { easing } from 'maath';
 import { PerspectiveCamera, Vector3 } from 'three';
 
-import { isWideViewport, stationCamera, stationPositions } from './stations';
+import { baseFov, stationCamera, stationPositions } from './stations';
 import { worldStore } from './worldStore';
 
 import type { StationKey } from './stations';
@@ -35,7 +35,6 @@ export function CameraRig({
     const cam = camera as PerspectiveCamera;
     const dt = Math.min(delta, 1 / 20);
     const rig = state.current;
-    const wide = isWideViewport(size.width, size.height);
 
     if (reducedMotion) {
       rig.progress = worldStore.scroll;
@@ -45,7 +44,7 @@ export function CameraRig({
       easing.damp(rig, 'screens', worldStore.screens, 0.14, dt);
     }
 
-    stationCamera(station, rig.progress, rig.screens, wide, target, look);
+    stationCamera(station, rig.progress, rig.screens, size.width, size.height, target, look);
     origin.fromArray(stationPositions[station]);
     target.add(origin);
     look.add(origin);
@@ -78,7 +77,7 @@ export function CameraRig({
     const speed = reducedMotion ? 0 : cam.position.distanceTo(previous) / Math.max(dt, 1e-4);
     worldStore.velocity = speed;
 
-    const fov = 42 + (reducedMotion ? 0 : Math.min(speed * 0.3, 24));
+    const fov = baseFov + (reducedMotion ? 0 : Math.min(speed * 0.3, 24));
     easing.damp(cam, 'fov', fov, 0.3, dt);
     cam.updateProjectionMatrix();
 

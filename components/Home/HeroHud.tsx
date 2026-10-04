@@ -10,7 +10,7 @@ const formatTime = () =>
     timeZone: 'Europe/London',
   }).format(new Date());
 
-/** Sci-fi readout along the bottom of the hero: coordinates, UK local time, scroll cue */
+/** Sci-fi readout along the bottom of the hero: home base, UK local time, scroll cue */
 export function HeroHud({ location }: { location: string }) {
   const [time, setTime] = useState<string | null>(null);
 
@@ -27,10 +27,6 @@ export function HeroHud({ location }: { location: string }) {
   return (
     <div className="hero__hud">
       <dl className="hero__hud-stats">
-        <div>
-          <dt>Coordinates</dt>
-          <dd>52.57°N · 0.24°W</dd>
-        </div>
         <div>
           <dt>Base</dt>
           <dd>{location}</dd>

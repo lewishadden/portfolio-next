@@ -16,12 +16,13 @@ import {
 
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
-import { stationInRange, useThemedMaterials, useWide } from '../stationHooks';
-import { stationModels, stationPositions } from '../stations';
+import { stationInRange, useThemedMaterials } from '../stationHooks';
+import { framedHeight, stationFraming, stationModels, stationPositions } from '../stations';
 import { palettes, setUniform } from '../utils';
 import { worldStore } from '../worldStore';
 
 import type { Texture } from 'three';
+import type { Framing } from '../stations';
 import type { WorldPalette, WorldTheme } from '../utils';
 
 const maxScreens = 15;
@@ -33,6 +34,7 @@ const screenTop = 2.4;
 const focusScale = 1.3;
 
 const toCamera = new Vector3();
+const framing: Framing = { zoom: 1, lift: 0 };
 const screenY = (i: number) => screenTop - i * screenRise;
 /** Shortest signed angle from `a` to `b` */
 const angleDelta = (a: number, b: number) =>
@@ -139,7 +141,6 @@ export function ProjectsStation({
 }) {
   // On-demand rendering (reduced motion) snaps instead of easing
   const snap = useThree((s) => s.frameloop === 'demand');
-  const wide = useWide();
   const groupRef = useRef<Group>(null);
   const helixRef = useRef<Group>(null);
   const terminalRef = useRef<Group>(null);
@@ -181,7 +182,7 @@ export function ProjectsStation({
   const settled = useRef(false);
   const focused = focus >= 0 && focus < screens.length ? focus : -1;
 
-  useFrame(({ camera, clock }, delta) => {
+  useFrame(({ camera, clock, size }, delta) => {
     const group = groupRef.current;
     if (!stationInRange(group, camera, 'projects')) return;
     const t = clock.elapsedTime;
@@ -204,11 +205,17 @@ export function ProjectsStation({
       let lift = 0;
       if (focused >= 0) {
         // Turn the screen onto the line between the camera and the helix axis,
-        // and raise it to the height the camera frames the station at
-        // (see stationCamera: look sits 0.8 below the eye, narrow shifts it 2.5 down)
+        // and raise it to the height the camera frames the station at. It sits
+        // nearer the camera than the axis, so it takes only its share of the
+        // narrow-layout drop to line up with the framed point
         toCamera.subVectors(camera.position, group.position);
         angle = Math.atan2(toCamera.x, toCamera.z) - focused * screenTurn;
-        lift = toCamera.y - 0.8 + (wide ? 0 : 2.5) - screenY(focused);
+        const { lift: drop } = stationFraming('projects', size.width, size.height, framing);
+        const nearer = helixRadius / Math.hypot(toCamera.x, toCamera.z);
+        lift =
+          framedHeight('projects', toCamera.y, size.width, size.height) -
+          drop * nearer -
+          screenY(focused);
       }
       // Always take the short way round
       angle = helix.rotation.y + angleDelta(helix.rotation.y, angle);
