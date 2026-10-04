@@ -171,42 +171,6 @@
     }
   }
 
-  &__beacon {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    font-family: var(--font-mono);
-    font-size: var(--fs-xs);
-    line-height: 1.7;
-    color: var(--text-secondary);
-
-    b {
-      color: var(--accent-secondary);
-      font-weight: var(--fw-medium);
-    }
-  }
-
-  &__beacon-icon {
-    position: relative;
-    display: grid;
-    place-items: center;
-    flex-shrink: 0;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    color: var(--accent-tertiary);
-    border: 1px solid color-mix(in oklab, var(--accent-tertiary) 40%, transparent);
-
-    &::after {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border-radius: 50%;
-      border: 1px solid var(--accent-tertiary);
-      animation: ping 2.2s var(--ease-out) infinite;
-    }
-  }
-
   /* ---------- Form panel ---------- */
   &__panel {
     padding: clamp(1.5rem, 3.5vw, 2.5rem);

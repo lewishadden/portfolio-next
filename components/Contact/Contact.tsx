@@ -6,6 +6,7 @@ import { Icon } from '@iconify/react';
 import { AnimatePresence, m } from 'framer-motion';
 
 import ContactForm from './ContactForm/ContactForm';
+import { LocationMap } from './LocationMap/LocationMap';
 import { PageHead } from 'components/PageHead/PageHead';
 import { illustrations } from 'components/World/StationFallback';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
@@ -154,14 +155,8 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
             </RevealGroup>
           </address>
 
-          <Reveal className="contact__beacon" delay={0.2}>
-            <span className="contact__beacon-icon" aria-hidden="true">
-              <Icon icon="ph:broadcast-bold" width={18} height={18} />
-            </span>
-            <span>
-              Transmitting from <b>52.57°N · 0.24°W</b> — Peterborough, UK. Remote across the UK
-              &amp; EU.
-            </span>
+          <Reveal delay={0.2}>
+            <LocationMap location="Peterborough, UK" />
           </Reveal>
         </aside>
 
