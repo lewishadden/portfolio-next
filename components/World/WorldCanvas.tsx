@@ -17,6 +17,7 @@ import { LostStation } from './stations/LostStation';
 import { ProjectsStation } from './stations/ProjectsStation';
 import { SkillsStation } from './stations/SkillsStation';
 import { lowerTier, raiseTier, tierSettings } from './quality';
+import { baseFov } from './stations';
 import { palettes } from './utils';
 
 import type { QualityTier } from './quality';
@@ -124,7 +125,7 @@ export default function WorldCanvas({
       className="world__canvas"
       dpr={[1, dpr]}
       gl={{ antialias: false, alpha: false, stencil: false, powerPreference: 'high-performance' }}
-      camera={{ fov: 42, near: 0.1, far: 2000, position: [0, 0, 60] }}
+      camera={{ fov: baseFov, near: 0.1, far: 2000, position: [0, 0, 60] }}
       frameloop={reducedMotion ? 'demand' : 'always'}
       onCreated={() => requestAnimationFrame(() => onReady())}
     >
