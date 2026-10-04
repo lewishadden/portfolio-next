@@ -28,14 +28,9 @@ const width = 480;
 const step = 8;
 const rowStep = 7;
 
+// Peterborough, where the beacon sits
 const places = {
   home: [52.57, -0.24],
-  edinburgh: [55.95, -3.19],
-  london: [51.51, -0.13],
-  dublin: [53.35, -6.26],
-  amsterdam: [52.37, 4.9],
-  paris: [48.86, 2.35],
-  berlin: [52.52, 13.4],
 };
 
 // Faint chart lines (degrees)
