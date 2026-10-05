@@ -1,11 +1,13 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
 
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
+import { worldStore } from 'components/World/worldStore';
 import { ProjectBody, pad, useSlides } from '../ProjectBody/ProjectBody';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
@@ -75,6 +77,16 @@ export function ProjectPage({
   previous: ProjectNeighbour;
   next: ProjectNeighbour;
 }) {
+  // The camera faces this project's screen on the helix, beside the copy
+  useEffect(() => {
+    worldStore.projectFocus = number - 1;
+    worldStore.projectAside = true;
+    return () => {
+      worldStore.projectFocus = -1;
+      worldStore.projectAside = false;
+    };
+  }, [number]);
+
   const slides = useSlides(project.images.length);
   const name = project.title.trim();
   const { lead, accent } = splitTitle(name);

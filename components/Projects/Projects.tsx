@@ -24,7 +24,7 @@ import type { Project, Projects as ProjectsProps, Technology } from '@/types';
 
 import './Projects.scss';
 
-const snippet = (text: string, max = 190) => {
+const snippet = (text: string, max = 170) => {
   if (text.length <= max) return text;
   const cut = text.slice(0, text.lastIndexOf(' ', max));
   return `${cut.replace(/[\s,.;:–-]+$/, '')}…`;
@@ -59,8 +59,12 @@ const siteHost = (url: string) => {
 const plainClick = (e: MouseEvent) =>
   e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
 
-/** The project in front of the helix: its card, swapped as the helix turns */
-function ProjectPanel({
+/**
+ * The project in front of the camera, written around its screen: number and
+ * title above left, stack above right, summary and actions below. The
+ * middle is left to the 3D screen (or, without the world, the shot itself).
+ */
+function ProjectHud({
   project,
   number,
   total,
@@ -79,51 +83,31 @@ function ProjectPanel({
   const extra = technologies.length - techs.length;
 
   return (
-    <article className="proj-panel glass" aria-labelledby={`project-${slug}`}>
-      {/* Without the 3D world there is no helix: the panel shows the shot itself */}
-      <div className="proj-panel__shot" aria-hidden="true">
-        {preview && !logo ? (
-          <Image
-            src={preview.url}
-            alt=""
-            fill
-            sizes="(min-width: 900px) 32rem, 100vw"
-            className="proj-panel__img"
-          />
-        ) : (
-          <ProjectArt icon={thumbnail} tone={number} showIcon={!preview} />
-        )}
-        {preview && logo && (
-          <span className="proj-panel__plate">
-            <Image src={preview.url} alt="" fill sizes="320px" className="proj-panel__logo" />
+    <article className="proj-hud" aria-labelledby={`project-${slug}`}>
+      <header className="proj-hud__head">
+        <p className="proj-hud__meta">
+          <span className="proj-hud__no">
+            {pad(number)}
+            <span className="proj-hud__of"> / {pad(total)}</span>
           </span>
-        )}
-      </div>
-
-      <p className="proj-panel__meta">
-        <span className="proj-panel__no">
-          {pad(number)}
-          <span className="proj-panel__of"> / {pad(total)}</span>
-        </span>
-        <span className="proj-panel__rule" aria-hidden="true" />
-        <span className="chip">
-          <Icon icon="ph:calendar-blank-bold" width={12} height={12} aria-hidden="true" />
-          {startDate}
-        </span>
-        {url && (
-          <span className="chip proj-panel__live">
-            <span className="proj-panel__live-dot" aria-hidden="true" />
-            Live
+          <span className="proj-hud__rule" aria-hidden="true" />
+          <span className="chip">
+            <Icon icon="ph:calendar-blank-bold" width={12} height={12} aria-hidden="true" />
+            {startDate}
           </span>
-        )}
-      </p>
+          {url && (
+            <span className="chip proj-hud__live">
+              <span className="proj-hud__live-dot" aria-hidden="true" />
+              Live
+            </span>
+          )}
+        </p>
+        <h2 id={`project-${slug}`} className="proj-hud__title">
+          {name}
+        </h2>
+      </header>
 
-      <h2 id={`project-${slug}`} className="proj-panel__title">
-        {name}
-      </h2>
-      <p className="proj-panel__desc">{snippet(description)}</p>
-
-      <ul className="proj-panel__tech" aria-label="Key technologies">
+      <ul className="proj-hud__tech" aria-label="Key technologies">
         {techs.map((t) => (
           <li className="chip" key={t.name}>
             <Icon
@@ -137,19 +121,43 @@ function ProjectPanel({
           </li>
         ))}
         {extra > 0 && (
-          <li className="chip proj-panel__more">
+          <li className="chip proj-hud__more">
             +{extra}
             <span className="sr-only"> more</span>
           </li>
         )}
       </ul>
 
-      <div className="proj-panel__actions">
+      {/* The 3D screen shows through here; without the world, the shot itself */}
+      <div className="proj-hud__screen" aria-hidden="true">
+        <div className="proj-hud__shot">
+          {preview && !logo ? (
+            <Image
+              src={preview.url}
+              alt=""
+              fill
+              sizes="(min-width: 900px) 56vw, 100vw"
+              className="proj-hud__img"
+            />
+          ) : (
+            <ProjectArt icon={thumbnail} tone={number} showIcon={!preview} />
+          )}
+          {preview && logo && (
+            <span className="proj-hud__plate">
+              <Image src={preview.url} alt="" fill sizes="320px" className="proj-hud__logo" />
+            </span>
+          )}
+        </div>
+      </div>
+
+      <p className="proj-hud__desc">{snippet(description)}</p>
+
+      <div className="proj-hud__actions">
         {/* A real link (crawlable, opens in a new tab) that opens the modal on a plain click */}
         <Link
           href={projectPath(slug)}
           prefetch={false}
-          className="btn btn--primary proj-panel__btn"
+          className="btn btn--primary proj-hud__btn"
           onClick={onOpen}
           aria-haspopup="dialog"
           aria-label={`View details for ${name}`}
@@ -158,7 +166,7 @@ function ProjectPanel({
           <Icon icon="ph:arrow-up-right-bold" width={15} height={15} aria-hidden="true" />
         </Link>
         {url && (
-          <a href={url} target="_blank" rel="noopener noreferrer" className="proj-panel__site">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="proj-hud__site">
             <Icon icon="ph:globe-hemisphere-west-bold" width={15} height={15} aria-hidden="true" />
             <span>{siteHost(url)}</span>
             <span className="sr-only"> (opens in a new tab)</span>
@@ -170,11 +178,12 @@ function ProjectPanel({
 }
 
 /**
- * The projects page is the helix itself. Scrolling turns it (a runway of
- * page height per project drives `worldStore.projectFocus`) while a sticky
- * panel shows the project in front and an index links to every project.
+ * The projects page is a ride down the helix. A runway of scroll (one step
+ * per project) drives `worldStore.projectFocus`; the camera descends the
+ * spiral to face each screen, centred and large, while a sticky stage writes
+ * that project's details around it and an index links to every project.
  * Without the 3D world the runway collapses: the index picks the project
- * and the panel shows its own screenshot.
+ * and the stage shows its own screenshot.
  */
 export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   const { label, items } = projects;
@@ -200,7 +209,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     };
   }, [items.length]);
 
-  // Scroll position → the project in front of the helix
+  // Scroll position → the project the camera faces (an open project wins)
   useEffect(() => {
     const tour = tourRef.current;
     if (!tour) return;
@@ -208,6 +217,10 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     let frame = 0;
     const update = () => {
       frame = 0;
+      if (selected >= 0) {
+        worldStore.projectFocus = selected;
+        return;
+      }
       if (lane.step < 10) return;
       const focus = Math.min(
         Math.max((window.scrollY - lane.top) / lane.step, 0),
@@ -233,7 +246,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       window.removeEventListener('scroll', schedule);
       worldStore.projectFocus = -1;
     };
-  }, [items.length, runway]);
+  }, [items.length, runway, selected]);
 
   const goTo = useCallback(
     (index: number) => {
@@ -276,7 +289,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       >
         <p className="projects__hint">
           <Icon icon="ph:mouse-scroll-bold" width={16} height={16} aria-hidden="true" />
-          <span>Scroll to turn the helix · {pad(items.length)} projects</span>
+          <span>Scroll to ride the helix · {pad(items.length)} projects</span>
         </p>
       </PageHead>
 
@@ -310,7 +323,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
           </nav>
 
           {current && (
-            <ProjectPanel
+            <ProjectHud
               key={current.slug}
               project={current}
               number={items.indexOf(current) + 1}

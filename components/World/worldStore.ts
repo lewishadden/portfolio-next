@@ -10,9 +10,11 @@ export const worldStore = {
   /**
    * Which project the /projects page has scrolled to, as a fractional index
    * (2.5 is halfway from the third to the fourth); -1 off that page. The
-   * helix turns it to the front.
+   * camera rides the helix to it.
    */
   projectFocus: -1,
+  /** A project page: its screen sits beside the copy rather than centred */
+  projectAside: false,
   /** Viewport heights scrolled (scrollY / innerHeight) */
   screens: 0,
   /** Pointer position normalised to -1..1 (y up) */

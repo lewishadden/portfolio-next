@@ -1,12 +1,30 @@
-import { Vector3 } from 'three';
+import { MathUtils, Vector3 } from 'three';
 
 import type { StationKey } from './routes';
+import { worldStore } from './worldStore';
 
 export { stationForPath, stationKeys, stationModels, stationPositions } from './routes';
 export type { StationKey } from './routes';
 
 /** Total fall of the camera through the experience beam (world units) */
 export const experienceDepth = 34;
+
+/** The projects helix: screens on a spiral down the station's spine */
+export const helix = { radius: 5.4, turn: 0.78, rise: 1.05, top: 2.4, screens: 15 } as const;
+export const helixScreenY = (i: number) => helix.top - i * helix.rise;
+/** A project page sits the screen beside its copy, this much further back than the ride */
+const asideDistance = 2.2;
+
+/**
+ * The projects page runs through its projects as a fractional index; this
+ * settles it on each one: the middle 60% of the way from one screen to the
+ * next carries the move, the rest holds still on the nearer screen
+ */
+export function settleFocus(focus: number) {
+  const whole = Math.floor(focus);
+  const x = MathUtils.clamp((focus - whole - 0.2) / 0.6, 0, 1);
+  return whole + x * x * x * (x * (x * 6 - 15) + 10);
+}
 
 /** Wide layouts push the station's hero object to the right of the copy */
 export const isWideViewport = (width: number, height: number) =>
@@ -36,8 +54,8 @@ const shots: Record<StationKey, Shot> = {
   about: { height: 0.3, distance: 11, halfWidth: 3, halfHeight: 1.7, offsetY: 0.3 },
   // The satellite's orbit around the beam
   experience: { height: 0.6, distance: 12, halfWidth: 3.1, halfHeight: 1.4, offsetY: 0 },
-  // Terminal and the screen in front of it (the helix wraps around off-screen)
-  projects: { height: 0.8, distance: 12.5, halfWidth: 2.6, halfHeight: 1.8, offsetY: -0.1 },
+  // The project screen in front of the camera, centred and close
+  projects: { height: 0.15, distance: 4.3, halfWidth: 1.45, halfHeight: 0.9, offsetY: 0 },
   // Planet and its ring (the skill orbits wrap around off-screen)
   skills: { height: 0.4, distance: 12.5, halfWidth: 3.9, halfHeight: 2.1, offsetY: 0 },
   // Globe with the rocket parked above its right shoulder
@@ -141,11 +159,17 @@ export function stationCamera(
       look.set(0, -progress * experienceDepth, 0);
       pos.set(0, eyeY, distance);
       break;
-    case 'projects':
-      // The page turns the helix instead (worldStore.projectFocus); the camera holds still
-      look.set(0, 0, 0);
-      pos.set(0, eyeY, distance);
+    case 'projects': {
+      // Ride the helix: the camera orbits down the spiral to face the project
+      // the page has scrolled to (worldStore.projectFocus), screen centred.
+      // A project page sits the screen beside its copy instead, further back
+      const focus = settleFocus(MathUtils.clamp(worldStore.projectFocus, 0, helix.screens - 1));
+      const angle = focus * helix.turn;
+      const back = worldStore.projectAside ? asideDistance : 1;
+      look.set(Math.sin(angle) * helix.radius, helixScreenY(focus), Math.cos(angle) * helix.radius);
+      pos.set(Math.sin(angle) * distance * back, eyeY, Math.cos(angle) * distance * back);
       break;
+    }
     case 'skills': {
       const angle = progress * 0.9;
       look.set(0, -screens * 3.2 * zoom, 0);
@@ -166,10 +190,17 @@ export function stationCamera(
   // above the copy on narrow ones. Shift along the camera's own axes.
   forward.subVectors(look, pos).normalize();
   right.crossVectors(forward, up).normalize();
-  // The skills constellation and the projects helix's front screen are wider
-  // than the other stations: give them more room
-  const roomy = key === 'skills' ? 4.4 : key === 'projects' ? 4.1 : 3.3;
-  const shiftX = isWideViewport(width, height) ? roomy : 0;
+  // The skills constellation is wider than the other stations: give it more
+  // room. On the projects page the screen is centred, with its copy around it
+  const wide = isWideViewport(width, height);
+  const centred = key === 'projects' && !worldStore.projectAside;
+  const roomy = key === 'skills' ? 4.4 : centred ? 0 : 3.3;
+  const shiftX = wide ? roomy : 0;
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
+  // Centred in the space below the header, not the whole viewport
+  if (centred && wide) {
+    pos.addScaledVector(up, 0.19);
+    look.addScaledVector(up, 0.19);
+  }
 }

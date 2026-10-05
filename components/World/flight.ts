@@ -49,8 +49,10 @@ const euler = new Euler(0, 0, 0, 'YXZ');
 
 /** Behind, more or less: the destination lies against the way the camera faces */
 const aboutTurnBeyond = -0.25;
-/** Radius of the loop round the destination's front; the run past it sits twice that out */
-const loopRadius = 24;
+/** Radius of the loop round the destination's front; the run past it sits 1.6 of that out */
+const loopRadius = 13;
+/** A full turn at the servo's cap takes ~3.8s; a shorter about-turn would snap the rest at the end */
+const aboutTurnMin = 4.6;
 /** The servo chasing the station's bearing: rad/s cap, gain per second, ease-in share of the flight */
 const servoCap = 1.65;
 const servoGain = 2.4;
@@ -204,8 +206,8 @@ function planAbout(
         .addScaledVector(up, h);
     const runIn = toPos
       .clone()
-      .addScaledVector(side, 2 * r)
-      .addScaledVector(arrival, -r * 1.2)
+      .addScaledVector(side, 1.6 * r)
+      .addScaledVector(arrival, -r * 0.8)
       .addScaledVector(up, lift * 0.5);
     const points = [fromPos.clone()];
     // Out to the side on the way, when there is room for it
@@ -273,7 +275,7 @@ export function planFlight(
     f.curve = plan.curve;
     f.side = plan.side;
     f.length = f.curve.getLength();
-    f.duration = MathUtils.clamp(1.4 + f.length / 50, 2, 6.5);
+    f.duration = MathUtils.clamp(1.4 + f.length / 50, aboutTurnMin, 6.5);
   } else {
     f.curve = planAhead(fromPos, fromLook, viewFrom, toPos, toLook, velocity, ahead);
     f.length = f.curve.getLength();

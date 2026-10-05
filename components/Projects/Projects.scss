@@ -1,9 +1,10 @@
 /* =============================================================
-   Projects: the 3D helix is the page. A runway of scroll (one
-   step per project) turns it while a sticky stage holds the
-   index and a panel for the project in front, so nothing but
-   the helix moves. Without the 3D world the runway collapses
-   and the panel shows each project's own screenshot.
+   Projects: a ride down the 3D helix. A runway of scroll (one
+   step per project) moves the camera from screen to screen; a
+   sticky stage writes the project in front around its screen,
+   which sits centred and large in the middle, so nothing but
+   the world moves. Without the 3D world the runway collapses
+   and the middle shows each project's own screenshot.
    ============================================================= */
 
 .projects {
@@ -36,9 +37,9 @@
     position: sticky;
     top: calc(var(--header-h) + 1rem);
     display: grid;
-    grid-template-columns: 2.75rem minmax(0, 32rem);
+    grid-template-columns: 2.75rem minmax(0, 1fr);
     gap: clamp(1rem, 3vw, 2.5rem);
-    align-content: center;
+    align-items: center;
     height: var(--stage-h);
   }
 
@@ -90,16 +91,25 @@
   }
 }
 
-.proj-panel {
+/* Written round the screen: head top left, stack top right, summary and
+   actions below. The middle row is the screen's */
+.proj-hud {
   display: grid;
-  gap: 1rem;
-  padding: clamp(1.25rem, 3vw, 2rem);
-  border-radius: var(--radius-lg);
-  animation: proj-panel-in 0.45s var(--ease-out) both;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'head tech'
+    'screen screen'
+    'desc actions';
+  gap: 0.75rem clamp(1.5rem, 4vw, 4rem);
+  align-items: start;
+  height: 100%;
+  animation: proj-hud-in 0.45s var(--ease-out) both;
 
-  /* Only without the 3D world (see below) */
-  &__shot {
-    display: none;
+  &__head {
+    display: grid;
+    grid-area: head;
+    gap: 0.6rem;
   }
 
   &__meta {
@@ -146,25 +156,23 @@
   &__title {
     margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(1.6rem, 3.2vw, 2.5rem);
-    line-height: 1.05;
+    font-size: clamp(1.5rem, 2.8vw, 2.4rem);
+    line-height: 1.02;
     letter-spacing: -0.035em;
     color: var(--text-primary);
-  }
-
-  &__desc {
-    margin: 0;
-    font-size: var(--fs-body-sm);
-    line-height: 1.65;
-    color: var(--text-secondary);
+    text-wrap: balance;
   }
 
   &__tech {
     display: flex;
     flex-wrap: wrap;
+    grid-area: tech;
+    justify-content: flex-end;
+    justify-self: end;
     gap: 0.4rem;
+    max-width: 26rem;
     margin: 0;
-    padding: 0;
+    padding: 0.3rem 0 0;
     list-style: none;
   }
 
@@ -172,12 +180,39 @@
     color: var(--text-secondary);
   }
 
+  /* The 3D screen shows through this cell; the shot inside is for the world being off */
+  &__screen {
+    grid-area: screen;
+    align-self: center;
+    justify-self: center;
+    width: 100%;
+    max-width: 56vw;
+  }
+
+  &__shot {
+    display: none;
+  }
+
+  &__desc {
+    grid-area: desc;
+    align-self: end;
+    max-width: 34rem;
+    margin: 0;
+    font-size: var(--fs-body-sm);
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  /* Starts at the right column and keeps clear of the corner: the floating
+     free-roam button lives in the bottom right */
   &__actions {
     display: flex;
     flex-wrap: wrap;
+    grid-area: actions;
     align-items: center;
+    align-self: end;
     gap: 0.75rem 1.25rem;
-    margin-top: 0.25rem;
+    padding-right: min(14rem, 40%);
   }
 
   &__site {
@@ -204,8 +239,8 @@
   }
 }
 
-/* Narrow (stacked) layouts: the helix holds the top of the screen, the
-   panel sits at the bottom, clear of the floating buttons */
+/* Narrow (stacked) layouts: the screen holds the top of the stage and the
+   copy stacks below it, clear of the floating buttons */
 @media (max-width: 899px), (max-aspect-ratio: 11 / 10) {
   .projects {
     --step: 45vh;
@@ -213,8 +248,13 @@
 
   .projects__stage {
     grid-template-columns: minmax(0, 1fr);
-    align-content: end;
+    gap: 0.5rem;
+    align-items: end;
     padding-bottom: 4.75rem;
+  }
+
+  .projects__index {
+    order: 2;
   }
 
   .projects__index ol {
@@ -227,13 +267,42 @@
     padding: 0.2rem 0 0.2rem 0.75rem;
   }
 
-  .proj-panel {
-    max-height: 50svh;
-    overflow: auto;
+  .proj-hud {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(38svh, 1fr) auto auto auto auto;
+    grid-template-areas:
+      'screen'
+      'head'
+      'tech'
+      'desc'
+      'actions';
+    gap: 0.6rem;
+    height: auto;
+    max-height: 100%;
+  }
+
+  .proj-hud__tech,
+  .proj-hud__actions {
+    justify-content: flex-start;
+    justify-self: start;
+    max-width: none;
+    padding-right: 0;
+  }
+
+  .proj-hud__screen {
+    max-width: none;
+  }
+
+  .proj-hud__desc {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 }
 
-/* Without the 3D world: one panel, with its own screenshot, chosen from the index */
+/* Without the 3D world: the shot sits where the screen would, chosen from the index */
 [data-world='off'] {
   .projects__hint {
     display: none;
@@ -245,45 +314,46 @@
 
   .projects__stage {
     position: static;
-    align-content: start;
+    align-items: start;
     height: auto;
     padding-bottom: 0;
   }
 
-  .proj-panel {
+  .proj-hud {
+    grid-template-rows: auto auto auto;
+    height: auto;
     max-height: none;
-    overflow: visible;
   }
 
-  .proj-panel__shot {
+  .proj-hud__shot {
     position: relative;
     display: block;
     overflow: hidden;
     aspect-ratio: 16 / 10;
-    margin-bottom: 0.25rem;
     border-radius: var(--radius-md);
     background: var(--surface);
+    box-shadow: var(--shadow-card);
   }
 
-  .proj-panel__img {
+  .proj-hud__img {
     object-fit: cover;
     object-position: top;
   }
 
-  .proj-panel__plate {
+  .proj-hud__plate {
     position: absolute;
     inset: 18%;
   }
 
-  .proj-panel__logo {
+  .proj-hud__logo {
     object-fit: contain;
   }
 }
 
-@keyframes proj-panel-in {
+@keyframes proj-hud-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
 }
 

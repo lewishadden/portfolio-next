@@ -12,13 +12,12 @@ import {
   SRGBColorSpace,
   TextureLoader,
   Vector2,
-  Vector3,
 } from 'three';
 
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { NavLights, Truss } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
-import { framedHeight, isWideViewport, stationFraming, stationPositions } from '../stations';
+import { helix, helixScreenY, settleFocus, stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
 import { palettes, setUniform } from '../utils';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
@@ -26,24 +25,23 @@ import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 import type { Texture, WebGLRenderer } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
-import type { Framing } from '../stations';
 import type { WorldPalette, WorldTheme } from '../utils';
 
-const maxScreens = 15;
-const helixRadius = 5.4;
-/** Angle and height step between consecutive screens on the helix */
-const screenTurn = 0.78;
-const screenRise = 1.05;
-const screenTop = 2.4;
-/** How much bigger the screen in front is, on wide and narrow layouts */
+/** How much bigger the screen in front is: the camera's framing box (stations.ts) is sized to it */
 const focusScale = 1.4;
-const narrowFocusScale = 1.15;
 const hoverScale = 1.1;
 /** Width / height of a screen */
 const screenAspect = 2.08 / 1.3;
 /** Seconds each shot stays up on a live screen, and the crossfade between them */
 const holdTime = 4.5;
 const fadeTime = 0.9;
+/** Screenshot widths: every screen's working copy, and the sharp one for the screen in front */
+const shotWidth = 640;
+const frontWidth = 1200;
+/** How long a screen sits in front, settled, before its sharp copy loads */
+const sharpenAfter = 0.3;
+/** Where white page content lands, per theme: a lit display that stays under the bloom threshold */
+const screenWhite: Record<WorldTheme, number> = { dark: 0.56, light: 0.8 };
 
 const spineLights: NavLight[] = [
   { position: [0, 5.1, 0], kind: 'white' },
@@ -53,19 +51,6 @@ const spineLights: NavLight[] = [
   { position: [0.25, -8, -0.25], kind: 'red' },
 ];
 
-const toCamera = new Vector3();
-const framing: Framing = { zoom: 1, lift: 0 };
-const screenY = (i: number) => screenTop - i * screenRise;
-/**
- * Scrolling the page turns the helix, but it settles on each project: the
- * middle 60% of the scroll between two projects carries the turn, the rest
- * holds the screen in front still
- */
-const settle = (f: number) => {
-  const whole = Math.floor(f);
-  const x = MathUtils.clamp((f - whole - 0.2) / 0.6, 0, 1);
-  return whole + x * x * x * (x * (x * 6 - 15) + 10);
-};
 /** Shortest signed angle from `a` to `b` */
 const angleDelta = (a: number, b: number) =>
   MathUtils.euclideanModulo(b - a + Math.PI, Math.PI * 2) - Math.PI;
@@ -95,6 +80,7 @@ const screenFragment = /* glsl */ `
   uniform vec3 uTint;
   uniform float uAspect;
   uniform float uDim;
+  uniform float uWhite;
   varying vec2 vUv;
   // A vertical window onto the image: x = its height as a share of the image, y = its top
   vec3 shot(sampler2D map, vec2 window) {
@@ -110,12 +96,12 @@ const screenFragment = /* glsl */ `
     if (d > 0.0) discard;
     vec3 img = uHasMap > 0.5 ? shot(uMap, uWindow) : mix(uTint * 0.25, uTint * 0.6, vUv.y);
     if (uMix > 0.0) img = mix(img, shot(uMapB, uWindowB), uMix);
-    // A display, not a lamp: white pages land just under the bloom threshold
-    // (0.32), so the content stays readable and only the edge lighting glows
-    img = img * 0.5 / (1.0 + img * 0.45);
+    // A display, not a lamp: a soft knee lands white pages at uWhite, under
+    // the bloom threshold, so the content reads and only the edge lighting glows
+    img = img * (uWhite * 1.3) / (1.0 + img * 0.3);
     float scan = 0.94 + 0.06 * sin(vUv.y * 420.0 - uTime * 6.0);
     float sweep = smoothstep(0.0, 0.08, abs(vUv.y - fract(uTime * 0.12)));
-    vec3 col = img * scan * mix(1.15, 1.0, sweep) * (1.0 + uHover * 0.08);
+    vec3 col = img * scan * mix(1.06, 1.0, sweep) * (1.0 + uHover * 0.04);
     float edge = smoothstep(-0.03, 0.0, d);
     col = mix(col, uEdge * (2.4 + uHover * 1.8), edge);
     float reveal = smoothstep(uReveal - 0.1, uReveal, 1.0 - vUv.y);
@@ -137,7 +123,7 @@ const buildMaterials = (p: WorldPalette) => ({
   }),
 });
 
-function createScreenMaterial(edge: string, tint: string) {
+function createScreenMaterial(edge: string, tint: string, white: number) {
   return new ShaderMaterial({
     uniforms: {
       uMap: { value: null },
@@ -153,6 +139,7 @@ function createScreenMaterial(edge: string, tint: string) {
       uTint: { value: new Color(tint) },
       uAspect: { value: 1.6 },
       uDim: { value: 0 },
+      uWhite: { value: white },
     },
     vertexShader: screenVertex,
     fragmentShader: screenFragment,
@@ -163,13 +150,14 @@ function createScreenMaterial(edge: string, tint: string) {
 }
 
 /** Optimised (and cached) through the Next.js image endpoint */
-const optimisedImage = (src: string) => `/_next/image?url=${encodeURIComponent(src)}&w=640&q=75`;
+const optimisedImage = (src: string, width: number) =>
+  `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=75`;
 
 const loader = new TextureLoader();
 
 /** Loads, decodes off the main thread and uploads a screenshot */
-async function loadShot(gl: WebGLRenderer, url: string) {
-  const texture = await loader.loadAsync(optimisedImage(url));
+async function loadShot(gl: WebGLRenderer, url: string, width: number) {
+  const texture = await loader.loadAsync(optimisedImage(url, width));
   await (texture.image as HTMLImageElement).decode?.().catch(() => undefined);
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = 4;
@@ -199,9 +187,19 @@ interface ScreenState {
   fadeStart: number;
   nextSwitch: number;
   hover: number;
+  /** A sharp copy of the shot that is up, while the screen is in front */
+  sharp: Texture | null;
+  sharpIndex: number;
+  sharpLoading: boolean;
+  /** When the screen settled in front of the parked camera (0 while it is not there) */
+  settledAt: number;
 }
 
-/** Each screen's shots: the first loads up front, the rest the first time the screen goes live */
+/**
+ * Each screen's shots: the first loads up front, the rest the first time the
+ * screen goes live. The screen in front also gets a sharp copy of its shot,
+ * since it fills half the viewport, dropped again once the camera moves on.
+ */
 class ScreenShots {
   private disposed = false;
 
@@ -217,7 +215,7 @@ class ScreenShots {
     const image = this.screens[i].images[index];
     if (!image || state.textures.has(index) || state.loading.has(index)) return;
     state.loading.add(index);
-    loadShot(this.gl, image.url)
+    loadShot(this.gl, image.url, shotWidth)
       .then((texture) => {
         state.loading.delete(index);
         if (this.disposed) {
@@ -233,9 +231,50 @@ class ScreenShots {
       .catch(() => state.loading.delete(index));
   }
 
+  /** Swaps in a sharp copy of the shot that is up, once it has loaded */
+  sharpen(i: number) {
+    const state = this.states[i];
+    const { index } = state;
+    const image = this.screens[i].images[index];
+    if (!image || state.sharpIndex === index || state.sharpLoading || state.next >= 0) return;
+    state.sharpLoading = true;
+    loadShot(this.gl, image.url, frontWidth)
+      .then((texture) => {
+        state.sharpLoading = false;
+        if (this.disposed) {
+          texture.dispose();
+          return;
+        }
+        state.sharp?.dispose();
+        state.sharp = texture;
+        state.sharpIndex = index;
+        if (state.index === index && state.next < 0) setUniform(this.materials[i], 'uMap', texture);
+      })
+      .catch(() => {
+        state.sharpLoading = false;
+      });
+  }
+
+  /** Back to the working copy once the screen has left the front */
+  soften(i: number) {
+    const state = this.states[i];
+    const { sharp } = state;
+    if (!sharp) return;
+    const material = this.materials[i];
+    const working = state.textures.get(state.sharpIndex) ?? null;
+    if (material.uniforms.uMap.value === sharp) setUniform(material, 'uMap', working);
+    if (material.uniforms.uMapB.value === sharp) setUniform(material, 'uMapB', working);
+    sharp.dispose();
+    state.sharp = null;
+    state.sharpIndex = -1;
+  }
+
   dispose() {
     this.disposed = true;
-    this.states.forEach((state) => state.textures.forEach((texture) => texture.dispose()));
+    this.states.forEach((state) => {
+      state.textures.forEach((texture) => texture.dispose());
+      state.sharp?.dispose();
+    });
     this.materials.forEach((material) => material.dispose());
   }
 }
@@ -302,10 +341,11 @@ function liveScreen(
 
 /**
  * `/projects`: the fabrication yard, its hub on a truss spine inside a helix
- * of project screens. On the projects page, scrolling turns and raises the
- * helix to bring each project's screen in front of the camera, enlarged,
- * while the rest dim (worldStore.projectFocus); an open project page or modal
- * (`focus`) does the same for that project. Elsewhere it turns slowly.
+ * of project screens. On the projects page the camera rides the helix
+ * (`stationCamera` follows worldStore.projectFocus down the spiral), so the
+ * helix holds still and the screen in front enlarges while the rest dim; an
+ * open project page or modal (`focus`) does the same for that project.
+ * Elsewhere the helix turns slowly.
  */
 export function ProjectsStation({
   theme,
@@ -325,7 +365,7 @@ export function ProjectsStation({
   const materials = useThemedMaterials(buildMaterials, theme);
   const palette = palettes[theme];
 
-  const screens = useMemo(() => projects.slice(0, maxScreens), [projects]);
+  const screens = useMemo(() => projects.slice(0, helix.screens), [projects]);
 
   const hoveredRef = useRef(-1);
   const tips = useMemo(
@@ -343,6 +383,10 @@ export function ProjectsStation({
         fadeStart: 0,
         nextSwitch: 0,
         hover: 0,
+        sharp: null,
+        sharpIndex: -1,
+        sharpLoading: false,
+        settledAt: 0,
       })),
     [screens]
   );
@@ -350,9 +394,13 @@ export function ProjectsStation({
   const screenMaterials = useMemo(
     () =>
       screens.map((_, i) =>
-        createScreenMaterial(i % 2 ? palette.cyan : palette.violet, i % 2 ? '#0e7490' : '#6d28d9')
+        createScreenMaterial(
+          i % 2 ? palette.cyan : palette.violet,
+          i % 2 ? '#0e7490' : '#6d28d9',
+          screenWhite[theme]
+        )
       ),
-    [screens, palette.cyan, palette.violet]
+    [screens, palette.cyan, palette.violet, theme]
   );
 
   const shots = useMemo(
@@ -368,7 +416,7 @@ export function ProjectsStation({
   const settled = useRef(false);
   const opened = focus >= 0 && focus < screens.length ? focus : -1;
 
-  useFrame(({ camera, clock, size }, delta) => {
+  useFrame(({ camera, clock }, delta) => {
     const group = groupRef.current;
     if (!stationInRange(group, camera, 'projects')) return;
     const t = clock.elapsedTime;
@@ -379,16 +427,22 @@ export function ProjectsStation({
     // The project in front: an open one, else wherever the page has scrolled to
     const scrolled = worldStore.projectFocus;
     const front =
-      opened >= 0 ? opened : scrolled >= 0 ? Math.min(settle(scrolled), screens.length - 1) : -1;
+      opened >= 0
+        ? opened
+        : scrolled >= 0
+          ? Math.min(settleFocus(scrolled), screens.length - 1)
+          : -1;
     const live = front >= 0 ? Math.round(front) : -1;
-    const bigger = isWideViewport(size.width, size.height) ? focusScale : narrowFocusScale;
+    // Settled in front with the camera parked: the moment to sharpen its shot
+    const parked = live >= 0 && Math.abs(front - live) < 0.02 && !worldStore.flight.active;
 
     setUniform(materials.base, 'uTime', t);
     screenMaterials.forEach((material, i) => {
+      const state = states[i];
       setUniform(material, 'uTime', t + i);
       liveScreen(
         material,
-        states[i],
+        state,
         screens[i].images.length,
         i,
         t,
@@ -396,6 +450,13 @@ export function ProjectsStation({
         i === live || i === hoveredRef.current,
         shots
       );
+      if (parked && i === live) {
+        if (!state.settledAt) state.settledAt = t;
+        if (t - state.settledAt > sharpenAfter) shots.sharpen(i);
+      } else {
+        state.settledAt = 0;
+        if (i !== live) shots.soften(i);
+      }
       const reveal = material.uniforms.uReveal.value as number;
       if (reveal < 1.1) setUniform(material, 'uReveal', snap ? 1.1 : reveal + dt * 0.8);
       const dim = front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) : 0;
@@ -403,39 +464,22 @@ export function ProjectsStation({
       setUniform(material, 'uDim', instant ? dim : approach(current, dim, 6, dt));
     });
 
-    const helix = helixRef.current;
-    if (helix && group) {
-      let angle = t * 0.035 + worldStore.scroll * 1.2;
-      let lift = 0;
-      if (front >= 0) {
-        // Turn the screen onto the line between the camera and the helix axis,
-        // and raise it to the height the camera frames the station at. It sits
-        // nearer the camera than the axis, so it takes only its share of the
-        // narrow-layout drop to line up with the framed point
-        toCamera.subVectors(camera.position, group.position);
-        angle = Math.atan2(toCamera.x, toCamera.z) - front * screenTurn;
-        const { lift: drop } = stationFraming('projects', size.width, size.height, framing);
-        const nearer = helixRadius / Math.hypot(toCamera.x, toCamera.z);
-        lift =
-          framedHeight('projects', toCamera.y, size.width, size.height) -
-          drop * nearer -
-          screenY(front);
-      }
-      // Always take the short way round. Scrolling follows closely; opening a
-      // project from elsewhere swings round more slowly
-      angle = helix.rotation.y + angleDelta(helix.rotation.y, angle);
-      const smoothing = opened >= 0 ? 0.5 : 0.22;
-      if (instant) {
-        helix.rotation.y = angle;
-        helix.position.y = lift;
-      } else {
-        easing.damp(helix.rotation, 'y', angle, smoothing, dt);
-        easing.damp(helix.position, 'y', lift, smoothing, dt);
-      }
+    const spiral = helixRef.current;
+    if (spiral) {
+      // The camera rides the helix (stationCamera), so it holds still while a
+      // project is in front; elsewhere it turns slowly with the page. Always
+      // the short way round
+      const angle = front >= 0 ? 0 : t * 0.035 + worldStore.scroll * 1.2;
+      const turnTo = spiral.rotation.y + angleDelta(spiral.rotation.y, angle);
+      if (instant) spiral.rotation.y = turnTo;
+      else easing.damp(spiral.rotation, 'y', turnTo, 0.35, dt);
 
-      helix.children.forEach((screen, i) => {
+      spiral.children.forEach((screen, i) => {
         const near = front >= 0 ? Math.max(0, 1 - Math.abs(i - front)) : 0;
-        const scale = Math.max(1 + (bigger - 1) * near, i === hoveredRef.current ? hoverScale : 1);
+        const scale = Math.max(
+          1 + (focusScale - 1) * near,
+          i === hoveredRef.current ? hoverScale : 1
+        );
         if (instant) screen.scale.setScalar(scale);
         else easing.damp3(screen.scale, scale, 0.25, dt);
         // Screens orbit with the helix but always turn to face the viewer
@@ -462,11 +506,15 @@ export function ProjectsStation({
 
       <group ref={helixRef}>
         {screens.map((screen, i) => {
-          const angle = i * screenTurn;
+          const angle = i * helix.turn;
           return (
             <group
               key={screen.title}
-              position={[Math.sin(angle) * helixRadius, screenY(i), Math.cos(angle) * helixRadius]}
+              position={[
+                Math.sin(angle) * helix.radius,
+                helixScreenY(i),
+                Math.cos(angle) * helix.radius,
+              ]}
             >
               <mesh
                 material={screenMaterials[i]}
