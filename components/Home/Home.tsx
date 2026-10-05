@@ -8,6 +8,7 @@ import { SplitText } from 'components/Motion/SplitText';
 import { HeroHud } from './HeroHud';
 import { RoleRotator } from './RoleRotator';
 import { StationFallback, illustrations } from 'components/World/StationFallback';
+import { WorldLaunch } from 'components/WorldLaunch/WorldLaunch';
 
 import { Home as HomeProps } from '@/types';
 
@@ -86,6 +87,7 @@ export const Home = ({
               </Link>
             </Magnet>
           </div>
+          <WorldLaunch />
         </div>
 
         <HeroHud location={location} />

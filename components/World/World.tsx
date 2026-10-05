@@ -1,18 +1,24 @@
 'use client';
 
-import { Component, useCallback, useEffect, useState } from 'react';
+import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { useTheme } from '@/contexts/ThemeContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useRouteKey } from '@/hooks/useRouteKey';
+import { useWorldFocus } from '@/hooks/useWorldFocus';
 import { reportWebGLUnavailable, useWorldPreference } from '@/hooks/useWorldPreference';
 import { projectSlugFromPath } from '@/utils/projectPaths';
 
-import { prefetchStationModel, stationForPath } from './routes';
-import { worldStore } from './worldStore';
+import { ExploreHud } from './ExploreHud';
+import { NavRadar } from './NavRadar';
+import { TourOverlay } from './TourOverlay';
+import { WorldTooltip } from './WorldTooltip';
+import { liteQuery, prefetchStationModel, stationForPath } from './routes';
+import { useWorldMode, worldMode } from './worldMode';
+import { worldNavigateEvent, worldStore } from './worldStore';
 
 import type { ReactNode } from 'react';
 import type { WorldContent } from './types';
@@ -99,15 +105,25 @@ export function World({ content }: { content: WorldContent }) {
   const routeKey = useRouteKey();
   const { theme } = useTheme();
   const reducedMotion = useReducedMotion();
-  const lite = useMediaQuery('(max-width: 760px), (pointer: coarse)');
+  const lite = useMediaQuery(liteQuery);
   const { enabled, supported } = useWorldPreference();
   const active = enabled && supported;
   const [idle, setIdle] = useState(false);
   const [ready, setReady] = useState(false);
   const markReady = useCallback(() => setReady(true), []);
+  const { mode } = useWorldMode();
+  const router = useRouter();
 
   useWorldInputs();
   useModelPrefetch(active);
+  useWorldFocus();
+
+  // Navigation requested from inside the canvas (screens, docking)
+  useEffect(() => {
+    const onNavigate = (e: Event) => router.push((e as CustomEvent<string>).detail);
+    window.addEventListener(worldNavigateEvent, onNavigate);
+    return () => window.removeEventListener(worldNavigateEvent, onNavigate);
+  }, [router]);
 
   // Scroll positions from the previous route must not leak into the next station.
   // Keyed by route: the project modal's shallow URL change keeps the grid's scroll.
@@ -125,6 +141,42 @@ export function World({ content }: { content: WorldContent }) {
     document.documentElement.dataset.world = active ? 'on' : 'off';
   }, [active]);
 
+  // Touring or exploring hides the page (html[data-world-mode]) and takes it
+  // out of the tab order and the accessibility tree until you come back
+  useEffect(() => {
+    const away = active && mode !== 'page';
+    document.documentElement.dataset.worldMode = away ? mode : 'page';
+    for (const el of document.querySelectorAll('#main-content, .header, .footer')) {
+      el.toggleAttribute('inert', away);
+    }
+  }, [active, mode]);
+
+  // Leaving explore mode with a world turned off (or unsupported) mid-flight
+  useEffect(() => {
+    if (!active) worldMode.exit();
+  }, [active]);
+
+  // Docking opens the station's page; the camera is handed back once it has
+  // loaded, so the flight in is one continuous move
+  const pendingDock = useRef<string | null>(null);
+  const onDockRequest = useCallback(
+    (path: string) => {
+      if (path === pathname) {
+        worldMode.exit();
+        return;
+      }
+      pendingDock.current = path;
+      router.push(path);
+    },
+    [pathname, router]
+  );
+  useEffect(() => {
+    if (pendingDock.current === pathname) {
+      pendingDock.current = null;
+      worldMode.exit();
+    }
+  }, [pathname]);
+
   // First mount waits for an idle moment so three.js never competes with first paint
   useEffect(() => {
     if (!active || idle) return;
@@ -141,23 +193,29 @@ export function World({ content }: { content: WorldContent }) {
   const showCanvas = active && idle;
 
   return (
-    <div className={`world${showCanvas && ready ? ' world--ready' : ''}`} aria-hidden="true">
-      <div className="world__backdrop" />
-      {showCanvas && (
-        <CanvasBoundary>
-          <WorldCanvas
-            station={stationForPath(pathname)}
-            theme={theme}
-            reducedMotion={reducedMotion}
-            lite={lite}
-            content={content}
-            focusProject={focusProject}
-            onReady={markReady}
-          />
-        </CanvasBoundary>
-      )}
-      <div className="world__veil" />
-    </div>
+    <>
+      <div className={`world${showCanvas && ready ? ' world--ready' : ''}`} aria-hidden="true">
+        <div className="world__backdrop" />
+        {showCanvas && (
+          <CanvasBoundary>
+            <WorldCanvas
+              station={stationForPath(pathname)}
+              theme={theme}
+              reducedMotion={reducedMotion}
+              lite={lite}
+              content={content}
+              focusProject={focusProject}
+              onReady={markReady}
+            />
+          </CanvasBoundary>
+        )}
+        <div className="world__veil" />
+      </div>
+      {showCanvas && ready && <NavRadar />}
+      {showCanvas && ready && <WorldTooltip />}
+      {showCanvas && ready && <TourOverlay captions={content.tour} />}
+      {showCanvas && ready && <ExploreHud onDockRequest={onDockRequest} />}
+    </>
   );
 }
 

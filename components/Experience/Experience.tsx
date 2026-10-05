@@ -66,7 +66,16 @@ const chipVariants: Variants = {
   },
 };
 
-const TimelineItem = ({ item, number }: { item: ExperienceItem; number: string }) => {
+const TimelineItem = ({
+  item,
+  number,
+  index,
+}: {
+  item: ExperienceItem;
+  number: string;
+  /** Position from the top, matching the role's pod on the 3D tether */
+  index: number;
+}) => {
   const itemRef = useRef<HTMLLIElement>(null);
   const lit = useInView(itemRef, { margin: litMargin });
   const glowRef = usePointerGlow<HTMLElement>({ tilt: 2.5 });
@@ -88,7 +97,11 @@ const TimelineItem = ({ item, number }: { item: ExperienceItem; number: string }
       </m.div>
 
       <m.div className="xp__card-wrap" variants={cardVariants}>
-        <article className="xp__card glass spotlight" ref={glowRef}>
+        <article
+          className="xp__card glass spotlight"
+          ref={glowRef}
+          data-world-target={`role:${index}`}
+        >
           <span className="xp__num" aria-hidden="true">
             {number}
           </span>
@@ -195,6 +208,7 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
             <TimelineItem
               key={`${item.company}-${item.years}`}
               item={item}
+              index={i}
               number={String(items.length - i).padStart(2, '0')}
             />
           ))}

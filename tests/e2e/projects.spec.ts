@@ -100,3 +100,31 @@ test.describe('project pages', () => {
     expect(response?.status()).toBe(404);
   });
 });
+
+test.describe('full-page screenshots', () => {
+  test('show in a browser frame that scrolls itself and by hand', async ({ page }) => {
+    await openHydrated(page, '/projects/drive-king');
+    const gallery = page.getByRole('region', { name: 'Drive King screenshots' });
+    await gallery.getByRole('button', { name: 'Next screenshot' }).click();
+
+    const viewport = gallery.getByRole('region', { name: /Full-page screenshot/ });
+    await expect(viewport).toBeVisible();
+    await expect(gallery.locator('.page-shot__url')).toHaveText(/drive-king\.co\.uk/);
+    // Wide, not a thin portrait strip
+    const box = await viewport.boundingBox();
+    expect(box && box.width > box.height).toBe(true);
+
+    // Pans down on its own after a short pause
+    const scrollTop = () => viewport.evaluate((el) => el.scrollTop);
+    await expect.poll(scrollTop, { timeout: 8_000 }).toBeGreaterThan(100);
+
+    // A wheel scroll hands control to the visitor
+    await viewport.hover();
+    await page.mouse.wheel(0, 600);
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(300);
+    const held = await scrollTop();
+    await page.waitForTimeout(1500);
+    expect(Math.abs((await scrollTop()) - held)).toBeLessThan(2);
+  });
+});

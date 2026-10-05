@@ -1,24 +1,9 @@
 import { Vector3 } from 'three';
 
-import type { Vector3Tuple } from 'three';
 import type { StationKey } from './routes';
 
-export { stationForPath, stationKeys, stationModels } from './routes';
+export { stationForPath, stationKeys, stationModels, stationPositions } from './routes';
 export type { StationKey } from './routes';
-
-/**
- * Where each route lives in space. Stations are spread far enough apart that
- * the camera visibly travels (and passes stars/dust) between them.
- */
-export const stationPositions: Record<StationKey, Vector3Tuple> = {
-  home: [0, 0, 0],
-  about: [48, 12, -36],
-  experience: [-42, -4, -82],
-  projects: [36, -16, -132],
-  skills: [-36, 14, -178],
-  contact: [8, -6, -226],
-  lost: [96, 44, 34],
-};
 
 /** Total fall of the camera through the experience beam (world units) */
 export const experienceDepth = 34;

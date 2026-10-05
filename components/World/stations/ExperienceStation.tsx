@@ -7,7 +7,9 @@ import { Group, Mesh, MeshStandardMaterial } from 'three';
 
 import { createBeamMaterial, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
+import { partMaterials } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
+import { StationHull } from '../StationHull';
 import {
   experienceDepth,
   framedHeight,
@@ -16,8 +18,23 @@ import {
   stationPositions,
 } from '../stations';
 import { palettes, setUniform } from '../utils';
+import { focusOnPage, setWorldHover, worldTip } from '../worldStore';
 
+import type { ThreeEvent } from '@react-three/fiber';
+import type { WorldTip } from '../worldStore';
+import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
+
+function hoverPod(e: ThreeEvent<PointerEvent>, tip: WorldTip, on: boolean) {
+  if (on) {
+    e.stopPropagation();
+    setWorldHover(true);
+    worldTip.set(tip);
+  } else {
+    setWorldHover(false);
+    if (worldTip.get() === tip) worldTip.set(null);
+  }
+}
 
 const buildMaterials = (p: WorldPalette) => ({
   core: createBeamMaterial({ color: p.cyan, intensity: 3, speed: 0.6 }),
@@ -44,13 +61,33 @@ function lightNode(node: Group, activation: number, dt: number) {
   halo.scale.setScalar(2.4 + activation * 2.4);
 }
 
-/** `/experience` — a satellite escorts the camera down a beam; one glowing node per role */
-export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: number }) {
+/**
+ * `/experience`: a space-elevator tether. One climber pod per role is clamped
+ * on the cable, its beacon lighting up as the camera descends past it, and a
+ * satellite escorts the camera down.
+ */
+export function ExperienceStation({
+  theme,
+  roles,
+}: {
+  theme: WorldTheme;
+  roles: WorldContent['roles'];
+}) {
+  const count = roles.length;
+  const tips = useMemo(
+    () =>
+      roles.map((role) => ({
+        label: `${role.title} · ${role.company}`,
+        sub: 'Click to read more',
+      })),
+    [roles]
+  );
   const groupRef = useRef<Group>(null);
   const satelliteRef = useRef<Group>(null);
   const nodesRef = useRef<Group>(null);
   const materials = useThemedMaterials(buildMaterials, theme);
   const palette = palettes[theme];
+  const parts = partMaterials();
   const beamLength = experienceDepth + 10;
 
   const nodeYs = useMemo(
@@ -99,6 +136,10 @@ export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: 
       </mesh>
 
       <group position={[0, 4 - beamLength / 2, 0]}>
+        {/* The tether itself, inside its energy sheath */}
+        <mesh material={parts.dark} castShadow>
+          <cylinderGeometry args={[0.07, 0.07, beamLength, 12]} />
+        </mesh>
         <mesh material={materials.core}>
           <cylinderGeometry args={[0.045, 0.045, beamLength, 12, 1, true]} />
         </mesh>
@@ -106,6 +147,27 @@ export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: 
           <cylinderGeometry args={[0.38, 0.38, beamLength, 24, 1, true]} />
         </mesh>
       </group>
+
+      {nodeYs.map((y, i) => (
+        <group
+          key={y}
+          position={[0, y - 0.95, 0]}
+          onPointerOver={(e) => hoverPod(e, tips[i], true)}
+          onPointerOut={(e) => hoverPod(e, tips[i], false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            focusOnPage(`role:${i}`);
+          }}
+        >
+          <StationHull
+            station="experience"
+            height={1.25}
+            theme={theme}
+            lite
+            rotation={[0, i * 1.3, 0]}
+          />
+        </group>
+      ))}
 
       <group ref={nodesRef}>
         {nodeYs.map((y) => (

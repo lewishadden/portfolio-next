@@ -30,7 +30,8 @@
       border-color 0.3s ease;
   }
 
-  &__ring--active span {
+  &__ring--active span,
+  html[data-world-hover] & span {
     transform: scale(1.7);
     border-color: var(--accent-primary);
     background: color-mix(in oklab, var(--accent-primary) 10%, transparent);

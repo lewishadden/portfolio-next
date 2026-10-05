@@ -167,6 +167,23 @@
         "title": "Secure & Compliant",
         "sub": "Payroll, insurance, sanctions & GDPR delivered at scale"
       }
+    ],
+    "recommendations": [
+      {
+        "name": "Alexander Romero",
+        "title": "Sr. Lead Product Manager",
+        "company": "ADP",
+        "date": "2026-07-08",
+        "relationship": "Senior to Lewis, didn’t manage Lewis directly",
+        "text": [
+          "I worked with Lewis on a fast-moving initiative where he partnered closely with me on requirements and discovery before a single line of code was written. He owned key features end to end and navigated a genuinely complex system with ease, all while delivering under a tight timeline.",
+          "He made my job as a PM easier, and I’d work with him again without hesitation."
+        ],
+        "source": {
+          "label": "LinkedIn",
+          "url": "https://www.linkedin.com/in/lewishadden/details/recommendations/"
+        }
+      }
     ]
   },
   "experience": {
@@ -1675,5 +1692,40 @@
       "accent": "something",
       "url": "/contact"
     }
+  },
+  "tour": {
+    "label": "Guided tour",
+    "stops": [
+      {
+        "station": "home",
+        "title": "Gateway hub",
+        "text": "Lewis Hadden: senior full stack engineer in Peterborough, UK, shipping React, Next.js and cloud platforms for nine years."
+      },
+      {
+        "station": "about",
+        "title": "Crew habitat",
+        "text": "The person behind the code. Team lead at IBM, Sopra Steria and ERGO, now contracting on ADP's flagship payroll platform."
+      },
+      {
+        "station": "experience",
+        "title": "Tether array",
+        "text": "One pod per role, from QA at IBM to senior engineer at ADP. Click a pod on the experience page to jump to that role."
+      },
+      {
+        "station": "projects",
+        "title": "Fabrication yard",
+        "text": "Fifteen builds orbit the hub, from passion projects to enterprise platforms. Hover a screen and it comes to life."
+      },
+      {
+        "station": "skills",
+        "title": "Research outpost",
+        "text": "54 technologies in orbit around the gas giant: frontend, backend and cloud, testing and DevOps."
+      },
+      {
+        "station": "contact",
+        "title": "Comms array",
+        "text": "Open to senior and lead roles, UK and EU remote. The dish is listening."
+      }
+    ]
   }
 }

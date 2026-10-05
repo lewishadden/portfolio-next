@@ -408,3 +408,30 @@ body {
     padding: 0 1.3rem;
   }
 }
+
+/* Pulse on a page element picked out in the 3D world (useWorldFocus) */
+.world-ping {
+  animation: world-ping 2.2s var(--ease-out);
+}
+
+@keyframes world-ping {
+  0%,
+  35% {
+    box-shadow:
+      0 0 0 2px var(--accent-secondary),
+      0 0 40px -4px var(--glow-cyan);
+  }
+}
+
+/* Hovering something you can use in the 3D world */
+html[data-world-hover='point'] body {
+  cursor: pointer;
+}
+
+html[data-world-hover='grab'] body {
+  cursor: grab;
+}
+
+html[data-world-hover='grab'] body:active {
+  cursor: grabbing;
+}

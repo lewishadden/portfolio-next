@@ -6,6 +6,7 @@ import { Icon } from '@iconify/react';
 
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
+import { Recommendations } from 'components/Recommendations/Recommendations';
 import { illustrations } from 'components/World/StationFallback';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 
@@ -47,7 +48,7 @@ export const About = ({
   name: string;
   location: string;
 }) => {
-  const { image, label, title, description, highlights, cta, cv } = about;
+  const { image, label, title, description, highlights, cta, cv, recommendations } = about;
   const portraitRef = usePointerGlow<HTMLDivElement>({ tilt: 10 });
 
   return (
@@ -143,6 +144,8 @@ export const About = ({
           </Reveal>
         </div>
       </div>
+
+      {recommendations && <Recommendations items={recommendations} />}
 
       <Reveal as="div" className="page-nav">
         <Magnet>

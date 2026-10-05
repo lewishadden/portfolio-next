@@ -32,7 +32,7 @@ const SkillTile = ({ skill }: { skill: SkillIcon }) => {
   const level = parseLevel(skill.level);
   return (
     <RevealItem as="li" className="skills__tile-cell" y={24}>
-      <div className="skills__tile">
+      <div className="skills__tile" data-world-target={`skill:${skill.name}`}>
         <span className="skills__tile-icon" aria-hidden="true">
           <Icon icon={skill.class} width={26} height={26} />
         </span>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import { Camera, Material, Object3D, ShaderMaterial, Vector3 } from 'three';
 
@@ -10,6 +10,10 @@ import { palettes } from './utils';
 
 import type { StationKey } from './stations';
 import type { WorldPalette, WorldTheme } from './utils';
+
+/** Lite devices (phones, touch): lighter hulls, no shadows, fewer particles */
+export const LiteContext = createContext(false);
+export const useLite = () => useContext(LiteContext);
 
 export function useWide() {
   return useThree((s) => isWideViewport(s.size.width, s.size.height));

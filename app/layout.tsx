@@ -12,6 +12,8 @@ import { Header } from '@/components/Header/Header';
 import { Footer } from '@/components/Footer/Footer';
 import { World } from '@/components/World/World';
 import { Cursor } from '@/components/Cursor/Cursor';
+import { CommandPalette } from '@/components/CommandPalette/CommandPalette';
+import { StatsOverlay } from '@/components/StatsOverlay/StatsOverlay';
 import { ScrollProgress } from '@/components/ScrollProgress/ScrollProgress';
 
 import type { Metadata, Viewport } from 'next';
@@ -20,6 +22,7 @@ import content from '../content/content.json';
 import { siteUrl, personName, siteDescription as description } from 'utils/seo';
 import { ContactInfo, Social } from '@/types';
 
+import type { PaletteData } from '@/components/CommandPalette/CommandPalette';
 import type { WorldContent } from '@/components/World/types';
 
 // Self-hosted (app/_fonts, see its README) rather than next/font/google: builds
@@ -51,11 +54,27 @@ const worldContent: WorldContent = {
   projects: content.projects.items.map((p) => ({
     title: p.title,
     slug: p.slug,
-    image: p.images[0]?.url,
+    // Full-page captures first: they make the best "live" screens
+    images: [...p.images]
+      .map((image) => ({ url: image.url, tall: image.size.height / image.size.width > 1.5 }))
+      .sort((a, b) => Number(b.tall) - Number(a.tall))
+      .slice(0, 4),
   })),
   skills: content.skills.icons.map((s) => ({ name: s.name, icon: s.class, category: s.category })),
   categories: content.skills.categories.map((c) => c.categoryKey),
-  experienceCount: content.experience.items.length,
+  roles: content.experience.items.map(({ title, company }) => ({ title, company })),
+  tour: content.tour.stops,
+};
+
+// What the ⌘K palette can jump to and do
+const email = content.contact.contactInfo.items.find((item) => item.name === 'Email')?.value ?? '';
+const paletteData: PaletteData = {
+  pages: content.global.navItems,
+  projects: content.projects.items.map(({ title, slug }) => ({ title, slug })),
+  email,
+  cv: { url: content.about.cta.primary.url, name: content.about.cv.download },
+  links: content.footer.social.map(({ name, url }) => ({ name, url })),
+  whoami: `${personName}: senior full stack engineer, ${content.global.location}. Nine years shipping React, Next.js and cloud platforms. Open to senior and lead roles.`,
 };
 
 const profileImage = content.about?.image?.url || '/static/images/bio-pic.jpeg';
@@ -230,6 +249,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
           <Footer footer={content.footer} navItems={content.global.navItems} />
           <Cursor />
+          <CommandPalette data={paletteData} />
+          <StatsOverlay />
         </ClientProviders>
         <JsonLd />
         <GoogleAnalyticsDeferred gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />

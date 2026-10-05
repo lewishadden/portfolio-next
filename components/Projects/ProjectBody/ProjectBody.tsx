@@ -9,7 +9,7 @@ import { Icon } from '@iconify/react';
 import ProjectArt from '../ProjectArt/ProjectArt';
 import { techIconClass } from '../techIcon';
 
-import type { CSSProperties, PointerEvent } from 'react';
+import type { CSSProperties, PointerEvent, RefObject } from 'react';
 import type { Project } from '@/types';
 
 import './ProjectBody.scss';
@@ -22,6 +22,8 @@ const swipeThreshold = 44;
 
 export const pad = (n: number) => String(n).padStart(2, '0');
 const isLogo = (size: ProjectImage['size']) => size.width / size.height > 2.2;
+/** Full-page captures: shown at full width in a scrollable browser frame */
+export const isFullPage = (size: ProjectImage['size']) => size.height / size.width > 1.5;
 
 const slideVariants = {
   enter: (dir: number) => ({ opacity: 0, x: `${dir * 7}%`, scale: 1.04, filter: 'blur(12px)' }),
@@ -50,6 +52,134 @@ export function useSlides(count: number) {
 
 export type Slides = ReturnType<typeof useSlides>;
 
+/**
+ * Pans a full-page screenshot down and back up on a slow loop, pausing
+ * while it is hovered or focused and stopping for good as soon as the
+ * visitor scrolls it themselves. Off for reduced motion.
+ */
+function useAutoScroll(ref: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let frame = 0;
+    let last = performance.now();
+    let phase: 'wait' | 'down' | 'hold' | 'up' = 'wait';
+    let since = last;
+    // Scroll offsets round to whole pixels; track the true position separately
+    let position = 0;
+    let paused = false;
+    let stopped = false;
+
+    const tick = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      const max = el.scrollHeight - el.clientHeight;
+      if (!paused && !stopped && max > 0) {
+        if (phase === 'wait' && now - since > 1400) phase = 'down';
+        else if (phase === 'down') {
+          // The whole page in ~16s, never slower than a reading pace
+          position = Math.min(max, position + Math.max(45, max / 16) * dt);
+          el.scrollTop = position;
+          if (position >= max - 0.5) {
+            phase = 'hold';
+            since = now;
+          }
+        } else if (phase === 'hold' && now - since > 1800) {
+          phase = 'up';
+          since = now;
+        } else if (phase === 'up') {
+          position = Math.max(0, position - Math.max(400, max / 1.6) * dt);
+          el.scrollTop = position;
+          if (position <= 0) {
+            phase = 'wait';
+            since = now;
+          }
+        }
+      }
+      if (!stopped) frame = requestAnimationFrame(tick);
+    };
+    const stop = () => {
+      stopped = true;
+      cancelAnimationFrame(frame);
+    };
+    const pause = () => {
+      paused = true;
+    };
+    const resume = () => {
+      paused = false;
+      position = el.scrollTop;
+    };
+    const stopEvents = ['wheel', 'touchstart', 'keydown'] as const;
+    stopEvents.forEach((type) => el.addEventListener(type, stop, { passive: true }));
+    el.addEventListener('pointerenter', pause);
+    el.addEventListener('pointerleave', resume);
+    frame = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(frame);
+      stopEvents.forEach((type) => el.removeEventListener(type, stop));
+      el.removeEventListener('pointerenter', pause);
+      el.removeEventListener('pointerleave', resume);
+    };
+  }, [ref]);
+}
+
+/** A full-page screenshot in a browser frame: scrolls on its own, or by hand */
+function PageShot({ image, alt, site }: { image: ProjectImage; alt: string; site: string }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  useAutoScroll(viewportRef);
+
+  return (
+    <div className="page-shot" ref={rootRef}>
+      <div className="page-shot__bar" aria-hidden="true">
+        <span className="page-shot__dots">
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className="page-shot__url">
+          <Icon icon="ph:lock-simple-bold" width={11} height={11} />
+          {site}
+        </span>
+        <span className="page-shot__hint">
+          <Icon icon="ph:mouse-scroll-bold" width={13} height={13} />
+          Full page
+        </span>
+      </div>
+      <div
+        ref={viewportRef}
+        className="page-shot__viewport"
+        tabIndex={0}
+        role="region"
+        aria-label={`${alt}. Full-page screenshot, scroll to see all of it`}
+        data-lenis-prevent
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          const max = el.scrollHeight - el.clientHeight;
+          rootRef.current?.style.setProperty(
+            '--progress',
+            String(max > 0 ? el.scrollTop / max : 0)
+          );
+        }}
+      >
+        <Image
+          src={image.url}
+          alt={alt}
+          width={image.size.width}
+          height={image.size.height}
+          sizes={slideSizes}
+          className="page-shot__img"
+          loading="eager"
+          draggable={false}
+        />
+      </div>
+      <span className="page-shot__track" aria-hidden="true">
+        <span className="page-shot__thumb" />
+      </span>
+    </div>
+  );
+}
+
 /** Warm the cache for a slide the visitor is likely to open next */
 function preloadSlide(image: ProjectImage) {
   const { props } = getImageProps({ src: image.url, alt: '', fill: true, sizes: slideSizes });
@@ -64,6 +194,7 @@ function preloadSlide(image: ProjectImage) {
 function Gallery({
   images,
   title,
+  site,
   index,
   direction,
   onStep,
@@ -71,6 +202,8 @@ function Gallery({
 }: {
   images: ProjectImage[];
   title: string;
+  /** Host shown in a full-page screenshot's address bar */
+  site: string;
   index: number;
   direction: number;
   onStep: (delta: number) => void;
@@ -80,6 +213,7 @@ function Gallery({
   const multiple = count > 1;
   const image = images[index];
   const logo = isLogo(image.size);
+  const fullPage = isFullPage(image.size);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const altFor = (img: ProjectImage, i: number) =>
     img.alt || `${title} screenshot ${i + 1} of ${count}`;
@@ -129,7 +263,7 @@ function Gallery({
         <AnimatePresence initial={false} custom={direction}>
           <m.figure
             key={index}
-            className={`project-gallery__slide${logo ? ' project-gallery__slide--logo' : ''}`}
+            className={`project-gallery__slide${logo ? ' project-gallery__slide--logo' : ''}${fullPage ? ' project-gallery__slide--page' : ''}`}
             role="group"
             aria-roledescription="slide"
             aria-label={`${index + 1} of ${count}`}
@@ -140,27 +274,33 @@ function Gallery({
             exit="exit"
             transition={{ duration: 0.65, ease }}
           >
-            <Image
-              src={image.url}
-              alt=""
-              aria-hidden="true"
-              fill
-              sizes="96px"
-              className="project-gallery__ambient"
-              loading="eager"
-            />
-            <span className="project-gallery__plate">
-              <Image
-                src={image.url}
-                alt={altFor(image, index)}
-                fill
-                sizes={logo ? '640px' : slideSizes}
-                className="project-gallery__img"
-                loading="eager"
-                fetchPriority={index === 0 ? 'high' : 'auto'}
-                draggable={false}
-              />
-            </span>
+            {fullPage ? (
+              <PageShot image={image} alt={altFor(image, index)} site={site} />
+            ) : (
+              <>
+                <Image
+                  src={image.url}
+                  alt=""
+                  aria-hidden="true"
+                  fill
+                  sizes="96px"
+                  className="project-gallery__ambient"
+                  loading="eager"
+                />
+                <span className="project-gallery__plate">
+                  <Image
+                    src={image.url}
+                    alt={altFor(image, index)}
+                    fill
+                    sizes={logo ? '640px' : slideSizes}
+                    className="project-gallery__img"
+                    loading="eager"
+                    fetchPriority={index === 0 ? 'high' : 'auto'}
+                    draggable={false}
+                  />
+                </span>
+              </>
+            )}
           </m.figure>
         </AnimatePresence>
 
@@ -231,6 +371,16 @@ function Gallery({
   );
 }
 
+/** `https://www.example.com/path` → `example.com` */
+function siteHost(url?: string) {
+  if (!url) return null;
+  try {
+    return new URL(url).host.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Everything below a project's title: screenshot carousel (or generated art),
  * overview, facts, live-site link and stack. `headingLevel` keeps the outline
@@ -266,6 +416,7 @@ export function ProjectBody({
           key={name}
           images={images}
           title={name}
+          site={siteHost(url) ?? name}
           index={slides.index}
           direction={slides.direction}
           onStep={slides.step}

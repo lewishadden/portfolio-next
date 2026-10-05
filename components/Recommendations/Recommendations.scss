@@ -1,0 +1,165 @@
+/* =============================================================
+   Recommendations: quoted transmissions on the About page
+   ============================================================= */
+.recs {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: clamp(3rem, 7vw, 5rem);
+
+  &__title {
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 3.2vw, 2.4rem);
+    font-weight: var(--fw-bold);
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+  }
+
+  &__eyebrow {
+    color: var(--accent-secondary);
+  }
+
+  &__list {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  &__card {
+    position: relative;
+    display: grid;
+    gap: 1.25rem;
+    margin: 0;
+    padding: clamp(1.4rem, 3.5vw, 2.4rem);
+    overflow: hidden;
+  }
+
+  &__signal {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent-secondary);
+  }
+
+  &__signal-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-secondary);
+    box-shadow: 0 0 10px var(--accent-secondary);
+    animation: recs-pulse 2.4s ease-in-out infinite;
+  }
+
+  &__quote-mark {
+    position: absolute;
+    top: -0.2em;
+    right: 0.25em;
+    font-family: var(--font-display);
+    font-size: clamp(7rem, 16vw, 11rem);
+    line-height: 1;
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    opacity: 0.22;
+    pointer-events: none;
+  }
+
+  &__quote {
+    display: grid;
+    gap: 0.9rem;
+    max-width: 68ch;
+    margin: 0;
+    font-size: var(--fs-body-lg);
+    line-height: 1.7;
+    color: var(--text-primary);
+    text-wrap: pretty;
+  }
+
+  &__by {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.9rem 1rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--border-color);
+  }
+
+  &__avatar {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    font-family: var(--font-display);
+    font-size: var(--fs-caption);
+    font-weight: var(--fw-bold);
+    color: var(--accent-contrast);
+    background: var(--gradient-brand);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-primary) 25%, transparent);
+  }
+
+  &__who {
+    display: grid;
+    flex: 1 1 14rem;
+    gap: 0.15rem;
+    min-width: 0;
+
+    b {
+      font-family: var(--font-display);
+      font-size: var(--fs-body);
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    span {
+      font-size: var(--fs-caption);
+      color: var(--text-secondary);
+    }
+
+    small {
+      font-family: var(--font-mono);
+      font-size: var(--fs-tiny);
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+  }
+
+  &__source {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-pill);
+    font-size: var(--fs-caption);
+    font-weight: var(--fw-medium);
+    color: var(--text-primary);
+    background: var(--surface);
+    transition:
+      border-color var(--dur-fast) ease,
+      box-shadow var(--dur-med) ease,
+      color var(--dur-fast) ease;
+
+    &:hover {
+      color: var(--accent-secondary);
+      border-color: var(--accent-secondary);
+      box-shadow: 0 0 20px -6px var(--glow-cyan);
+    }
+  }
+}
+
+@keyframes recs-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recs__signal-dot {
+    animation: none;
+  }
+}

@@ -6,12 +6,32 @@ import { AdditiveBlending, Group, NormalBlending } from 'three';
 
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
+import { NavLights, SolarArray } from '../parts';
+import {
+  createReaction,
+  easeInOut,
+  stepReaction,
+  trickProgress,
+  useReactionHandlers,
+} from '../reaction';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
+import { StationHull } from '../StationHull';
 import { stationModels, stationPositions } from '../stations';
 import { palettes, seededRandom, setUniform } from '../utils';
-import { worldStore } from '../worldStore';
 
+import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
+
+const helmetTip = { label: 'Helmet cam online', sub: 'Click to spin it' };
+
+const habitatLights: NavLight[] = [
+  { position: [-4.3, 0.1, 0], kind: 'white' },
+  { position: [4.2, 0.1, 0], kind: 'white', phase: 0.8 },
+  { position: [0.6, 5.65, 0], kind: 'red' },
+  { position: [0.6, -5.65, 0], kind: 'green' },
+  { position: [0, 1.65, 0.8], kind: 'cyan' },
+  { position: [0, -1.6, 0.8], kind: 'violet' },
+];
 
 const buildMaterials = (p: WorldPalette) => ({
   ringA: createRingMaterial({
@@ -45,6 +65,8 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
   const motesRef = useRef<Group>(null);
   const materials = useThemedMaterials(buildMaterials, theme);
   const palette = palettes[theme];
+  const reaction = useRef(createReaction());
+  const handlers = useReactionHandlers(reaction, helmetTip);
 
   const motes = useMemo(() => {
     const random = seededRandom(41);
@@ -57,18 +79,26 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
     }));
   }, []);
 
-  useFrame(({ camera, clock }) => {
+  useFrame(({ camera, clock }, delta) => {
     if (!stationInRange(groupRef.current, camera, 'about')) return;
     const t = clock.elapsedTime;
+    const r = reaction.current;
+    stepReaction(r, t, Math.min(delta, 0.05));
     for (const material of [materials.ringA, materials.ringB, materials.ringC, materials.scan]) {
       setUniform(material, 'uTime', t);
     }
 
     const helmet = helmetRef.current;
     if (helmet) {
-      helmet.position.y = 0.35 + Math.sin(t * 0.8) * 0.14;
-      helmet.rotation.y = 0.15 + Math.sin(t * 0.3) * 0.3 + worldStore.pointerX * 0.4;
-      helmet.rotation.x = -worldStore.pointerY * 0.15;
+      // The visor follows the pointer, turns to face you on hover, spins on click
+      const spin = trickProgress(r, 1.3);
+      helmet.position.y = 0.35 + Math.sin(t * 0.8) * 0.14 + r.amount * 0.1;
+      helmet.rotation.y =
+        (0.15 + Math.sin(t * 0.3) * 0.3) * (1 - r.amount * 0.8) +
+        r.yaw * 0.75 +
+        (spin >= 0 ? easeInOut(spin) * Math.PI * 2 : 0);
+      helmet.rotation.x = -r.pitch * 0.35;
+      helmet.scale.setScalar(1 + r.amount * 0.06);
     }
 
     const rings = ringsRef.current;
@@ -91,6 +121,19 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
 
   return (
     <group ref={groupRef} position={stationPositions.about}>
+      {/* The crew habitat, cupola turned towards the visitor */}
+      <group position={[-3.4, 3.7, -15]} rotation={[0.2, 0.55, 0.08]}>
+        <StationHull station="about" height={3.2} theme={theme} />
+        {/* Wings above and below the module, panels turned to face out */}
+        <group position={[0.6, 1.2, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <SolarArray rotation={[Math.PI / 2, 0, 0]} length={4.4} width={1.3} panels={3} />
+        </group>
+        <group position={[0.6, -1.2, 0]} rotation={[0, 0, -Math.PI / 2]}>
+          <SolarArray rotation={[-Math.PI / 2, 0, 0]} length={4.4} width={1.3} panels={3} />
+        </group>
+        <NavLights lights={habitatLights} />
+      </group>
+
       <mesh material={materials.halo} position={[0, 0, -3]} scale={9}>
         <planeGeometry />
       </mesh>
@@ -131,7 +174,7 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
         ))}
       </group>
 
-      <group ref={helmetRef}>
+      <group ref={helmetRef} {...handlers}>
         <Model url={stationModels.about!} height={2.8} theme={theme} />
       </group>
     </group>

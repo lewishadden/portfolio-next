@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import {
   BufferGeometry,
   CanvasTexture,
+  MathUtils,
   Color,
   DoubleSide,
   Float32BufferAttribute,
@@ -15,12 +16,15 @@ import {
 
 import { loadIconBundle } from 'components/IconifyLoader/IconifyLoader';
 import { asGlow, createFresnelMaterial, noiseGlsl } from '../materials';
+import { NavLights, SolarArray } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { stationPositions } from '../stations';
+import { StationHull } from '../StationHull';
 import { setUniform } from '../utils';
-import { worldStore } from '../worldStore';
+import { focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import type { IconifyJSON } from '@iconify/react';
+import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
 
 type SkillIcon = { name: string; icon: string; category: string };
@@ -92,6 +96,12 @@ const ringVertex = /* glsl */ `
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
+
+const outpostLights: NavLight[] = [
+  { position: [0, 1.05, 0], kind: 'white' },
+  { position: [-0.9, 0, 0], kind: 'red' },
+  { position: [0.9, 0, 0], kind: 'green' },
+];
 
 const ringInner = 2.6;
 const ringOuter = 3.9;
@@ -231,6 +241,8 @@ export function SkillsStation({
   const groupRef = useRef<Group>(null);
   const planetRef = useRef<Group>(null);
   const orbitsRef = useRef<Group>(null);
+  const outpostRef = useRef<Group>(null);
+  const hoveredRef = useRef<string | null>(null);
   const materials = useThemedMaterials(buildMaterials, theme);
   const collections = useIconCollections();
 
@@ -252,6 +264,21 @@ export function SkillsStation({
 
   useEffect(() => () => orbits.forEach((orbit) => orbit.geometry.dispose()), [orbits]);
 
+  // One stable tooltip per skill (the tooltip store compares by identity)
+  const tips = useMemo(
+    () =>
+      new Map(
+        skills.map((skill) => [
+          skill.name,
+          {
+            label: skill.name,
+            sub: `${skill.category[0].toUpperCase()}${skill.category.slice(1)} · click to find it`,
+          },
+        ])
+      ),
+    [skills]
+  );
+
   const textures = useMemo(() => {
     if (!collections) return null;
     const monochrome = theme === 'dark' ? '#e0e7ff' : '#312e81';
@@ -267,18 +294,31 @@ export function SkillsStation({
     [textures]
   );
 
-  useFrame(({ camera, clock }) => {
+  useFrame(({ camera, clock }, delta) => {
     if (!stationInRange(groupRef.current, camera, 'skills')) return;
     const t = clock.elapsedTime;
+    const dt = Math.min(delta, 0.05);
     setUniform(materials.planet, 'uTime', t);
 
     const planet = planetRef.current;
     if (planet) planet.rotation.y = t * 0.06;
+    // The research outpost keeps a slow, wide orbit around the giant
+    if (outpostRef.current) outpostRef.current.rotation.y = -0.9 + t * 0.045;
 
     orbitsRef.current?.children.forEach((orbitGroup, k) => {
       const spinner = orbitGroup.children[1];
-      if (spinner)
-        spinner.rotation.y = t * (0.05 + k * 0.018) * (k % 2 ? -1 : 1) + worldStore.scroll * 0.8;
+      if (!spinner) return;
+      spinner.rotation.y = t * (0.05 + k * 0.018) * (k % 2 ? -1 : 1) + worldStore.scroll * 0.8;
+      // The hovered badge swells
+      for (const badge of spinner.children) {
+        const size = MathUtils.damp(
+          badge.scale.x,
+          badge.name === hoveredRef.current ? 0.7 : 0.44,
+          10,
+          dt
+        );
+        badge.scale.set(size, size, 1);
+      }
     });
   });
 
@@ -294,6 +334,23 @@ export function SkillsStation({
         <mesh material={materials.ring} rotation={[Math.PI / 2 - 0.35, 0, 0]}>
           <ringGeometry args={[ringInner, ringOuter, 160, 1]} />
         </mesh>
+      </group>
+
+      <group rotation={[0.32, 0, -0.18]}>
+        <group ref={outpostRef}>
+          <group position={[7.4, 0.6, 0]} rotation={[0, Math.PI / 2.4, 0.1]}>
+            <StationHull station="skills" height={1.9} theme={theme} />
+            <SolarArray position={[0.35, 0, -0.1]} length={2} width={0.6} panels={2} />
+            <SolarArray
+              position={[-0.35, 0, -0.1]}
+              rotation={[0, Math.PI, 0]}
+              length={2}
+              width={0.6}
+              panels={2}
+            />
+            <NavLights lights={outpostLights} size={0.035} />
+          </group>
+        </group>
       </group>
 
       <group ref={orbitsRef}>
@@ -314,8 +371,29 @@ export function SkillsStation({
                 return (
                   <sprite
                     key={orbit.members[i].name}
+                    name={orbit.members[i].name}
                     position={[Math.cos(angle) * orbit.radius, 0, Math.sin(angle) * orbit.radius]}
                     scale={0.44}
+                    onPointerOver={(e) => {
+                      e.stopPropagation();
+                      const name = orbit.members[i].name;
+                      if (hoveredRef.current === name) return;
+                      if (hoveredRef.current) setWorldHover(false);
+                      hoveredRef.current = name;
+                      setWorldHover(true);
+                      worldTip.set(tips.get(name) ?? null);
+                    }}
+                    onPointerOut={() => {
+                      const name = orbit.members[i].name;
+                      if (hoveredRef.current !== name) return;
+                      hoveredRef.current = null;
+                      setWorldHover(false);
+                      if (worldTip.get() === tips.get(name)) worldTip.set(null);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      focusOnPage(`skill:${orbit.members[i].name}`);
+                    }}
                   >
                     <spriteMaterial
                       map={texture}

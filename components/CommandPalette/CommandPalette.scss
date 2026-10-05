@@ -1,0 +1,212 @@
+/* =============================================================
+   Command palette: ⌘K / Ctrl+K
+   ============================================================= */
+html.palette-open {
+  overflow: hidden;
+}
+
+.palette {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  justify-items: center;
+  align-items: start;
+  padding: clamp(4rem, 14vh, 9rem) 16px 16px;
+  background: color-mix(in oklab, var(--bg-primary) 55%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: palette-fade 0.18s ease-out both;
+
+  &__dialog {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    width: min(640px, 100%);
+    max-height: min(560px, 74vh);
+    overflow: hidden;
+    background: var(--surface-strong);
+    box-shadow:
+      0 30px 90px -20px rgba(0, 0, 0, 0.75),
+      0 0 0 1px color-mix(in oklab, var(--accent-primary) 30%, transparent);
+    animation: palette-rise 0.28s var(--ease-out) both;
+  }
+
+  &__prompt {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+
+    /* The caret and this rail mark focus; the input itself stays unboxed */
+    &:focus-within {
+      border-bottom-color: var(--accent-secondary);
+      box-shadow: inset 0 -1px 0 var(--accent-secondary);
+    }
+  }
+
+  &__ps1 {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-caption);
+    color: var(--accent-secondary);
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+
+    &:focus-visible {
+      outline: none;
+    }
+    font-family: var(--font-mono);
+    font-size: var(--fs-body);
+    color: var(--text-primary);
+    background: transparent;
+    caret-color: var(--accent-secondary);
+
+    &::placeholder {
+      color: var(--text-muted);
+    }
+  }
+
+  kbd {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.4rem;
+    padding: 0.05rem 0.35rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xs);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    color: var(--text-secondary);
+    background: color-mix(in oklab, var(--bg-tertiary) 60%, transparent);
+  }
+
+  &__term {
+    max-height: 9.5rem;
+    padding: 0.7rem 1rem;
+    overflow-y: auto;
+    border-bottom: 1px solid var(--border-color);
+    font-family: var(--font-mono);
+    font-size: var(--fs-caption);
+    line-height: 1.6;
+    color: var(--text-primary);
+    background: color-mix(in oklab, var(--bg-primary) 60%, transparent);
+
+    p {
+      white-space: pre-wrap;
+    }
+  }
+
+  &__line--input {
+    color: var(--accent-secondary);
+  }
+
+  &__line--ok {
+    color: var(--status-ok);
+  }
+
+  &__line--warn {
+    color: var(--status-err);
+  }
+
+  &__line--dim {
+    color: var(--text-secondary);
+  }
+
+  &__list {
+    min-height: 0;
+    margin: 0;
+    padding: 0.4rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+  }
+
+  &__group {
+    display: block;
+    padding: 0.7rem 0.6rem 0.3rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.7rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-body-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+
+    &.is-active {
+      color: var(--text-primary);
+      background: color-mix(in oklab, var(--accent-primary) 16%, transparent);
+      box-shadow: inset 2px 0 0 var(--accent-secondary);
+    }
+  }
+
+  &__label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__hint {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    color: var(--text-muted);
+  }
+
+  &__empty {
+    padding: 1rem 0.7rem;
+    font-size: var(--fs-caption);
+    color: var(--text-muted);
+  }
+
+  &__foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
+    padding: 0.55rem 1rem;
+    border-top: 1px solid var(--border-color);
+    font-size: var(--fs-tiny);
+    color: var(--text-muted);
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+  }
+}
+
+@keyframes palette-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes palette-rise {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .palette,
+  .palette__dialog {
+    animation: none;
+  }
+}
