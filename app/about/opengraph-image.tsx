@@ -1,6 +1,6 @@
 import { ogContentType, ogSize, renderOgImage } from '@/app/_og/OgImage';
 
-export const alt = 'About Lewis Hadden — senior full stack engineer, Peterborough UK';
+export const alt = 'About Lewis Hadden, senior full stack engineer in Peterborough, UK';
 export const size = ogSize;
 export const contentType = ogContentType;
 

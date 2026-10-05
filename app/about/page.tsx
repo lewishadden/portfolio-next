@@ -8,7 +8,7 @@ import { ResumeData } from '@/types';
 
 import type { Metadata } from 'next';
 
-const title = 'About — Freelance Full Stack Developer';
+const title = 'About: Freelance Full Stack Developer';
 const description =
   'Senior full stack engineer based in Peterborough, UK. Nine years shipping React, Next.js & Azure at IBM, ADP, ERGO.';
 

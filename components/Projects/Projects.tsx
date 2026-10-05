@@ -268,7 +268,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         label={label}
         title="Selected"
         accent="projects"
-        sub="A cross-section of platforms, tools and architectures — from passion projects to enterprise applications shipped in production."
+        sub="A cross-section of platforms, tools and architectures, from passion projects to enterprise applications shipped in production."
       />
 
       {filters.length > 1 && (

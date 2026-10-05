@@ -1,4 +1,4 @@
-# Lewis Hadden — Freelance Senior Full Stack Developer
+# Lewis Hadden: Freelance Senior Full Stack Developer
 
 > Senior full stack developer specialising in React, Next.js, TypeScript, Node.js and Azure, based in Peterborough, UK. 9+ years' experience delivering large-scale web apps for IBM, ADP, ERGO and more. Available for remote and on-site work across the UK and Europe.
 
@@ -16,35 +16,35 @@ Lewis Hadden is a highly experienced senior full stack engineer based in Peterbo
 
 ## Experience
 
-### ADP — Senior Full Stack Engineer (Contractor)
+### ADP: Senior Full Stack Engineer (Contractor)
 *Jan 2025 – Jun 2026*
 React, Tailwind CSS, Cypress, Webpack, React Testing Library, JavaScript, REST API, Jest, Virtual Machines
 
-### ERGO Travel Insurance — Lead Full Stack Engineer
+### ERGO Travel Insurance: Lead Full Stack Engineer
 *Apr 2024 – Nov 2024*
 Next.js, Azure, React, TypeScript, CSS Modules, Function Apps, Cosmos DB, Event Hubs, Blob & Table Storage, DevOps Pipelines, Docker, Node.js, Jest
 
-### Sopra Steria — Cloud Infrastructure Architect
+### Sopra Steria: Cloud Infrastructure Architect
 *Jun 2023 – Dec 2023*
 Azure, REST API, Cosmos DB, Serverless Function, Content Delivery Network, Blob Storage
 
-### Sopra Steria — Lead Software Engineer
+### Sopra Steria: Lead Software Engineer
 *Aug 2022 – Apr 2023*
 Angular 8+, React, Flutter, TypeScript, Node.js, HTML5, SCSS / CSS3, Jest, PowerBI, Split Tunnelling (VPN)
 
-### IBM — Senior Full Stack Developer
+### IBM: Senior Full Stack Developer
 *Jan 2022 – Jul 2022*
 React, Redux, TypeScript, AWS, JavaScript, Node.js, Carbon Design System, HTML5, SCSS / CSS3, Jest + Enzyme, CloudFormation, DynamoDB, CodeCommit, CodeBuild, CodePipeline, Lambda, EC2, S3, API Gateway, IAM, JIRA
 
-### IBM — Lead Front End Developer
+### IBM: Lead Front End Developer
 *Jan 2021 – Jan 2022*
 React, Redux, TypeScript, AWS, HTML5, SCSS / CSS3, Jest + Enzyme, Micro-Frontends, Carbon Design System, FeatureHub, GitHub Workflows, Adobe Experience Manager, Adobe Launch, JIRA
 
-### IBM — Front End Developer
+### IBM: Front End Developer
 *Aug 2018 – Jan 2021*
 React, Redux, TypeScript, Adobe Experience Manager, JavaScript, Webpack, Babel, HTML5, SCSS / CSS3, Jest + Enzyme, Carbon Design System, Adobe Dynamic Tag Manager, Cookie Control (CIVIC), Docker, Linux / Bash, Apache, AWS
 
-### IBM — QA Tester
+### IBM: QA Tester
 *Jan 2018 – Aug 2018*
 Selenium, WebdriverIO, Cucumber / Gherkin, BrowserStack, Appium, Node.js, JIRA, React, JavaScript, HTML, CSS
 

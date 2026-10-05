@@ -99,7 +99,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${personName} — Freelance Full Stack Developer`,
+    title: `${personName} | Freelance Full Stack Developer`,
     description,
     creator: '@lewishadden',
   },

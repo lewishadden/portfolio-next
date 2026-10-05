@@ -99,7 +99,7 @@
       {
         "href": "/experience",
         "title": "Experience",
-        "text": "The mission log — lead roles at IBM, Sopra Steria, ERGO and ADP.",
+        "text": "The mission log: lead roles at IBM, Sopra Steria, ERGO and ADP.",
         "icon": "ph:rocket-launch-bold"
       },
       {
@@ -111,7 +111,7 @@
       {
         "href": "/skills",
         "title": "Skills",
-        "text": "The toolkit — React, Next.js, TypeScript, Azure, AWS and friends.",
+        "text": "The toolkit: React, Next.js, TypeScript, Azure, AWS and friends.",
         "icon": "ph:atom-bold"
       }
     ]
@@ -121,7 +121,7 @@
     "label": "Get to know me",
     "openToWorkText": "Available for opportunities",
     "descriptionHeader": "",
-    "description": "<p><strong>Hi, I’m Lewis</strong> — a <em>senior full stack engineer</em> based in Peterborough, UK, with <strong>nine years</strong> of shipping production software across automotive, insurance, payroll, and government sectors.</p><p>I’ve led engineering teams at <strong>IBM, Sopra Steria, and ERGO</strong>, architected cloud infrastructure on <em>Azure and AWS</em>, and delivered everything from <em>React SPAs and Next.js platforms</em> to serverless backends and real-time data pipelines — always with a focus on code that’s fast, secure, and built to last.</p><p>Currently contracted to <strong>ADP</strong> on their flagship <em>RUN payroll platform</em>. I’m open to my next senior or lead role — remote, UK or EU — whether freelance or permanent.</p>",
+    "description": "<p><strong>Hi, I’m Lewis</strong>, a <em>senior full stack engineer</em> based in Peterborough, UK, with <strong>nine years</strong> of shipping production software across automotive, insurance, payroll, and government sectors.</p><p>I’ve led engineering teams at <strong>IBM, Sopra Steria, and ERGO</strong>, architected cloud infrastructure on <em>Azure and AWS</em>, and delivered everything from <em>React SPAs and Next.js platforms</em> to serverless backends and real-time data pipelines, always with a focus on code that’s fast, secure, and built to last.</p><p>Currently contracted to <strong>ADP</strong> on their flagship <em>RUN payroll platform</em>. I’m open to my next senior or lead role (remote, UK or EU), whether freelance or permanent.</p>",
     "image": {
       "url": "/static/images/bio-pic.jpeg",
       "size": {
@@ -232,7 +232,7 @@
         "company": "IBM",
         "title": "Senior Full Stack Developer",
         "years": "Jan 2022 - Jul 2022",
-        "description": "Led an agile team delivering a new e-commerce journey for Audi UK. Architected the full AWS stack — Lambda, DynamoDB, EC2, API Gateway — while managing sprints, presenting to stakeholders, and mentoring engineers.",
+        "description": "Led an agile team delivering a new e-commerce journey for Audi UK. Architected the full AWS stack (Lambda, DynamoDB, EC2, API Gateway) while managing sprints, presenting to stakeholders, and mentoring engineers.",
         "mainTech": ["React", "Redux", "TypeScript", "AWS", "Node.js", "DynamoDB"],
         "icon": "devicon:react",
         "technologies": [
@@ -301,7 +301,7 @@
         "title": "ZGS Carpentry",
         "slug": "zgs-carpentry",
         "startDate": "2026",
-        "description": "ZGS Carpentry is a marketing website I designed and built from scratch for ZGS Carpentry — a Caddington-based carpenter, joiner and tiler run by Zak Sanders, covering Hertfordshire and Bedfordshire. The site breaks the trade down into thirteen individual, SEO-friendly service pages — from bespoke staircases and fitted wardrobes to tiling, plastering and garden turfing — and features an interactive 3D showcase of carpentry tools, a hammer, handsaw and pencil modelled in Three.js that visitors can grab and spin. A stylised, blueprint-style coverage map places Caddington at the hub with spokes out to every town covered, each linking through to its own local area page. A category-filtered gallery of photos and video showcases completed jobs, backed by an FAQ, honest service breakdowns and a quote form that emails enquiries straight to Zak via Resend. Built with Next.js (App Router), React 19, TypeScript and Tailwind CSS v4, the site is statically generated and deployed on Vercel with rich LocalBusiness JSON-LD, dynamically generated Open Graph images, a sitemap and per-page metadata for strong local search visibility.",
+        "description": "ZGS Carpentry is a marketing website I designed and built from scratch for ZGS Carpentry, a Caddington-based carpenter, joiner and tiler run by Zak Sanders, covering Hertfordshire and Bedfordshire. The site breaks the trade down into thirteen individual, SEO-friendly service pages, from bespoke staircases and fitted wardrobes to tiling, plastering and garden turfing, and features an interactive 3D showcase of carpentry tools, a hammer, handsaw and pencil modelled in Three.js that visitors can grab and spin. A stylised, blueprint-style coverage map places Caddington at the hub with spokes out to every town covered, each linking through to its own local area page. A category-filtered gallery of photos and video showcases completed jobs, backed by an FAQ, honest service breakdowns and a quote form that emails enquiries straight to Zak via Resend. Built with Next.js (App Router), React 19, TypeScript and Tailwind CSS v4, the site is statically generated and deployed on Vercel with rich LocalBusiness JSON-LD, dynamically generated Open Graph images, a sitemap and per-page metadata for strong local search visibility.",
         "theme": {
           "text": "light",
           "border": "light",
@@ -394,7 +394,7 @@
         "title": "Sidenote",
         "slug": "sidenote",
         "startDate": "2026",
-        "description": "Sidenote is a passion project I designed and built from scratch — a Chrome extension that turns the browser side panel into an AI-powered reading assistant for articles, PDFs, research papers and uploaded documents. It summarises any page in seconds at three depths — a quick TL;DR, a standard overview, or a structured deep-read — and lets you chat with the document, where every answer is backed by numbered citations that scroll to and highlight the exact source passage when clicked. An Explain Simply tool rewrites dense, jargon-heavy passages at a chosen reading level without losing accuracy, and an automatically generated glossary defines every key term and links back to where it first appears on the page. Built as a pnpm monorepo, Sidenote pairs a Vite and React 19 Manifest V3 extension with a Next.js 16 backend deployed on Vercel, backed by Supabase (Postgres with pgvector) for storage and authentication, Anthropic's Claude models for generation, and Voyage AI embeddings for citation retrieval. It ships with passwordless magic-link sign-in, Stripe billing and a free tier.",
+        "description": "Sidenote is a passion project I designed and built from scratch: a Chrome extension that turns the browser side panel into an AI-powered reading assistant for articles, PDFs, research papers and uploaded documents. It summarises any page in seconds at three depths (a quick TL;DR, a standard overview, or a structured deep-read) and lets you chat with the document, where every answer is backed by numbered citations that scroll to and highlight the exact source passage when clicked. An Explain Simply tool rewrites dense, jargon-heavy passages at a chosen reading level without losing accuracy, and an automatically generated glossary defines every key term and links back to where it first appears on the page. Built as a pnpm monorepo, Sidenote pairs a Vite and React 19 Manifest V3 extension with a Next.js 16 backend deployed on Vercel, backed by Supabase (Postgres with pgvector) for storage and authentication, Anthropic's Claude models for generation, and Voyage AI embeddings for citation retrieval. It ships with passwordless magic-link sign-in, Stripe billing and a free tier.",
         "theme": {
           "text": "light",
           "border": "light",
@@ -491,7 +491,7 @@
         "title": "Drive King",
         "slug": "drive-king",
         "startDate": "2026",
-        "description": "Drive King is a driving school website I designed and built from scratch for Drive King Driving School, run by DVSA Approved Driving Instructor (ADI) Janine Hayes in Caddington, covering Bedfordshire and Hertfordshire. The site introduces the instructor and her car, showcases a Hall of Fame of students who have passed, and pulls in live five-star Google reviews through the Google Places API. An interactive Leaflet map lets visitors explore every town and village covered, with dedicated per-area pages detailing local routes and the nearest test centres, alongside SEO-friendly learner guides, transparent lesson pricing, an FAQ, and a contact form that delivers enquiries by email via Resend. Built with Next.js (App Router), React 19, TypeScript and Tailwind CSS v4, the entire site is editable through TinaCMS — all copy lives in structured content and images are served from Vercel Blob storage — and it is deployed on Vercel with Vercel Analytics, a generated XML sitemap and per-page metadata for SEO.",
+        "description": "Drive King is a driving school website I designed and built from scratch for Drive King Driving School, run by DVSA Approved Driving Instructor (ADI) Janine Hayes in Caddington, covering Bedfordshire and Hertfordshire. The site introduces the instructor and her car, showcases a Hall of Fame of students who have passed, and pulls in live five-star Google reviews through the Google Places API. An interactive Leaflet map lets visitors explore every town and village covered, with dedicated per-area pages detailing local routes and the nearest test centres, alongside SEO-friendly learner guides, transparent lesson pricing, an FAQ, and a contact form that delivers enquiries by email via Resend. Built with Next.js (App Router), React 19, TypeScript and Tailwind CSS v4, the entire site is editable through TinaCMS (all copy lives in structured content and images are served from Vercel Blob storage) and it is deployed on Vercel with Vercel Analytics, a generated XML sitemap and per-page metadata for SEO.",
         "theme": {
           "text": "light",
           "border": "light",
@@ -616,7 +616,7 @@
         "title": "Smiley Pets",
         "slug": "smiley-pets",
         "startDate": "2026",
-        "description": "Smiley Pets is a professional pet care website I designed and built from scratch for a local business established in 2010. The site showcases their dog walking and pet sitting services, highlights their credentials — fully insured, DBS checked, and Canine First Aid certified — and builds trust through client testimonials and a photo gallery of happy pets in their care. Key features include a pet photo film strip, a full gallery, a contact and booking section, and social media integration. Built with Next.js, React, TypeScript and Tailwind CSS, and deployed on Vercel.",
+        "description": "Smiley Pets is a professional pet care website I designed and built from scratch for a local business established in 2010. The site showcases their dog walking and pet sitting services, highlights their credentials (fully insured, DBS checked, and Canine First Aid certified) and builds trust through client testimonials and a photo gallery of happy pets in their care. Key features include a pet photo film strip, a full gallery, a contact and booking section, and social media integration. Built with Next.js, React, TypeScript and Tailwind CSS, and deployed on Vercel.",
         "theme": {
           "text": "light",
           "border": "light",
@@ -681,7 +681,7 @@
         "title": "Sip Happens",
         "slug": "sip-happens",
         "startDate": "2026",
-        "description": "Sip Happens is a passion project I designed and built from scratch — a dedicated review platform for espresso martini enthusiasts. The site features honest, detailed bar reviews from around the world, a blog exploring espresso martini culture, and an interactive global map that lets users explore reviewed bars by location. Visitors can submit bar recommendations to help grow the platform's coverage. Built entirely with Next.js, React, TypeScript and Tailwind CSS, the platform uses a PostgreSQL database to store and serve reviews, blog posts, and submission data. The site is deployed and live at sip-happens.co.uk, with an active social presence on Instagram and TikTok.",
+        "description": "Sip Happens is a passion project I designed and built from scratch: a dedicated review platform for espresso martini enthusiasts. The site features honest, detailed bar reviews from around the world, a blog exploring espresso martini culture, and an interactive global map that lets users explore reviewed bars by location. Visitors can submit bar recommendations to help grow the platform's coverage. Built entirely with Next.js, React, TypeScript and Tailwind CSS, the platform uses a PostgreSQL database to store and serve reviews, blog posts, and submission data. The site is deployed and live at sip-happens.co.uk, with an active social presence on Instagram and TikTok.",
         "theme": {
           "text": "light",
           "border": "light",

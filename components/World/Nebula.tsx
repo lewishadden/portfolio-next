@@ -17,6 +17,7 @@ import {
 
 import { noiseGlsl } from './materials';
 import { palettes, setUniform } from './utils';
+import { useWarmupTask } from './warmup';
 
 import type { WebGLRenderer } from 'three';
 import type { WorldTheme } from './utils';
@@ -84,11 +85,13 @@ const domeFragment = /* glsl */ `
   }
 `;
 
-function bakeNebula(
+/** Compiles the (heavy) bake shader in the background, then renders the clouds once */
+async function bakeNebula(
   renderer: WebGLRenderer,
   target: WebGLRenderTarget,
   theme: WorldTheme,
-  octaves: number
+  octaves: number,
+  isCurrent: () => boolean
 ) {
   const palette = palettes[theme];
   const material = new ShaderMaterial({
@@ -109,11 +112,20 @@ function bakeNebula(
   const geometry = new PlaneGeometry(2, 2);
   const scene = new Scene();
   scene.add(new Mesh(geometry, material));
+  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
   const previous = renderer.getRenderTarget();
   renderer.setRenderTarget(target);
-  renderer.render(scene, new OrthographicCamera(-1, 1, 1, -1, 0, 1));
+  const compiled = renderer.compileAsync(scene, camera);
   renderer.setRenderTarget(previous);
+  await compiled;
+
+  if (isCurrent()) {
+    const restore = renderer.getRenderTarget();
+    renderer.setRenderTarget(target);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(restore);
+  }
 
   geometry.dispose();
   material.dispose();
@@ -131,6 +143,7 @@ export function Nebula({
 }) {
   const meshRef = useRef<Mesh>(null);
   const gl = useThree((s) => s.gl);
+  const track = useWarmupTask();
 
   const target = useMemo(() => {
     // Half-float keeps the dark, linear-space gradients free of banding
@@ -156,7 +169,13 @@ export function Nebula({
     [target]
   );
 
-  useEffect(() => bakeNebula(gl, target, theme, octaves), [gl, target, theme, octaves]);
+  useEffect(() => {
+    let current = true;
+    track(bakeNebula(gl, target, theme, octaves, () => current));
+    return () => {
+      current = false;
+    };
+  }, [gl, target, theme, octaves, track]);
 
   useEffect(
     () => () => {

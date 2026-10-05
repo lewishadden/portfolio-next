@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!project) return {};
   return pageMetadata({
     path: projectPath(slug),
-    title: `${project.title.trim()} — Project`,
+    title: `${project.title.trim()} | Projects`,
     description: summarise(project.description),
   });
 }

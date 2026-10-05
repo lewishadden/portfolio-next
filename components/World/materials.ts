@@ -138,7 +138,8 @@ export function createRingMaterial({
       void main() {
         float a = vUv.x;
         vec3 col = mix(uColorA, uColorB, 0.5 + 0.5 * sin(a * 12.566 + uTime * 0.6));
-        float pulse = pow(0.5 + 0.5 * sin((a - uTime * uSpeed) * 18.85), 10.0);
+        // pow() of a negative base is NaN; sin() can overshoot -1 by a rounding error
+        float pulse = pow(max(0.5 + 0.5 * sin((a - uTime * uSpeed) * 18.85), 0.0), 10.0);
         float dash = uDashes > 0.0 ? step(0.42, fract(a * uDashes - uTime * uSpeed * 3.0)) : 1.0;
         float alpha = dash * uOpacity * (0.6 + pulse * 0.6);
         float glow = mix(uIntensity, 1.0, uLight);
@@ -195,10 +196,13 @@ export function createFresnelMaterial({
       uniform float uBackSide;
       void main() {
         float facing = dot(normalize(vNormal), normalize(vView));
-        // Front shells glow at the rim; back shells (halos) glow near the body and fade outward
+        // Front shells glow at the rim; back shells (halos) glow near the body and fade outward.
+        // Both bases are clamped: where the surface faces the camera head-on, rounding can push
+        // |facing| just past 1, and pow() of a negative base is NaN, which bloom smears into a
+        // black flash across the whole canvas
         float f = uBackSide > 0.5
           ? pow(clamp(-facing, 0.0, 1.0), uPower)
-          : pow(1.0 - abs(facing), uPower);
+          : pow(clamp(1.0 - abs(facing), 0.0, 1.0), uPower);
         gl_FragColor = vec4(uColor * mix(uIntensity, 1.0, uLight), f * mix(1.0, 0.7, uLight));
       }
     `,

@@ -141,6 +141,7 @@ export function ProjectsStation({
 }) {
   // On-demand rendering (reduced motion) snaps instead of easing
   const snap = useThree((s) => s.frameloop === 'demand');
+  const gl = useThree((s) => s.gl);
   const groupRef = useRef<Group>(null);
   const helixRef = useRef<Group>(null);
   const terminalRef = useRef<Group>(null);
@@ -163,13 +164,17 @@ export function ProjectsStation({
     let cancelled = false;
     screens.forEach((screen, i) => {
       if (!screen.image) return;
-      loader.load(optimisedImage(screen.image), (texture) => {
+      loader.load(optimisedImage(screen.image), async (texture) => {
+        // Decode off the main thread, then upload now rather than in the
+        // frame that first draws the screen
+        await (texture.image as HTMLImageElement).decode?.().catch(() => undefined);
         if (cancelled) {
           texture.dispose();
           return;
         }
         textures.push(texture);
         attachTexture(screenMaterials[i], texture);
+        gl.initTexture(texture);
       });
     });
     return () => {
@@ -177,7 +182,7 @@ export function ProjectsStation({
       textures.forEach((texture) => texture.dispose());
       screenMaterials.forEach((material) => material.dispose());
     };
-  }, [screens, screenMaterials]);
+  }, [gl, screens, screenMaterials]);
 
   const settled = useRef(false);
   const focused = focus >= 0 && focus < screens.length ? focus : -1;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Component, useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 
@@ -8,12 +8,13 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useRouteKey } from '@/hooks/useRouteKey';
-import { useWorldPreference } from '@/hooks/useWorldPreference';
+import { reportWebGLUnavailable, useWorldPreference } from '@/hooks/useWorldPreference';
 import { projectSlugFromPath } from '@/utils/projectPaths';
 
 import { prefetchStationModel, stationForPath } from './routes';
 import { worldStore } from './worldStore';
 
+import type { ReactNode } from 'react';
 import type { WorldContent } from './types';
 
 import './World.scss';
@@ -25,6 +26,27 @@ type IdleWindow = Window & {
   requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
   cancelIdleCallback?: (id: number) => void;
 };
+
+/**
+ * The canvas is the WebGL support test: if creating its context (or loading
+ * the 3D chunk) fails, the world switches off and the 2D renders show.
+ */
+class CanvasBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    if (process.env.NODE_ENV !== 'production') console.warn('[World] WebGL unavailable', error);
+    reportWebGLUnavailable();
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 /** Hovering or focusing an internal link starts downloading that station's model */
 function useModelPrefetch(active: boolean) {
@@ -82,6 +104,7 @@ export function World({ content }: { content: WorldContent }) {
   const active = enabled && supported;
   const [idle, setIdle] = useState(false);
   const [ready, setReady] = useState(false);
+  const markReady = useCallback(() => setReady(true), []);
 
   useWorldInputs();
   useModelPrefetch(active);
@@ -121,15 +144,17 @@ export function World({ content }: { content: WorldContent }) {
     <div className={`world${showCanvas && ready ? ' world--ready' : ''}`} aria-hidden="true">
       <div className="world__backdrop" />
       {showCanvas && (
-        <WorldCanvas
-          station={stationForPath(pathname)}
-          theme={theme}
-          reducedMotion={reducedMotion}
-          lite={lite}
-          content={content}
-          focusProject={focusProject}
-          onReady={() => setReady(true)}
-        />
+        <CanvasBoundary>
+          <WorldCanvas
+            station={stationForPath(pathname)}
+            theme={theme}
+            reducedMotion={reducedMotion}
+            lite={lite}
+            content={content}
+            focusProject={focusProject}
+            onReady={markReady}
+          />
+        </CanvasBoundary>
       )}
       <div className="world__veil" />
     </div>

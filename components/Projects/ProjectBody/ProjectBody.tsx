@@ -82,7 +82,7 @@ function Gallery({
   const logo = isLogo(image.size);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const altFor = (img: ProjectImage, i: number) =>
-    img.alt || `${title} — screenshot ${i + 1} of ${count}`;
+    img.alt || `${title} screenshot ${i + 1} of ${count}`;
 
   useEffect(() => {
     if (!multiple) return;
@@ -256,7 +256,7 @@ export function ProjectBody({
   const facts = [
     { term: 'Year', detail: startDate },
     { term: 'Stack', detail: `${technologies.length} tech` },
-    { term: 'Shots', detail: count ? pad(count) : '—' },
+    { term: 'Shots', detail: pad(count) },
   ];
 
   return (

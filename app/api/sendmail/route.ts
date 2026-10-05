@@ -17,7 +17,7 @@ const json = (message: string, status: number, headers?: HeadersInit) =>
 export async function POST(request: NextRequest) {
   const { allowed, retryAfterSeconds } = rateLimit(clientIp(request.headers));
   if (!allowed) {
-    return json('Too many messages — please try again later', 429, {
+    return json('Too many messages. Please try again later', 429, {
       'Retry-After': String(retryAfterSeconds),
     });
   }

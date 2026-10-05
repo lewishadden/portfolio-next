@@ -1,6 +1,6 @@
 'use client';
 
-import { Component, Suspense, useEffect, useMemo, useRef } from 'react';
+import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { easing } from 'maath';
@@ -8,6 +8,7 @@ import { Box3, Group, Mesh, MeshStandardMaterial, Object3D, Vector3 } from 'thre
 
 import { applyGlowTheme, createFresnelMaterial } from './materials';
 import { palettes } from './utils';
+import { precompile, uploadTextures, useWarmupTask } from './warmup';
 
 import type { ReactNode } from 'react';
 import type { GroupProps } from './types';
@@ -113,10 +114,13 @@ function GltfModel({
   url,
   height,
   envIntensity,
+  placeholder,
 }: {
   url: string;
   height: number;
   envIntensity: number;
+  /** Shown until the model's shaders are compiled and its textures uploaded */
+  placeholder: ReactNode;
 }) {
   // No Draco (would fetch a decoder from a CDN); meshopt decoder ships with three-stdlib
   const { scene } = useGLTF(url, false, true);
@@ -127,12 +131,32 @@ function GltfModel({
   const wrapperRef = useRef<Group>(null);
   // On-demand rendering (reduced motion) has no frames to animate with — appear at full size
   const popIn = useThree((s) => s.frameloop !== 'demand');
+  const { gl, scene: world, camera } = useThree();
+  const track = useWarmupTask();
+  const [preparedFor, setPreparedFor] = useState<Group | null>(null);
+
+  // Compile in the background and upload textures a frame at a time, so the
+  // model never stalls the frame it first appears in (often mid-flight)
+  useEffect(() => {
+    let active = true;
+    const task = precompile(gl, model, camera, world)
+      .then(() => uploadTextures(gl, model))
+      .then(() => {
+        if (active) setPreparedFor(model);
+      });
+    track(task);
+    return () => {
+      active = false;
+    };
+  }, [gl, world, camera, model, track]);
 
   // Pop in with a soft spring once loaded
   useFrame((_, delta) => {
     const wrapper = wrapperRef.current;
     if (wrapper && popIn) easing.damp3(wrapper.scale, 1, 0.35, Math.min(delta, 1 / 20));
   });
+
+  if (preparedFor !== model) return placeholder;
 
   return (
     <group ref={wrapperRef} scale={popIn ? 0.001 : 1}>
@@ -161,7 +185,7 @@ export function Model({
     <group {...props}>
       <ModelBoundary fallback={fallback}>
         <Suspense fallback={fallback}>
-          <GltfModel url={url} height={height} envIntensity={envIntensity} />
+          <GltfModel url={url} height={height} envIntensity={envIntensity} placeholder={fallback} />
         </Suspense>
       </ModelBoundary>
     </group>
