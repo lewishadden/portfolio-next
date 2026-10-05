@@ -427,7 +427,7 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
 
       {/* The deep-space comms array, dish turned towards the globe */}
       {/* It sweeps a little either side, as if tracking the signal */}
-      <Spin position={arrayPosition} sweep={0.3} speed={0.05}>
+      <Spin position={arrayPosition} sweep={0.3} speed={0.09}>
         <group rotation={[0.08, -2.3, 0.05]}>
           <StationHull station="contact" height={2.5} theme={theme} />
         </group>

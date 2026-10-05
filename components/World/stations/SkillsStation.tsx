@@ -339,7 +339,7 @@ export function SkillsStation({
       <group rotation={[0.32, 0, -0.18]}>
         <group ref={outpostRef}>
           <group position={[7.4, 0.6, 0]} rotation={[0, Math.PI / 2.4, 0.1]}>
-            <Spin speed={0.12}>
+            <Spin speed={0.2}>
               <StationHull station="skills" height={1.9} theme={theme} />
               <SolarArray position={[0.35, 0, -0.1]} length={2} width={0.6} panels={2} />
               <SolarArray

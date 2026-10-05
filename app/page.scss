@@ -16,7 +16,8 @@ body {
   font-size: 16px;
   line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  /* clip, not hidden: hidden would make the body a scroll container and break position: sticky */
+  overflow-x: clip;
 }
 
 ::selection {

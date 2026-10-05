@@ -1,12 +1,16 @@
 /* =============================================================
-   Projects: a walk round the 3D helix. Each project is a step;
-   scrolling turns its screen to the front (ProjectsStation), so
-   the copy sits left on wide screens and below the helix on
-   narrow ones. Without the 3D world the steps are a plain list
-   that shows each project's own screenshot.
+   Projects: the 3D helix is the page. A runway of scroll (one
+   step per project) turns it while a sticky stage holds the
+   index and a panel for the project in front, so nothing but
+   the helix moves. Without the 3D world the runway collapses
+   and the panel shows each project's own screenshot.
    ============================================================= */
 
 .projects {
+  /* Scroll per project, and the sticky stage's height */
+  --step: 50vh;
+  --stage-h: calc(100svh - var(--header-h) - 2rem);
+
   &__hint {
     display: inline-flex;
     align-items: center;
@@ -25,35 +29,34 @@
 
   &__tour {
     position: relative;
-    display: grid;
-    grid-template-columns: 2.75rem minmax(0, 34rem);
-    gap: clamp(1rem, 3vw, 2.5rem);
+    height: calc((var(--steps) - 1) * var(--step) + var(--stage-h));
   }
 
-  /* Sticky jump list beside the steps */
-  &__index {
+  &__stage {
     position: sticky;
-    top: calc(50vh - 12rem);
-    align-self: start;
-
-    ol {
-      display: grid;
-      gap: 0.1rem;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
+    top: calc(var(--header-h) + 1rem);
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 32rem);
+    gap: clamp(1rem, 3vw, 2.5rem);
+    align-content: center;
+    height: var(--stage-h);
   }
 
-  &__index-btn {
+  &__index ol {
+    display: grid;
+    gap: 0.1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__index-link {
     position: relative;
     display: block;
-    width: 100%;
     padding: 0.28rem 0 0.28rem 0.9rem;
     font-family: var(--font-mono);
     font-size: var(--fs-tiny);
     letter-spacing: 0.1em;
-    text-align: left;
     color: var(--text-muted);
     transition: color var(--dur-fast) ease;
 
@@ -85,37 +88,14 @@
       }
     }
   }
-
-  &__steps {
-    display: grid;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
 }
 
-.proj-step {
+.proj-panel {
   display: grid;
-  align-items: center;
-  min-height: 78vh;
-
-  &__card {
-    display: grid;
-    gap: 1rem;
-    padding: clamp(1.25rem, 3vw, 2rem);
-    border-radius: var(--radius-lg);
-    opacity: 0.5;
-    transform: translateY(12px) scale(0.97);
-    transition:
-      opacity 0.5s var(--ease-out),
-      transform 0.6s var(--ease-out);
-  }
-
-  &--active &__card,
-  &__card:focus-within {
-    opacity: 1;
-    transform: none;
-  }
+  gap: 1rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border-radius: var(--radius-lg);
+  animation: proj-panel-in 0.45s var(--ease-out) both;
 
   /* Only without the 3D world (see below) */
   &__shot {
@@ -166,7 +146,7 @@
   &__title {
     margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(1.75rem, 3.6vw, 2.8rem);
+    font-size: clamp(1.6rem, 3.2vw, 2.5rem);
     line-height: 1.05;
     letter-spacing: -0.035em;
     color: var(--text-primary);
@@ -216,9 +196,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    &__card {
-      transition: none;
-    }
+    animation: none;
 
     &__live-dot {
       animation: none;
@@ -227,43 +205,57 @@
 }
 
 /* Narrow (stacked) layouts: the helix holds the top of the screen, the
-   project's card scrolls up beneath it */
+   panel sits at the bottom, clear of the floating buttons */
 @media (max-width: 899px), (max-aspect-ratio: 11 / 10) {
-  .projects__tour {
+  .projects {
+    --step: 45vh;
+  }
+
+  .projects__stage {
     grid-template-columns: minmax(0, 1fr);
+    align-content: end;
+    padding-bottom: 4.75rem;
   }
 
-  .projects__index {
-    display: none;
+  .projects__index ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.5rem;
   }
 
-  /* Clear of the floating free-roam and back-to-top buttons at the bottom */
-  .proj-step {
-    align-items: end;
-    min-height: 92svh;
-    padding: 42svh 0 calc(3svh + 4.5rem);
+  .projects__index-link {
+    padding: 0.2rem 0 0.2rem 0.75rem;
+  }
+
+  .proj-panel {
+    max-height: 50svh;
+    overflow: auto;
   }
 }
 
-/* Without the 3D world: a plain list, each project with its own screenshot */
+/* Without the 3D world: one panel, with its own screenshot, chosen from the index */
 [data-world='off'] {
   .projects__hint {
     display: none;
   }
 
-  .proj-step {
-    align-items: stretch;
-    min-height: 0;
-    padding: 0;
-    margin-bottom: clamp(1rem, 3vh, 1.75rem);
+  .projects__tour {
+    height: auto;
   }
 
-  .proj-step__card {
-    opacity: 1;
-    transform: none;
+  .projects__stage {
+    position: static;
+    align-content: start;
+    height: auto;
+    padding-bottom: 0;
   }
 
-  .proj-step__shot {
+  .proj-panel {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .proj-panel__shot {
     position: relative;
     display: block;
     overflow: hidden;
@@ -273,18 +265,25 @@
     background: var(--surface);
   }
 
-  .proj-step__img {
+  .proj-panel__img {
     object-fit: cover;
     object-position: top;
   }
 
-  .proj-step__plate {
+  .proj-panel__plate {
     position: absolute;
     inset: 18%;
   }
 
-  .proj-step__logo {
+  .proj-panel__logo {
     object-fit: contain;
+  }
+}
+
+@keyframes proj-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
 }
 

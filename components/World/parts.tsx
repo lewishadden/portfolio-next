@@ -354,7 +354,7 @@ export function NavLights({
  * Still for reduced motion: on-demand frames would make it jump.
  */
 export function Spin({
-  speed = 0.06,
+  speed = 0.11,
   sweep = 0,
   phase = 0,
   children,

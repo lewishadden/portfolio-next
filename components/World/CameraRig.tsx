@@ -6,10 +6,10 @@ import { easing } from 'maath';
 import { MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 
 import {
-  bezier,
+  createFlightView,
+  flightPosition,
   flightRotation,
   lookRotation,
-  parameterAt,
   planFlight,
   smootherstep,
 } from './flight';
@@ -75,7 +75,7 @@ export function CameraRig({
     mode: 'page',
     flight: null,
     approached: false,
-    view: { ahead: new Vector3(), started: false },
+    view: createFlightView(),
     heading: null,
     roll: 0,
     velocity: new Vector3(),
@@ -186,10 +186,7 @@ function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey)
   rig.roll = 0;
 
   const path = new Float32Array(26 * 3);
-  for (let i = 0; i <= 25; i++) {
-    bezier(flight, i / 25, toPoint);
-    toPoint.toArray(path, i * 3);
-  }
+  for (let i = 0; i <= 25; i++) toPoint.copy(flight.curve.getPointAt(i / 25)).toArray(path, i * 3);
   worldStore.flight.active = true;
   worldStore.flight.to = station;
   worldStore.flight.progress = 0;
@@ -208,18 +205,16 @@ function fly(rig: RigState, cam: PerspectiveCamera, station: StationKey, dt: num
   const flight = rig.flight!;
   flight.elapsed += dt;
   const s = Math.min(flight.elapsed / flight.duration, 1);
-  const eased = smootherstep(s);
 
-  // Position on the curve, drifting onto the live target (scroll, pointer and
+  // Position on the path, drifting onto the live target (scroll, pointer and
   // resizes keep moving it) over the second half
-  const u = parameterAt(flight, eased);
-  bezier(flight, u, cam.position);
-  correction.subVectors(target, flight.p3).multiplyScalar(smootherstep((s - 0.5) / 0.5));
+  flightPosition(flight, s, cam.position);
+  correction.subVectors(target, flight.end).multiplyScalar(smootherstep((s - 0.5) / 0.5));
   cam.position.add(correction);
 
   // Planned rotation into the live destination view (see flightRotation)
   lookRotation(target, look, rotationTo);
-  flightRotation(flight, rig.view, s, u, rotationTo, dt, cam.quaternion);
+  flightRotation(flight, rig.view, s, cam.position, rotationTo, dt, cam.quaternion);
 
   // Bank into heading changes, levelling out for the arrival
   forward.set(0, 0, -1).applyQuaternion(cam.quaternion);

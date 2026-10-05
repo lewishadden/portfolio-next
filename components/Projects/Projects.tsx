@@ -19,7 +19,7 @@ import ProjectArt from './ProjectArt/ProjectArt';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
 import { techIconClass } from './techIcon';
 
-import type { MouseEvent } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import type { Project, Projects as ProjectsProps, Technology } from '@/types';
 
 import './Projects.scss';
@@ -55,31 +55,20 @@ const siteHost = (url: string) => {
   }
 };
 
-/**
- * Which step the middle of the viewport is on, as a fractional index: 2.5 is
- * halfway from the third step's centre to the fourth's
- */
-function focusAt(centres: number[], line: number) {
-  if (!centres.length) return 0;
-  if (line <= centres[0]) return 0;
-  const last = centres.length - 1;
-  if (line >= centres[last]) return last;
-  let i = 0;
-  while (centres[i + 1] < line) i++;
-  return i + (line - centres[i]) / (centres[i + 1] - centres[i]);
-}
+/** Modified / middle clicks keep their browser behaviour (new tab, etc.) */
+const plainClick = (e: MouseEvent) =>
+  e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
 
-function ProjectStep({
+/** The project in front of the helix: its card, swapped as the helix turns */
+function ProjectPanel({
   project,
   number,
   total,
-  active,
   onOpen,
 }: {
   project: Project;
   number: number;
   total: number;
-  active: boolean;
   onOpen: (e: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const { title, slug, description, startDate, thumbnail, technologies, url } = project;
@@ -90,136 +79,140 @@ function ProjectStep({
   const extra = technologies.length - techs.length;
 
   return (
-    <li className={active ? 'proj-step proj-step--active' : 'proj-step'} data-step={number - 1}>
-      <article className="proj-step__card glass" aria-labelledby={`project-${slug}`}>
-        {/* Without the 3D world there is no helix: each step shows its own shot */}
-        <div className="proj-step__shot" aria-hidden="true">
-          {preview && !logo ? (
-            <Image
-              src={preview.url}
-              alt=""
-              fill
-              sizes="(min-width: 900px) 34rem, 100vw"
-              className="proj-step__img"
+    <article className="proj-panel glass" aria-labelledby={`project-${slug}`}>
+      {/* Without the 3D world there is no helix: the panel shows the shot itself */}
+      <div className="proj-panel__shot" aria-hidden="true">
+        {preview && !logo ? (
+          <Image
+            src={preview.url}
+            alt=""
+            fill
+            sizes="(min-width: 900px) 32rem, 100vw"
+            className="proj-panel__img"
+          />
+        ) : (
+          <ProjectArt icon={thumbnail} tone={number} showIcon={!preview} />
+        )}
+        {preview && logo && (
+          <span className="proj-panel__plate">
+            <Image src={preview.url} alt="" fill sizes="320px" className="proj-panel__logo" />
+          </span>
+        )}
+      </div>
+
+      <p className="proj-panel__meta">
+        <span className="proj-panel__no">
+          {pad(number)}
+          <span className="proj-panel__of"> / {pad(total)}</span>
+        </span>
+        <span className="proj-panel__rule" aria-hidden="true" />
+        <span className="chip">
+          <Icon icon="ph:calendar-blank-bold" width={12} height={12} aria-hidden="true" />
+          {startDate}
+        </span>
+        {url && (
+          <span className="chip proj-panel__live">
+            <span className="proj-panel__live-dot" aria-hidden="true" />
+            Live
+          </span>
+        )}
+      </p>
+
+      <h2 id={`project-${slug}`} className="proj-panel__title">
+        {name}
+      </h2>
+      <p className="proj-panel__desc">{snippet(description)}</p>
+
+      <ul className="proj-panel__tech" aria-label="Key technologies">
+        {techs.map((t) => (
+          <li className="chip" key={t.name}>
+            <Icon
+              icon={t.class}
+              width={14}
+              height={14}
+              className={techIconClass(t.class)}
+              aria-hidden="true"
             />
-          ) : (
-            <ProjectArt icon={thumbnail} tone={number} showIcon={!preview} />
-          )}
-          {preview && logo && (
-            <span className="proj-step__plate">
-              <Image src={preview.url} alt="" fill sizes="320px" className="proj-step__logo" />
-            </span>
-          )}
-        </div>
+            {t.name}
+          </li>
+        ))}
+        {extra > 0 && (
+          <li className="chip proj-panel__more">
+            +{extra}
+            <span className="sr-only"> more</span>
+          </li>
+        )}
+      </ul>
 
-        <p className="proj-step__meta">
-          <span className="proj-step__no">
-            {pad(number)}
-            <span className="proj-step__of"> / {pad(total)}</span>
-          </span>
-          <span className="proj-step__rule" aria-hidden="true" />
-          <span className="chip">
-            <Icon icon="ph:calendar-blank-bold" width={12} height={12} aria-hidden="true" />
-            {startDate}
-          </span>
-          {url && (
-            <span className="chip proj-step__live">
-              <span className="proj-step__live-dot" aria-hidden="true" />
-              Live
-            </span>
-          )}
-        </p>
-
-        <h2 id={`project-${slug}`} className="proj-step__title">
-          {name}
-        </h2>
-        <p className="proj-step__desc">{snippet(description)}</p>
-
-        <ul className="proj-step__tech" aria-label="Key technologies">
-          {techs.map((t) => (
-            <li className="chip" key={t.name}>
-              <Icon
-                icon={t.class}
-                width={14}
-                height={14}
-                className={techIconClass(t.class)}
-                aria-hidden="true"
-              />
-              {t.name}
-            </li>
-          ))}
-          {extra > 0 && (
-            <li className="chip proj-step__more">
-              +{extra}
-              <span className="sr-only"> more</span>
-            </li>
-          )}
-        </ul>
-
-        <div className="proj-step__actions">
-          {/* A real link (crawlable, opens in a new tab) that opens the modal on a plain click */}
-          <Link
-            href={projectPath(slug)}
-            prefetch={false}
-            className="btn btn--primary proj-step__btn"
-            onClick={onOpen}
-            aria-haspopup="dialog"
-            aria-label={`View details for ${name}`}
-          >
-            <span>View details</span>
-            <Icon icon="ph:arrow-up-right-bold" width={15} height={15} aria-hidden="true" />
-          </Link>
-          {url && (
-            <a href={url} target="_blank" rel="noopener noreferrer" className="proj-step__site">
-              <Icon
-                icon="ph:globe-hemisphere-west-bold"
-                width={15}
-                height={15}
-                aria-hidden="true"
-              />
-              <span>{siteHost(url)}</span>
-              <span className="sr-only"> (opens in a new tab)</span>
-            </a>
-          )}
-        </div>
-      </article>
-    </li>
+      <div className="proj-panel__actions">
+        {/* A real link (crawlable, opens in a new tab) that opens the modal on a plain click */}
+        <Link
+          href={projectPath(slug)}
+          prefetch={false}
+          className="btn btn--primary proj-panel__btn"
+          onClick={onOpen}
+          aria-haspopup="dialog"
+          aria-label={`View details for ${name}`}
+        >
+          <span>View details</span>
+          <Icon icon="ph:arrow-up-right-bold" width={15} height={15} aria-hidden="true" />
+        </Link>
+        {url && (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="proj-panel__site">
+            <Icon icon="ph:globe-hemisphere-west-bold" width={15} height={15} aria-hidden="true" />
+            <span>{siteHost(url)}</span>
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        )}
+      </div>
+    </article>
   );
 }
 
 /**
- * The projects page is a walk round the helix: every project is a step, and
- * as the page scrolls the 3D helix turns that project's screen to the front
- * (worldStore.projectFocus). Without the 3D world the same steps show their
- * own screenshots, so the page reads as a plain list.
+ * The projects page is the helix itself. Scrolling turns it (a runway of
+ * page height per project drives `worldStore.projectFocus`) while a sticky
+ * panel shows the project in front and an index links to every project.
+ * Without the 3D world the runway collapses: the index picks the project
+ * and the panel shows its own screenshot.
  */
 export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   const { label, items } = projects;
-  const stepsRef = useRef<HTMLOListElement>(null);
+  const tourRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const lenis = useLenis();
 
   // The open project lives in the URL: opening one pushes /projects/<slug>
-  // without a navigation (the steps stay mounted underneath), so the address
+  // without a navigation (the page stays mounted underneath), so the address
   // is shareable, refresh lands on the full project page and Back closes it.
   const openSlug = projectSlugFromPath(usePathname());
   const selected = openSlug ? items.findIndex((p) => p.slug === openSlug) : -1;
 
+  /** Scroll runway: where it starts and how much scroll each project takes (0 without the world) */
+  const runway = useCallback(() => {
+    const tour = tourRef.current;
+    const stage = stageRef.current;
+    if (!tour || !stage) return { top: 0, step: 0 };
+    return {
+      top: tour.getBoundingClientRect().top + window.scrollY,
+      step: (tour.offsetHeight - stage.offsetHeight) / Math.max(1, items.length - 1),
+    };
+  }, [items.length]);
+
   // Scroll position → the project in front of the helix
   useEffect(() => {
-    const list = stepsRef.current;
-    if (!list) return;
-    let centres: number[] = [];
+    const tour = tourRef.current;
+    if (!tour) return;
+    let lane = runway();
     let frame = 0;
-    const measure = () => {
-      centres = Array.from(list.children, (step) => {
-        const rect = step.getBoundingClientRect();
-        return rect.top + window.scrollY + rect.height / 2;
-      });
-    };
     const update = () => {
       frame = 0;
-      const focus = focusAt(centres, window.scrollY + window.innerHeight / 2);
+      if (lane.step < 10) return;
+      const focus = Math.min(
+        Math.max((window.scrollY - lane.top) / lane.step, 0),
+        items.length - 1
+      );
       worldStore.projectFocus = focus;
       setActive(Math.round(focus));
     };
@@ -227,12 +220,12 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       if (!frame) frame = requestAnimationFrame(update);
     };
     const resize = new ResizeObserver(() => {
-      measure();
+      lane = runway();
       schedule();
     });
-    measure();
     update();
-    resize.observe(list);
+    resize.observe(tour);
+    resize.observe(document.body);
     window.addEventListener('scroll', schedule, { passive: true });
     return () => {
       cancelAnimationFrame(frame);
@@ -240,23 +233,25 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       window.removeEventListener('scroll', schedule);
       worldStore.projectFocus = -1;
     };
-  }, []);
+  }, [items.length, runway]);
 
   const goTo = useCallback(
     (index: number) => {
-      const step = stepsRef.current?.children[index] as HTMLElement | undefined;
-      if (!step) return;
-      const offset = -(window.innerHeight - step.offsetHeight) / 2;
+      const lane = runway();
+      if (lane.step < 10) {
+        setActive(index);
+        return;
+      }
+      const y = lane.top + lane.step * index;
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (lenis) lenis.scrollTo(step, { offset, immediate: reduce });
-      else step.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      if (lenis) lenis.scrollTo(y, { immediate: reduce });
+      else window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
     },
-    [lenis]
+    [lenis, runway]
   );
 
   const open = useCallback((e: MouseEvent<HTMLAnchorElement>, slug: string) => {
-    // Modified / middle clicks keep their browser behaviour (new tab, etc.)
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (!plainClick(e)) return;
     e.preventDefault();
     window.history.pushState({ projectModal: true }, '', projectPath(slug));
   }, []);
@@ -266,6 +261,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     else window.history.replaceState(null, '', '/projects');
   }, []);
 
+  const current = items[Math.min(active, items.length - 1)];
   const selectedProject = selected >= 0 ? items[selected] : null;
 
   return (
@@ -284,37 +280,45 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         </p>
       </PageHead>
 
-      <div className="projects__tour">
-        <nav className="projects__index" aria-label="Jump to a project">
-          <ol>
-            {items.map((project, i) => (
-              <li key={project.slug}>
-                <button
-                  type="button"
-                  className="projects__index-btn"
-                  aria-current={i === active ? 'true' : undefined}
-                  onClick={() => goTo(i)}
-                >
-                  <span aria-hidden="true">{pad(i + 1)}</span>
-                  <span className="sr-only">{project.title.trim()}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        </nav>
+      <div
+        ref={tourRef}
+        className="projects__tour"
+        style={{ '--steps': items.length } as CSSProperties}
+      >
+        <div ref={stageRef} className="projects__stage">
+          <nav className="projects__index" aria-label="Projects">
+            <ol>
+              {items.map((project, i) => (
+                <li key={project.slug}>
+                  <Link
+                    href={projectPath(project.slug)}
+                    prefetch={false}
+                    className="projects__index-link"
+                    aria-current={i === active ? 'true' : undefined}
+                    onClick={(e) => {
+                      if (!plainClick(e)) return;
+                      e.preventDefault();
+                      goTo(i);
+                    }}
+                  >
+                    <span aria-hidden="true">{pad(i + 1)}</span>
+                    <span className="sr-only">{project.title.trim()}</span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          </nav>
 
-        <ol ref={stepsRef} className="projects__steps">
-          {items.map((project, i) => (
-            <ProjectStep
-              key={project.slug}
-              project={project}
-              number={i + 1}
+          {current && (
+            <ProjectPanel
+              key={current.slug}
+              project={current}
+              number={items.indexOf(current) + 1}
               total={items.length}
-              active={i === active}
-              onOpen={(e) => open(e, project.slug)}
+              onOpen={(e) => open(e, current.slug)}
             />
-          ))}
-        </ol>
+          )}
+        </div>
       </div>
 
       <Reveal as="div" className="page-nav">

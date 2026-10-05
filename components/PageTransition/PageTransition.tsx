@@ -14,7 +14,7 @@ import { useRouteKey } from '@/hooks/useRouteKey';
 import './PageTransition.scss';
 
 /** Longest the copy waits for the camera before showing anyway */
-const maxHold = 2600;
+const maxHold = 4200;
 
 /** The 3D world is on screen and following the page */
 const worldIsLive = () =>

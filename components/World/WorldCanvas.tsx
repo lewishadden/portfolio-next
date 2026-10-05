@@ -111,7 +111,11 @@ function QualityGovernor({
     <PerformanceMonitor
       onDecline={() => setTier(lowerTier)}
       onIncline={() => setTier((current) => raiseTier(current, ceiling))}
-      flipflops={4}
+      // Judge over four seconds, and only step for a clear and sustained change
+      ms={400}
+      iterations={10}
+      bounds={(refreshRate) => (refreshRate > 90 ? [48, 84] : [42, 56])}
+      flipflops={3}
       onFallback={() => setTier('low')}
     />
   );

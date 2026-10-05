@@ -11,10 +11,11 @@ import { exploreInput, setDock, worldStore } from './worldStore';
 
 /* ------------------------------------------------------------------
    Free flight. While the world is in explore mode the visitor flies the
-   camera: keys or the on-screen pad to move, and the mouse steers: the
-   further it rests from the centre of the screen, the faster the view
-   turns that way (a dead zone in the middle holds course). Touch has no
-   resting pointer, so a finger drags the view instead. Flying close to a
+   camera: keys or the on-screen pad to move, and the mouse steers: a
+   movement turns the view with it at once, and the further the mouse
+   then rests from the centre of the screen, the faster the view keeps
+   turning that way (a dead zone in the middle holds course). Touch has
+   no resting pointer, so a finger drags the view instead. Flying close to a
    station offers to dock, which opens its page (the camera rig then flies
    the last stretch in). Hulls push you back out rather than letting you
    clip inside them.
@@ -45,16 +46,18 @@ const centre = new Vector3(0, 0, -110);
 
 const dockRange = 18;
 /** Steering: dead zone at the centre, and the fastest turn at the screen edge (rad/s) */
-const deadZone = 0.14;
-const maxYawRate = 1.5;
-const maxPitchRate = 0.9;
+const deadZone = 0.05;
+const maxYawRate = 3;
+const maxPitchRate = 2;
+/** Radians of turn per pixel the mouse moves, so a flick turns the view at once */
+const nudge = 0.0016;
 const hullRadius = 5.5;
 const worldRadius = 520;
 
-/** 0 inside the dead zone, easing up to ±1 at the edge of the screen */
+/** 0 inside the dead zone, rising to ±1 at the edge of the screen */
 function steering(offset: number) {
   const amount = MathUtils.clamp((Math.abs(offset) - deadZone) / (1 - deadZone), 0, 1);
-  return Math.sign(offset) * amount ** 1.6;
+  return Math.sign(offset) * amount * (0.6 + 0.4 * amount);
 }
 
 /** HUD controls: the mouse is reaching for them, not steering */
@@ -148,6 +151,8 @@ export function ExploreControls() {
         centre();
         return;
       }
+      exploreInput.lookX += e.movementX * nudge;
+      exploreInput.lookY += e.movementY * nudge;
       exploreInput.steerX = (e.clientX / window.innerWidth) * 2 - 1;
       exploreInput.steerY = (e.clientY / window.innerHeight) * 2 - 1;
     };
@@ -196,10 +201,12 @@ export function ExploreControls() {
       velocity.set(0, 0, 0);
       exploreInput.steerX = 0;
       exploreInput.steerY = 0;
+      exploreInput.lookX = 0;
+      exploreInput.lookY = 0;
     }
 
-    // Steering eases in over the first second, so it never lurches
-    const ease = MathUtils.smoothstep(clock.elapsedTime - state.since, 0, 1);
+    // Steering eases in over the first half second, so it never lurches
+    const ease = MathUtils.smoothstep(clock.elapsedTime - state.since, 0, 0.5);
     const yawRate = steering(exploreInput.steerX) * maxYawRate * ease + exploreInput.turn * 1.6;
     state.yaw -= exploreInput.lookX + yawRate * dt;
     state.pitch = MathUtils.clamp(

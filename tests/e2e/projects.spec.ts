@@ -1,8 +1,18 @@
 import { expect, openHydrated, test } from './fixtures';
 
+import type { Page } from '@playwright/test';
+
+/** Brings a project to the front (the index link), where its "View details" lives */
+async function pick(page: Page, name: string) {
+  const index = page.getByRole('navigation', { name: 'Projects' });
+  await index.getByRole('link', { name, exact: true }).click();
+  await expect(page.getByRole('heading', { level: 2, name })).toBeVisible();
+}
+
 test.describe('project modal', () => {
   test('opens at the project URL and closes back to the list', async ({ page }) => {
     await openHydrated(page, '/projects');
+    await pick(page, 'Drive King');
     const card = page.getByRole('link', { name: 'View details for Drive King' });
     await expect(card).toHaveAttribute('href', '/projects/drive-king');
 
@@ -21,6 +31,7 @@ test.describe('project modal', () => {
 
   test('the Back button closes it and Forward reopens it', async ({ page }) => {
     await openHydrated(page, '/projects');
+    await pick(page, 'Sidenote');
     await page.getByRole('link', { name: 'View details for Sidenote' }).click();
     const dialog = page.getByRole('dialog', { name: 'Sidenote' });
     await expect(dialog).toBeVisible();
@@ -36,6 +47,7 @@ test.describe('project modal', () => {
 
   test('keeps the scroll position', async ({ page }) => {
     await openHydrated(page, '/projects');
+    await pick(page, 'Audex');
     const card = page.getByRole('link', { name: 'View details for Audex' });
     const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
 
@@ -62,22 +74,26 @@ test.describe('project modal', () => {
   });
 });
 
-test.describe('project steps', () => {
-  test('the index jumps to a project and follows the scroll', async ({ page }) => {
+test.describe('project index', () => {
+  test('picks the project in front, and every project keeps its own link', async ({ page }) => {
     await openHydrated(page, '/projects');
-    const index = page.getByRole('navigation', { name: 'Jump to a project' });
-    const first = index.getByRole('button').first();
-    await expect(first).toHaveAttribute('aria-current', 'true');
+    const index = page.getByRole('navigation', { name: 'Projects' });
+    const links = index.getByRole('link');
+    await expect(links.first()).toHaveAttribute('aria-current', 'true');
+    await expect(links.first()).toHaveAttribute('href', /^\/projects\/[\w-]+$/);
 
-    const sidenote = index.getByRole('button', { name: 'Sidenote' });
+    const sidenote = index.getByRole('link', { name: 'Sidenote', exact: true });
     await sidenote.click();
     await expect(sidenote).toHaveAttribute('aria-current', 'true');
-    await expect(first).not.toHaveAttribute('aria-current', 'true');
-    await expect(page.locator('.proj-step--active h2')).toHaveText('Sidenote');
+    await expect(links.first()).not.toHaveAttribute('aria-current', 'true');
+    await expect(page.getByRole('heading', { level: 2, name: 'Sidenote' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View details for Sidenote' })).toBeVisible();
 
-    // Every project stays a real, crawlable link to its own page
-    const links = page.getByRole('link', { name: /^View details for / });
-    await expect(links).toHaveCount(await index.getByRole('button').count());
+    // One crawlable link per project
+    const count = await links.count();
+    expect(count).toBeGreaterThan(5);
+    const hrefs = await links.evaluateAll((els) => els.map((el) => el.getAttribute('href')));
+    expect(new Set(hrefs).size).toBe(count);
   });
 });
 

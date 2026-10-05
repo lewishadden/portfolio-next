@@ -110,9 +110,9 @@ const screenFragment = /* glsl */ `
     if (d > 0.0) discard;
     vec3 img = uHasMap > 0.5 ? shot(uMap, uWindow) : mix(uTint * 0.25, uTint * 0.6, vUv.y);
     if (uMix > 0.0) img = mix(img, shot(uMapB, uWindowB), uMix);
-    // Soft-clip the highlights: mostly-white pages would otherwise bloom into
-    // glowing slabs, while dark ones keep their brightness
-    img = img * 1.1 / (1.0 + img * 0.6);
+    // A display, not a lamp: white pages land just under the bloom threshold
+    // (0.32), so the content stays readable and only the edge lighting glows
+    img = img * 0.5 / (1.0 + img * 0.45);
     float scan = 0.94 + 0.06 * sin(vUv.y * 420.0 - uTime * 6.0);
     float sweep = smoothstep(0.0, 0.08, abs(vUv.y - fract(uTime * 0.12)));
     vec3 col = img * scan * mix(1.15, 1.0, sweep) * (1.0 + uHover * 0.08);
@@ -444,7 +444,7 @@ export function ProjectsStation({
     }
 
     const hub = hubRef.current;
-    if (hub) hub.rotation.y = 0.4 + t * 0.06 + worldStore.pointerX * 0.2;
+    if (hub) hub.rotation.y = 0.4 + t * 0.1 + worldStore.pointerX * 0.2;
   });
 
   return (
