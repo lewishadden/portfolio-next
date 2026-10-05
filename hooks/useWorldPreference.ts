@@ -33,23 +33,38 @@ function readEnabled() {
 }
 
 let support: boolean | undefined;
+const supportListeners = new Set<() => void>();
 
-/** WebGL available and Save-Data off — probed once per page load */
+const saveData = () =>
+  !!(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+
+function subscribeSupport(callback: () => void) {
+  supportListeners.add(callback);
+  return () => {
+    supportListeners.delete(callback);
+  };
+}
+
+/**
+ * WebGL API present and Save-Data off. Deliberately cheap: creating a context
+ * just to check costs tens of milliseconds (more to release it), so the real
+ * test is the world's own canvas — if that fails, `reportWebGLUnavailable`
+ * flips this to false.
+ */
 function readSupported() {
   if (support !== undefined) return support;
   try {
-    const canvas = document.createElement('canvas');
-    const webgl = !!(canvas.getContext('webgl2') || canvas.getContext('webgl'));
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } })
-      .connection;
-    support = webgl && !connection?.saveData;
+    return typeof WebGLRenderingContext !== 'undefined' && !saveData();
   } catch {
-    support = false;
+    return false;
   }
-  return support;
 }
 
-const noSubscribe = () => () => {};
+/** Called when creating the world's WebGL context fails */
+export function reportWebGLUnavailable() {
+  support = false;
+  supportListeners.forEach((listener) => listener());
+}
 
 /**
  * Whether the 3D world may run: the device can (`supported`) and the visitor
@@ -58,7 +73,7 @@ const noSubscribe = () => () => {};
  */
 export function useWorldPreference() {
   const enabled = useSyncExternalStore(subscribe, readEnabled, () => true);
-  const supported = useSyncExternalStore(noSubscribe, readSupported, () => false);
+  const supported = useSyncExternalStore(subscribeSupport, readSupported, () => false);
 
   const setEnabled = useCallback((next: boolean) => {
     override = next;
