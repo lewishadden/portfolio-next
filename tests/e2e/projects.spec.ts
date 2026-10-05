@@ -109,30 +109,41 @@ test.describe('the helix ride', () => {
       const title = page.locator('.proj-hud__title');
       await expect(title).toBeHidden();
 
-      // Where each project is in front: the stage docks, then one step apiece
-      const lane = await page.evaluate(() => {
-        const tour = document.querySelector<HTMLElement>('.projects__tour')!;
-        const stage = document.querySelector<HTMLElement>('.projects__stage')!;
-        const docked =
-          tour.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(stage).top);
-        return { docked, step: (tour.offsetHeight - stage.offsetHeight) / 14 };
-      });
-      const settled = () =>
-        expect.poll(() => page.evaluate(() => scrollY), { timeout: 10_000, intervals: [400] });
+      // Where each project is in front: the stage docks, then one step
+      // apiece. Measured live: late layout (web fonts swapping in) moves it
+      const lane = () =>
+        page.evaluate(() => {
+          const tour = document.querySelector<HTMLElement>('.projects__tour')!;
+          const stage = document.querySelector<HTMLElement>('.projects__stage')!;
+          const docked =
+            tour.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(stage).top);
+          return { y: scrollY, docked, step: (tour.offsetHeight - stage.offsetHeight) / 14 };
+        });
+      /** Scroll comes to rest with project `index` in front */
+      const restsOn = (index: number) =>
+        expect
+          .poll(
+            async () => {
+              const { y, docked, step } = await lane();
+              return Math.abs(y - (docked + step * index)) < 6;
+            },
+            { timeout: 15_000, intervals: [400] }
+          )
+          .toBe(true);
 
       // Most of the way to the first project: it glides the rest and docks
       const { width, height } = page.viewportSize()!;
       await page.mouse.move(width / 2, height / 2);
-      await page.mouse.wheel(0, lane.docked * 0.7);
-      await settled().toBeCloseTo(lane.docked, -1);
+      await page.mouse.wheel(0, (await lane()).docked * 0.7);
+      await restsOn(0);
       await expect(title).toBeVisible();
       await expect(title).toHaveText('ZGS Carpentry');
 
       // A little past a project glides back to it, not to a point in between
-      await page.mouse.wheel(0, lane.step * 0.3);
-      await settled().toBeCloseTo(lane.docked, -1);
-      await page.mouse.wheel(0, lane.step * 0.7);
-      await settled().toBeCloseTo(lane.docked + lane.step, -1);
+      await page.mouse.wheel(0, (await lane()).step * 0.3);
+      await restsOn(0);
+      await page.mouse.wheel(0, (await lane()).step * 0.7);
+      await restsOn(1);
     }
   );
 });

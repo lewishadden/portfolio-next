@@ -125,9 +125,12 @@ test.describe('tour and explore modes', () => {
     await expect(main).not.toHaveAttribute('inert');
     await expect(page).toHaveURL(/\/about$/);
 
-    // The floating button toggles free roam too
+    // The floating button toggles free roam too. Starting it locks the
+    // pointer where the browser allows, and a locked pointer clicks the
+    // page, not the button: the browser's own Esc frees it first
     await page.getByRole('button', { name: 'Free roam' }).click();
     await expect(hud).toBeVisible();
+    await page.evaluate(() => document.exitPointerLock());
     await page.getByRole('button', { name: 'Exit free roam' }).click();
     await expect(hud).toBeHidden();
     await expect(main).not.toHaveAttribute('inert');
