@@ -59,7 +59,7 @@ export const PageNotFound = ({ title, description, cta }: PageNotFoundProps) => 
           <p>
             <span className="lost__prompt">$</span> ping {pathname || '/unknown'}
           </p>
-          <p className="lost__muted">Request timed out — no station at these coordinates.</p>
+          <p className="lost__muted">Request timed out: no station at these coordinates.</p>
           <p>
             <span className="lost__prompt">$</span> plot-course /
             <span className="lost__caret" aria-hidden="true" />

@@ -169,7 +169,7 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
         title="Work"
         accent="experience"
         illustration={illustrations.satellite}
-        sub="Almost a decade across IBM, Sopra Steria, ERGO Travel and ADP — frontend, full stack and cloud architecture."
+        sub="Almost a decade across IBM, Sopra Steria, ERGO Travel and ADP: frontend, full stack and cloud architecture."
       >
         <Reveal as="ul" className="xp__stats" delay={0.24} aria-label="At a glance">
           <li className="xp__stat">
@@ -203,7 +203,7 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
         <Reveal className="xp__end" y={20}>
           <span className="xp__end-node" aria-hidden="true" />
           <p className="xp__end-text">
-            Launched <b>{since}</b> <span aria-hidden="true">—</span> still shipping
+            Launched <b>{since}</b> <span aria-hidden="true">/</span> still shipping
           </p>
         </Reveal>
       </div>

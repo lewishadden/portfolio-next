@@ -8,9 +8,9 @@ import { ResumeData } from '@/types';
 
 import type { Metadata } from 'next';
 
-const title = 'Skills — React, TypeScript, Node.js & Cloud';
+const title = 'Skills: React, TypeScript, Node.js & Cloud';
 const description =
-  'Full stack skill set — React, Next.js, TypeScript, Node.js, Azure, AWS, and the broader stack used to ship modern web platforms.';
+  'Full stack skill set: React, Next.js, TypeScript, Node.js, Azure, AWS, and the broader stack used to ship modern web platforms.';
 
 export const metadata: Metadata = pageMetadata({ path: '/skills', title, description });
 

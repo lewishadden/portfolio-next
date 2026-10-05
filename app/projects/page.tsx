@@ -8,9 +8,9 @@ import { ResumeData } from '@/types';
 
 import type { Metadata } from 'next';
 
-const title = 'Projects — React & Next.js Work';
+const title = 'Projects: React & Next.js Work';
 const description =
-  'Selected work — passion projects and enterprise platforms built with React, Next.js, TypeScript, and cloud infrastructure.';
+  'Selected work: passion projects and enterprise platforms built with React, Next.js, TypeScript, and cloud infrastructure.';
 
 export const metadata: Metadata = pageMetadata({ path: '/projects', title, description });
 

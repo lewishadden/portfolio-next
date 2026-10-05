@@ -1,6 +1,6 @@
 import { ogContentType, ogSize, renderOgImage } from '@/app/_og/OgImage';
 
-export const alt = 'Lewis Hadden — work experience at IBM, ADP and ERGO';
+export const alt = 'Lewis Hadden’s work experience at IBM, ADP and ERGO';
 export const size = ogSize;
 export const contentType = ogContentType;
 

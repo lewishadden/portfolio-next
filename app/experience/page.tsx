@@ -8,9 +8,9 @@ import { ResumeData } from '@/types';
 
 import type { Metadata } from 'next';
 
-const title = 'Experience — React, Next.js & Cloud';
+const title = 'Experience: React, Next.js & Cloud';
 const description =
-  'Nine years leading engineering teams at IBM, ADP, ERGO — delivering React, Next.js, and cloud platforms across payroll, insurance, and government.';
+  'Nine years leading engineering teams at IBM, ADP and ERGO, delivering React, Next.js, and cloud platforms across payroll, insurance, and government.';
 
 export const metadata: Metadata = pageMetadata({ path: '/experience', title, description });
 
