@@ -225,7 +225,7 @@ export default function WorldCanvas({
 
           <Lighting theme={theme} station={station} shadows={shadows} />
 
-          <Nebula theme={theme} octaves={lite ? 4 : 5} size={lite ? 1024 : 2048} />
+          <Nebula theme={theme} octaves={lite ? 4 : 5} size={lite ? 1024 : 3072} />
           <Starfield count={lite ? 1800 : 4200} theme={theme} />
           <BrightStars count={lite ? 24 : 48} theme={theme} />
           <Landmarks theme={theme} />

@@ -5,6 +5,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import {
   BackSide,
   Color,
+  DataTexture,
   HalfFloatType,
   LinearFilter,
   Mesh,
@@ -17,11 +18,12 @@ import {
   ShaderMaterial,
   SphereGeometry,
   Vector2,
+  Vector4,
   WebGLRenderTarget,
 } from 'three';
 
 import { noiseGlsl } from './materials';
-import { galacticNormal, sunDirection } from './sky';
+import { galacticCentre, galacticEast, galacticNormal, nebulae, sunDirection } from './sky';
 import { palettes } from './utils';
 import { useWarmupTask } from './warmup';
 
@@ -30,11 +32,25 @@ import type { WorldTheme } from './utils';
 
 /* ------------------------------------------------------------------
    Deep sky. A bake pass renders the sky once into an equirectangular
-   texture: domain-warped emission clouds cut by dark dust lanes, bright
-   star-forming knots, the Milky Way band, thousands of faint stars and
-   the glow around the sun. The dome then samples it, so the per-frame
-   cost is one texture read. The same texture lights the scene: it is
-   filtered into the environment map the stations' metal reflects.
+   texture, then the dome samples it, so the per-frame cost is one read.
+
+   The Milky Way is built in its own frame (galactic longitude towards
+   the bulge, latitude off the plane): a thin disc with faint wings,
+   brighter and thicker towards the centre, textured by star clouds and
+   the fine grain of unresolved stars, and cut by filamentary dust lanes
+   that hug the plane (one long rift running off the centre), which
+   absorb and redden whatever lies behind them. Noise for anything in
+   the band is sampled with the plane direction stretched, so features
+   run along it the way they really do.
+
+   Nebulae are local: a handful of star-forming complexes strung along
+   the plane, each with a ragged outline, billowy gas threaded with
+   filaments, dark dust pillars in silhouette and a lit core that
+   brightens and whitens the gas around it. Between them the sky is
+   dark, with only a faint diffuse glow.
+
+   The same texture lights the scene: it is filtered into the
+   environment map the stations' metal reflects.
    ------------------------------------------------------------------ */
 const bakeVertex = /* glsl */ `
   varying vec2 vUv;
@@ -48,13 +64,17 @@ const bakeFragment = /* glsl */ `
   uniform float uStrength;
   uniform float uLight;
   uniform vec3 uBase;
-  uniform vec3 uColorA;
-  uniform vec3 uColorB;
-  uniform vec3 uColorC;
+  uniform vec3 uReflection;
+  uniform vec3 uOxygen;
+  uniform vec3 uHydrogen;
   uniform vec3 uDust;
   uniform vec3 uMilky;
   uniform vec3 uSun;
   uniform vec3 uGalactic;
+  uniform vec3 uCentre;
+  uniform vec3 uEast;
+  uniform vec4 uNebula[NEBULAE];
+  uniform float uNebulaKind[NEBULAE];
   varying vec2 vUv;
   ${noiseGlsl}
 
@@ -64,9 +84,32 @@ const bakeFragment = /* glsl */ `
     return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
   }
 
-  float warped(vec3 p) {
-    vec3 q = vec3(fbm(p), fbm(p + vec3(5.2, 1.3, 2.8)), fbm(p + vec3(1.7, 9.2, 3.1)));
-    return fbm(p + 1.7 * q);
+  // Billowy: layered |noise|, the texture of lit gas
+  float turbulence(vec3 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    for (int i = 0; i < OCTAVES; i++) {
+      value += amplitude * abs(snoise(p));
+      p *= 2.07;
+      amplitude *= 0.5;
+    }
+    return value;
+  }
+
+  // Ridged: sharp bright lines where the noise crosses zero, for filaments and lanes
+  float ridged(vec3 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    float weight = 1.0;
+    for (int i = 0; i < OCTAVES; i++) {
+      float n = 1.0 - abs(snoise(p));
+      n *= n;
+      value += amplitude * n * weight;
+      weight = clamp(n * 2.0, 0.0, 1.0);
+      p *= 2.1;
+      amplitude *= 0.5;
+    }
+    return value;
   }
 
   // Faint stars: one candidate per grid cell, most cells empty
@@ -85,48 +128,104 @@ const bakeFragment = /* glsl */ `
     float lon = (vUv.x - 0.5) * 6.2831853;
     float lat = (vUv.y - 0.5) * 3.1415926;
     vec3 dir = vec3(cos(lat) * cos(lon), sin(lat), cos(lat) * sin(lon));
+    float dark = 1.0 - uLight;
 
-    // Milky Way: a soft band around the galactic plane with a brighter core
-    float g = dot(dir, uGalactic);
-    float band = exp(-g * g * 14.0);
-    float core = exp(-g * g * 70.0);
+    // ----- The Milky Way, in the galactic frame -----
+    float gx = dot(dir, uCentre);
+    float gy = dot(dir, uGalactic);
+    float gz = dot(dir, uEast);
+    // Features along the plane: the across-plane axis is stretched
+    vec3 along = vec3(gx, gy * 2.6, gz);
+    float toCentre = gx * 0.5 + 0.5;
+    float glon = atan(gz, gx);
+    // The plane wanders a little, so the band is never a ruled line
+    float b = asin(clamp(gy, -1.0, 1.0)) + 0.09 * fbm(along * 1.6 + 3.0);
+    float ab = abs(b);
 
-    // Emission clouds, warped into filaments
-    float n = warped(dir * 1.25);
-    float cloudA = smoothstep(-0.05, 0.85, n);
-    float cloudB = smoothstep(0.05, 0.85, warped(dir * 1.9 + vec3(4.0, 0.7, 1.3)));
-    float cloudC = smoothstep(0.3, 0.95, warped(dir * 2.6 - vec3(2.0, 1.0, 0.5)));
-    float detail = fbm(dir * 7.0 + n * 2.0) * 0.5 + 0.5;
+    // A thin disc with wide faint wings, thicker and brighter towards the bulge
+    float thick = 0.06 + 0.07 * toCentre * toCentre;
+    float disc = exp(-pow(ab / thick, 1.35));
+    float wings = exp(-ab / 0.3) * 0.08;
+    float bulge = exp(-(ab * ab) / 0.06) * exp(-(1.0 - gx) * 3.2);
+    // Star clouds at two scales, and the grain of countless unresolved stars
+    float clouds = (0.4 + 0.8 * smoothstep(-0.3, 0.7, fbm(along * 3.3 + 11.0))) *
+      (0.75 + 0.4 * smoothstep(-0.5, 0.5, fbm(along * 9.0 + 23.0)));
+    float grain = 0.82 + 0.36 * snoise(along * 46.0) * disc;
+    float band = (disc * clouds * grain + wings) * (0.4 + 0.6 * toCentre) + bulge * 1.1;
+    // Cool white out in the arms, warming to cream only around the bulge
+    vec3 bandColour = mix(uMilky, vec3(1.0, 0.88, 0.7), clamp(bulge * 0.9 + toCentre * toCentre * 0.2, 0.0, 1.0));
 
-    // Bright star-forming knots where the clouds are densest
-    float knots = smoothstep(0.55, 0.95, cloudA * detail * 1.6) * smoothstep(0.2, 0.6, cloudB);
+    // Dust lanes: ridged filaments hugging the plane, and the great rift off the centre
+    float lanes = ridged(along * 4.2 + vec3(0.6 * fbm(along * 1.3 + 7.0)));
+    float laneMask = exp(-(ab * ab) / 0.012);
+    float riftPath = abs(b - 0.025 - 0.02 * snoise(along * 2.0 + 5.0));
+    float rift = smoothstep(0.07, 0.015, riftPath) * smoothstep(-0.15, 0.15, glon) * smoothstep(1.9, 1.2, glon);
+    float dust = smoothstep(0.25, 0.95, clamp(lanes * 1.4 * laneMask + rift * (0.6 + 0.5 * lanes), 0.0, 1.0));
+    float absorb = dust * 0.9 * (1.0 - uLight * 0.7);
 
-    // Dust lanes: ridged noise, strongest along the band
-    float ridge = 1.0 - abs(fbm(dir * 3.4 + vec3(n * 1.4)));
-    float lanes = smoothstep(0.6, 0.97, ridge) * (0.35 + 0.65 * band);
-    float rift = smoothstep(0.55, 0.9, 1.0 - abs(fbm(dir * 2.2 + 3.0))) * core;
+    // ----- Nebula complexes -----
+    float mask = 0.0;
+    float kind = 0.0;
+    float lit = 0.0;
+    float edge = fbm(dir * 2.6 + 5.0);
+    for (int i = 0; i < NEBULAE; i++) {
+      vec4 n = uNebula[i];
+      float a = acos(clamp(dot(dir, n.xyz), -1.0, 1.0));
+      float r = n.w * (0.7 + 0.55 * edge);
+      float m = smoothstep(r, r * 0.25, a);
+      mask += m;
+      kind += m * uNebulaKind[i];
+      lit += exp(-a * a / (n.w * n.w * 0.06));
+    }
+    kind /= max(mask, 1e-3);
+    mask = clamp(mask, 0.0, 1.0);
 
+    // ----- Compose, back to front -----
     vec3 col = uBase;
-    col = mix(col, uColorA, cloudA * uStrength);
-    col = mix(col, uColorB, cloudB * uStrength * 0.75);
-    col = mix(col, uColorC, cloudC * uStrength * 0.5);
-    col += uMilky * band * (0.25 + 0.75 * detail) * 0.22 * (1.0 - uLight * 0.6);
-    col += uMilky * core * detail * 0.18 * (1.0 - uLight);
-    col += mix(uColorC, vec3(1.0, 0.85, 0.95), 0.4) * knots * 0.35 * (1.0 - uLight * 0.7);
-    // Dust absorbs: darkens and reddens what is behind it
-    float absorb = clamp(lanes * 0.8 + rift * 0.9, 0.0, 1.0) * mix(1.0, 0.35, uLight);
-    col = mix(col, uDust, absorb);
+    // A faint diffuse glow, so the deep sky is never flat
+    col += uReflection * 0.07 * dark * smoothstep(-0.3, 0.8, fbm(dir * 0.9 + 17.0));
+    // Kept under the bloom threshold: only the bulge's core is allowed to glow,
+    // or the whole band blooms into a halo of fog
+    col += bandColour * band * 0.14 * (1.0 - uLight * 0.65);
 
-    // Faint stars, denser in the band, hidden behind thick dust
-    float s = stars(dir, 420.0, 0.012 + 0.03 * band) + stars(dir, 900.0, 0.02 + 0.05 * band) * 0.6;
+    // Faint stars, denser in the band
+    float s = stars(dir, 420.0, 0.012 + 0.04 * disc) + stars(dir, 900.0, 0.02 + 0.06 * disc) * 0.6;
     vec3 starTint = mix(vec3(0.75, 0.82, 1.0), vec3(1.0, 0.86, 0.7), hash(floor(dir * 420.0) + 3.3));
-    col += starTint * s * (1.0 - absorb * 0.85) * (1.0 - uLight);
+    col += starTint * s * dark;
+
+    // Dust absorbs: darkens and reddens what is behind it
+    col = mix(col, uDust * (0.6 + 0.4 * band), absorb);
+
+    if (mask > 0.002) {
+      vec3 q = dir * 3.4;
+      vec3 w = vec3(fbm(q + 1.7), fbm(q + 8.3), fbm(q + 4.1));
+      float gas = turbulence(q + w * 0.9 + 20.0);
+      float filaments = ridged(dir * 7.0 + w * 1.4 + 30.0);
+      float pillars = ridged(dir * 4.6 + w * 0.5 + 50.0);
+      float body = smoothstep(0.2, 0.7, gas) * (0.6 + 0.8 * filaments);
+      // Dust pillars in silhouette where the gas is thick
+      float occlusion = smoothstep(0.6, 0.95, pillars) * smoothstep(0.3, 0.9, gas) * mask * 0.85 * (1.0 - uLight * 0.75);
+      col *= 1.0 - occlusion;
+      // Hydrogen pink or oxygen teal, drifting across each complex; the cores whiten
+      float drift = clamp(kind + 0.35 * fbm(dir * 1.4 + 9.0), 0.0, 1.0);
+      vec3 emission = mix(uHydrogen, uOxygen, drift);
+      float core = clamp(lit, 0.0, 1.0);
+      emission = mix(emission, vec3(1.0, 0.96, 0.9), core * 0.25);
+      float amount = clamp(body * mask * uStrength * (1.0 + 1.6 * core), 0.0, 1.0);
+      // Dark sky: the gas glows. Light sky: it tints
+      col += emission * amount * 0.95 * dark;
+      col = mix(col, emission, min(amount * 1.4, 1.0) * uLight);
+      // The core's light scattered by the gas around it, and a bluish reflection
+      col += (emission * 0.2 + uReflection * 0.25) * core * gas * mask * dark;
+    }
 
     // Glow around the sun
     float sun = max(dot(dir, uSun), 0.0);
     col += vec3(1.0, 0.9, 0.78) * (pow(sun, 48.0) * 0.5 + pow(sun, 6.0) * 0.06) * mix(1.0, 0.4, uLight);
 
-    gl_FragColor = vec4(col, 1.0);
+    // Alpha: where the dome adds the fine grain of unresolved stars at screen resolution
+    float grainy = clamp((disc * clouds + bulge) * dark, 0.0, 1.0) * (1.0 - absorb);
+    gl_FragColor = vec4(col, grainy);
   }
 `;
 
@@ -140,10 +239,14 @@ const domeVertex = /* glsl */ `
 
 // The bake is magnified several times on screen, where plain bilinear
 // filtering shows its texel grid along the sharp dust lanes. A cubic
-// B-spline (four bilinear taps) keeps the sky smooth.
+// B-spline (four bilinear taps) keeps the sky smooth, and the band gets
+// the fine grain of unresolved stars added at screen resolution (the
+// bake's alpha says where), so it never reads as a soft smear up close.
 const domeFragment = /* glsl */ `
   uniform sampler2D uMap;
+  uniform sampler2D uGrainMap;
   uniform vec2 uSize;
+  uniform float uGrain;
   varying vec3 vDir;
 
   vec4 cubic(float v) {
@@ -155,7 +258,7 @@ const domeFragment = /* glsl */ `
     return vec4(x, y, z, 6.0 - x - y - z) * (1.0 / 6.0);
   }
 
-  vec3 bicubic(vec2 uv) {
+  vec4 bicubic(vec2 uv) {
     uv = uv * uSize - 0.5;
     vec2 f = fract(uv);
     uv -= f;
@@ -164,10 +267,10 @@ const domeFragment = /* glsl */ `
     vec4 c = uv.xxyy + vec2(-0.5, 1.5).xyxy;
     vec4 s = vec4(xc.xz + xc.yw, yc.xz + yc.yw);
     vec4 o = (c + vec4(xc.yw, yc.yw) / s) / uSize.xxyy;
-    vec3 s0 = texture2D(uMap, o.xz).rgb;
-    vec3 s1 = texture2D(uMap, o.yz).rgb;
-    vec3 s2 = texture2D(uMap, o.xw).rgb;
-    vec3 s3 = texture2D(uMap, o.yw).rgb;
+    vec4 s0 = texture2D(uMap, o.xz);
+    vec4 s1 = texture2D(uMap, o.yz);
+    vec4 s2 = texture2D(uMap, o.xw);
+    vec4 s3 = texture2D(uMap, o.yw);
     float sx = s.x / (s.x + s.y);
     float sy = s.z / (s.z + s.w);
     return mix(mix(s3, s2, sx), mix(s1, s0, sx), sy);
@@ -178,14 +281,35 @@ const domeFragment = /* glsl */ `
     float lon = atan(dir.z, dir.x);
     float lat = asin(clamp(dir.y, -1.0, 1.0));
     vec2 uv = vec2(fract(lon / 6.2831853 + 0.5), lat / 3.1415926 + 0.5);
-    gl_FragColor = vec4(bicubic(uv), 1.0);
+    vec4 sky = bicubic(uv);
+    vec3 col = sky.rgb;
+    if (uGrain > 0.0 && sky.a > 0.003) {
+      // Random texels, bilinear between them: value noise at ~4px and ~12px on screen
+      float g = texture2D(uGrainMap, uv * vec2(9.0, 4.5)).r * 0.55 +
+        texture2D(uGrainMap, uv * vec2(3.0, 1.5)).g * 0.45;
+      col *= 1.0 + uGrain * sky.a * (g - 0.5) * 1.1;
+    }
+    gl_FragColor = vec4(col, 1.0);
   }
 `;
+
+/** A small tile of random texels; the dome reads it, magnified, as star grain */
+function createGrainMap() {
+  const size = 256;
+  const data = new Uint8Array(size * size * 4);
+  for (let i = 0; i < data.length; i++) data[i] = Math.floor(Math.random() * 256);
+  const texture = new DataTexture(data, size, size);
+  texture.wrapS = texture.wrapT = RepeatWrapping;
+  texture.minFilter = texture.magFilter = LinearFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
 /** Strips per bake: each is one frame's work, so no single draw stalls the GPU */
-const strips = 8;
+const stripsFor = (height: number) => Math.max(8, Math.round(height / 128));
 
 /** Compiles the (heavy) bake shader in the background, then renders the sky a strip per frame */
 async function bakeNebula(
@@ -201,15 +325,25 @@ async function bakeNebula(
       uStrength: { value: palette.nebulaStrength },
       uLight: { value: theme === 'light' ? 1 : 0 },
       uBase: { value: new Color(palette.background) },
-      uColorA: { value: new Color(palette.nebula[0]) },
-      uColorB: { value: new Color(palette.nebula[1]) },
-      uColorC: { value: new Color(palette.nebula[2]) },
-      uDust: { value: new Color(theme === 'light' ? '#dcd6ec' : '#030308') },
-      uMilky: { value: new Color(theme === 'light' ? '#ffffff' : '#c7c9ff') },
+      // The three gases: reflection violet, oxygen teal, hydrogen pink. They glow
+      // on the dark sky (the accents) and tint the light one (its pastels)
+      uReflection: { value: new Color(theme === 'light' ? palette.nebula[0] : palette.violet) },
+      uOxygen: { value: new Color(theme === 'light' ? palette.nebula[1] : palette.cyan) },
+      uHydrogen: { value: new Color(theme === 'light' ? palette.nebula[2] : palette.pink) },
+      uDust: { value: new Color(theme === 'light' ? '#d4cde6' : '#120b0a') },
+      uMilky: { value: new Color(theme === 'light' ? '#ffffff' : '#cfd3ff') },
       uSun: { value: sunDirection },
       uGalactic: { value: galacticNormal },
+      uCentre: { value: galacticCentre },
+      uEast: { value: galacticEast },
+      uNebula: {
+        value: nebulae.map(
+          (n) => new Vector4(n.direction.x, n.direction.y, n.direction.z, n.radius)
+        ),
+      },
+      uNebulaKind: { value: nebulae.map((n) => n.kind) },
     },
-    defines: { OCTAVES: octaves },
+    defines: { OCTAVES: octaves, NEBULAE: nebulae.length },
     vertexShader: bakeVertex,
     fragmentShader: bakeFragment,
     depthTest: false,
@@ -227,6 +361,7 @@ async function bakeNebula(
   await compiled;
 
   const { width, height } = target;
+  const strips = stripsFor(height);
   for (let i = 0; i < strips && isCurrent(); i++) {
     const restore = renderer.getRenderTarget();
     renderer.setRenderTarget(target);
@@ -255,6 +390,7 @@ function buildEnvironment(renderer: WebGLRenderer, sky: WebGLRenderTarget, theme
     uniforms: {
       uMap: { value: sky.texture },
       uSize: { value: new Vector2(sky.width, sky.height) },
+      uGrain: { value: 0 },
     },
     vertexShader: domeVertex,
     fragmentShader: domeFragment,
@@ -322,12 +458,15 @@ export function Nebula({
     return target;
   }, [size]);
 
+  const grainMap = useMemo(() => createGrainMap(), []);
   const material = useMemo(
     () =>
       new ShaderMaterial({
         uniforms: {
           uMap: { value: target.texture },
+          uGrainMap: { value: grainMap },
           uSize: { value: new Vector2(target.width, target.height) },
+          uGrain: { value: 1 },
         },
         vertexShader: domeVertex,
         fragmentShader: domeFragment,
@@ -335,7 +474,7 @@ export function Nebula({
         depthWrite: false,
         fog: false,
       }),
-    [target]
+    [target, grainMap]
   );
 
   // A same-sized stand-in, so everything compiles against the final
@@ -368,8 +507,9 @@ export function Nebula({
     () => () => {
       material.dispose();
       target.dispose();
+      grainMap.dispose();
     },
-    [material, target]
+    [material, target, grainMap]
   );
 
   useFrame(({ camera }) => {
