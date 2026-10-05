@@ -3,14 +3,21 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { easing } from 'maath';
-import { Euler, MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
+import { MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 
-import { bezier, parameterAt, planFlight, smootherstep } from './flight';
+import {
+  bezier,
+  flightRotation,
+  lookRotation,
+  parameterAt,
+  planFlight,
+  smootherstep,
+} from './flight';
 import { baseFov, stationCamera, stationPositions } from './stations';
 import { worldMode } from './worldMode';
 import { emitFlight, worldStore } from './worldStore';
 
-import type { Flight } from './flight';
+import type { Flight, FlightView } from './flight';
 import type { StationKey } from './stations';
 import type { WorldMode } from './worldMode';
 
@@ -22,19 +29,11 @@ const previous = new Vector3();
 const correction = new Vector3();
 const forward = new Vector3();
 const toPoint = new Vector3();
-const euler = new Euler(0, 0, 0, 'YXZ');
+const rotationTo = new Quaternion();
 const bank = new Quaternion();
 const yAxis = new Vector3(0, 1, 0);
 const zAxis = new Vector3(0, 0, 1);
 const introOffset = new Vector3(-14, 10, 58);
-
-/** Camera yaw (camera convention: 0 looks down -Z) and pitch towards a point */
-function aim(from: Vector3, to: Vector3) {
-  toPoint.subVectors(to, from);
-  const yaw = Math.atan2(-toPoint.x, -toPoint.z);
-  const pitch = Math.atan2(toPoint.y, Math.hypot(toPoint.x, toPoint.z));
-  return { yaw, pitch: MathUtils.clamp(pitch, -1.35, 1.35) };
-}
 
 /** Shortest signed angle from `a` to `b` */
 const wrap = (angle: number) => MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
@@ -47,9 +46,9 @@ interface RigState {
   mode: WorldMode;
   flight: Flight | null;
   approached: boolean;
-  /** Which way the camera turns during the current flight (fixed so it never flips) */
-  turn: number;
-  yaw: number;
+  view: FlightView;
+  /** Heading on the previous frame (radians), for banking into turns */
+  heading: number | null;
   roll: number;
   velocity: Vector3;
   arrivedAt: number;
@@ -76,8 +75,8 @@ export function CameraRig({
     mode: 'page',
     flight: null,
     approached: false,
-    turn: 0,
-    yaw: 0,
+    view: { ahead: new Vector3(), started: false },
+    heading: null,
     roll: 0,
     velocity: new Vector3(),
     arrivedAt: 0,
@@ -138,14 +137,10 @@ export function CameraRig({
       if (reducedMotion) cam.position.copy(target);
       else {
         cam.position.copy(target).add(introOffset);
+        cam.lookAt(look);
         startFlight(rig, cam, station);
       }
     } else if (retarget && !reducedMotion) {
-      if (rig.mode === 'explore') {
-        // Pick up from where the visitor was looking
-        forward.set(0, 0, -1).applyQuaternion(cam.quaternion);
-        lookCurrent.copy(cam.position).addScaledVector(forward, 20);
-      }
       startFlight(rig, cam, station);
     }
     rig.station = station;
@@ -179,22 +174,21 @@ export function CameraRig({
 }
 
 function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey) {
-  const flight = planFlight(cam.position, lookCurrent, target, look, rig.velocity);
+  // Plan from wherever the camera is and however it is turned: mid-flight,
+  // banked, or wherever the visitor left it in explore mode
+  const flight = planFlight(cam.position, cam.quaternion, target, look, rig.velocity);
   rig.flight = flight;
   rig.approached = false;
   if (!flight) return;
-  // Choose the turning direction once, so the camera never swaps sides mid-turn
-  const from = aim(cam.position, lookCurrent);
-  const to = aim(target, look);
-  rig.turn = wrap(to.yaw - from.yaw);
-  rig.yaw = from.yaw;
+  rig.view.started = false;
+  rig.heading = null;
+  // Any bank the camera carried is in its starting rotation, which blends out
   rig.roll = 0;
 
-  const path = new Float32Array(26 * 2);
+  const path = new Float32Array(26 * 3);
   for (let i = 0; i <= 25; i++) {
     bezier(flight, i / 25, toPoint);
-    path[i * 2] = toPoint.x;
-    path[i * 2 + 1] = toPoint.z;
+    toPoint.toArray(path, i * 3);
   }
   worldStore.flight.active = true;
   worldStore.flight.to = station;
@@ -218,32 +212,23 @@ function fly(rig: RigState, cam: PerspectiveCamera, station: StationKey, dt: num
 
   // Position on the curve, drifting onto the live target (scroll, pointer and
   // resizes keep moving it) over the second half
-  bezier(flight, parameterAt(flight, eased), cam.position);
+  const u = parameterAt(flight, eased);
+  bezier(flight, u, cam.position);
   correction.subVectors(target, flight.p3).multiplyScalar(smootherstep((s - 0.5) / 0.5));
   cam.position.add(correction);
 
-  // Turn from the old focus to the new one over the first 70% of the flight,
-  // always the same way round; pitch follows whichever point dominates
-  const from = aim(cam.position, flight.lookFrom);
-  const to = aim(cam.position, look);
-  const w = smootherstep((s - 0.06) / 0.64);
-  let span = wrap(to.yaw - from.yaw);
-  if (Math.sign(span) !== Math.sign(rig.turn) && Math.abs(span) > Math.PI / 2) {
-    span += Math.sign(rig.turn) * Math.PI * 2;
-  }
-  const yaw = from.yaw + span * w;
-  const pitch = MathUtils.lerp(from.pitch, to.pitch, w);
+  // Planned rotation into the live destination view (see flightRotation)
+  lookRotation(target, look, rotationTo);
+  flightRotation(flight, rig.view, s, u, rotationTo, dt, cam.quaternion);
 
-  // Bank into the turn, levelling out as it ends
-  const yawRate = wrap(yaw - rig.yaw) / Math.max(dt, 1e-4);
-  rig.yaw = yaw;
-  const roll = MathUtils.clamp(yawRate * 0.18, -0.32, 0.32) * (1 - smootherstep((s - 0.6) / 0.3));
-  rig.roll = MathUtils.damp(rig.roll, roll, 6, dt);
-
-  euler.set(pitch, yaw, 0, 'YXZ');
-  cam.quaternion.setFromEuler(euler);
-  bank.setFromAxisAngle(zAxis, rig.roll);
-  cam.quaternion.multiply(bank);
+  // Bank into heading changes, levelling out for the arrival
+  forward.set(0, 0, -1).applyQuaternion(cam.quaternion);
+  const heading = Math.atan2(forward.x, -forward.z);
+  const rate = rig.heading === null ? 0 : wrap(heading - rig.heading) / Math.max(dt, 1e-4);
+  rig.heading = heading;
+  const level = 1 - smootherstep((s - 0.65) / 0.3);
+  rig.roll = MathUtils.damp(rig.roll, MathUtils.clamp(-rate * 0.15, -0.25, 0.25), 5, dt);
+  cam.quaternion.multiply(bank.setFromAxisAngle(zAxis, rig.roll * level));
 
   worldStore.flight.progress = s;
   if (!rig.approached && s >= 0.6) {
@@ -264,4 +249,7 @@ function record(cam: PerspectiveCamera) {
   worldStore.camera.y = cam.position.y;
   worldStore.camera.z = cam.position.z;
   worldStore.camera.heading = Math.atan2(forward.x, -forward.z);
+  worldStore.camera.fx = forward.x;
+  worldStore.camera.fy = forward.y;
+  worldStore.camera.fz = forward.z;
 }

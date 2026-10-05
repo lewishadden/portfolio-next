@@ -1,7 +1,7 @@
 import { expect, openHydrated, test } from './fixtures';
 
-test.describe('project grid modal', () => {
-  test('opens at the project URL and closes back to the grid', async ({ page }) => {
+test.describe('project modal', () => {
+  test('opens at the project URL and closes back to the list', async ({ page }) => {
     await openHydrated(page, '/projects');
     const card = page.getByRole('link', { name: 'View details for Drive King' });
     await expect(card).toHaveAttribute('href', '/projects/drive-king');
@@ -10,7 +10,7 @@ test.describe('project grid modal', () => {
     await expect(page).toHaveURL(/\/projects\/drive-king$/);
     const dialog = page.getByRole('dialog', { name: 'Drive King' });
     await expect(dialog).toBeVisible();
-    // The grid stays mounted underneath — no navigation happened
+    // The project steps stay mounted underneath: no navigation happened
     await expect(page.getByRole('heading', { level: 1, name: 'Selected projects' })).toBeAttached();
 
     await page.keyboard.press('Escape');
@@ -34,12 +34,12 @@ test.describe('project grid modal', () => {
     await expect(page).toHaveURL(/\/projects\/sidenote$/);
   });
 
-  test('keeps the grid scroll position', async ({ page }) => {
+  test('keeps the scroll position', async ({ page }) => {
     await openHydrated(page, '/projects');
     const card = page.getByRole('link', { name: 'View details for Audex' });
     const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
 
-    // Where the visitor left the grid: scroll the card into view and let the
+    // Where the visitor left the list: scroll the card into view and let the
     // smooth scrolling (CSS + Lenis) settle before clicking
     await card.scrollIntoViewIfNeeded();
     let settled = -1;
@@ -59,6 +59,25 @@ test.describe('project grid modal', () => {
     await expect(page.getByRole('dialog')).toBeHidden();
     // The dialog pins the page while open, snapping back anything that scrolls it
     await expect.poll(scrollY).toBe(settled);
+  });
+});
+
+test.describe('project steps', () => {
+  test('the index jumps to a project and follows the scroll', async ({ page }) => {
+    await openHydrated(page, '/projects');
+    const index = page.getByRole('navigation', { name: 'Jump to a project' });
+    const first = index.getByRole('button').first();
+    await expect(first).toHaveAttribute('aria-current', 'true');
+
+    const sidenote = index.getByRole('button', { name: 'Sidenote' });
+    await sidenote.click();
+    await expect(sidenote).toHaveAttribute('aria-current', 'true');
+    await expect(first).not.toHaveAttribute('aria-current', 'true');
+    await expect(page.locator('.proj-step--active h2')).toHaveText('Sidenote');
+
+    // Every project stays a real, crawlable link to its own page
+    const links = page.getByRole('link', { name: /^View details for / });
+    await expect(links).toHaveCount(await index.getByRole('button').count());
   });
 });
 

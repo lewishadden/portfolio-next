@@ -95,7 +95,7 @@ export function HomeStation({ theme }: { theme: WorldTheme }) {
     if (portalRef.current) portalRef.current.rotation.z = t * 0.05;
     if (orbitRef.current) orbitRef.current.rotation.z = -t * 0.08;
     if (outerRef.current) outerRef.current.rotation.z = t * 0.03;
-    if (hubRef.current) hubRef.current.rotation.y = 0.7 + t * 0.02;
+    if (hubRef.current) hubRef.current.rotation.y = 0.7 + t * 0.045;
   });
 
   return (

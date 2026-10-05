@@ -1,13 +1,14 @@
 'use client';
 
 import { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import {
   BoxGeometry,
   CanvasTexture,
   Color,
   CylinderGeometry,
   DoubleSide,
+  Group,
   InstancedMesh,
   LatheGeometry,
   Matrix4,
@@ -23,6 +24,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
+import type { ReactNode } from 'react';
 import type { BufferGeometry } from 'three';
 import type { GroupProps } from './types';
 
@@ -341,6 +343,37 @@ export function NavLights({
           });
         }}
       />
+    </group>
+  );
+}
+
+/**
+ * Turns a craft slowly about its own vertical axis, or with `sweep`
+ * (radians) swings it back and forth like a dish tracking a signal. `speed`
+ * is the turn rate in radians per second (the peak rate when sweeping).
+ * Still for reduced motion: on-demand frames would make it jump.
+ */
+export function Spin({
+  speed = 0.06,
+  sweep = 0,
+  phase = 0,
+  children,
+  ...props
+}: GroupProps & { speed?: number; sweep?: number; phase?: number; children: ReactNode }) {
+  const ref = useRef<Group>(null);
+  const still = useThree((s) => s.frameloop === 'demand');
+
+  useFrame(({ clock }) => {
+    const group = ref.current;
+    if (!group || still) return;
+    const t = clock.elapsedTime;
+    group.rotation.y =
+      sweep > 0 ? Math.sin(t * (speed / sweep) + phase) * sweep : phase + t * speed;
+  });
+
+  return (
+    <group ref={ref} {...props}>
+      {children}
     </group>
   );
 }

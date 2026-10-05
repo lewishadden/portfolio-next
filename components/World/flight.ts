@@ -5,27 +5,37 @@ import { stationKeys, stationPositions } from './stations';
 /* ------------------------------------------------------------------
    Camera flights between stations.
 
-   A flight is a cubic Bézier: the camera backs away from where it is
-   (rising, so it clears the station it leaves), arcs over anything in
-   the way and arrives along the destination's own viewing axis, so it
-   never passes through a station or swings round at the last moment.
+   A flight is a cubic Bézier: the camera rises as it leaves, arcs over
+   anything in the way and settles onto the destination's viewing pose.
    Distance along the curve follows a smootherstep, so speed rises and
    falls without a jolt at either end.
+
+   The camera's rotation is planned too, not aimed at points from
+   wherever it happens to be (that swings wildly as it passes them):
+   `flightRotation` blends the starting view into the destination's,
+   leaning a little into the direction of travel when that is roughly
+   ahead. Every station is framed looking the same way down the line,
+   so a flight back towards Home never turns the camera round: it pulls
+   back over the stations and settles, nose dipped to watch them go.
    ------------------------------------------------------------------ */
 
 const samples = 48;
 const up = new Vector3(0, 1, 0);
+const xAxis = new Vector3(1, 0, 0);
+const origin = new Vector3();
 const scratch = new Vector3();
 const scratchB = new Vector3();
+const forward = new Vector3();
 const lookMatrix = new Matrix4();
+const turn = new Quaternion();
 
 export interface Flight {
   p0: Vector3;
   p1: Vector3;
   p2: Vector3;
   p3: Vector3;
-  /** Where the camera looked when the flight began */
-  lookFrom: Vector3;
+  /** The camera's rotation when the flight began */
+  rotationFrom: Quaternion;
   /** Cumulative arc length at each of `samples + 1` evenly spaced curve parameters */
   lengths: Float32Array;
   length: number;
@@ -86,16 +96,25 @@ export function parameterAt(f: Flight, fraction: number) {
   return (lo + (target - f.lengths[lo]) / span) / samples;
 }
 
-/** Closest distance from any station (other than the ends) to the curve */
-function clearance(f: Flight, skip: Vector3[]) {
+/**
+ * How far the curve stays outside every station's keep-out radius (negative
+ * when it cuts in). The stations it leaves and reaches are framed from ~11
+ * units out, so they get a tighter radius and only the stretch between the
+ * ends is checked against them.
+ */
+function clearance(f: Flight, fromLook: Vector3, toLook: Vector3) {
   let closest = Infinity;
   const point = new Vector3();
   for (let i = 1; i < samples; i++) {
-    bezier(f, i / samples, point);
+    const t = i / samples;
+    bezier(f, t, point);
     for (const key of stationKeys) {
       scratch.fromArray(stationPositions[key]);
-      if (skip.some((s) => s.distanceToSquared(scratch) < 400)) continue;
-      closest = Math.min(closest, point.distanceTo(scratch));
+      const isFrom = scratch.distanceToSquared(fromLook) < 400;
+      const isTo = scratch.distanceToSquared(toLook) < 400;
+      if ((isFrom && t < 0.04) || (isTo && t > 0.96)) continue;
+      const radius = isFrom || isTo ? 8 : 14;
+      closest = Math.min(closest, point.distanceTo(scratch) - radius);
     }
   }
   return closest;
@@ -108,7 +127,7 @@ function clearance(f: Flight, skip: Vector3[]) {
  */
 export function planFlight(
   fromPos: Vector3,
-  fromLook: Vector3,
+  fromRotation: Quaternion,
   toPos: Vector3,
   toLook: Vector3,
   velocity: Vector3
@@ -121,7 +140,7 @@ export function planFlight(
     p1: new Vector3(),
     p2: new Vector3(),
     p3: toPos.clone(),
-    lookFrom: fromLook.clone(),
+    rotationFrom: fromRotation.clone(),
     lengths: new Float32Array(samples + 1),
     length: 0,
     duration: 0,
@@ -130,35 +149,87 @@ export function planFlight(
 
   // Short hops (docking, small adjustments) barely arc
   const reach = MathUtils.clamp(distance * 0.3, 1.5, 70);
-  let lift = MathUtils.clamp(distance * 0.12, 0, 26);
+  let lift = MathUtils.clamp(distance * 0.1, 0, 22);
 
-  // Leave by backing away from what the camera is looking at, or keep the
-  // momentum of a flight already under way
-  const away = new Vector3().subVectors(fromPos, fromLook).normalize();
+  const toward = new Vector3().subVectors(toPos, fromPos).normalize();
+  const viewFrom = new Vector3(0, 0, -1).applyQuaternion(fromRotation);
+  const fromLook = fromPos.clone().addScaledVector(viewFrom, 12);
   const arrival = new Vector3().subVectors(toPos, toLook).normalize();
+  // Arrive along the destination's viewing axis when travelling the way it
+  // faces; flying back against it, settle while still drifting back (turning
+  // round to come in head-first is what used to send the camera into a spin)
+  const ahead = -toward.dot(arrival);
+  const arrive = MathUtils.lerp(-0.3, 1, MathUtils.smoothstep(ahead, -0.3, 0.5));
   const moving = velocity.length() > 6;
+
   const plan = () => {
+    // Head off towards the destination, easing back from the view, and climb
     if (moving) f.p1.copy(fromPos).addScaledVector(velocity, 0.35);
-    else f.p1.copy(fromPos).addScaledVector(away, reach * 0.6);
+    else {
+      f.p1
+        .copy(fromPos)
+        .addScaledVector(toward, reach * 0.4)
+        .addScaledVector(viewFrom, -reach * 0.2);
+    }
     f.p1.addScaledVector(up, lift);
-    // Arrive along the destination's viewing axis, from out in front of it
     f.p2
       .copy(toPos)
-      .addScaledVector(arrival, reach)
+      .addScaledVector(arrival, reach * arrive)
       .addScaledVector(up, lift * 0.8);
     measure(f);
   };
   plan();
 
-  // Lift the arc until it clears every station it would otherwise skim
-  const ends = [fromLook, toLook];
-  for (let i = 0; i < 4 && distance > 20 && clearance(f, ends) < 14; i++) {
-    lift += 12;
+  // Raise the arc until it clears every station it would otherwise skim
+  for (let i = 0; i < 6 && distance > 20 && clearance(f, fromLook, toLook) < 0; i++) {
+    lift += 8;
     plan();
   }
 
   f.duration = MathUtils.clamp(1.2 + f.length / 85, 1.1, 3.6);
   return f;
+}
+
+/** Per-flight state `flightRotation` carries from frame to frame */
+export interface FlightView {
+  /** Direction of travel, smoothed so tight bends never whip the view */
+  ahead: Vector3;
+  started: boolean;
+}
+
+/**
+ * The camera's rotation `s` (0..1) of the way through a flight: the start
+ * view blended into `rotationTo`, leaning into the direction of travel
+ * mid-flight when that is roughly ahead, or dipping the nose a touch when
+ * the camera is pulling back.
+ */
+export function flightRotation(
+  f: Flight,
+  view: FlightView,
+  s: number,
+  u: number,
+  rotationTo: Quaternion,
+  dt: number,
+  out: Quaternion
+) {
+  out.copy(f.rotationFrom).slerp(rotationTo, smootherstep((s - 0.08) / 0.8));
+
+  bezierTangent(f, u, scratch);
+  if (scratch.lengthSq() > 1e-8) {
+    scratch.normalize();
+    if (!view.started) view.ahead.copy(scratch);
+    else view.ahead.lerp(scratch, 1 - Math.exp(-5 * dt)).normalize();
+    view.started = true;
+  }
+
+  forward.set(0, 0, -1).applyQuaternion(out);
+  const along = forward.dot(view.ahead);
+  const swell = Math.sin(Math.PI * s) ** 2;
+  const lean = 0.35 * MathUtils.smoothstep(along, 0.1, 0.8) * swell;
+  if (lean > 1e-4) out.slerp(lookRotation(origin, view.ahead, turn), lean);
+  const dip = 0.2 * MathUtils.smoothstep(-along, 0.2, 0.8) * swell;
+  if (dip > 1e-4) out.multiply(turn.setFromAxisAngle(xAxis, -dip));
+  return out;
 }
 
 /** Rotation that looks from `eye` at `target` (camera convention: -Z forward) */

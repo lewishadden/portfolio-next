@@ -24,7 +24,7 @@ import {
   createRingMaterial,
 } from '../materials';
 import { Model } from '../Model';
-import { NavLights } from '../parts';
+import { NavLights, Spin } from '../parts';
 import { stationInRange, useThemedMaterials, useWide } from '../stationHooks';
 import { StationHull } from '../StationHull';
 import { stationModels, stationPositions } from '../stations';
@@ -38,10 +38,11 @@ import type { WorldPalette, WorldTheme } from '../utils';
 /** Where the dish array sits, and the point on it the data link leaves from */
 const arrayPosition = new Vector3(4.3, -0.9, -3.2);
 const dishFocus = new Vector3(3.85, 0.65, -2.9);
+/** Relative to the array, which sweeps about its base */
 const arrayLights: NavLight[] = [
-  { position: [3.35, -1.55, -3.2], kind: 'red' },
-  { position: [5.25, -1.55, -3.2], kind: 'green' },
-  { position: [4.3, -1.6, -2.25], kind: 'white' },
+  { position: [-0.95, -0.65, 0], kind: 'red' },
+  { position: [0.95, -0.65, 0], kind: 'green' },
+  { position: [0, -0.7, 0.95], kind: 'white' },
 ];
 
 const radius = 2.25;
@@ -196,9 +197,27 @@ interface Spin {
   lastTime: number;
 }
 
+/**
+ * The globe sits behind the page, so the same press would also start a text
+ * selection in the copy under the pointer. Nothing selects until release.
+ */
+function holdSelection() {
+  const root = document.documentElement;
+  const block = (event: Event) => event.preventDefault();
+  window.getSelection()?.removeAllRanges();
+  root.classList.add('world-dragging');
+  document.addEventListener('selectstart', block);
+  return () => {
+    root.classList.remove('world-dragging');
+    document.removeEventListener('selectstart', block);
+  };
+}
+
 /** Starts a drag on the globe; window listeners follow the pointer until release */
 function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>) {
   e.stopPropagation();
+  e.nativeEvent.preventDefault();
+  const release = holdSelection();
   spin.dragging = true;
   spin.lastX = e.clientX;
   spin.lastY = e.clientY;
@@ -218,6 +237,7 @@ function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>) {
   };
   const end = () => {
     spin.dragging = false;
+    release();
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', end);
     window.removeEventListener('pointercancel', end);
@@ -406,10 +426,13 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
       </group>
 
       {/* The deep-space comms array, dish turned towards the globe */}
-      <group position={arrayPosition} rotation={[0.08, -2.3, 0.05]}>
-        <StationHull station="contact" height={2.5} theme={theme} />
-      </group>
-      <NavLights lights={arrayLights} />
+      {/* It sweeps a little either side, as if tracking the signal */}
+      <Spin position={arrayPosition} sweep={0.3} speed={0.05}>
+        <group rotation={[0.08, -2.3, 0.05]}>
+          <StationHull station="contact" height={2.5} theme={theme} />
+        </group>
+        <NavLights lights={arrayLights} />
+      </Spin>
       <mesh material={materials.link} position={link.position} quaternion={link.quaternion}>
         <cylinderGeometry args={[0.025, 0.025, link.length, 8, 1, true]} />
       </mesh>

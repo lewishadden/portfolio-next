@@ -14,6 +14,7 @@ import { World } from '@/components/World/World';
 import { Cursor } from '@/components/Cursor/Cursor';
 import { CommandPalette } from '@/components/CommandPalette/CommandPalette';
 import { StatsOverlay } from '@/components/StatsOverlay/StatsOverlay';
+import { RoamButton } from '@/components/RoamButton/RoamButton';
 import { ScrollProgress } from '@/components/ScrollProgress/ScrollProgress';
 
 import type { Metadata, Viewport } from 'next';
@@ -251,6 +252,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Cursor />
           <CommandPalette data={paletteData} />
           <StatsOverlay />
+          <RoamButton />
         </ClientProviders>
         <JsonLd />
         <GoogleAnalyticsDeferred gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />

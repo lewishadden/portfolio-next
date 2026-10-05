@@ -141,12 +141,11 @@ export function stationCamera(
       look.set(0, -progress * experienceDepth, 0);
       pos.set(0, eyeY, distance);
       break;
-    case 'projects': {
-      const angle = progress * Math.PI * 0.85;
-      look.set(0, -progress * 10, 0);
-      pos.set(Math.sin(angle) * distance, eyeY, Math.cos(angle) * distance);
+    case 'projects':
+      // The page turns the helix instead (worldStore.projectFocus); the camera holds still
+      look.set(0, 0, 0);
+      pos.set(0, eyeY, distance);
       break;
-    }
     case 'skills': {
       const angle = progress * 0.9;
       look.set(0, -screens * 3.2 * zoom, 0);
@@ -167,8 +166,10 @@ export function stationCamera(
   // above the copy on narrow ones. Shift along the camera's own axes.
   forward.subVectors(look, pos).normalize();
   right.crossVectors(forward, up).normalize();
-  // The skills constellation is wider than the other stations — give it more room
-  const shiftX = isWideViewport(width, height) ? (key === 'skills' ? 4.4 : 3.3) : 0;
+  // The skills constellation and the projects helix's front screen are wider
+  // than the other stations: give them more room
+  const roomy = key === 'skills' ? 4.4 : key === 'projects' ? 4.1 : 3.3;
+  const shiftX = isWideViewport(width, height) ? roomy : 0;
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
 }

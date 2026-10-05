@@ -7,6 +7,12 @@
 export const worldStore = {
   /** Page scroll progress, 0 at the top and 1 at the bottom */
   scroll: 0,
+  /**
+   * Which project the /projects page has scrolled to, as a fractional index
+   * (2.5 is halfway from the third to the fourth); -1 off that page. The
+   * helix turns it to the front.
+   */
+  projectFocus: -1,
   /** Viewport heights scrolled (scrollY / innerHeight) */
   screens: 0,
   /** Pointer position normalised to -1..1 (y up) */
@@ -18,9 +24,9 @@ export const worldStore = {
   launchAt: -1,
   /** Set by the contact form so the next frame can stamp launchAt */
   launchRequested: false,
-  /** Camera position and yaw (radians, 0 = looking down -Z), written every frame */
-  camera: { x: 0, y: 0, z: 60, heading: 0 },
-  /** The flight in progress, if any: destination station, progress 0..1 and its path (x, z pairs) */
+  /** Camera position, heading (radians about Y, 0 = -Z) and unit forward vector, every frame */
+  camera: { x: 0, y: 0, z: 60, heading: 0, fx: 0, fy: 0, fz: -1 },
+  /** The flight in progress, if any: destination station, progress 0..1 and its path (x, y, z triples) */
   flight: { active: false, to: '', progress: 0, path: new Float32Array(0) },
   /** Station the explorer is close enough to dock with, '' when none */
   dock: '',
@@ -134,7 +140,10 @@ export const exploreInput = {
   lift: 0,
   turn: 0,
   boost: false,
-  /** Accumulated look deltas in radians, consumed each frame */
+  /** Accumulated look deltas in radians from touch drags, consumed each frame */
   lookX: 0,
   lookY: 0,
+  /** Where the mouse rests, -1..1 from the centre of the screen (y down); it steers */
+  steerX: 0,
+  steerY: 0,
 };

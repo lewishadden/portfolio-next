@@ -576,3 +576,8 @@
     box-shadow: 0 0 10px var(--accent-secondary);
   }
 }
+
+/* Solid-ink brand icons (see techIcon.ts) flip to light on the dark theme */
+[data-theme='dark'] .tech-ink {
+  filter: invert(1) hue-rotate(180deg);
+}

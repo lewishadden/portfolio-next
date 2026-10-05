@@ -136,7 +136,7 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
               <kbd>W</kbd>
               <kbd>A</kbd>
               <kbd>S</kbd>
-              <kbd>D</kbd> fly · drag to look · <kbd>Space</kbd>
+              <kbd>D</kbd> fly · mouse steers · <kbd>Space</kbd>
               <kbd>C</kbd> up/down · <kbd>⇧</kbd> boost
             </>
           )}
@@ -145,6 +145,8 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
           Exit <kbd>Esc</kbd>
         </button>
       </div>
+
+      {!touch && <span className="explore-hud__reticle" aria-hidden="true" />}
 
       {dock && (
         <div className="explore-hud__dock glass" role="status">

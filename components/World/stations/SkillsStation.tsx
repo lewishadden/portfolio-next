@@ -16,7 +16,7 @@ import {
 
 import { loadIconBundle } from 'components/IconifyLoader/IconifyLoader';
 import { asGlow, createFresnelMaterial, noiseGlsl } from '../materials';
-import { NavLights, SolarArray } from '../parts';
+import { NavLights, SolarArray, Spin } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
@@ -339,16 +339,18 @@ export function SkillsStation({
       <group rotation={[0.32, 0, -0.18]}>
         <group ref={outpostRef}>
           <group position={[7.4, 0.6, 0]} rotation={[0, Math.PI / 2.4, 0.1]}>
-            <StationHull station="skills" height={1.9} theme={theme} />
-            <SolarArray position={[0.35, 0, -0.1]} length={2} width={0.6} panels={2} />
-            <SolarArray
-              position={[-0.35, 0, -0.1]}
-              rotation={[0, Math.PI, 0]}
-              length={2}
-              width={0.6}
-              panels={2}
-            />
-            <NavLights lights={outpostLights} size={0.035} />
+            <Spin speed={0.12}>
+              <StationHull station="skills" height={1.9} theme={theme} />
+              <SolarArray position={[0.35, 0, -0.1]} length={2} width={0.6} panels={2} />
+              <SolarArray
+                position={[-0.35, 0, -0.1]}
+                rotation={[0, Math.PI, 0]}
+                length={2}
+                width={0.6}
+                panels={2}
+              />
+              <NavLights lights={outpostLights} size={0.035} />
+            </Spin>
           </group>
         </group>
       </group>

@@ -6,7 +6,7 @@ import { AdditiveBlending, Group, NormalBlending } from 'three';
 
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
-import { NavLights, SolarArray } from '../parts';
+import { NavLights, SolarArray, Spin } from '../parts';
 import {
   createReaction,
   easeInOut,
@@ -123,15 +123,17 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
     <group ref={groupRef} position={stationPositions.about}>
       {/* The crew habitat, cupola turned towards the visitor */}
       <group position={[-3.4, 3.7, -15]} rotation={[0.2, 0.55, 0.08]}>
-        <StationHull station="about" height={3.2} theme={theme} />
-        {/* Wings above and below the module, panels turned to face out */}
-        <group position={[0.6, 1.2, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <SolarArray rotation={[Math.PI / 2, 0, 0]} length={4.4} width={1.3} panels={3} />
-        </group>
-        <group position={[0.6, -1.2, 0]} rotation={[0, 0, -Math.PI / 2]}>
-          <SolarArray rotation={[-Math.PI / 2, 0, 0]} length={4.4} width={1.3} panels={3} />
-        </group>
-        <NavLights lights={habitatLights} />
+        <Spin>
+          <StationHull station="about" height={3.2} theme={theme} />
+          {/* Wings above and below the module, panels turned to face out */}
+          <group position={[0.6, 1.2, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <SolarArray rotation={[Math.PI / 2, 0, 0]} length={4.4} width={1.3} panels={3} />
+          </group>
+          <group position={[0.6, -1.2, 0]} rotation={[0, 0, -Math.PI / 2]}>
+            <SolarArray rotation={[-Math.PI / 2, 0, 0]} length={4.4} width={1.3} panels={3} />
+          </group>
+          <NavLights lights={habitatLights} />
+        </Spin>
       </group>
 
       <mesh material={materials.halo} position={[0, 0, -3]} scale={9}>

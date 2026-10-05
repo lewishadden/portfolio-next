@@ -101,5 +101,12 @@ test.describe('tour and explore modes', () => {
     await expect(page.locator('html')).toHaveAttribute('data-world-mode', 'page');
     await expect(main).not.toHaveAttribute('inert');
     await expect(page).toHaveURL(/\/about$/);
+
+    // The floating button toggles free roam too
+    await page.getByRole('button', { name: 'Free roam' }).click();
+    await expect(hud).toBeVisible();
+    await page.getByRole('button', { name: 'Exit free roam' }).click();
+    await expect(hud).toBeHidden();
+    await expect(main).not.toHaveAttribute('inert');
   });
 });

@@ -7,7 +7,7 @@ import { Group, Mesh, MeshStandardMaterial } from 'three';
 
 import { createBeamMaterial, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
-import { partMaterials } from '../parts';
+import { Spin } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { StationHull } from '../StationHull';
 import {
@@ -25,7 +25,7 @@ import type { WorldTip } from '../worldStore';
 import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
 
-function hoverPod(e: ThreeEvent<PointerEvent>, tip: WorldTip, on: boolean) {
+function hoverNode(e: ThreeEvent<PointerEvent>, tip: WorldTip, on: boolean) {
   if (on) {
     e.stopPropagation();
     setWorldHover(true);
@@ -62,9 +62,9 @@ function lightNode(node: Group, activation: number, dt: number) {
 }
 
 /**
- * `/experience`: a space-elevator tether. One climber pod per role is clamped
- * on the cable, its beacon lighting up as the camera descends past it, and a
- * satellite escorts the camera down.
+ * `/experience`: a satellite escorts the camera down a pulsing beam that
+ * hangs from the station's hull; one glowing node per role lights up as the
+ * camera passes it (hover for the role, click to jump to it on the page).
  */
 export function ExperienceStation({
   theme,
@@ -87,7 +87,6 @@ export function ExperienceStation({
   const nodesRef = useRef<Group>(null);
   const materials = useThemedMaterials(buildMaterials, theme);
   const palette = palettes[theme];
-  const parts = partMaterials();
   const beamLength = experienceDepth + 10;
 
   const nodeYs = useMemo(
@@ -135,11 +134,12 @@ export function ExperienceStation({
         <planeGeometry />
       </mesh>
 
+      {/* The station the beam hangs from, behind it and off to the side */}
+      <Spin position={[-4.6, 4.6, -13]}>
+        <StationHull station="experience" height={3.4} theme={theme} />
+      </Spin>
+
       <group position={[0, 4 - beamLength / 2, 0]}>
-        {/* The tether itself, inside its energy sheath */}
-        <mesh material={parts.dark} castShadow>
-          <cylinderGeometry args={[0.07, 0.07, beamLength, 12]} />
-        </mesh>
         <mesh material={materials.core}>
           <cylinderGeometry args={[0.045, 0.045, beamLength, 12, 1, true]} />
         </mesh>
@@ -148,29 +148,8 @@ export function ExperienceStation({
         </mesh>
       </group>
 
-      {nodeYs.map((y, i) => (
-        <group
-          key={y}
-          position={[0, y - 0.95, 0]}
-          onPointerOver={(e) => hoverPod(e, tips[i], true)}
-          onPointerOut={(e) => hoverPod(e, tips[i], false)}
-          onClick={(e) => {
-            e.stopPropagation();
-            focusOnPage(`role:${i}`);
-          }}
-        >
-          <StationHull
-            station="experience"
-            height={1.25}
-            theme={theme}
-            lite
-            rotation={[0, i * 1.3, 0]}
-          />
-        </group>
-      ))}
-
       <group ref={nodesRef}>
-        {nodeYs.map((y) => (
+        {nodeYs.map((y, i) => (
           <group key={y} position={[0, y, 0]}>
             <mesh>
               <sphereGeometry args={[0.24, 32, 16]} />
@@ -188,6 +167,18 @@ export function ExperienceStation({
             </mesh>
             <mesh material={materials.halo} visible={false}>
               <planeGeometry />
+            </mesh>
+            {/* Never drawn: a comfortable target for the pointer */}
+            <mesh
+              visible={false}
+              onPointerOver={(e) => hoverNode(e, tips[i], true)}
+              onPointerOut={(e) => hoverNode(e, tips[i], false)}
+              onClick={(e) => {
+                e.stopPropagation();
+                focusOnPage(`role:${i}`);
+              }}
+            >
+              <sphereGeometry args={[0.8, 12, 8]} />
             </mesh>
           </group>
         ))}

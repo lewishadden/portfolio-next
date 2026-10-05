@@ -18,7 +18,7 @@ import {
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { NavLights, Truss } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
-import { framedHeight, stationFraming, stationPositions } from '../stations';
+import { framedHeight, isWideViewport, stationFraming, stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
 import { palettes, setUniform } from '../utils';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
@@ -35,7 +35,9 @@ const helixRadius = 5.4;
 const screenTurn = 0.78;
 const screenRise = 1.05;
 const screenTop = 2.4;
-const focusScale = 1.3;
+/** How much bigger the screen in front is, on wide and narrow layouts */
+const focusScale = 1.4;
+const narrowFocusScale = 1.15;
 const hoverScale = 1.1;
 /** Width / height of a screen */
 const screenAspect = 2.08 / 1.3;
@@ -54,6 +56,16 @@ const spineLights: NavLight[] = [
 const toCamera = new Vector3();
 const framing: Framing = { zoom: 1, lift: 0 };
 const screenY = (i: number) => screenTop - i * screenRise;
+/**
+ * Scrolling the page turns the helix, but it settles on each project: the
+ * middle 60% of the scroll between two projects carries the turn, the rest
+ * holds the screen in front still
+ */
+const settle = (f: number) => {
+  const whole = Math.floor(f);
+  const x = MathUtils.clamp((f - whole - 0.2) / 0.6, 0, 1);
+  return whole + x * x * x * (x * (x * 6 - 15) + 10);
+};
 /** Shortest signed angle from `a` to `b` */
 const angleDelta = (a: number, b: number) =>
   MathUtils.euclideanModulo(b - a + Math.PI, Math.PI * 2) - Math.PI;
@@ -98,9 +110,12 @@ const screenFragment = /* glsl */ `
     if (d > 0.0) discard;
     vec3 img = uHasMap > 0.5 ? shot(uMap, uWindow) : mix(uTint * 0.25, uTint * 0.6, vUv.y);
     if (uMix > 0.0) img = mix(img, shot(uMapB, uWindowB), uMix);
+    // Soft-clip the highlights: mostly-white pages would otherwise bloom into
+    // glowing slabs, while dark ones keep their brightness
+    img = img * 1.1 / (1.0 + img * 0.6);
     float scan = 0.94 + 0.06 * sin(vUv.y * 420.0 - uTime * 6.0);
     float sweep = smoothstep(0.0, 0.08, abs(vUv.y - fract(uTime * 0.12)));
-    vec3 col = img * scan * mix(1.25, 1.0, sweep) * (1.0 + uHover * 0.12);
+    vec3 col = img * scan * mix(1.15, 1.0, sweep) * (1.0 + uHover * 0.08);
     float edge = smoothstep(-0.03, 0.0, d);
     col = mix(col, uEdge * (2.4 + uHover * 1.8), edge);
     float reveal = smoothstep(uReveal - 0.1, uReveal, 1.0 - vUv.y);
@@ -286,11 +301,11 @@ function liveScreen(
 }
 
 /**
- * `/projects`: the fabrication yard, its hub on a truss spine inside a slowly
- * turning helix of project screens.
- * With a `focus` (a project page or modal is open) the helix turns and rises
- * to bring that project's screen in front of the camera, enlarged, while the
- * rest dim.
+ * `/projects`: the fabrication yard, its hub on a truss spine inside a helix
+ * of project screens. On the projects page, scrolling turns and raises the
+ * helix to bring each project's screen in front of the camera, enlarged,
+ * while the rest dim (worldStore.projectFocus); an open project page or modal
+ * (`focus`) does the same for that project. Elsewhere it turns slowly.
  */
 export function ProjectsStation({
   theme,
@@ -351,7 +366,7 @@ export function ProjectsStation({
   }, [screens, shots]);
 
   const settled = useRef(false);
-  const focused = focus >= 0 && focus < screens.length ? focus : -1;
+  const opened = focus >= 0 && focus < screens.length ? focus : -1;
 
   useFrame(({ camera, clock, size }, delta) => {
     const group = groupRef.current;
@@ -360,6 +375,14 @@ export function ProjectsStation({
     const dt = Math.min(delta, 0.05);
     const instant = snap || !settled.current;
     settled.current = true;
+
+    // The project in front: an open one, else wherever the page has scrolled to
+    const scrolled = worldStore.projectFocus;
+    const front =
+      opened >= 0 ? opened : scrolled >= 0 ? Math.min(settle(scrolled), screens.length - 1) : -1;
+    const live = front >= 0 ? Math.round(front) : -1;
+    const bigger = isWideViewport(size.width, size.height) ? focusScale : narrowFocusScale;
+
     setUniform(materials.base, 'uTime', t);
     screenMaterials.forEach((material, i) => {
       setUniform(material, 'uTime', t + i);
@@ -370,55 +393,58 @@ export function ProjectsStation({
         i,
         t,
         dt,
-        i === focused || i === hoveredRef.current,
+        i === live || i === hoveredRef.current,
         shots
       );
       const reveal = material.uniforms.uReveal.value as number;
       if (reveal < 1.1) setUniform(material, 'uReveal', snap ? 1.1 : reveal + dt * 0.8);
-      const dim = focused >= 0 && i !== focused ? 1 : 0;
+      const dim = front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) : 0;
       const current = material.uniforms.uDim.value as number;
-      setUniform(material, 'uDim', instant ? dim : approach(current, dim, 4, dt));
+      setUniform(material, 'uDim', instant ? dim : approach(current, dim, 6, dt));
     });
 
     const helix = helixRef.current;
     if (helix && group) {
       let angle = t * 0.035 + worldStore.scroll * 1.2;
       let lift = 0;
-      if (focused >= 0) {
+      if (front >= 0) {
         // Turn the screen onto the line between the camera and the helix axis,
         // and raise it to the height the camera frames the station at. It sits
         // nearer the camera than the axis, so it takes only its share of the
         // narrow-layout drop to line up with the framed point
         toCamera.subVectors(camera.position, group.position);
-        angle = Math.atan2(toCamera.x, toCamera.z) - focused * screenTurn;
+        angle = Math.atan2(toCamera.x, toCamera.z) - front * screenTurn;
         const { lift: drop } = stationFraming('projects', size.width, size.height, framing);
         const nearer = helixRadius / Math.hypot(toCamera.x, toCamera.z);
         lift =
           framedHeight('projects', toCamera.y, size.width, size.height) -
           drop * nearer -
-          screenY(focused);
+          screenY(front);
       }
-      // Always take the short way round
+      // Always take the short way round. Scrolling follows closely; opening a
+      // project from elsewhere swings round more slowly
       angle = helix.rotation.y + angleDelta(helix.rotation.y, angle);
+      const smoothing = opened >= 0 ? 0.5 : 0.22;
       if (instant) {
         helix.rotation.y = angle;
         helix.position.y = lift;
       } else {
-        easing.damp(helix.rotation, 'y', angle, 0.5, dt);
-        easing.damp(helix.position, 'y', lift, 0.5, dt);
+        easing.damp(helix.rotation, 'y', angle, smoothing, dt);
+        easing.damp(helix.position, 'y', lift, smoothing, dt);
       }
 
       helix.children.forEach((screen, i) => {
-        const scale = i === focused ? focusScale : i === hoveredRef.current ? hoverScale : 1;
+        const near = front >= 0 ? Math.max(0, 1 - Math.abs(i - front)) : 0;
+        const scale = Math.max(1 + (bigger - 1) * near, i === hoveredRef.current ? hoverScale : 1);
         if (instant) screen.scale.setScalar(scale);
-        else easing.damp3(screen.scale, scale, 0.35, dt);
+        else easing.damp3(screen.scale, scale, 0.25, dt);
         // Screens orbit with the helix but always turn to face the viewer
         screen.lookAt(camera.position);
       });
     }
 
     const hub = hubRef.current;
-    if (hub) hub.rotation.y = 0.4 + t * 0.05 + worldStore.pointerX * 0.2;
+    if (hub) hub.rotation.y = 0.4 + t * 0.06 + worldStore.pointerX * 0.2;
   });
 
   return (
