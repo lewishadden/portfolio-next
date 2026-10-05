@@ -44,7 +44,8 @@ const planetFragment = /* glsl */ `
     col = mix(col, uColorC, storm * 0.6);
     float light = clamp(dot(normalize(vNormal), normalize(vec3(-0.6, 0.5, 0.8))), 0.0, 1.0);
     col *= mix(0.25, 1.15, light);
-    float rim = pow(1.0 - max(dot(normalize(vNormal), normalize(vView)), 0.0), 3.0);
+    // Clamped: a head-on dot can round past 1, and pow() of a negative base is NaN
+    float rim = pow(clamp(1.0 - dot(normalize(vNormal), normalize(vView)), 0.0, 1.0), 3.0);
     col += uColorB * rim * mix(1.4, 0.6, uLight);
     gl_FragColor = vec4(col, 1.0);
   }
