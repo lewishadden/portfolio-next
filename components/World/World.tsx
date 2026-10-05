@@ -12,6 +12,7 @@ import { useWorldFocus } from '@/hooks/useWorldFocus';
 import { reportWebGLUnavailable, useWorldPreference } from '@/hooks/useWorldPreference';
 import { projectSlugFromPath } from '@/utils/projectPaths';
 
+import { readyBoot, reportBoot, useBooted } from './boot';
 import { ExploreHud } from './ExploreHud';
 import { NavRadar } from './NavRadar';
 import { TourOverlay } from './TourOverlay';
@@ -47,6 +48,8 @@ class CanvasBoundary extends Component<{ children: ReactNode }, { failed: boolea
   componentDidCatch(error: unknown) {
     if (process.env.NODE_ENV !== 'production') console.warn('[World] WebGL unavailable', error);
     reportWebGLUnavailable();
+    // Nothing more to wait for: the loading screen lifts onto the 2D page
+    readyBoot();
   }
 
   render() {
@@ -113,6 +116,7 @@ export function World({ content }: { content: WorldContent }) {
   const markReady = useCallback(() => setReady(true), []);
   const { mode } = useWorldMode();
   const router = useRouter();
+  const booted = useBooted();
 
   useWorldInputs();
   useModelPrefetch(active);
@@ -142,14 +146,20 @@ export function World({ content }: { content: WorldContent }) {
   }, [active]);
 
   // Touring or exploring hides the page (html[data-world-mode]) and takes it
-  // out of the tab order and the accessibility tree until you come back
+  // out of the tab order and the accessibility tree until you come back; so
+  // does the loading screen until it lifts
   useEffect(() => {
     const away = active && mode !== 'page';
     document.documentElement.dataset.worldMode = away ? mode : 'page';
     for (const el of document.querySelectorAll('#main-content, .header, .footer')) {
-      el.toggleAttribute('inert', away);
+      el.toggleAttribute('inert', away || !booted);
     }
-  }, [active, mode]);
+  }, [active, mode, booted]);
+
+  // The loading screen's first steps: the page is up, then the 3D chunk is on its way
+  useEffect(() => {
+    reportBoot(idle ? 0.1 : 0.04, idle ? 1 : 0);
+  }, [idle]);
 
   // Leaving explore mode with a world turned off (or unsupported) mid-flight
   useEffect(() => {

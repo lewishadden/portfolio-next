@@ -13,6 +13,7 @@ import {
   planFlight,
   smootherstep,
 } from './flight';
+import { isBooted } from './boot';
 import { baseFov, stationCamera, stationPositions } from './stations';
 import { worldMode } from './worldMode';
 import { emitFlight, worldStore } from './worldStore';
@@ -130,6 +131,13 @@ export function CameraRig({
     }
 
     const retarget = rig.station !== station || rig.mode !== mode;
+    // Out in deep space until the loading screen lifts, then warp in
+    if (!rig.started && !reducedMotion && !isBooted()) {
+      cam.position.copy(target).add(introOffset);
+      cam.lookAt(look);
+      record(cam);
+      return;
+    }
     if (!rig.started) {
       // First frame: start out in deep space and warp in
       rig.started = true;
@@ -226,7 +234,9 @@ function fly(rig: RigState, cam: PerspectiveCamera, station: StationKey, dt: num
   cam.quaternion.multiply(bank.setFromAxisAngle(zAxis, rig.roll * level));
 
   worldStore.flight.progress = s;
-  if (!rig.approached && s >= 0.6) {
+  // About-turns are on their final approach once the turn back has the station in view
+  const approach = flight.about ? flight.flipFrom + 0.4 * (1 - flight.flipFrom) : 0.6;
+  if (!rig.approached && s >= approach) {
     rig.approached = true;
     emitFlight('approach', station);
   }

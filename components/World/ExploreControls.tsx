@@ -2,23 +2,35 @@
 
 import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Euler, MathUtils, PerspectiveCamera, Vector3 } from 'three';
+import { Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
+import { canLockPointer, lockPointer } from './pointerLock';
 import { navigableStations } from './routes';
-import { baseFov, stationPositions } from './stations';
+import { setViewRange, useLite } from './stationHooks';
+import { baseFov, beaconHeight, stationPositions } from './stations';
 import { worldMode } from './worldMode';
-import { exploreInput, setDock, worldStore } from './worldStore';
+import { exploreInput, setAutopilot, setDock, worldStore } from './worldStore';
+
+import type { Scene } from 'three';
+import type { StationKey } from './routes';
 
 /* ------------------------------------------------------------------
    Free flight. While the world is in explore mode the visitor flies the
-   camera: keys or the on-screen pad to move, and the mouse steers: a
-   movement turns the view with it at once, and the further the mouse
-   then rests from the centre of the screen, the faster the view keeps
-   turning that way (a dead zone in the middle holds course). Touch has
-   no resting pointer, so a finger drags the view instead. Flying close to a
-   station offers to dock, which opens its page (the camera rig then flies
-   the last stretch in). Hulls push you back out rather than letting you
-   clip inside them.
+   camera: keys or the on-screen pad to move, and the mouse steers. The
+   pointer is locked, so the cursor stays in the middle of the screen and
+   every movement turns the view at once, like a flight sim (Esc frees
+   the mouse for the HUD; a click takes it back). Where the pointer can't
+   be locked, the further the mouse rests from the centre the faster the
+   view turns that way. Touch has no resting pointer, so a finger drags
+   the view instead.
+
+   Finding your way: the fog draws back so distant stations stay in
+   sight, the HUD marks every station (edge arrows for those off screen),
+   and the number keys (or a click on a marker) set the autopilot, which
+   turns, flies and brakes to park in front of that station. Flying close
+   to a station offers to dock, which opens its page (the camera rig then
+   flies the last stretch in). Hulls push you back out rather than
+   letting you clip inside them.
    ------------------------------------------------------------------ */
 
 const keys = new Map<string, keyof typeof exploreInput>([
@@ -34,6 +46,8 @@ const keys = new Map<string, keyof typeof exploreInput>([
   ['KeyC', 'lift'],
 ]);
 const negative = new Set(['KeyS', 'ArrowDown', 'KeyA', 'ArrowLeft', 'KeyC']);
+/** Digit keys set course: 0 is Home, as on the beacons and the HUD */
+const digit = /^(?:Digit|Numpad)(\d)$/;
 
 const euler = new Euler(0, 0, 0, 'YXZ');
 const forward = new Vector3();
@@ -42,17 +56,38 @@ const up = new Vector3(0, 1, 0);
 const velocity = new Vector3();
 const wish = new Vector3();
 const station = new Vector3();
+const goal = new Vector3();
+const aim = new Vector3();
+const point = new Vector3();
+const view = new Vector3();
 const centre = new Vector3(0, 0, -110);
 
 const dockRange = 18;
-/** Steering: dead zone at the centre, and the fastest turn at the screen edge (rad/s) */
+/** Pointer locked: radians of turn per pixel the mouse moves */
+const lookSpeed = 0.0021;
+/** Free pointer: dead zone at the centre, and the fastest turn at the screen edge (rad/s) */
 const deadZone = 0.05;
 const maxYawRate = 3;
 const maxPitchRate = 2;
-/** Radians of turn per pixel the mouse moves, so a flick turns the view at once */
+/** Free pointer: radians of turn per pixel the mouse moves, so a flick turns the view at once */
 const nudge = 0.0016;
 const hullRadius = 5.5;
 const worldRadius = 520;
+/** Fog in free roam: pushed out this far so the whole line of stations stays in sight */
+const exploreFog = { near: 70, far: 460, liteFar: 300 };
+/** Autopilot: parks this far in front of the station's face (pages frame it from +Z) */
+const approach = new Vector3(0, 1.5, 16);
+/** Autopilot: coming from behind a station it rounds its side, this far out, rather than through it */
+const rounding = 22;
+/** Autopilot: top speed, braking (units/s²) and turn rate cap (rad/s) */
+const autoSpeed = 58;
+const autoBrake = 16;
+const autoTurn = 1.7;
+/** Mouse travel (px, locked) that takes the controls back from the autopilot */
+const takeOver = 80;
+
+/** Shortest signed angle from `a` to `b` */
+const wrap = (angle: number) => MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
 
 /** 0 inside the dead zone, rising to ±1 at the edge of the screen */
 function steering(offset: number) {
@@ -63,7 +98,9 @@ function steering(offset: number) {
 /** HUD controls: the mouse is reaching for them, not steering */
 const overControls = (target: EventTarget | null) =>
   target instanceof Element &&
-  !!target.closest('button, a, input, .explore-hud__top, .explore-hud__dock, .explore-hud__touch');
+  !!target.closest(
+    'button, a, input, .explore-hud__top, .explore-hud__dock, .explore-hud__touch, .explore-hud__waypoints'
+  );
 
 function typing(target: EventTarget | null) {
   return (
@@ -71,10 +108,110 @@ function typing(target: EventTarget | null) {
   );
 }
 
-export function ExploreControls() {
-  const look = useRef({ yaw: 0, pitch: 0, active: false, since: 0 });
+/** Toggles the autopilot to the station a digit key names */
+function setCourse(index: number) {
+  const key = navigableStations[index];
+  if (!key) return;
+  setAutopilot(worldStore.autopilot === key ? '' : key);
+}
 
-  // Keyboard: held keys set the axes; Enter docks; Escape leaves
+/** The fog's own distances, per fog (a theme change makes a new one) */
+const fogBase = new WeakMap<Fog, { near: number; far: number }>();
+
+/** Draws the fog back while exploring, so distant stations stay in sight, and returns it after */
+function reachOut(scene: Scene, exploring: boolean, lite: boolean, dt: number) {
+  const fog = scene.fog;
+  if (!(fog instanceof Fog)) return;
+  let base = fogBase.get(fog);
+  if (!base) {
+    base = { near: fog.near, far: fog.far };
+    fogBase.set(fog, base);
+  }
+  const far = exploring ? (lite ? exploreFog.liteFar : exploreFog.far) : base.far;
+  const near = exploring ? exploreFog.near : base.near;
+  if (Math.abs(fog.far - far) < 0.5 && Math.abs(fog.near - near) < 0.5) return;
+  fog.far = MathUtils.damp(fog.far, far, 1.4, dt);
+  fog.near = MathUtils.damp(fog.near, near, 1.4, dt);
+  setViewRange(Math.max(115, fog.far));
+}
+
+/** Where every station's beacon sits on screen, for the HUD's waypoints */
+function publishWaypoints(cam: PerspectiveCamera) {
+  cam.updateMatrixWorld();
+  for (const key of navigableStations) {
+    station.fromArray(stationPositions[key]);
+    point.copy(station).add(view.set(0, beaconHeight(key), 0));
+    view.copy(point).applyMatrix4(cam.matrixWorldInverse);
+    const waypoint = (worldStore.waypoints[key] ??= { x: 0, y: 0, onScreen: false, distance: 0 });
+    waypoint.distance = cam.position.distanceTo(station);
+    point.project(cam);
+    if (view.z < 0 && Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1) {
+      waypoint.x = point.x;
+      waypoint.y = point.y;
+      waypoint.onScreen = true;
+    } else {
+      // Off screen: the way to turn (straight behind reads as "turn round", downwards)
+      const length = Math.hypot(view.x, view.y);
+      waypoint.x = length > 1e-3 ? view.x / length : 0;
+      waypoint.y = length > 1e-3 ? view.y / length : -1;
+      waypoint.onScreen = false;
+    }
+  }
+}
+
+interface LookState {
+  yaw: number;
+  pitch: number;
+  active: boolean;
+  since: number;
+}
+
+/**
+ * Autopilot: turns towards where it is going (round the station's side
+ * first when coming from behind it), burns once roughly facing that way and
+ * brakes to park in front of the station, turning to face it on the last
+ * stretch. Returns true once it is parked and facing the station.
+ */
+function flyTo(key: StationKey, state: LookState, cam: PerspectiveCamera, dt: number) {
+  station.fromArray(stationPositions[key]);
+  goal.copy(station).add(approach);
+  let left = cam.position.distanceTo(goal);
+  let toward = goal;
+  if (cam.position.z < station.z + 4) {
+    const side = Math.sign(cam.position.x - station.x) || 1;
+    point.set(station.x + side * rounding, station.y + 2, station.z + 6);
+    const lap = cam.position.distanceTo(point);
+    if (lap > 8) {
+      toward = point;
+      left = lap + point.distanceTo(goal);
+    }
+  }
+  wish.subVectors(toward, cam.position);
+  const distance = wish.length();
+  const settling = toward === goal && distance < 30;
+  aim.copy(settling ? station : toward).sub(cam.position);
+  const yaw = state.yaw + wrap(Math.atan2(-aim.x, -aim.z) - state.yaw);
+  const pitch = MathUtils.clamp(Math.atan2(aim.y, Math.hypot(aim.x, aim.z)), -1.2, 1.2);
+  state.yaw += MathUtils.clamp((yaw - state.yaw) * 2.6, -autoTurn, autoTurn) * dt;
+  state.pitch += MathUtils.clamp((pitch - state.pitch) * 2.6, -autoTurn, autoTurn) * dt;
+
+  forward.set(0, 0, -1).applyEuler(euler.set(state.pitch, state.yaw, 0, 'YXZ'));
+  const facing = distance > 1e-3 ? forward.dot(view.copy(wish).divideScalar(distance)) : 1;
+  // Faster than it can stop in would overshoot: v² = 2·a·d
+  const speed =
+    Math.min(autoSpeed, Math.sqrt(2 * autoBrake * left)) *
+    (settling ? 1 : MathUtils.smoothstep(facing, 0.35, 0.9));
+  wish.setLength(speed);
+  velocity.lerp(wish, 1 - Math.exp(-2.6 * dt));
+  const aligned = Math.abs(yaw - state.yaw) < 0.05 && Math.abs(pitch - state.pitch) < 0.05;
+  return settling && distance < 2 && velocity.length() < 3 && aligned;
+}
+
+export function ExploreControls() {
+  const look = useRef<LookState>({ yaw: 0, pitch: 0, active: false, since: 0 });
+  const lite = useLite();
+
+  // Keyboard: held keys set the axes; digits set course; Escape leaves
   useEffect(() => {
     const held = new Set<string>();
     const apply = () => {
@@ -91,11 +228,19 @@ export function ExploreControls() {
     };
     const down = (e: KeyboardEvent) => {
       if (worldMode.get().mode !== 'explore' || typing(e.target)) return;
+      // With the pointer locked the browser takes the first Esc to free the
+      // mouse; one that reaches the page leaves free roam
       if (e.key === 'Escape') {
         worldMode.exit();
         return;
       }
       if (e.key === 'Shift') exploreInput.boost = true;
+      const course = digit.exec(e.code);
+      if (course && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setCourse(Number(course[1]));
+        return;
+      }
       if (keys.has(e.code)) {
         e.preventDefault();
         held.add(e.code);
@@ -121,21 +266,28 @@ export function ExploreControls() {
     };
   }, []);
 
-  // The mouse steers by where it rests; a finger drags the view
+  // The mouse looks (locked) or steers by where it rests; a finger drags the view
   useEffect(() => {
+    const lockable = canLockPointer();
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
+    let travel = 0;
     const centre = () => {
       exploreInput.steerX = 0;
       exploreInput.steerY = 0;
     };
     const down = (e: PointerEvent) => {
-      if (worldMode.get().mode !== 'explore' || e.pointerType !== 'touch') return;
-      if (overControls(e.target)) return;
-      dragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
+      if (worldMode.get().mode !== 'explore' || overControls(e.target)) return;
+      if (e.pointerType === 'touch') {
+        dragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        setAutopilot('');
+      } else if (lockable && e.button === 0) {
+        // A click on open space takes the mouse back
+        lockPointer();
+      }
     };
     const move = (e: PointerEvent) => {
       if (worldMode.get().mode !== 'explore') return;
@@ -145,6 +297,17 @@ export function ExploreControls() {
         exploreInput.lookY += (e.clientY - lastY) * 0.0036;
         lastX = e.clientX;
         lastY = e.clientY;
+        return;
+      }
+      if (lockable) {
+        // Free, the mouse is for the HUD; locked, every movement turns the view
+        if (!document.pointerLockElement) return;
+        exploreInput.lookX += e.movementX * lookSpeed;
+        exploreInput.lookY += e.movementY * lookSpeed;
+        if (worldStore.autopilot) {
+          travel += Math.abs(e.movementX) + Math.abs(e.movementY);
+          if (travel > takeOver) setAutopilot('');
+        } else travel = 0;
         return;
       }
       if (overControls(e.target)) {
@@ -177,18 +340,21 @@ export function ExploreControls() {
     };
   }, []);
 
-  useFrame(({ camera, clock }, delta) => {
+  useFrame(({ camera, clock, scene }, delta) => {
     const state = look.current;
-    if (worldMode.get().mode !== 'explore') {
+    const dt = Math.min(delta, 1 / 20);
+    const exploring = worldMode.get().mode === 'explore';
+    reachOut(scene, exploring, lite, dt);
+    if (!exploring) {
       if (state.active) {
         state.active = false;
         velocity.set(0, 0, 0);
         setDock('');
+        setAutopilot('');
       }
       return;
     }
     const cam = camera as PerspectiveCamera;
-    const dt = Math.min(delta, 1 / 20);
 
     // Take over from wherever the camera was pointing. The mouse is wherever
     // the visitor clicked to start, so steering waits until it next moves
@@ -205,6 +371,11 @@ export function ExploreControls() {
       exploreInput.lookY = 0;
     }
 
+    // Any hand on the controls takes over from the autopilot
+    const manual =
+      exploreInput.forward || exploreInput.strafe || exploreInput.lift || exploreInput.turn;
+    if (manual && worldStore.autopilot) setAutopilot('');
+
     // Steering eases in over the first half second, so it never lurches
     const ease = MathUtils.smoothstep(clock.elapsedTime - state.since, 0, 0.5);
     const yawRate = steering(exploreInput.steerX) * maxYawRate * ease + exploreInput.turn * 1.6;
@@ -216,21 +387,25 @@ export function ExploreControls() {
     );
     exploreInput.lookX = 0;
     exploreInput.lookY = 0;
-    euler.set(state.pitch, state.yaw, 0, 'YXZ');
-    cam.quaternion.setFromEuler(euler);
 
-    // Thrust along where the camera faces, with drag
-    forward.set(0, 0, -1).applyQuaternion(cam.quaternion);
-    right.crossVectors(forward, up).normalize();
-    const thrust = exploreInput.boost ? 70 : 26;
-    wish
-      .copy(forward)
-      .multiplyScalar(exploreInput.forward)
-      .addScaledVector(right, exploreInput.strafe)
-      .addScaledVector(up, exploreInput.lift);
-    if (wish.lengthSq() > 1) wish.normalize();
-    velocity.addScaledVector(wish, thrust * dt * 2.6);
-    velocity.multiplyScalar(Math.exp(-2.6 * dt));
+    const course = worldStore.autopilot as StationKey | '';
+    if (course) {
+      if (flyTo(course, state, cam, dt)) setAutopilot('');
+    } else {
+      // Thrust along where the camera faces, with drag
+      forward.set(0, 0, -1).applyEuler(euler.set(state.pitch, state.yaw, 0, 'YXZ'));
+      right.crossVectors(forward, up).normalize();
+      const thrust = exploreInput.boost ? 70 : 26;
+      wish
+        .copy(forward)
+        .multiplyScalar(exploreInput.forward)
+        .addScaledVector(right, exploreInput.strafe)
+        .addScaledVector(up, exploreInput.lift);
+      if (wish.lengthSq() > 1) wish.normalize();
+      velocity.addScaledVector(wish, thrust * dt * 2.6);
+      velocity.multiplyScalar(Math.exp(-2.6 * dt));
+    }
+    cam.quaternion.setFromEuler(euler.set(state.pitch, state.yaw, 0, 'YXZ'));
     cam.position.addScaledVector(velocity, dt);
 
     // Hulls push back; the edge of the world gently turns you round
@@ -264,6 +439,7 @@ export function ExploreControls() {
     worldStore.velocity = speed;
     cam.fov = MathUtils.damp(cam.fov, baseFov + Math.min(speed * 0.25, 18), 4, dt);
     cam.updateProjectionMatrix();
+    publishWaypoints(cam);
   });
 
   return null;

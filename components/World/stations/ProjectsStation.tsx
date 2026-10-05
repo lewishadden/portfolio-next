@@ -17,7 +17,7 @@ import {
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { NavLights, Truss } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
-import { helix, helixScreenY, settleFocus, stationPositions } from '../stations';
+import { helix, helixScreenY, projectIntro, settleFocus, stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
 import { palettes, setUniform } from '../utils';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
@@ -432,9 +432,13 @@ export function ProjectsStation({
         : scrolled >= 0
           ? Math.min(settleFocus(scrolled), screens.length - 1)
           : -1;
-    const live = front >= 0 ? Math.round(front) : -1;
+    // At the top of the projects page the camera holds back on the whole
+    // yard: the first screen only comes forward (and lights up) on scroll
+    const ride = front >= 0 ? 1 - (opened >= 0 ? 0 : projectIntro()) : 0;
+    const live = front >= 0 && ride > 0.9 ? Math.round(front) : -1;
     // Settled in front with the camera parked: the moment to sharpen its shot
-    const parked = live >= 0 && Math.abs(front - live) < 0.02 && !worldStore.flight.active;
+    const parked =
+      live >= 0 && ride > 0.99 && Math.abs(front - live) < 0.02 && !worldStore.flight.active;
 
     setUniform(materials.base, 'uTime', t);
     screenMaterials.forEach((material, i) => {
@@ -459,7 +463,7 @@ export function ProjectsStation({
       }
       const reveal = material.uniforms.uReveal.value as number;
       if (reveal < 1.1) setUniform(material, 'uReveal', snap ? 1.1 : reveal + dt * 0.8);
-      const dim = front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) : 0;
+      const dim = front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) * ride : 0;
       const current = material.uniforms.uDim.value as number;
       setUniform(material, 'uDim', instant ? dim : approach(current, dim, 6, dt));
     });
@@ -475,7 +479,7 @@ export function ProjectsStation({
       else easing.damp(spiral.rotation, 'y', turnTo, 0.35, dt);
 
       spiral.children.forEach((screen, i) => {
-        const near = front >= 0 ? Math.max(0, 1 - Math.abs(i - front)) : 0;
+        const near = front >= 0 ? Math.max(0, 1 - Math.abs(i - front)) * ride : 0;
         const scale = Math.max(
           1 + (focusScale - 1) * near,
           i === hoveredRef.current ? hoverScale : 1

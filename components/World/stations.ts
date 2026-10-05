@@ -6,6 +6,10 @@ import { worldStore } from './worldStore';
 export { stationForPath, stationKeys, stationModels, stationPositions } from './routes';
 export type { StationKey } from './routes';
 
+/** Height of each station's beacon (and the HUD's waypoint for it) above its centre */
+const beaconHeights: Partial<Record<StationKey, number>> = { experience: 6, skills: 5 };
+export const beaconHeight = (key: StationKey) => beaconHeights[key] ?? 3.6;
+
 /** Total fall of the camera through the experience beam (world units) */
 export const experienceDepth = 34;
 
@@ -14,6 +18,23 @@ export const helix = { radius: 5.4, turn: 0.78, rise: 1.05, top: 2.4, screens: 1
 export const helixScreenY = (i: number) => helix.top - i * helix.rise;
 /** A project page sits the screen beside its copy, this much further back than the ride */
 const asideDistance = 2.2;
+/**
+ * Before the ride: the camera holds back on the whole yard (eye height and
+ * distance, the framed point's height, and how far right of the page head
+ * it sits on wide layouts)
+ */
+const overview = { height: 1.6, distance: 16, lookY: -0.8, room: 4.6 };
+
+/**
+ * How far the projects camera is from its ride down the helix: 1 holds it
+ * back on the whole yard. Off the projects page (touring past, or flying in
+ * before the page has mounted) it holds back too; a project page never does.
+ */
+export function projectIntro() {
+  if (worldStore.projectAside) return 0;
+  if (worldStore.projectFocus < 0) return 1;
+  return MathUtils.smoothstep(worldStore.projectIntro, 0, 1);
+}
 
 /**
  * The projects page runs through its projects as a fractional index; this
@@ -125,6 +146,8 @@ export function framedHeight(key: StationKey, cameraY: number, width: number, he
 const right = new Vector3();
 const up = new Vector3(0, 1, 0);
 const forward = new Vector3();
+const overviewEye = new Vector3();
+const overviewLook = new Vector3();
 
 /**
  * Camera pose inside a station, in station-local space.
@@ -168,6 +191,13 @@ export function stationCamera(
       const back = worldStore.projectAside ? asideDistance : 1;
       look.set(Math.sin(angle) * helix.radius, helixScreenY(focus), Math.cos(angle) * helix.radius);
       pos.set(Math.sin(angle) * distance * back, eyeY, Math.cos(angle) * distance * back);
+      // At the top of the page it holds back on the whole yard, and comes in
+      // to the first screen as the page scrolls to it
+      const intro = projectIntro();
+      if (intro > 0) {
+        look.lerp(overviewLook.set(0, overview.lookY, 0), intro);
+        pos.lerp(overviewEye.set(0, overview.height, overview.distance), intro);
+      }
       break;
     }
     case 'skills': {
@@ -194,13 +224,14 @@ export function stationCamera(
   // room. On the projects page the screen is centred, with its copy around it
   const wide = isWideViewport(width, height);
   const centred = key === 'projects' && !worldStore.projectAside;
-  const roomy = key === 'skills' ? 4.4 : centred ? 0 : 3.3;
+  const intro = centred ? projectIntro() : 0;
+  const roomy = key === 'skills' ? 4.4 : centred ? overview.room * intro : 3.3;
   const shiftX = wide ? roomy : 0;
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   // Centred in the space below the header, not the whole viewport
   if (centred && wide) {
-    pos.addScaledVector(up, 0.19);
-    look.addScaledVector(up, 0.19);
+    pos.addScaledVector(up, 0.19 * (1 - intro));
+    look.addScaledVector(up, 0.19 * (1 - intro));
   }
 }

@@ -198,14 +198,19 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   const openSlug = projectSlugFromPath(usePathname());
   const selected = openSlug ? items.findIndex((p) => p.slug === openSlug) : -1;
 
-  /** Scroll runway: where it starts and how much scroll each project takes (0 without the world) */
+  /**
+   * Scroll runway: where it starts, how much scroll each project takes (0
+   * without the world) and the scroll at which the stage docks under the header
+   */
   const runway = useCallback(() => {
     const tour = tourRef.current;
     const stage = stageRef.current;
-    if (!tour || !stage) return { top: 0, step: 0 };
+    if (!tour || !stage) return { top: 0, step: 0, docked: 0 };
+    const top = tour.getBoundingClientRect().top + window.scrollY;
     return {
-      top: tour.getBoundingClientRect().top + window.scrollY,
+      top,
       step: (tour.offsetHeight - stage.offsetHeight) / Math.max(1, items.length - 1),
+      docked: top - (parseFloat(getComputedStyle(stage).top) || 0),
     };
   }, [items.length]);
 
@@ -219,6 +224,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       frame = 0;
       if (selected >= 0) {
         worldStore.projectFocus = selected;
+        worldStore.projectIntro = 0;
         return;
       }
       if (lane.step < 10) return;
@@ -227,6 +233,9 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         items.length - 1
       );
       worldStore.projectFocus = focus;
+      // The first screen comes forward as the stage docks, not under the page head
+      worldStore.projectIntro =
+        lane.docked > 1 ? Math.min(Math.max(1 - window.scrollY / lane.docked, 0), 1) : 0;
       setActive(Math.round(focus));
     };
     const schedule = () => {
@@ -245,6 +254,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       resize.disconnect();
       window.removeEventListener('scroll', schedule);
       worldStore.projectFocus = -1;
+      worldStore.projectIntro = 0;
     };
   }, [items.length, runway, selected]);
 

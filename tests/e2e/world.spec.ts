@@ -22,6 +22,14 @@ test.describe('without WebGL', () => {
   });
 });
 
+test('no loading screen holds the page when the world is off', async ({ page }) => {
+  await openHydrated(page, '/');
+  await expect(page.locator('html')).not.toHaveAttribute('data-boot');
+  await expect(page.locator('.boot')).toHaveCount(0);
+  await expect(page.locator('#main-content')).not.toHaveAttribute('inert');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+});
+
 test.describe('3D effects toggle', () => {
   // Reduced motion renders on demand, so software WebGL isn't redrawing all the time
   test.use({ world: 'on', reducedMotion: 'reduce' });
@@ -63,6 +71,8 @@ test.describe('tour and explore modes', () => {
   test('take over the page and hand it back', { tag: '@webgl' }, async ({ page }) => {
     await openHydrated(page, '/');
     await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+    // The page stays inert under the loading screen until it lifts
+    await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
     const main = page.locator('#main-content');
 
     // The guided tour hides the page while it flies station to station. The
@@ -95,6 +105,19 @@ test.describe('tour and explore modes', () => {
     await expect(hud).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('data-world-mode', 'explore');
     await expect(main).toHaveAttribute('inert', '');
+
+    // Every station is marked; its number key sets the autopilot for it
+    const stations = hud.getByRole('list', { name: 'Stations' });
+    await expect(stations.getByRole('button')).toHaveCount(6);
+    const projects = stations.getByRole('button', { name: /^Autopilot to Projects/ });
+    await expect(projects).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('Digit3');
+    await expect(projects).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      hud.getByRole('status').filter({ hasText: 'Autopilot to Projects' })
+    ).toBeVisible();
+    await page.keyboard.press('Digit3');
+    await expect(projects).toHaveAttribute('aria-pressed', 'false');
 
     await page.keyboard.press('Escape');
     await expect(hud).toBeHidden();

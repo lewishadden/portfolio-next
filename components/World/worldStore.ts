@@ -13,6 +13,12 @@ export const worldStore = {
    * camera rides the helix to it.
    */
   projectFocus: -1,
+  /**
+   * How far the /projects page still is from its first project: 1 at the
+   * top, where the camera holds back on the whole station beside the page
+   * head, 0 once the ride down the helix has begun (and off that page)
+   */
+  projectIntro: 0,
   /** A project page: its screen sits beside the copy rather than centred */
   projectAside: false,
   /** Viewport heights scrolled (scrollY / innerHeight) */
@@ -32,6 +38,14 @@ export const worldStore = {
   flight: { active: false, to: '', progress: 0, path: new Float32Array(0) },
   /** Station the explorer is close enough to dock with, '' when none */
   dock: '',
+  /** Explore mode: the station the autopilot is flying to, '' when flying by hand */
+  autopilot: '',
+  /**
+   * Explore mode: where each station's beacon is on screen, written every
+   * frame for the HUD's waypoints. x / y run -1..1 from the centre (y up);
+   * `onScreen` false means x / y only give the direction to turn
+   */
+  waypoints: {} as Record<string, Waypoint>,
   /** Renderer counters for the stats overlay (written only while it is open) */
   stats: {
     calls: 0,
@@ -47,6 +61,14 @@ export const worldStore = {
     station: '',
   },
 };
+
+export interface Waypoint {
+  x: number;
+  y: number;
+  onScreen: boolean;
+  /** World units from the camera (the HUD calls them km) */
+  distance: number;
+}
 
 type FlightEvent = 'start' | 'approach' | 'end';
 type FlightListener = (event: FlightEvent, to: string) => void;
@@ -79,6 +101,23 @@ export function setDock(station: string) {
   if (worldStore.dock === station) return;
   worldStore.dock = station;
   dockListeners.forEach((listener) => listener());
+}
+
+const autopilotListeners = new Set<() => void>();
+
+/** Explore mode: subscribe to the autopilot's destination changing */
+export function onAutopilot(listener: () => void) {
+  autopilotListeners.add(listener);
+  return () => {
+    autopilotListeners.delete(listener);
+  };
+}
+
+/** Sets course for a station ('' hands the controls back) */
+export function setAutopilot(station: string) {
+  if (worldStore.autopilot === station) return;
+  worldStore.autopilot = station;
+  autopilotListeners.forEach((listener) => listener());
 }
 
 /** Called by the contact form after a successful send: fires the rocket on /contact */

@@ -25,16 +25,17 @@ import type { Curve } from 'three';
    swings wildly as it passes them): the starting view blends into the
    destination's, leaning a little into the direction of travel.
 
-   About-turn (the destination is behind): the camera swings out to one
-   side and turns that way to face the station, runs past it on that
-   side, loops round its front at a walk and comes in along its viewing
-   axis, so the station ends dead ahead. The view chases the station's
-   bearing through a rate-limited servo, so the whole flight is one
-   continuous turn (about 360 degrees) that never exceeds ~95 deg/s.
+   About-turn (the destination is behind): the camera turns to face the
+   way it is going as it pulls away, cruises there, runs in past the
+   station's side and, as it slows, turns back round towards the station
+   to settle on its viewing pose: two opposite turns (an S, never a full
+   spin) with a straight run between them. The heading it turns to is
+   the path a little way ahead, so the view never whips round on a bend.
 
-   Distance along either path follows a smootherstep, so speed rises and
-   falls without a jolt at either end; about-turns front-load it so the
-   pass and the loop come slowly.
+   Distance along the path eases in and out, so speed rises and falls
+   without a jolt at either end; about-turns gather speed slowly while
+   they turn, and brake early with a long slow tail so the turn back
+   happens beside the station rather than out in open space.
    ------------------------------------------------------------------ */
 
 const samples = 64;
@@ -49,14 +50,19 @@ const euler = new Euler(0, 0, 0, 'YXZ');
 
 /** Behind, more or less: the destination lies against the way the camera faces */
 const aboutTurnBeyond = -0.25;
-/** Radius of the loop round the destination's front; the run past it sits 1.6 of that out */
-const loopRadius = 13;
-/** A full turn at the servo's cap takes ~3.8s; a shorter about-turn would snap the rest at the end */
-const aboutTurnMin = 4.6;
-/** The servo chasing the station's bearing: rad/s cap, gain per second, ease-in share of the flight */
-const servoCap = 1.65;
-const servoGain = 2.4;
-const servoEaseIn = 0.12;
+/** How far out beside the station an about-turn runs in */
+const passRadius = 13;
+/** About-turns: seconds spent turning away, and turning back (they overlap on short flights) */
+const departTime = 3;
+const flipTime = 3;
+/** About-turns: path left when the turn back begins, about a pass beside the station */
+const flipReach = 34;
+/** How far ahead on the path the about-turn's heading looks (world units) */
+const headingReach = 22;
+/** How quickly (per second) the about-turn's view follows the path's heading */
+const headingFollow = 3;
+/** Steepest the camera pitches to follow the path */
+const maxPitch = 0.3;
 
 export interface Flight {
   curve: Curve<Vector3>;
@@ -65,9 +71,14 @@ export interface Flight {
   /** The camera's rotation when the flight began */
   rotationFrom: Quaternion;
   about: boolean;
-  /** About-turns: the station the camera keeps in view, and the side the path swings out to */
-  focus: Vector3;
-  side: Vector3;
+  /** About-turns: when speed stops building, braking begins, the turn away ends and the turn back begins (shares of the flight) */
+  accel: number;
+  brake: number;
+  departEnd: number;
+  flipFrom: number;
+  /** About-turns: which way (+1 left, -1 right) the camera turns away, and turns back */
+  departTurn: number;
+  flipTurn: number;
   length: number;
   duration: number;
   elapsed: number;
@@ -78,18 +89,24 @@ export interface FlightView {
   started: boolean;
   /** Direction of travel, smoothed so tight bends never whip the view */
   ahead: Vector3;
-  /** About-turns: the view's yaw and pitch, and the unwrapped bearing they chase */
-  yaw: number;
-  pitch: number;
-  targetYaw: number;
+  /** About-turns: the starting view, the heading it turns to and the final view (unwrapped yaws) */
+  fromYaw: number;
+  fromPitch: number;
+  cruiseYaw: number;
+  cruisePitch: number;
+  endYaw: number;
+  flipping: boolean;
 }
 
 export const createFlightView = (): FlightView => ({
   started: false,
   ahead: new Vector3(),
-  yaw: 0,
-  pitch: 0,
-  targetYaw: 0,
+  fromYaw: 0,
+  fromPitch: 0,
+  cruiseYaw: 0,
+  cruisePitch: 0,
+  endYaw: 0,
+  flipping: false,
 });
 
 /** Zero velocity and acceleration at both ends */
@@ -101,9 +118,47 @@ export const smootherstep = (x: number) => {
 /** Shortest signed angle from `a` to `b` */
 const wrap = (angle: number) => MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
 
+/**
+ * About-turns' speed profile: rises over the first `accel` of the flight,
+ * cruises, and brakes from `brake` with a long slow tail. Both ramps are
+ * smooth at both ends; returns the share of the path covered.
+ */
+function aboutEase(s: number, accel: number, brake: number) {
+  const t = MathUtils.clamp(s, 0, 1);
+  const area = 0.4 * accel + (brake - accel) + 0.4 * (1 - brake);
+  let covered: number;
+  if (t < accel) {
+    const x = t / accel;
+    covered = accel * x ** 4 * (1 - 0.6 * x);
+  } else if (t < brake) {
+    covered = 0.4 * accel + (t - accel);
+  } else {
+    const x = (t - brake) / (1 - brake);
+    covered =
+      0.4 * accel + (brake - accel) + (1 - brake) * x * (1 - 2 * x * x + 2 * x ** 3 - 0.6 * x ** 4);
+  }
+  return Math.min(covered / area, 1);
+}
+
+/**
+ * When to brake so that `flipReach` of the path is left as the turn back
+ * begins. Braking earlier leaves less, slower path for the end.
+ */
+function planBrake(length: number, accel: number, flipFrom: number) {
+  const left = Math.min(flipReach, length * 0.3) / length;
+  let early = accel;
+  let late = 0.95;
+  for (let i = 0; i < 24; i++) {
+    const brake = (early + late) / 2;
+    if (1 - aboutEase(flipFrom, accel, brake) > left) late = brake;
+    else early = brake;
+  }
+  return (early + late) / 2;
+}
+
 /** Share of the path covered `s` (0..1) of the way through the flight */
 export function flightEase(f: Flight, s: number) {
-  return Math.min(smootherstep(f.about ? Math.pow(s, 0.65) : s), 1);
+  return f.about ? aboutEase(s, f.accel, f.brake) : smootherstep(s);
 }
 
 export function flightPosition(f: Flight, s: number, out: Vector3) {
@@ -176,54 +231,55 @@ function planAhead(
   return curve;
 }
 
-function planAbout(
-  fromPos: Vector3,
-  fromLook: Vector3,
-  fromRotation: Quaternion,
-  toPos: Vector3,
-  toLook: Vector3
-) {
+/** Which way (+1 left, -1 right, by yaw) turns the heading `from` towards `to` */
+const turnSign = (from: Vector3, to: Vector3) =>
+  Math.sign(scratch.crossVectors(from, to).dot(up)) || 1;
+
+function planAbout(fromPos: Vector3, fromLook: Vector3, toPos: Vector3, toLook: Vector3) {
   const distance = fromPos.distanceTo(toPos);
   const toward = new Vector3().subVectors(toPos, fromPos).normalize();
-  const arrival = new Vector3().subVectors(toPos, toLook).normalize();
-  // Swing out to the side away from the destination and keep turning that
-  // way the whole flight: one continuous turn, never a reversal
-  const right = new Vector3(1, 0, 0).applyQuaternion(fromRotation);
-  right.y = 0;
-  right.normalize();
-  const lateral = new Vector3().subVectors(toLook, fromPos).dot(right);
-  const side = right.multiplyScalar(lateral > 0 ? -1 : 1);
-  let lift = MathUtils.clamp(distance * 0.06, 0, 14);
+  const arrival = new Vector3().subVectors(toPos, toLook);
+  arrival.y = 0;
+  arrival.normalize();
+  const across = new Vector3().crossVectors(up, arrival).normalize();
+  // Run in on the side the camera is coming from (else the side the pose
+  // is framed from), so the path never has to cross the station's front
+  const lateral = new Vector3().subVectors(fromPos, toLook).dot(across);
+  const framed = new Vector3().subVectors(toPos, toLook).dot(across);
+  const side = across.multiplyScalar(
+    Math.abs(lateral) > 4 ? Math.sign(lateral) : Math.sign(framed) || -1
+  );
+  // Running in past the station the camera faces along `arrival`; it turns
+  // back towards the station, and turned away from it the other way
+  const flipTurn = turnSign(arrival, side.clone().negate());
+  let lift = MathUtils.clamp(distance * 0.05, 0, 12);
 
-  const r = loopRadius;
+  const r = passRadius;
   const build = () => {
-    const centre = toPos.clone().addScaledVector(side, r).addScaledVector(arrival, r);
-    const arc = (deg: number, h: number) =>
-      centre
-        .clone()
-        .addScaledVector(side, r * Math.cos((deg * Math.PI) / 180))
-        .addScaledVector(arrival, r * Math.sin((deg * Math.PI) / 180))
-        .addScaledVector(up, h);
-    const runIn = toPos
-      .clone()
-      .addScaledVector(side, 1.6 * r)
-      .addScaledVector(arrival, -r * 0.8)
-      .addScaledVector(up, lift * 0.5);
     const points = [fromPos.clone()];
-    // Out to the side on the way, when there is room for it
-    if (fromPos.distanceTo(runIn) > 3 * r) {
+    // Climb away towards the destination, when there is room for it
+    if (distance > 60) {
       points.push(
         fromPos
           .clone()
-          .addScaledVector(toward, 0.3 * distance)
-          .addScaledVector(side, MathUtils.clamp(0.1 * distance, 8, 22))
+          .addScaledVector(toward, Math.min(0.24 * distance, 42))
           .addScaledVector(up, lift)
       );
     }
-    points.push(runIn);
-    // Past the station, round its front and in along its viewing axis
-    for (let deg = 0; deg <= 180; deg += 30) points.push(arc(deg, lift * 0.25 * (1 - deg / 180)));
-    points.push(toPos.clone());
+    // In past the station's side, then round onto its viewing pose
+    points.push(
+      toLook
+        .clone()
+        .addScaledVector(side, r)
+        .addScaledVector(arrival, -r * 0.45)
+        .addScaledVector(up, lift * 0.3),
+      toLook
+        .clone()
+        .addScaledVector(side, r * 0.92)
+        .addScaledVector(arrival, r * 0.55)
+        .addScaledVector(up, lift * 0.1),
+      toPos.clone()
+    );
     const curve = new CatmullRomCurve3(points, false, 'centripetal');
     curve.arcLengthDivisions = 400;
     return curve;
@@ -233,7 +289,7 @@ function planAbout(
     lift += 8;
     curve = build();
   }
-  return { curve, side };
+  return { curve, flipTurn };
 }
 
 /**
@@ -264,18 +320,27 @@ export function planFlight(
     end: toPos.clone(),
     rotationFrom: fromRotation.clone(),
     about,
-    focus: toLook.clone(),
-    side: new Vector3(1, 0, 0),
+    accel: 0,
+    brake: 1,
+    departEnd: 0,
+    flipFrom: 1,
+    departTurn: 1,
+    flipTurn: 1,
     length: 0,
     duration: 0,
     elapsed: 0,
   };
   if (about) {
-    const plan = planAbout(fromPos, fromLook, fromRotation, toPos, toLook);
+    const plan = planAbout(fromPos, fromLook, toPos, toLook);
     f.curve = plan.curve;
-    f.side = plan.side;
+    f.flipTurn = plan.flipTurn;
+    f.departTurn = -plan.flipTurn;
     f.length = f.curve.getLength();
-    f.duration = MathUtils.clamp(1.4 + f.length / 50, aboutTurnMin, 6.5);
+    f.duration = MathUtils.clamp(3.4 + f.length / 60, 5.2, 7.8);
+    f.departEnd = Math.min(departTime / f.duration, 0.5);
+    f.flipFrom = Math.max(1 - flipTime / f.duration, 0.42);
+    f.accel = f.departEnd * 0.9;
+    f.brake = planBrake(f.length, f.accel, f.flipFrom);
   } else {
     f.curve = planAhead(fromPos, fromLook, viewFrom, toPos, toLook, velocity, ahead);
     f.length = f.curve.getLength();
@@ -290,15 +355,34 @@ function yawPitch(q: Quaternion) {
   return { yaw: euler.y, pitch: euler.x };
 }
 
+/** Unwrapped yaw and clamped pitch of a direction, picking the turn nearest `near` */
+function heading(direction: Vector3, near: number) {
+  const yaw = Math.atan2(-direction.x, -direction.z);
+  const flat = Math.hypot(direction.x, direction.z);
+  return {
+    yaw: near + wrap(yaw - near),
+    pitch: MathUtils.clamp(Math.atan2(direction.y, flat), -maxPitch, maxPitch),
+  };
+}
+
+/**
+ * About-turns: where the camera is heading, the path `headingReach` ahead.
+ * Returns false once the path ahead is too short to give a direction.
+ */
+function aboutHeading(f: Flight, s: number, position: Vector3, out: Vector3) {
+  const along = Math.min(flightEase(f, s) + headingReach / f.length, 1);
+  out.copy(f.curve.getPointAt(along)).sub(position);
+  return out.lengthSq() > 9;
+}
+
 /**
  * The camera's rotation `s` (0..1) of the way through a flight.
  * Ahead: the start view blended into `rotationTo`, leaning into the
  * direction of travel mid-flight when that is roughly ahead, or dipping the
  * nose a touch when the camera is drifting back.
- * About-turn: the view chases the station's bearing (unwrapped frame to
- * frame, so it never jumps as the bearing crosses the seam), turning the way
- * the path swings out, at a capped rate; the last stretch settles it onto
- * the destination's pose, which looks at the same station.
+ * About-turn: the start view turns to the heading (the way `departTurn`
+ * says when it is a half turn or so either way), follows it, then turns
+ * back the way `flipTurn` says into `rotationTo`, which faces the station.
  */
 export function flightRotation(
   f: Flight,
@@ -310,26 +394,50 @@ export function flightRotation(
   out: Quaternion
 ) {
   if (f.about) {
-    const bearing = yawPitch(lookRotation(position, f.focus, turn));
     if (!view.started) {
       view.started = true;
       const from = yawPitch(f.rotationFrom);
-      view.yaw = from.yaw;
-      view.pitch = from.pitch;
-      const sideYaw = yawPitch(lookRotation(origin.set(0, 0, 0), f.side, turn)).yaw;
-      const turnDir = Math.sign(wrap(sideYaw - from.yaw)) || 1;
-      let dyaw = wrap(bearing.yaw - from.yaw);
-      if (Math.sign(dyaw) !== turnDir) dyaw -= Math.sign(dyaw) * Math.PI * 2;
-      view.targetYaw = from.yaw + dyaw;
-    } else {
-      view.targetYaw += wrap(bearing.yaw - view.targetYaw);
+      view.fromYaw = from.yaw;
+      view.fromPitch = from.pitch;
+      aboutHeading(f, s, position, scratch);
+      const start = heading(scratch, from.yaw);
+      let away = start.yaw - from.yaw;
+      // Near enough a half turn either way: turn the planned way
+      if (Math.abs(away) > 2.6 && Math.sign(away) !== f.departTurn) {
+        away -= Math.sign(away) * Math.PI * 2;
+      }
+      view.cruiseYaw = from.yaw + away;
+      view.cruisePitch = start.pitch;
+      view.flipping = false;
+    } else if (s < f.flipFrom && aboutHeading(f, s, position, scratch)) {
+      // Eased, so bends in the path never jerk the view, and held through
+      // the turn back, so the bend onto the pose adds no swing
+      const next = heading(scratch, view.cruiseYaw);
+      const follow = 1 - Math.exp(-headingFollow * dt);
+      view.cruiseYaw += (next.yaw - view.cruiseYaw) * follow;
+      view.cruisePitch += (next.pitch - view.cruisePitch) * follow;
     }
-    const cap = servoCap * MathUtils.smoothstep(s, 0, servoEaseIn);
-    view.yaw += MathUtils.clamp((view.targetYaw - view.yaw) * servoGain, -cap, cap) * dt;
-    view.pitch +=
-      MathUtils.clamp((bearing.pitch - view.pitch) * servoGain, -cap * 0.6, cap * 0.6) * dt;
-    out.setFromEuler(euler.set(view.pitch, view.yaw, 0, 'YXZ'));
-    return out.slerp(rotationTo, smootherstep((s - 0.85) / 0.15));
+
+    const end = yawPitch(rotationTo);
+    if (!view.flipping && s >= f.flipFrom) {
+      view.flipping = true;
+      let back = wrap(end.yaw - view.cruiseYaw);
+      if (Math.abs(back) > 1.6 && Math.sign(back) !== f.flipTurn) {
+        back -= Math.sign(back) * Math.PI * 2;
+      }
+      view.endYaw = view.cruiseYaw + back;
+    } else if (view.flipping) {
+      view.endYaw += wrap(end.yaw - view.endYaw);
+    }
+
+    const away = smootherstep(s / f.departEnd);
+    const back = view.flipping ? smootherstep((s - f.flipFrom) / (1 - f.flipFrom)) : 0;
+    let yaw = MathUtils.lerp(view.fromYaw, view.cruiseYaw, away);
+    let pitch = MathUtils.lerp(view.fromPitch, view.cruisePitch, away);
+    yaw = MathUtils.lerp(yaw, view.endYaw, back);
+    pitch = MathUtils.lerp(pitch, end.pitch, back);
+    out.setFromEuler(euler.set(pitch, yaw, 0, 'YXZ'));
+    return out.slerp(rotationTo, smootherstep((s - 0.97) / 0.03));
   }
 
   out.copy(f.rotationFrom).slerp(rotationTo, smootherstep((s - 0.08) / 0.8));

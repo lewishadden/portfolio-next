@@ -5,9 +5,11 @@ import { Icon } from '@iconify/react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
+import { canLockPointer, usePointerLocked } from './pointerLock';
 import { stationNames, stationPaths } from './routes';
+import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
-import { exploreInput, onDock, worldStore } from './worldStore';
+import { exploreInput, onDock, setAutopilot, worldStore } from './worldStore';
 
 import type { StationKey } from './routes';
 
@@ -92,21 +94,33 @@ function TouchPad() {
   );
 }
 
+const noLock = () => false;
+const subscribeNothing = () => () => {};
+
 /**
- * Explore mode's heads-up display: how to fly, an exit, and a docking
- * prompt when you are close enough to a station to open its page.
+ * Explore mode's heads-up display: how to fly, an exit, a marker for
+ * every station (which sets the autopilot), the autopilot's status, and a
+ * docking prompt when you are close enough to a station to open its page.
  */
 export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) => void }) {
   const { mode } = useWorldMode();
   const exploring = mode === 'explore';
   const dock = useSyncExternalStore(onDock, readDock, noDock) as StationKey | '';
+  const course = useAutopilot() as StationKey | '';
   const touch = useMediaQuery('(pointer: coarse)');
+  const lockable = useSyncExternalStore(subscribeNothing, canLockPointer, noLock);
+  const locked = usePointerLocked();
   const exitRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!exploring) return;
     exitRef.current?.focus({ preventScroll: true });
   }, [exploring]);
+
+  // The cursor ring hides while the pointer is locked (World.scss)
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-pointer-lock', locked);
+  }, [locked]);
 
   useEffect(() => {
     if (!exploring || !dock) return;
@@ -130,14 +144,14 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
         </span>
         <span className="explore-hud__keys">
           {touch ? (
-            'Pad to fly · drag to look'
+            'Pad to fly · drag to look · tap a station for autopilot'
           ) : (
             <>
               <kbd>W</kbd>
               <kbd>A</kbd>
               <kbd>S</kbd>
-              <kbd>D</kbd> fly · mouse steers · <kbd>Space</kbd>
-              <kbd>C</kbd> up/down · <kbd>⇧</kbd> boost
+              <kbd>D</kbd> fly · mouse {lockable ? 'looks' : 'steers'} · <kbd>Space</kbd>
+              <kbd>C</kbd> up/down · <kbd>⇧</kbd> boost · <kbd>0</kbd>–<kbd>5</kbd> autopilot
             </>
           )}
         </span>
@@ -146,7 +160,39 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
         </button>
       </div>
 
-      {!touch && <span className="explore-hud__reticle" aria-hidden="true" />}
+      <Waypoints />
+
+      {!touch && (
+        <span
+          className={`explore-hud__reticle${lockable ? ' explore-hud__reticle--locked' : ''}`}
+          aria-hidden="true"
+        />
+      )}
+      {!touch && lockable && (
+        <p className="explore-hud__lock" role="status">
+          {locked ? (
+            <>
+              <kbd>Esc</kbd> frees the mouse
+            </>
+          ) : (
+            <>
+              Click to steer · <kbd>Esc</kbd> to leave
+            </>
+          )}
+        </p>
+      )}
+
+      {course && !dock && (
+        <div className="explore-hud__autopilot glass" role="status">
+          <span className="explore-hud__autopilot-dot" aria-hidden="true" />
+          <span>
+            Autopilot to <b>{stationNames[course].page}</b>
+          </span>
+          <button type="button" className="explore-hud__exit" onClick={() => setAutopilot('')}>
+            Take the controls
+          </button>
+        </div>
+      )}
 
       {dock && (
         <div className="explore-hud__dock glass" role="status">

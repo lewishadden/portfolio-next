@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useBooted } from '@/components/World/boot';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 const glyphs = '!<>-_\\/[]{}=+*^?#01ΔΣΛ';
@@ -30,6 +31,8 @@ export function ScrambleText({
   const frame = useRef(0);
   const ref = useRef<HTMLSpanElement>(null);
   const reducedMotion = useReducedMotion();
+  // Decodes once the loading screen has lifted, so it is seen
+  const booted = useBooted();
 
   const run = useCallback(() => {
     if (reducedMotion) return;
@@ -52,7 +55,7 @@ export function ScrambleText({
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || trigger === 'none') return;
+    if (!el || trigger === 'none' || !booted) return;
     if (trigger === 'mount') {
       run();
       return () => cancelAnimationFrame(frame.current);
@@ -71,7 +74,7 @@ export function ScrambleText({
       io.disconnect();
       cancelAnimationFrame(frame.current);
     };
-  }, [run, trigger]);
+  }, [run, trigger, booted]);
 
   return (
     <span

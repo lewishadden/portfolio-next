@@ -42,6 +42,8 @@ const content = [
 
 /** True when the pointer is over empty page (or the page is hidden for explore / tour) */
 export function isOpenSpace(target: EventTarget | null) {
+  // A locked pointer is steering, and its position is stale
+  if (document.pointerLockElement) return false;
   if (!(target instanceof Element)) return true;
   if (worldMode.get().mode !== 'page') return !target.closest('a, button, input, .glass');
   return !target.closest(content);

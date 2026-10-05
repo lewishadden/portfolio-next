@@ -364,7 +364,8 @@ html[data-world-mode='explore'] {
     color: var(--text-primary);
   }
 
-  /* Steering reticle: hold the mouse inside the ring to fly straight */
+  /* Steering reticle: hold the mouse inside the ring to fly straight (a
+     plain crosshair when the pointer is locked and the mouse looks) */
   &__reticle {
     position: absolute;
     top: 50%;
@@ -395,6 +396,69 @@ html[data-world-mode='explore'] {
       width: 1px;
       height: 14px;
     }
+
+    &--locked {
+      width: 30px;
+      height: 30px;
+      border-style: solid;
+      border-color: color-mix(in oklab, var(--accent-secondary) 55%, transparent);
+      box-shadow: 0 0 14px -2px var(--glow-cyan);
+    }
+  }
+
+  &__lock {
+    position: absolute;
+    top: calc(50% + 34px);
+    left: 50%;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    text-shadow: 0 1px 8px var(--bg-primary);
+    transform: translateX(-50%);
+    opacity: 0.85;
+  }
+
+  &__autopilot {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(24px, 8vh, 64px);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.55rem 0.5rem 1rem;
+    border-radius: var(--radius-pill);
+    font-size: var(--fs-body-sm);
+    color: var(--text-secondary);
+    background: var(--surface-strong);
+    transform: translateX(-50%);
+    pointer-events: auto;
+    animation: tour-in 0.35s var(--ease-out) both;
+
+    b {
+      color: var(--text-primary);
+    }
+  }
+
+  &__autopilot-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-tertiary);
+    box-shadow: 0 0 12px var(--accent-tertiary);
+    animation: autopilot-blink 1.2s ease-in-out infinite;
+  }
+
+  /* One marker per station, positioned every frame (see Waypoints) */
+  &__waypoints {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   &__dock {
@@ -472,9 +536,175 @@ html[data-world-mode='explore'] {
   }
 }
 
+/* A station marker: a diamond on its beacon with its number, name and
+   distance; off screen it rides the edge, its arrow pointing the way */
+.waypoint {
+  --turn: 0rad;
+  --tone: var(--accent-secondary);
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  pointer-events: auto;
+  will-change: transform, opacity;
+
+  &__mark {
+    position: absolute;
+    top: -9px;
+    left: -9px;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--tone);
+    border-radius: 3px;
+    box-shadow:
+      0 0 12px -2px var(--tone),
+      inset 0 0 8px -3px var(--tone);
+    transform: rotate(45deg);
+    transition:
+      transform 0.25s var(--ease-out),
+      border-color 0.2s ease;
+  }
+
+  &__arrow {
+    position: absolute;
+    top: -7px;
+    left: -7px;
+    display: none;
+    width: 14px;
+    height: 14px;
+    border-top: 2px solid var(--tone);
+    border-right: 2px solid var(--tone);
+    filter: drop-shadow(0 0 6px var(--tone));
+    transform: rotate(var(--turn)) translateX(16px) rotate(45deg);
+  }
+
+  &__text {
+    position: absolute;
+    top: -15px;
+    left: 18px;
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.3rem 0.55rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm, 8px);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    text-align: left;
+    white-space: nowrap;
+    text-transform: uppercase;
+    background: color-mix(in oklab, var(--surface-strong) 80%, transparent);
+    backdrop-filter: blur(6px);
+  }
+
+  &__name {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-primary);
+
+    kbd {
+      min-width: 1.05rem;
+      margin: 0;
+      padding: 0 0.2rem;
+      border-color: color-mix(in oklab, var(--tone) 60%, transparent);
+      color: var(--tone);
+    }
+  }
+
+  &__km {
+    color: var(--text-muted);
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+
+    .waypoint__mark {
+      transform: rotate(45deg) scale(1.3);
+    }
+
+    .waypoint__text {
+      border-color: var(--tone);
+    }
+  }
+
+  /* Off screen: the arrow points the way; the label sits inwards of it */
+  &--edge {
+    .waypoint__mark {
+      transform: rotate(45deg) scale(0.6);
+    }
+
+    .waypoint__arrow {
+      display: block;
+    }
+
+    .waypoint__text {
+      top: calc(-15px - sin(var(--turn)) * 34px);
+      left: auto;
+      right: calc(cos(var(--turn)) * 34px);
+      transform: translateX(calc(50% - cos(var(--turn)) * 50%));
+    }
+  }
+
+  &--course {
+    --tone: var(--accent-tertiary);
+
+    .waypoint__mark {
+      animation: waypoint-pulse 1.2s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes autopilot-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes waypoint-pulse {
+  50% {
+    box-shadow:
+      0 0 22px 2px var(--tone),
+      inset 0 0 10px -2px var(--tone);
+  }
+}
+
+/* A locked pointer is hidden: so is the cursor ring that trails it */
+html[data-pointer-lock] {
+  .cursor__ring,
+  .cursor__dot {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .waypoint__text {
+    padding: 0.2rem 0.45rem;
+  }
+
+  .waypoint__km {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tour,
-  .explore-hud__dock {
+  .explore-hud__dock,
+  .explore-hud__autopilot {
+    animation: none;
+  }
+
+  .waypoint--course .waypoint__mark,
+  .explore-hud__autopilot-dot {
     animation: none;
   }
 }

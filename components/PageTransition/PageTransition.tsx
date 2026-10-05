@@ -5,6 +5,7 @@ import { m, useAnimationControls } from 'framer-motion';
 import { useLenis } from 'lenis/react';
 import { usePathname } from 'next/navigation';
 
+import { whenBooted } from '@/components/World/boot';
 import { stationForPath } from '@/components/World/routes';
 import { worldMode } from '@/components/World/worldMode';
 import { onFlight } from '@/components/World/worldStore';
@@ -14,7 +15,7 @@ import { useRouteKey } from '@/hooks/useRouteKey';
 import './PageTransition.scss';
 
 /** Longest the copy waits for the camera before showing anyway */
-const maxHold = 4200;
+const maxHold = 6500;
 
 /** The 3D world is on screen and following the page */
 const worldIsLive = () =>
@@ -26,7 +27,7 @@ const worldIsLive = () =>
  * Route changes: a light sweep crosses the viewport and the new page
  * de-blurs in. With the 3D world on, the copy waits for the camera: it
  * arrives as the flight makes its final approach, rather than appearing
- * over empty space. The first page load never waits.
+ * over empty space. The first page load enters as the loading screen lifts.
  */
 export function PageTransition({ children }: { children: React.ReactNode }) {
   // Keyed by route, not URL: the project modal's shallow URL change must not remount the grid
@@ -47,8 +48,8 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
     station.current = next;
     const expectFlight = previous !== null && previous !== next && !reduceMotion && worldIsLive();
     if (!expectFlight) {
-      controls.start('visible');
-      return;
+      // A full page load enters as the loading screen lifts
+      return whenBooted(() => controls.start('visible'));
     }
     let shown = false;
     const show = () => {

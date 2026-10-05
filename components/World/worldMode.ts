@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 
+import { lockPointer, unlockPointer } from './pointerLock';
 import { navigableStations } from './routes';
 
 import type { StationKey } from './routes';
@@ -46,7 +47,10 @@ export const worldMode = {
       ? set({ tourStop: state.tourStop + 1 })
       : set({ mode: 'page', tourStop: 0 }),
   startExplore: () => set({ mode: 'explore' }),
-  exit: () => set({ mode: 'page', tourStop: 0 }),
+  exit: () => {
+    unlockPointer();
+    set({ mode: 'page', tourStop: 0 });
+  },
 };
 
 export function useWorldMode() {
@@ -64,6 +68,8 @@ export function launchWorldMode(mode: 'tour' | 'explore', enableWorld: () => voi
   const start = mode === 'tour' ? worldMode.startTour : worldMode.startExplore;
   if (worldReady()) {
     start();
+    // Still inside the click or key press that asked for it, which the lock needs
+    if (mode === 'explore') lockPointer();
     return;
   }
   enableWorld();

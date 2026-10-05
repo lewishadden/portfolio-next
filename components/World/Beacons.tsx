@@ -15,7 +15,7 @@ import {
 } from 'three';
 
 import { navigableStations, stationNames } from './routes';
-import { stationPositions } from './stations';
+import { beaconHeight, stationPositions } from './stations';
 import { palettes } from './utils';
 import { worldMode } from './worldMode';
 import { worldStore } from './worldStore';
@@ -23,8 +23,6 @@ import { worldStore } from './worldStore';
 import type { StationKey } from './stations';
 import type { WorldTheme } from './utils';
 
-/** Height of each station's beacon above its centre */
-const beaconHeight: Partial<Record<StationKey, number>> = { experience: 6, skills: 5 };
 const position = new Vector3();
 
 function glowTexture(color: string) {
@@ -83,10 +81,14 @@ function labelTexture(index: number, key: StationKey, theme: WorldTheme) {
 /**
  * A light above every station, visible from anywhere in the world, so the
  * stations read as one place: from any page the others glow in the distance.
- * Names appear while flying, touring or exploring, and the destination pulses.
+ * Names appear while flying or touring, and the destination pulses. In free
+ * roam the lights burn bigger and brighter to steer by (the HUD's markers
+ * name them), and the autopilot's destination pulses.
  */
 export function Beacons({ theme, current }: { theme: WorldTheme; current: StationKey }) {
   const groupRef = useRef<Group>(null);
+  /** 0..1: how far the beacons have brightened for free roam */
+  const beacons = useRef(0);
   const palette = palettes[theme];
   const keys = useMemo(
     () => (current === 'lost' ? [...navigableStations, 'lost' as const] : navigableStations),
@@ -142,9 +144,11 @@ export function Beacons({ theme, current }: { theme: WorldTheme; current: Statio
     if (!group) return;
     const { mode } = worldMode.get();
     const flight = worldStore.flight;
-    const showNames = mode !== 'page' || flight.active;
+    const exploring = mode === 'explore';
+    const showNames = mode === 'tour' || flight.active;
     const t = clock.elapsedTime;
     const dt = Math.min(delta, 0.05);
+    const bright = (beacons.current = MathUtils.damp(beacons.current, exploring ? 1 : 0, 3, dt));
 
     assets.beacons.forEach((beacon, i) => {
       const node = group.children[i] as Group | undefined;
@@ -154,12 +158,18 @@ export function Beacons({ theme, current }: { theme: WorldTheme; current: Statio
       const distance = camera.position.distanceTo(position);
       // Fade out as you arrive: the station itself takes over
       const presence = MathUtils.smoothstep(distance, 22, 60);
-      const target = flight.active && flight.to === beacon.key;
-      const pulse = target ? 0.75 + 0.25 * Math.sin(t * 5) : 1;
+      const target =
+        (flight.active && flight.to === beacon.key) ||
+        (exploring && worldStore.autopilot === beacon.key);
+      const pulse = target
+        ? 0.75 + 0.25 * Math.sin(t * 5)
+        : 1 + 0.12 * bright * Math.sin(t * 2 + i);
 
       beacon.glow.map = target ? assets.destination : assets.glow;
-      beacon.glow.opacity = presence * (target ? 1 : 0.7) * pulse;
-      glow.scale.setScalar((target ? 0.075 : 0.05) * pulse);
+      beacon.glow.opacity = presence * MathUtils.lerp(target ? 1 : 0.7, 1, bright) * pulse;
+      glow.scale.setScalar(
+        MathUtils.lerp(target ? 0.075 : 0.05, target ? 0.11 : 0.085, bright) * pulse
+      );
       glow.visible = beacon.glow.opacity > 0.01;
 
       const labelTarget = showNames ? presence : 0;
@@ -173,7 +183,7 @@ export function Beacons({ theme, current }: { theme: WorldTheme; current: Statio
       {assets.beacons.map((beacon) => {
         const [x, y, z] = stationPositions[beacon.key];
         return (
-          <group key={beacon.key} position={[x, y + (beaconHeight[beacon.key] ?? 3.6), z]}>
+          <group key={beacon.key} position={[x, y + beaconHeight(beacon.key), z]}>
             <sprite material={beacon.glow} renderOrder={5} />
             <sprite
               material={beacon.label}

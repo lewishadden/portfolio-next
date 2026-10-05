@@ -6,6 +6,8 @@ import { PerformanceMonitor } from '@react-three/drei';
 
 import { Asteroids } from './Asteroids';
 import { Beacons } from './Beacons';
+import { bootState, readyBoot, reportBoot } from './boot';
+import { downloads } from './downloads';
 import { CameraRig } from './CameraRig';
 import { Dust } from './Dust';
 import { Effects } from './Effects';
@@ -164,7 +166,7 @@ export default function WorldCanvas({
         const next = navigableStations.find((key) => !current.includes(key));
         return next ? [...current, next] : current;
       });
-    }, 1200);
+    }, 700);
     return () => window.clearInterval(id);
   }, [mode, allMounted]);
 
@@ -196,6 +198,28 @@ export default function WorldCanvas({
     const id = requestAnimationFrame(() => requestAnimationFrame(() => onReady()));
     return () => cancelAnimationFrame(id);
   }, [warm, onReady]);
+
+  // The loading screen: progress from asset downloads and warm-up work, and
+  // ready once the first view is drawn with nothing loading or warming up
+  useEffect(() => {
+    // Only on the first load (switching the world back on later has no screen)
+    if (bootState().ready) return;
+    reportBoot(0.2, 1);
+    let calm = 0;
+    const id = window.setInterval(() => {
+      const work = tracker.counts();
+      const units = downloads.total + work.started;
+      const done = downloads.loaded + work.settled;
+      reportBoot(0.2 + 0.78 * (units ? done / units : 0), downloads.busy ? 2 : 3);
+      // Settled for a moment: a finished download's warm-up registers a frame or two later
+      calm = warm && !downloads.busy && tracker.idle() ? calm + 1 : 0;
+      if (calm >= 3) {
+        window.clearInterval(id);
+        readyBoot();
+      }
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [tracker, warm]);
 
   return (
     <Canvas

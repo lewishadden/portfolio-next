@@ -15,6 +15,7 @@ import { Cursor } from '@/components/Cursor/Cursor';
 import { CommandPalette } from '@/components/CommandPalette/CommandPalette';
 import { StatsOverlay } from '@/components/StatsOverlay/StatsOverlay';
 import { RoamButton } from '@/components/RoamButton/RoamButton';
+import { BootScreen } from '@/components/BootScreen/BootScreen';
 import { ScrollProgress } from '@/components/ScrollProgress/ScrollProgress';
 
 import type { Metadata, Viewport } from 'next';
@@ -235,6 +236,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body suppressHydrationWarning>
         <ClientProviders>
+          <BootScreen />
           <a href="#main-content" className="skip-link">
             Skip to content
           </a>

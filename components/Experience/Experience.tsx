@@ -7,6 +7,7 @@ import { m, useInView, useScroll, useTransform } from 'framer-motion';
 
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
+import { useBooted } from 'components/World/boot';
 import { illustrations } from 'components/World/StationFallback';
 import { Reveal } from 'components/Motion/Reveal';
 
@@ -78,6 +79,7 @@ const TimelineItem = ({
 }) => {
   const itemRef = useRef<HTMLLIElement>(null);
   const lit = useInView(itemRef, { margin: litMargin });
+  const booted = useBooted();
   const glowRef = usePointerGlow<HTMLElement>({ tilt: 2.5 });
   const duration = roleDuration(item.years);
 
@@ -86,7 +88,7 @@ const TimelineItem = ({
       ref={itemRef}
       className={`xp__item${lit ? ' xp__item--lit' : ''}`}
       initial="hidden"
-      whileInView="shown"
+      whileInView={booted ? 'shown' : undefined}
       viewport={{ once: true, margin: '0px 0px -10% 0px' }}
     >
       <m.div className="xp__node" variants={nodeVariants} aria-hidden="true">

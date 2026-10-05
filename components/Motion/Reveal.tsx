@@ -2,6 +2,8 @@
 
 import { m } from 'framer-motion';
 
+import { useBooted } from 'components/World/boot';
+
 import type { HTMLMotionProps } from 'framer-motion';
 
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -32,7 +34,10 @@ type RevealProps = Omit<HTMLMotionProps<'div'>, 'initial' | 'whileInView'> & {
   once?: boolean;
 };
 
-/** Fades, lifts and de-blurs its children the first time they scroll into view */
+/**
+ * Fades, lifts and de-blurs its children the first time they scroll into
+ * view (not before the loading screen has lifted, so it is seen)
+ */
 export function Reveal({
   as = 'div',
   delay = 0,
@@ -46,18 +51,23 @@ export function Reveal({
   ...props
 }: RevealProps) {
   const Component = m[as] as typeof m.div;
+  const booted = useBooted();
   return (
     <Component
       initial={{ opacity: 0, y, x, scale, filter: blur ? 'blur(10px)' : 'blur(0px)' }}
-      whileInView={{
-        opacity: 1,
-        y: 0,
-        x: 0,
-        scale: 1,
-        filter: 'blur(0px)',
-        // A lingering filter would stop descendant glass (backdrop-filter) seeing the 3D scene
-        transitionEnd: { filter: 'none' },
-      }}
+      whileInView={
+        booted
+          ? {
+              opacity: 1,
+              y: 0,
+              x: 0,
+              scale: 1,
+              filter: 'blur(0px)',
+              // A lingering filter would stop descendant glass (backdrop-filter) seeing the 3D scene
+              transitionEnd: { filter: 'none' },
+            }
+          : undefined
+      }
       viewport={{ once, margin: '0px 0px -8% 0px', ...viewport }}
       transition={{ duration: 0.9, delay, ease, ...transition }}
       {...props}
@@ -77,10 +87,11 @@ export function RevealGroup({
   delay?: number;
 }) {
   const Component = m[as] as typeof m.div;
+  const booted = useBooted();
   return (
     <Component
       initial="hidden"
-      whileInView="shown"
+      whileInView={booted ? 'shown' : undefined}
       viewport={{ once: true, margin: '0px 0px -8% 0px' }}
       variants={{
         hidden: {},
