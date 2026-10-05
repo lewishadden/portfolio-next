@@ -123,7 +123,8 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
   }, [locked]);
 
   useEffect(() => {
-    if (!exploring || !dock) return;
+    // Not while the autopilot is flying somewhere else
+    if (!exploring || !dock || course) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !(e.target instanceof HTMLInputElement)) {
         e.preventDefault();
@@ -132,7 +133,7 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [exploring, dock, onDockRequest]);
+  }, [exploring, dock, course, onDockRequest]);
 
   if (!exploring) return null;
   return (
@@ -182,7 +183,8 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
         </p>
       )}
 
-      {course && !dock && (
+      {/* The autopilot's status replaces the dock prompt until it arrives */}
+      {course && (
         <div className="explore-hud__autopilot glass" role="status">
           <span className="explore-hud__autopilot-dot" aria-hidden="true" />
           <span>
@@ -194,7 +196,7 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
         </div>
       )}
 
-      {dock && (
+      {dock && !course && (
         <div className="explore-hud__dock glass" role="status">
           <span>
             Approaching <b>{stationNames[dock].craft}</b>
