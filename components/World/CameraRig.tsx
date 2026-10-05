@@ -234,8 +234,8 @@ function fly(rig: RigState, cam: PerspectiveCamera, station: StationKey, dt: num
   cam.quaternion.multiply(bank.setFromAxisAngle(zAxis, rig.roll * level));
 
   worldStore.flight.progress = s;
-  // About-turns are on their final approach once the turn back has the station in view
-  const approach = flight.about ? flight.flipFrom + 0.4 * (1 - flight.flipFrom) : 0.6;
+  // About-turns are on their final approach once the arc starts rounding the station
+  const approach = flight.about ? flight.roundFrom : 0.6;
   if (!rig.approached && s >= approach) {
     rig.approached = true;
     emitFlight('approach', station);

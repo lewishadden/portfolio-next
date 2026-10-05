@@ -177,13 +177,20 @@ function ProjectHud({
   );
 }
 
+/** Scroll that comes to rest on the ride glides to the nearest stop, after this long (ms) */
+const snapAfter = 160;
+const snapEase = (t: number) => 1 - Math.pow(1 - t, 3);
+
 /**
  * The projects page is a ride down the helix. A runway of scroll (one step
- * per project) drives `worldStore.projectFocus`; the camera descends the
- * spiral to face each screen, centred and large, while a sticky stage writes
- * that project's details around it and an index links to every project.
- * Without the 3D world the runway collapses: the index picks the project
- * and the stage shows its own screenshot.
+ * per project, starting where the sticky stage docks under the header)
+ * drives `worldStore.projectFocus`; the camera descends the spiral to face
+ * each screen, centred and large, while the stage writes that project's
+ * details around it and an index links to every project. Scroll that comes
+ * to rest on the ride snaps to the nearest project (or back to the top),
+ * and the first project's details stay hidden until its stage docks. Without
+ * the 3D world the runway collapses: the index picks the project and the
+ * stage shows its own screenshot.
  */
 export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   const { label, items } = projects;
@@ -199,18 +206,18 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   const selected = openSlug ? items.findIndex((p) => p.slug === openSlug) : -1;
 
   /**
-   * Scroll runway: where it starts, how much scroll each project takes (0
-   * without the world) and the scroll at which the stage docks under the header
+   * Scroll runway: the scroll at which the stage docks under the header,
+   * where the ride starts, and how much scroll each project takes (0 without
+   * the world). Project i is in front at docked + step * i
    */
   const runway = useCallback(() => {
     const tour = tourRef.current;
     const stage = stageRef.current;
-    if (!tour || !stage) return { top: 0, step: 0, docked: 0 };
+    if (!tour || !stage) return { docked: 0, step: 0 };
     const top = tour.getBoundingClientRect().top + window.scrollY;
     return {
-      top,
-      step: (tour.offsetHeight - stage.offsetHeight) / Math.max(1, items.length - 1),
       docked: top - (parseFloat(getComputedStyle(stage).top) || 0),
+      step: (tour.offsetHeight - stage.offsetHeight) / Math.max(1, items.length - 1),
     };
   }, [items.length]);
 
@@ -227,15 +234,22 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         worldStore.projectIntro = 0;
         return;
       }
-      if (lane.step < 10) return;
+      const stage = stageRef.current;
+      if (lane.step < 10) {
+        stage?.removeAttribute('data-waiting');
+        return;
+      }
       const focus = Math.min(
-        Math.max((window.scrollY - lane.top) / lane.step, 0),
+        Math.max((window.scrollY - lane.docked) / lane.step, 0),
         items.length - 1
       );
       worldStore.projectFocus = focus;
-      // The first screen comes forward as the stage docks, not under the page head
-      worldStore.projectIntro =
+      // The first screen comes forward as the stage docks, not under the page
+      // head, and its details wait for it
+      const intro =
         lane.docked > 1 ? Math.min(Math.max(1 - window.scrollY / lane.docked, 0), 1) : 0;
+      worldStore.projectIntro = intro;
+      stage?.toggleAttribute('data-waiting', intro > 0.12);
       setActive(Math.round(focus));
     };
     const schedule = () => {
@@ -265,13 +279,64 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         setActive(index);
         return;
       }
-      const y = lane.top + lane.step * index;
+      const y = lane.docked + lane.step * index;
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       if (lenis) lenis.scrollTo(y, { immediate: reduce });
       else window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
     },
     [lenis, runway]
   );
+
+  // Snapping: once scroll comes to rest on the ride, glide to the nearest
+  // project (or back to the top of the page); past the last one it is free.
+  // Any scroll input interrupts the glide (Lenis stops programmatic scrolls)
+  useEffect(() => {
+    if (!lenis || selected >= 0) return;
+    let timer = 0;
+    let pressed = false;
+    const settle = () => {
+      const lane = runway();
+      if (pressed || lane.step < 10) return;
+      // Still gliding (slow frames can space scroll events out): wait for rest
+      if (lenis.isScrolling) {
+        rest();
+        return;
+      }
+      const y = window.scrollY;
+      const stops = items.map((_, i) => lane.docked + lane.step * i);
+      if (y > stops[stops.length - 1] + lane.step / 2) return;
+      if (lane.docked > 1) stops.unshift(0);
+      const nearest = stops.reduce((best, stop) =>
+        Math.abs(stop - y) < Math.abs(best - y) ? stop : best
+      );
+      if (Math.abs(nearest - y) < 2) return;
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      lenis.scrollTo(nearest, { duration: 0.75, easing: snapEase, immediate: reduce });
+    };
+    function rest() {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(settle, snapAfter);
+    }
+    // Dragging the scrollbar (or a finger still down) is not at rest
+    const press = () => {
+      pressed = true;
+    };
+    const release = () => {
+      pressed = false;
+      rest();
+    };
+    lenis.on('scroll', rest);
+    window.addEventListener('pointerdown', press);
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    return () => {
+      window.clearTimeout(timer);
+      lenis.off('scroll', rest);
+      window.removeEventListener('pointerdown', press);
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+    };
+  }, [items, lenis, runway, selected]);
 
   const open = useCallback((e: MouseEvent<HTMLAnchorElement>, slug: string) => {
     if (!plainClick(e)) return;

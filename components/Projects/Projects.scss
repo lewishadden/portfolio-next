@@ -33,6 +33,13 @@
     height: calc((var(--steps) - 1) * var(--step) + var(--stage-h));
   }
 
+  /* The first project's details wait until its stage docks (see Projects) */
+  &__stage[data-waiting] .proj-hud > * {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(14px);
+  }
+
   &__stage {
     position: sticky;
     top: calc(var(--header-h) + 1rem);
@@ -105,6 +112,13 @@
   align-items: start;
   height: 100%;
   animation: proj-hud-in 0.45s var(--ease-out) both;
+
+  > * {
+    transition:
+      opacity 0.4s var(--ease-out),
+      transform 0.4s var(--ease-out),
+      visibility 0.4s;
+  }
 
   &__head {
     display: grid;

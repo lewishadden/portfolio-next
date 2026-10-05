@@ -1,12 +1,4 @@
-import {
-  CatmullRomCurve3,
-  CubicBezierCurve3,
-  Euler,
-  MathUtils,
-  Matrix4,
-  Quaternion,
-  Vector3,
-} from 'three';
+import { CubicBezierCurve3, Euler, MathUtils, Matrix4, Quaternion, Vector3 } from 'three';
 
 import { stationKeys, stationPositions } from './stations';
 
@@ -25,17 +17,17 @@ import type { Curve } from 'three';
    swings wildly as it passes them): the starting view blends into the
    destination's, leaning a little into the direction of travel.
 
-   About-turn (the destination is behind): the camera turns to face the
-   way it is going as it pulls away, cruises there, runs in past the
-   station's side and, as it slows, turns back round towards the station
-   to settle on its viewing pose: two opposite turns (an S, never a full
-   spin) with a straight run between them. The heading it turns to is
-   the path a little way ahead, so the view never whips round on a bend.
+   About-turn (the destination is behind): one long sweeping arc. The
+   path bows out to one side from the start, passes the station on that
+   side and curls round onto its front. The camera turns to face the
+   station as it pulls away and keeps it in view the whole way, so as
+   the arc rounds the station the view turns back the other way onto its
+   front: two opposite half turns, never a full spin.
 
    Distance along the path eases in and out, so speed rises and falls
    without a jolt at either end; about-turns gather speed slowly while
-   they turn, and brake early with a long slow tail so the turn back
-   happens beside the station rather than out in open space.
+   they turn, and brake early with a long slow tail so they round the
+   station slowly rather than whipping past it.
    ------------------------------------------------------------------ */
 
 const samples = 64;
@@ -50,18 +42,16 @@ const euler = new Euler(0, 0, 0, 'YXZ');
 
 /** Behind, more or less: the destination lies against the way the camera faces */
 const aboutTurnBeyond = -0.25;
-/** How far out beside the station an about-turn runs in */
-const passRadius = 13;
-/** About-turns: seconds spent turning away, and turning back (they overlap on short flights) */
+/** About-turns: how far out to the side the arc curls in from, level with the destination pose */
+const curlOut = 34;
+/** About-turns: seconds spent turning to face the station, and rounding it at the end */
 const departTime = 3;
-const flipTime = 3;
-/** About-turns: path left when the turn back begins, about a pass beside the station */
-const flipReach = 34;
-/** How far ahead on the path the about-turn's heading looks (world units) */
-const headingReach = 22;
-/** How quickly (per second) the about-turn's view follows the path's heading */
-const headingFollow = 3;
-/** Steepest the camera pitches to follow the path */
+const roundTime = 3;
+/** About-turns: path left as it starts rounding the station (it is slow by then) */
+const roundReach = 34;
+/** How quickly (per second) the about-turn's view follows the station's bearing */
+const bearingFollow = 9;
+/** Steepest the camera pitches to keep the station in view */
 const maxPitch = 0.3;
 
 export interface Flight {
@@ -71,14 +61,17 @@ export interface Flight {
   /** The camera's rotation when the flight began */
   rotationFrom: Quaternion;
   about: boolean;
-  /** About-turns: when speed stops building, braking begins, the turn away ends and the turn back begins (shares of the flight) */
+  /**
+   * About-turns: when speed stops building, braking begins, the turn to
+   * face the station ends and the arc starts rounding it (shares of the flight)
+   */
   accel: number;
   brake: number;
   departEnd: number;
-  flipFrom: number;
-  /** About-turns: which way (+1 left, -1 right) the camera turns away, and turns back */
+  roundFrom: number;
+  /** About-turns: the station the camera keeps in view, and which way (+1 left, -1 right) it first turns */
+  focus: Vector3;
   departTurn: number;
-  flipTurn: number;
   length: number;
   duration: number;
   elapsed: number;
@@ -89,13 +82,11 @@ export interface FlightView {
   started: boolean;
   /** Direction of travel, smoothed so tight bends never whip the view */
   ahead: Vector3;
-  /** About-turns: the starting view, the heading it turns to and the final view (unwrapped yaws) */
+  /** About-turns: the starting view and the station's bearing (unwrapped yaw, eased) */
   fromYaw: number;
   fromPitch: number;
-  cruiseYaw: number;
-  cruisePitch: number;
-  endYaw: number;
-  flipping: boolean;
+  bearingYaw: number;
+  bearingPitch: number;
 }
 
 export const createFlightView = (): FlightView => ({
@@ -103,10 +94,8 @@ export const createFlightView = (): FlightView => ({
   ahead: new Vector3(),
   fromYaw: 0,
   fromPitch: 0,
-  cruiseYaw: 0,
-  cruisePitch: 0,
-  endYaw: 0,
-  flipping: false,
+  bearingYaw: 0,
+  bearingPitch: 0,
 });
 
 /** Zero velocity and acceleration at both ends */
@@ -141,16 +130,16 @@ function aboutEase(s: number, accel: number, brake: number) {
 }
 
 /**
- * When to brake so that `flipReach` of the path is left as the turn back
- * begins. Braking earlier leaves less, slower path for the end.
+ * When to brake so that `roundReach` of the path is left as the arc starts
+ * rounding the station. Braking earlier leaves less, slower path for the end.
  */
-function planBrake(length: number, accel: number, flipFrom: number) {
-  const left = Math.min(flipReach, length * 0.3) / length;
+function planBrake(length: number, accel: number, roundFrom: number) {
+  const left = Math.min(roundReach, length * 0.3) / length;
   let early = accel;
   let late = 0.95;
   for (let i = 0; i < 24; i++) {
     const brake = (early + late) / 2;
-    if (1 - aboutEase(flipFrom, accel, brake) > left) late = brake;
+    if (1 - aboutEase(roundFrom, accel, brake) > left) late = brake;
     else early = brake;
   }
   return (early + late) / 2;
@@ -242,54 +231,44 @@ function planAbout(fromPos: Vector3, fromLook: Vector3, toPos: Vector3, toLook: 
   arrival.y = 0;
   arrival.normalize();
   const across = new Vector3().crossVectors(up, arrival).normalize();
-  // Run in on the side the camera is coming from (else the side the pose
-  // is framed from), so the path never has to cross the station's front
+  // Bow out to the side the camera is coming from (else the side the pose
+  // is framed from), so the arc never has to cross the station's front
   const lateral = new Vector3().subVectors(fromPos, toLook).dot(across);
   const framed = new Vector3().subVectors(toPos, toLook).dot(across);
   const side = across.multiplyScalar(
     Math.abs(lateral) > 4 ? Math.sign(lateral) : Math.sign(framed) || -1
   );
-  // Running in past the station the camera faces along `arrival`; it turns
-  // back towards the station, and turned away from it the other way
-  const flipTurn = turnSign(arrival, side.clone().negate());
+  // Rounding the station the view turns towards it, so it first turns the other way
+  const departTurn = -turnSign(arrival, side.clone().negate());
+  let bow = MathUtils.clamp(distance * 0.14, 12, 30);
   let lift = MathUtils.clamp(distance * 0.05, 0, 12);
 
-  const r = passRadius;
+  // One cubic arc: away from the start bowing out to the side, and in level
+  // with the pose from out to that side, so it curls round onto the front
   const build = () => {
-    const points = [fromPos.clone()];
-    // Climb away towards the destination, when there is room for it
-    if (distance > 60) {
-      points.push(
-        fromPos
-          .clone()
-          .addScaledVector(toward, Math.min(0.24 * distance, 42))
-          .addScaledVector(up, lift)
-      );
-    }
-    // In past the station's side, then round onto its viewing pose
-    points.push(
-      toLook
+    const curve = new CubicBezierCurve3(
+      fromPos.clone(),
+      fromPos
         .clone()
-        .addScaledVector(side, r)
-        .addScaledVector(arrival, -r * 0.45)
+        .addScaledVector(toward, distance * 0.38)
+        .addScaledVector(side, bow)
+        .addScaledVector(up, lift),
+      toPos
+        .clone()
+        .addScaledVector(side, curlOut)
         .addScaledVector(up, lift * 0.3),
-      toLook
-        .clone()
-        .addScaledVector(side, r * 0.92)
-        .addScaledVector(arrival, r * 0.55)
-        .addScaledVector(up, lift * 0.1),
       toPos.clone()
     );
-    const curve = new CatmullRomCurve3(points, false, 'centripetal');
     curve.arcLengthDivisions = 400;
     return curve;
   };
   let curve = build();
   for (let i = 0; i < 6 && clearance(curve, fromLook, toLook) < 0; i++) {
-    lift += 8;
+    bow += 4;
+    lift += 6;
     curve = build();
   }
-  return { curve, flipTurn };
+  return { curve, departTurn };
 }
 
 /**
@@ -323,9 +302,9 @@ export function planFlight(
     accel: 0,
     brake: 1,
     departEnd: 0,
-    flipFrom: 1,
+    roundFrom: 1,
+    focus: toLook.clone(),
     departTurn: 1,
-    flipTurn: 1,
     length: 0,
     duration: 0,
     elapsed: 0,
@@ -333,14 +312,13 @@ export function planFlight(
   if (about) {
     const plan = planAbout(fromPos, fromLook, toPos, toLook);
     f.curve = plan.curve;
-    f.flipTurn = plan.flipTurn;
-    f.departTurn = -plan.flipTurn;
+    f.departTurn = plan.departTurn;
     f.length = f.curve.getLength();
     f.duration = MathUtils.clamp(3.4 + f.length / 60, 5.2, 7.8);
     f.departEnd = Math.min(departTime / f.duration, 0.5);
-    f.flipFrom = Math.max(1 - flipTime / f.duration, 0.42);
+    f.roundFrom = Math.max(1 - roundTime / f.duration, 0.42);
     f.accel = f.departEnd * 0.9;
-    f.brake = planBrake(f.length, f.accel, f.flipFrom);
+    f.brake = planBrake(f.length, f.accel, f.roundFrom);
   } else {
     f.curve = planAhead(fromPos, fromLook, viewFrom, toPos, toLook, velocity, ahead);
     f.length = f.curve.getLength();
@@ -366,23 +344,14 @@ function heading(direction: Vector3, near: number) {
 }
 
 /**
- * About-turns: where the camera is heading, the path `headingReach` ahead.
- * Returns false once the path ahead is too short to give a direction.
- */
-function aboutHeading(f: Flight, s: number, position: Vector3, out: Vector3) {
-  const along = Math.min(flightEase(f, s) + headingReach / f.length, 1);
-  out.copy(f.curve.getPointAt(along)).sub(position);
-  return out.lengthSq() > 9;
-}
-
-/**
  * The camera's rotation `s` (0..1) of the way through a flight.
  * Ahead: the start view blended into `rotationTo`, leaning into the
  * direction of travel mid-flight when that is roughly ahead, or dipping the
  * nose a touch when the camera is drifting back.
- * About-turn: the start view turns to the heading (the way `departTurn`
- * says when it is a half turn or so either way), follows it, then turns
- * back the way `flipTurn` says into `rotationTo`, which faces the station.
+ * About-turn: the start view turns to face the station (the way
+ * `departTurn` says when it is a half turn or so either way), then follows
+ * its bearing (eased, unwrapped frame to frame) as the arc rounds it, and
+ * settles into `rotationTo`, which looks at the same station.
  */
 export function flightRotation(
   f: Flight,
@@ -394,48 +363,37 @@ export function flightRotation(
   out: Quaternion
 ) {
   if (f.about) {
+    scratch.subVectors(f.focus, position);
     if (!view.started) {
       view.started = true;
       const from = yawPitch(f.rotationFrom);
       view.fromYaw = from.yaw;
       view.fromPitch = from.pitch;
-      aboutHeading(f, s, position, scratch);
       const start = heading(scratch, from.yaw);
       let away = start.yaw - from.yaw;
       // Near enough a half turn either way: turn the planned way
       if (Math.abs(away) > 2.6 && Math.sign(away) !== f.departTurn) {
         away -= Math.sign(away) * Math.PI * 2;
       }
-      view.cruiseYaw = from.yaw + away;
-      view.cruisePitch = start.pitch;
-      view.flipping = false;
-    } else if (s < f.flipFrom && aboutHeading(f, s, position, scratch)) {
-      // Eased, so bends in the path never jerk the view, and held through
-      // the turn back, so the bend onto the pose adds no swing
-      const next = heading(scratch, view.cruiseYaw);
-      const follow = 1 - Math.exp(-headingFollow * dt);
-      view.cruiseYaw += (next.yaw - view.cruiseYaw) * follow;
-      view.cruisePitch += (next.pitch - view.cruisePitch) * follow;
+      view.bearingYaw = from.yaw + away;
+      view.bearingPitch = start.pitch;
+    } else if (scratch.lengthSq() > 1) {
+      const next = heading(scratch, view.bearingYaw);
+      const follow = 1 - Math.exp(-bearingFollow * dt);
+      view.bearingYaw += (next.yaw - view.bearingYaw) * follow;
+      view.bearingPitch += (next.pitch - view.bearingPitch) * follow;
     }
 
     const end = yawPitch(rotationTo);
-    if (!view.flipping && s >= f.flipFrom) {
-      view.flipping = true;
-      let back = wrap(end.yaw - view.cruiseYaw);
-      if (Math.abs(back) > 1.6 && Math.sign(back) !== f.flipTurn) {
-        back -= Math.sign(back) * Math.PI * 2;
-      }
-      view.endYaw = view.cruiseYaw + back;
-    } else if (view.flipping) {
-      view.endYaw += wrap(end.yaw - view.endYaw);
-    }
-
+    const endYaw = view.bearingYaw + wrap(end.yaw - view.bearingYaw);
     const away = smootherstep(s / f.departEnd);
-    const back = view.flipping ? smootherstep((s - f.flipFrom) / (1 - f.flipFrom)) : 0;
-    let yaw = MathUtils.lerp(view.fromYaw, view.cruiseYaw, away);
-    let pitch = MathUtils.lerp(view.fromPitch, view.cruisePitch, away);
-    yaw = MathUtils.lerp(yaw, view.endYaw, back);
-    pitch = MathUtils.lerp(pitch, end.pitch, back);
+    const settle = smootherstep((s - 0.86) / 0.14);
+    const yaw = MathUtils.lerp(MathUtils.lerp(view.fromYaw, view.bearingYaw, away), endYaw, settle);
+    const pitch = MathUtils.lerp(
+      MathUtils.lerp(view.fromPitch, view.bearingPitch, away),
+      end.pitch,
+      settle
+    );
     out.setFromEuler(euler.set(pitch, yaw, 0, 'YXZ'));
     return out.slerp(rotationTo, smootherstep((s - 0.97) / 0.03));
   }

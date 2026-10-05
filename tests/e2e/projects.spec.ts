@@ -97,6 +97,46 @@ test.describe('project index', () => {
   });
 });
 
+test.describe('the helix ride', () => {
+  test.use({ world: 'on' });
+
+  test(
+    'holds the first project back until its stage docks, and snaps to projects',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/projects');
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 120_000 });
+      const title = page.locator('.proj-hud__title');
+      await expect(title).toBeHidden();
+
+      // Where each project is in front: the stage docks, then one step apiece
+      const lane = await page.evaluate(() => {
+        const tour = document.querySelector<HTMLElement>('.projects__tour')!;
+        const stage = document.querySelector<HTMLElement>('.projects__stage')!;
+        const docked =
+          tour.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(stage).top);
+        return { docked, step: (tour.offsetHeight - stage.offsetHeight) / 14 };
+      });
+      const settled = () =>
+        expect.poll(() => page.evaluate(() => scrollY), { timeout: 10_000, intervals: [400] });
+
+      // Most of the way to the first project: it glides the rest and docks
+      const { width, height } = page.viewportSize()!;
+      await page.mouse.move(width / 2, height / 2);
+      await page.mouse.wheel(0, lane.docked * 0.7);
+      await settled().toBeCloseTo(lane.docked, -1);
+      await expect(title).toBeVisible();
+      await expect(title).toHaveText('ZGS Carpentry');
+
+      // A little past a project glides back to it, not to a point in between
+      await page.mouse.wheel(0, lane.step * 0.3);
+      await settled().toBeCloseTo(lane.docked, -1);
+      await page.mouse.wheel(0, lane.step * 0.7);
+      await settled().toBeCloseTo(lane.docked + lane.step, -1);
+    }
+  );
+});
+
 test.describe('project pages', () => {
   test('render on a direct visit with breadcrumbs and neighbours', async ({ page }) => {
     const response = await page.goto('/projects/drive-king');
