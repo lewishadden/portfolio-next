@@ -58,6 +58,11 @@ export const worldStore = {
   camera: { x: 0, y: 0, z: 60, heading: 0, fx: 0, fy: 0, fz: -1 },
   /** The flight in progress, if any: destination station, progress 0..1 and its path (x, y, z triples) */
   flight: { active: false, to: '', progress: 0, path: new Float32Array(0) },
+  /**
+   * How loudly the header HUD hums, 0..1 (HeaderHud writes it while it is
+   * on screen, louder as it swings; components/Sound plays it)
+   */
+  hudHum: 0,
   /** Station the explorer is close enough to dock with, '' when none */
   dock: '',
   /** Explore mode: the station the autopilot is flying to, '' when flying by hand */
@@ -190,7 +195,11 @@ export type Cue =
   | 'found'
   | 'complete'
   | 'launch'
-  | 'transmit';
+  | 'transmit'
+  | 'hud-hover'
+  | 'hud-click'
+  | 'hud-lock'
+  | 'hud-boot';
 
 const cueListeners = new Set<(cue: Cue) => void>();
 

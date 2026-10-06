@@ -5,12 +5,7 @@
   right: 0;
   z-index: 50;
   padding: 14px var(--gutter);
-  transition: transform 0.6s var(--ease-out);
   pointer-events: none;
-
-  &--hidden {
-    transform: translateY(-130%);
-  }
 
   &__bar {
     position: relative;
@@ -213,16 +208,30 @@
    glass pill (the hologram's own fill takes over once the page is under
    it) and its links and buttons take the HUD's look */
 .header--hud {
+  /* The bar is a 3D scene: the hologram (HeaderHud) sits 24px behind the
+     links, scaled up to match so it lines up exactly at rest, and a tilt
+     shows the depth. The sway replaces this transform every frame */
   .header__bar,
   &.header--scrolled .header__bar,
   &.header--open .header__bar {
-    isolation: isolate;
     border-color: transparent;
     background: none;
     box-shadow: none;
+    transform: perspective(900px);
+    transform-style: preserve-3d;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     will-change: transform;
+  }
+
+  .header-hud {
+    transform: translateZ(-24px) scale(calc(924 / 900));
+  }
+
+  /* Powering on: the logo, links and buttons flicker on one by one */
+  &[data-hud-boot] :is(.header__logo, .header__link, .header__actions > *) {
+    animation: hud-flicker-in 0.6s steps(1, end) both;
+    animation-delay: calc(450ms + var(--hud-i, 0) * 55ms);
   }
 
   .header__links {
@@ -302,6 +311,33 @@
     .header__link:hover {
       animation: none;
     }
+  }
+}
+
+@keyframes hud-flicker-in {
+  0% {
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 0.8;
+  }
+
+  30% {
+    opacity: 0.1;
+  }
+
+  45% {
+    opacity: 1;
+  }
+
+  55% {
+    opacity: 0.35;
+  }
+
+  70%,
+  100% {
+    opacity: 1;
   }
 }
 

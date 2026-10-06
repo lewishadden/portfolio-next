@@ -28,6 +28,8 @@ interface Engine {
   rush: GainNode;
   rushFilter: BiquadFilterNode;
   noise: AudioBuffer;
+  /** The header HUD's hum, silent until it says so (worldStore.hudHum) */
+  hum: GainNode;
 }
 
 let engine: Engine | null = null;
@@ -121,7 +123,28 @@ function build(): Engine {
   rush.gain.value = 0;
   loopNoise({ ctx, noise }, 1.7).connect(rushFilter).connect(rush).connect(master);
 
-  return { ctx, master, rush, rushFilter, noise };
+  // The header HUD's hum: a soft mains-like buzz with a slow waver
+  const hum = ctx.createGain();
+  hum.gain.value = 0;
+  const humTone = ctx.createBiquadFilter();
+  humTone.type = 'lowpass';
+  humTone.frequency.value = 700;
+  humTone.connect(hum).connect(master);
+  for (const [type, frequency, level] of [
+    ['triangle', 100, 1],
+    ['sine', 200, 0.5],
+    ['sawtooth', 300, 0.08],
+  ] as const) {
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.value = frequency;
+    const gain = ctx.createGain();
+    gain.gain.value = level;
+    osc.connect(gain).connect(humTone);
+    osc.start();
+  }
+
+  return { ctx, master, rush, rushFilter, noise, hum };
 }
 
 /** Follows the camera's speed with the rush, every frame while sound is on */
@@ -132,6 +155,7 @@ function follow() {
   const now = engine.ctx.currentTime;
   engine.rush.gain.setTargetAtTime(0.16 * speed ** 1.4, now, 0.15);
   engine.rushFilter.frequency.setTargetAtTime(220 + 1600 * speed, now, 0.2);
+  engine.hum.gain.setTargetAtTime(0.012 * worldStore.hudHum, now, 0.3);
 }
 
 function start() {
@@ -239,6 +263,22 @@ const cues: Record<Cue, (e: Engine, at: number) => void> = {
     for (let i = 0; i < 14; i++) {
       tone(e, at + i * 0.075, 1200 + Math.random() * 1400, 0.035, 0.022, 'square');
     }
+  },
+  // The header HUD: a tick under the pointer, a click, the brackets locking
+  // onto a page, and powering on
+  'hud-hover': (e, at) => tone(e, at, 2400, 0.035, 0.01, 'sine', 2900),
+  'hud-click': (e, at) => {
+    tone(e, at, 900, 0.05, 0.025, 'square', 600);
+    burst(e, at, 0.04, 0.03, 'highpass', 3500);
+  },
+  'hud-lock': (e, at) => {
+    tone(e, at, 1320, 0.04, 0.025, 'square');
+    tone(e, at + 0.06, 1760, 0.12, 0.03, 'sine', 2093);
+  },
+  'hud-boot': (e, at) => {
+    tone(e, at, 160, 0.7, 0.04, 'sawtooth', 640);
+    burst(e, at + 0.05, 0.55, 0.025, 'bandpass', 900, 5200, 0.2);
+    tone(e, at + 0.62, 1568, 0.18, 0.025, 'triangle');
   },
 };
 

@@ -31,11 +31,10 @@ export const Header = ({
   navItems: NavItem[];
   available?: boolean;
 }) => {
-  const [hidden, setHidden] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [indicator, setIndicator] = useState({ x: 0, w: 0, show: false });
-  const lastYRef = useRef(0);
+  const headerRef = useRef<HTMLElement | null>(null);
   const linksRef = useRef<HTMLDivElement | null>(null);
   const closeMenu = useCallback(() => setMobileOpen(false), []);
   // With 3D effects on, the bar is a cockpit HUD (HeaderHud); its flat look
@@ -56,20 +55,51 @@ export const Header = ({
     href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 
   useEffect(() => {
-    const onScroll = () => {
-      const y = window.scrollY;
-      const delta = y - lastYRef.current;
-      // Smooth scrolling eases out in tiny steps — only react to deliberate movement
-      if (y < 200) setHidden(false);
-      else if (delta > 4) setHidden(true);
-      else if (delta < -4) setHidden(false);
-      setScrolled(y > 24);
-      lastYRef.current = y;
-    };
+    const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // The header stays put as the page scrolls, but on a loose spring: it
+  // trails a little after the page (up as you scroll down, down as you
+  // scroll up) and settles back once the page stops
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el || reduced) return;
+    let frame = 0;
+    let last = performance.now();
+    let lastY = window.scrollY;
+    let velocity = 0;
+    let at = 0;
+    let speed = 0;
+    const loop = (now: number) => {
+      frame = requestAnimationFrame(loop);
+      const dt = Math.min((now - last) / 1000, 0.1);
+      last = now;
+      if (dt <= 0) return;
+      const y = window.scrollY;
+      // A jump (a new page scrolled back to the top) isn't scrolling
+      if (Math.abs(y - lastY) < 1200) {
+        velocity += ((y - lastY) / dt - velocity) * (1 - Math.exp(-14 * dt));
+      }
+      lastY = y;
+      const target = Math.max(-22, Math.min(22, -velocity * 0.012));
+      speed += ((target - at) * 45 - speed * 8) * dt;
+      at += speed * dt;
+      if (Math.abs(target - at) < 0.01 && Math.abs(speed) < 0.02) {
+        at = target;
+        speed = 0;
+      }
+      const transform = Math.abs(at) < 0.01 ? '' : `translate3d(0, ${at.toFixed(2)}px, 0)`;
+      if (el.style.transform !== transform) el.style.transform = transform;
+    };
+    frame = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(frame);
+      el.style.transform = '';
+    };
+  }, [reduced]);
 
   const measure = useCallback(() => {
     const container = linksRef.current;
@@ -110,7 +140,8 @@ export const Header = ({
   return (
     <>
       <header
-        className={`header${hidden && !mobileOpen ? ' header--hidden' : ''}${scrolled ? ' header--scrolled' : ''}${mobileOpen ? ' header--open' : ''}${hud && hudLive ? ' header--hud' : ''}`}
+        ref={headerRef}
+        className={`header${scrolled ? ' header--scrolled' : ''}${mobileOpen ? ' header--open' : ''}${hud && hudLive ? ' header--hud' : ''}`}
       >
         <nav className="header__bar" aria-label="Main navigation">
           {hud && (
