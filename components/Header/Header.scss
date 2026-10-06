@@ -207,6 +207,110 @@
   }
 }
 
+/* ---------- 3D effects on: the bar is a cockpit HUD ----------
+   The hologram itself is a canvas behind the bar's content (HeaderHud),
+   which also sways the whole bar with the camera. Here the bar drops its
+   glass pill (the hologram's own fill takes over once the page is under
+   it) and its links and buttons take the HUD's look */
+.header--hud {
+  .header__bar,
+  &.header--scrolled .header__bar,
+  &.header--open .header__bar {
+    isolation: isolate;
+    border-color: transparent;
+    background: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    will-change: transform;
+  }
+
+  .header__links {
+    border-color: transparent;
+    background: none;
+  }
+
+  .header__indicator {
+    display: none;
+  }
+
+  .header__link {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--hud-text);
+    text-shadow: 0 0 8px var(--hud-glow);
+
+    &:hover {
+      color: var(--hud-text-strong);
+      animation: hud-glitch 0.32s steps(2) infinite;
+    }
+
+    &.is-active {
+      color: var(--hud-text-strong);
+    }
+  }
+
+  .header__palette,
+  .header__burger,
+  .world-toggle,
+  .theme-toggle {
+    border-color: transparent;
+    background: transparent;
+    color: var(--hud-text);
+    filter: drop-shadow(0 0 6px var(--hud-glow));
+
+    &:hover:not(:disabled) {
+      border-color: transparent;
+      box-shadow: none;
+      color: var(--hud-text-strong);
+    }
+  }
+
+  .header__burger span {
+    background: currentcolor;
+  }
+
+  .header__cta {
+    border-color: transparent;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--hud-text);
+    text-shadow: 0 0 8px var(--hud-glow);
+
+    &:hover {
+      background: transparent;
+      box-shadow: none;
+      color: var(--hud-text-strong);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .header__link:hover {
+      animation: none;
+    }
+  }
+}
+
+/* Pointing at a link knocks its text out of register, like a flickering projection */
+@keyframes hud-glitch {
+  0% {
+    text-shadow:
+      -2px 0 rgba(236, 72, 153, 0.75),
+      2px 0 var(--hud-glow);
+  }
+
+  100% {
+    text-shadow:
+      2px 0 rgba(236, 72, 153, 0.75),
+      -2px 0 var(--hud-glow);
+  }
+}
+
 @keyframes ping {
   75%,
   100% {

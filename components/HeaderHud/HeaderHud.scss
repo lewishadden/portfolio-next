@@ -1,0 +1,12 @@
+/* The HUD's canvas: behind the bar's links and buttons, with room round
+   the bar for its glow and sway (keep in step with hudMargin). It's
+   placed from the bar's padding box, inside its 1px border */
+.header-hud {
+  position: absolute;
+  top: -23px;
+  left: -23px;
+  z-index: -1;
+  width: calc(100% + 46px);
+  height: calc(100% + 46px);
+  pointer-events: none;
+}

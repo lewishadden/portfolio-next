@@ -12,6 +12,11 @@ import { SoundToggle } from 'components/Sound/SoundToggle';
 import { HeaderMark } from 'components/BrandMark/HeaderMark';
 import { ScrambleText } from 'components/Motion/ScrambleText';
 import { MobileMenu } from 'components/MobileMenu/MobileMenu';
+import { HeaderHud } from 'components/HeaderHud/HeaderHud';
+
+import { useTheme } from '@/contexts/ThemeContext';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useWorldPreference } from '@/hooks/useWorldPreference';
 
 import { Header as HeaderProps, NavItem } from '@/types';
 
@@ -33,6 +38,18 @@ export const Header = ({
   const lastYRef = useRef(0);
   const linksRef = useRef<HTMLDivElement | null>(null);
   const closeMenu = useCallback(() => setMobileOpen(false), []);
+  // With 3D effects on, the bar is a cockpit HUD (HeaderHud); its flat look
+  // stays until the hologram is drawing, and comes back if WebGL fails
+  const { enabled, supported } = useWorldPreference();
+  const { theme } = useTheme();
+  const reduced = useReducedMotion();
+  const [hudFailed, setHudFailed] = useState(false);
+  const [hudLive, setHudLive] = useState(false);
+  const hud = enabled && supported && !hudFailed;
+  const onHudLive = useCallback((live: boolean) => {
+    setHudLive(live);
+    if (!live) setHudFailed(true);
+  }, []);
 
   const pathname = usePathname();
   const isActive = (href: string) =>
@@ -93,9 +110,17 @@ export const Header = ({
   return (
     <>
       <header
-        className={`header${hidden && !mobileOpen ? ' header--hidden' : ''}${scrolled ? ' header--scrolled' : ''}${mobileOpen ? ' header--open' : ''}`}
+        className={`header${hidden && !mobileOpen ? ' header--hidden' : ''}${scrolled ? ' header--scrolled' : ''}${mobileOpen ? ' header--open' : ''}${hud && hudLive ? ' header--hud' : ''}`}
       >
         <nav className="header__bar" aria-label="Main navigation">
+          {hud && (
+            <HeaderHud
+              theme={theme === 'light' ? 'light' : 'dark'}
+              dense={scrolled || mobileOpen}
+              still={reduced}
+              onLive={onHudLive}
+            />
+          )}
           <Link href={header.home.href} className="header__logo" aria-label={header.home.ariaLabel}>
             <HeaderMark className="header__logo-mark" />
           </Link>
