@@ -144,3 +144,80 @@ test.describe('tour and explore modes', () => {
     await expect(page.locator('html')).not.toHaveAttribute('data-boot');
   });
 });
+
+test.describe('free roam on touch', () => {
+  test.use({
+    world: 'on',
+    reducedMotion: 'reduce',
+    viewport: { width: 390, height: 664 },
+    isMobile: true,
+    hasTouch: true,
+  });
+
+  test(
+    'twin thumbsticks hold for the whole drag, one under each thumb',
+    { tag: '@webgl' },
+    async ({ page, context }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      await page.getByRole('button', { name: 'Free roam' }).tap();
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+
+      // Real touches, through the browser's own gesture handling: a drag the
+      // browser takes for a scroll is cancelled after a few pixels
+      const cdp = await context.newCDPSession(page);
+      const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', points: number[][]) =>
+        cdp.send('Input.dispatchTouchEvent', {
+          type,
+          touchPoints: points.map(([x, y], id) => ({ x, y, id })),
+        });
+      const [move, look] = [
+        hud.locator('.explore-hud__stick').first(),
+        hud.locator('.explore-hud__stick').last(),
+      ];
+      const knob = (stick: typeof move, axis: string) =>
+        stick.evaluate((el, name) => parseFloat(el.style.getPropertyValue(name)), axis);
+
+      // Left thumb flies forward, in small steps like a real drag
+      await touch('touchStart', [[90, 520]]);
+      for (let i = 1; i <= 10; i++) await touch('touchMove', [[90, 520 - i * 4]]);
+      // The right thumb takes the look stick while the left still flies
+      await touch('touchStart', [
+        [90, 480],
+        [300, 520],
+      ]);
+      for (let i = 1; i <= 10; i++)
+        await touch('touchMove', [
+          [90, 480],
+          [300 + i * 4, 520],
+        ]);
+
+      await expect(move).toHaveAttribute('data-active', '');
+      await expect(look).toHaveAttribute('data-active', '');
+      // Pointer moves arrive with the next frame, so wait for the last one
+      await expect.poll(() => knob(move, '--ky')).toBeCloseTo(-40);
+      await expect.poll(() => knob(look, '--kx')).toBeCloseTo(40);
+
+      // Pushed on out to its dashed ring, the move stick boosts and the rocket jet fires
+      const jet = hud.locator('.explore-hud__jet');
+      await expect(move).not.toHaveAttribute('data-boost');
+      await expect(jet).not.toHaveAttribute('data-on');
+      await touch('touchMove', [
+        [90, 414],
+        [340, 520],
+      ]);
+      await expect(move).toHaveAttribute('data-boost', '');
+      await expect(jet).toHaveAttribute('data-on', '');
+
+      // Lifting one thumb leaves the other holding its stick
+      await touch('touchEnd', [[340, 520]]);
+      await expect(move).not.toHaveAttribute('data-active');
+      await expect(jet).not.toHaveAttribute('data-on');
+      await expect(look).toHaveAttribute('data-active', '');
+      await touch('touchEnd', []);
+      await expect(look).not.toHaveAttribute('data-active');
+    }
+  );
+});
