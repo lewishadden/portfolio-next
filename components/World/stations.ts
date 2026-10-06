@@ -196,7 +196,17 @@ export function stationCamera(
       const focus = settleFocus(MathUtils.clamp(worldStore.projectFocus, 0, helix.screens - 1));
       const angle = focus * helix.turn;
       const back = worldStore.projectAside ? asideDistance : 1;
-      look.set(Math.sin(angle) * helix.radius, helixScreenY(focus), Math.cos(angle) * helix.radius);
+      // Past the last project it descends with the page, a viewport height
+      // of drop per viewport height scrolled at the screen's distance, so the
+      // last screen scrolls away with its copy rather than under the footer
+      const drop = worldStore.projectAside
+        ? 0
+        : worldStore.projectTail * 2 * distance * zoom * tanHalfFov;
+      look.set(
+        Math.sin(angle) * helix.radius,
+        helixScreenY(focus) - drop,
+        Math.cos(angle) * helix.radius
+      );
       pos.set(Math.sin(angle) * distance * back, eyeY, Math.cos(angle) * distance * back);
       // At the top of the page it holds back on the whole yard, and comes in
       // to the first screen as the page scrolls to it

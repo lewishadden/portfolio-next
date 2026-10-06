@@ -19,6 +19,13 @@ export const worldStore = {
    * head, 0 once the ride down the helix has begun (and off that page)
    */
   projectIntro: 0,
+  /**
+   * How far the /projects page has scrolled past its last project, in
+   * viewport heights (0 until then, and off that page). The camera descends
+   * with it, so the last screen leaves with its copy instead of sitting under
+   * the page nav and footer
+   */
+  projectTail: 0,
   /** A project page: its screen sits beside the copy rather than centred */
   projectAside: false,
   /**
