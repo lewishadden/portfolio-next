@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useId, useRef, useSyncExternalStore } from 'react';
 import { Icon } from '@iconify/react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -20,8 +20,8 @@ const readDock = () => worldStore.dock;
 
 /** How far (px) a thumbstick's knob travels from where the thumb landed */
 const stickReach = 56;
-/** The move stick boosts with the thumb pushed past its rim, this many reaches out */
-const boostAt = 1.3;
+/** The move stick boosts with the thumb pushed on past its rim, this many reaches out */
+const boostAt = 1.8;
 /** How far the look stick has to be pushed to take the controls back from the autopilot */
 const lookTakeOver = 0.35;
 /** Where the sticks wait, in from the bottom corners (px) */
@@ -55,8 +55,10 @@ function tapMarker(x: number, y: number) {
 /**
  * Twin thumbsticks for touch, as in mobile games. A thumb landing anywhere on
  * the left half of the screen gets a move stick under it (forward and back,
- * strafe; pushed on past the rim, boost), and one on the right half a look stick:
- * held off-centre, the view keeps turning that way, faster the further out.
+ * strafe; pushed on out to the dashed boost ring, boost: a ring follows the
+ * thumb out from the rim, so you can see how far is left), and one on the
+ * right half a look stick: held off-centre, the view keeps turning that way,
+ * faster the further out.
  * At rest each waits, faint, in its corner. The layer takes every touch with
  * `touch-action: none`, so the browser never claims a drag as a scroll and
  * cancels it. It lies over the station markers, which drift into the thumbs'
@@ -102,13 +104,19 @@ function TouchSticks() {
       tilt(stick, dx, dy);
       if (stick === move) {
         const boost = length >= boostAt;
+        // A ring follows the thumb out from the rim to the boost ring
+        stick.el.style.setProperty('--thumb', `${Math.min(length, boostAt) * stickReach * 2}px`);
+        stick.el.style.setProperty(
+          '--charge',
+          Math.min(Math.max((length - 1) / (boostAt - 1), 0), 1).toFixed(3)
+        );
         exploreInput.strafe = dx;
         exploreInput.forward = -dy;
         exploreInput.boost = boost;
         stick.el.toggleAttribute('data-boost', boost);
       } else {
-        exploreInput.steerX = dx;
-        exploreInput.steerY = dy;
+        exploreInput.stickX = dx;
+        exploreInput.stickY = dy;
         if (worldStore.autopilot && length > lookTakeOver) setAutopilot('');
       }
     };
@@ -118,12 +126,13 @@ function TouchSticks() {
       stick.el.removeAttribute('data-boost');
       tilt(stick, 0, 0);
       if (stick === move) {
+        stick.el.style.setProperty('--charge', '0');
         exploreInput.strafe = 0;
         exploreInput.forward = 0;
         exploreInput.boost = false;
       } else {
-        exploreInput.steerX = 0;
-        exploreInput.steerY = 0;
+        exploreInput.stickX = 0;
+        exploreInput.stickY = 0;
       }
       rest();
     };
@@ -154,6 +163,7 @@ function TouchSticks() {
       if (tapped) tapMarker(e.clientX, e.clientY);
     };
 
+    move.el.style.setProperty('--boost-d', `${boostAt * stickReach * 2}px`);
     rest();
     layer.addEventListener('pointerdown', down);
     layer.addEventListener('pointermove', drag);
@@ -189,6 +199,8 @@ function TouchSticks() {
     <>
       <div ref={layerRef} className="explore-hud__sticks">
         <span ref={moveRef} className="explore-hud__stick" data-label="Move" aria-hidden="true">
+          <span className="explore-hud__stick-boost" />
+          <span className="explore-hud__stick-charge" />
           <span className="explore-hud__stick-knob" />
         </span>
         <span ref={lookRef} className="explore-hud__stick" data-label="Look" aria-hidden="true">
@@ -204,6 +216,57 @@ function TouchSticks() {
         </button>
       </div>
     </>
+  );
+}
+
+/**
+ * Boosting (Shift, or the move stick pushed out to its boost ring) while
+ * thrusting: a rocket jet fires under the middle of the view, its flame
+ * longer the faster you go. Read each frame, not rendered by React
+ */
+function BoostJet() {
+  const ref = useRef<HTMLDivElement>(null);
+  const gradient = useId();
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let frame = 0;
+    let on = false;
+    const tick = () => {
+      frame = requestAnimationFrame(tick);
+      const thrusting = exploreInput.forward || exploreInput.strafe || exploreInput.lift;
+      const boosting =
+        exploreInput.boost && !!thrusting && !worldStore.autopilot && !worldStore.docking;
+      if (boosting !== on) {
+        on = boosting;
+        el.toggleAttribute('data-on', on);
+      }
+      if (on) el.style.setProperty('--thrust', Math.min(worldStore.velocity / 70, 1).toFixed(2));
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <div ref={ref} className="explore-hud__jet" aria-hidden="true">
+      <svg className="explore-hud__rocket" viewBox="0 0 24 30" width="24" height="30">
+        <defs>
+          <linearGradient id={gradient} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--gradient-start)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--gradient-end)' }} />
+          </linearGradient>
+        </defs>
+        <g fill={`url(#${gradient})`}>
+          <path d="M12 1c4.2 3.6 6.3 8.6 6.3 14.6V24H5.7v-8.4C5.7 9.6 7.8 4.6 12 1Z" />
+          <path d="M5.7 16.5 1.5 22v5l4.2-2.6ZM18.3 16.5l4.2 5.5v5l-4.2-2.6Z" />
+          <path d="M8.6 24h6.8l-.9 3H9.5Z" />
+        </g>
+        <circle cx="12" cy="12" r="2.6" className="explore-hud__rocket-window" />
+      </svg>
+      <span className="explore-hud__flame" />
+      <span className="explore-hud__jet-label">Boost</span>
+    </div>
   );
 }
 
@@ -365,6 +428,7 @@ export function ExploreHud({
       </div>
 
       <SignalCard cv={cv} onPage={onDockRequest} />
+      <BoostJet />
 
       {!touch && (
         <span

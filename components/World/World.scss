@@ -296,6 +296,13 @@ html[data-world-mode='explore'] {
   }
 }
 
+@keyframes jet-flicker {
+  to {
+    transform: scale(0.82, 1.12);
+    opacity: 0.85;
+  }
+}
+
 @keyframes hud-rise {
   from {
     opacity: 0;
@@ -801,6 +808,129 @@ html[data-world-mode='explore'] {
     }
   }
 
+  /* The move stick's boost ring: push the thumb out to it to boost. A ring
+     follows the thumb out from the rim, so you can see how far is left */
+  &__stick-boost,
+  &__stick-charge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    border-radius: 50%;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition:
+      opacity 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+    pointer-events: none;
+  }
+
+  &__stick-boost {
+    width: var(--boost-d, 200px);
+    height: var(--boost-d, 200px);
+    border: 1.5px dashed color-mix(in oklab, var(--accent-secondary) 65%, transparent);
+
+    /* Towards the middle of the screen, clear of the thumb pushing forward */
+    &::after {
+      content: 'Boost';
+      position: absolute;
+      top: 50%;
+      left: calc(100% + 0.45rem);
+      font-family: var(--font-mono);
+      font-size: var(--fs-tiny);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent-secondary);
+      text-shadow: 0 1px 8px var(--bg-primary);
+      transform: translateY(-50%);
+    }
+  }
+
+  &__stick-charge {
+    width: var(--thumb, 0px);
+    height: var(--thumb, 0px);
+    border: 2px solid var(--accent-secondary);
+  }
+
+  [data-active] > &__stick-boost {
+    opacity: 1;
+  }
+
+  [data-active] > &__stick-charge {
+    opacity: var(--charge, 0);
+  }
+
+  [data-boost] > &__stick-boost {
+    border-style: solid;
+    border-color: var(--accent-secondary);
+    box-shadow:
+      0 0 24px -2px var(--glow-cyan),
+      inset 0 0 18px -6px var(--glow-cyan);
+  }
+
+  /* Boosting: a rocket jet fires under the middle of the view (BoostJet),
+     its flame longer the faster you go */
+  &__jet {
+    --thrust: 0;
+
+    position: absolute;
+    top: calc(50% + 60px);
+    left: 50%;
+    display: grid;
+    justify-items: center;
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.9);
+    transition:
+      opacity 0.2s ease,
+      transform 0.25s var(--ease-out);
+
+    &[data-on] {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+
+  &__rocket {
+    position: relative;
+    z-index: 1;
+    filter: drop-shadow(0 0 6px var(--glow-violet));
+  }
+
+  &__rocket-window {
+    fill: var(--bg-primary);
+  }
+
+  &__flame {
+    width: 11px;
+    height: 34px;
+    margin-top: -3px;
+    border-radius: 50% / 25% 25% 75% 75%;
+    background: linear-gradient(
+      to bottom,
+      #fff 0%,
+      #a5f3fc 22%,
+      var(--accent-secondary) 48%,
+      color-mix(in oklab, var(--gradient-start) 70%, transparent) 78%,
+      transparent 100%
+    );
+    box-shadow: 0 0 16px 2px var(--glow-cyan);
+    transform-origin: top center;
+    scale: 1 calc(0.65 + var(--thrust) * 0.85);
+    animation: jet-flicker 0.11s ease-in-out infinite alternate;
+  }
+
+  &__jet-label {
+    position: absolute;
+    top: 7px;
+    left: calc(100% + 0.5rem);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent-secondary);
+    text-shadow: 0 1px 8px var(--bg-primary);
+  }
+
   /* Rise and sink, stacked over the look stick's corner (centred on its
      rest, ExploreHud restInset), clear of the markers riding the edge */
   &__lift {
@@ -1077,7 +1207,8 @@ html[data-pointer-lock] {
   .explore-hud__signal,
   .explore-hud__detector,
   .explore-hud__clamp,
-  .explore-hud__sweep {
+  .explore-hud__sweep,
+  .explore-hud__flame {
     animation: none;
   }
 }

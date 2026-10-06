@@ -71,6 +71,10 @@ const maxYawRate = 3;
 const maxPitchRate = 2;
 /** Free pointer: radians of turn per pixel the mouse moves, so a flick turns the view at once */
 const nudge = 0.0016;
+/** Touch look stick: dead zone, and the fastest turn with it held right over (rad/s) */
+const stickDeadZone = 0.12;
+const stickYawRate = 1.9;
+const stickPitchRate = 1.2;
 const hullRadius = 5.5;
 const worldRadius = 520;
 /** Fog in free roam: pushed out this far so the whole line of stations stays in sight */
@@ -93,6 +97,12 @@ const wrap = (angle: number) => MathUtils.euclideanModulo(angle + Math.PI, Math.
 function steering(offset: number) {
   const amount = MathUtils.clamp((Math.abs(offset) - deadZone) / (1 - deadZone), 0, 1);
   return Math.sign(offset) * amount * (0.6 + 0.4 * amount);
+}
+
+/** 0 inside the dead zone, rising to ±1 held right over; squared, so small pushes aim finely */
+function stickTurn(offset: number) {
+  const amount = MathUtils.clamp((Math.abs(offset) - stickDeadZone) / (1 - stickDeadZone), 0, 1);
+  return Math.sign(offset) * amount * amount;
 }
 
 /** HUD controls: the mouse is reaching for them, not steering */
@@ -282,9 +292,7 @@ export function ExploreControls() {
   useEffect(() => {
     const lockable = canLockPointer();
     let travel = 0;
-    const centre = (e?: Event) => {
-      // A thumb lifting from the move stick must not stop the look stick
-      if (e instanceof PointerEvent && e.pointerType !== 'mouse') return;
+    const centre = () => {
       exploreInput.steerX = 0;
       exploreInput.steerY = 0;
     };
@@ -372,13 +380,16 @@ export function ExploreControls() {
 
     // Steering eases in over the first half second, so it never lurches
     const ease = MathUtils.smoothstep(clock.elapsedTime - state.since, 0, 0.5);
-    const yawRate = steering(exploreInput.steerX) * maxYawRate * ease + exploreInput.turn * 1.6;
+    const yawRate =
+      (steering(exploreInput.steerX) * maxYawRate + stickTurn(exploreInput.stickX) * stickYawRate) *
+        ease +
+      exploreInput.turn * 1.6;
+    const pitchRate =
+      (steering(exploreInput.steerY) * maxPitchRate +
+        stickTurn(exploreInput.stickY) * stickPitchRate) *
+      ease;
     state.yaw -= exploreInput.lookX + yawRate * dt;
-    state.pitch = MathUtils.clamp(
-      state.pitch - exploreInput.lookY - steering(exploreInput.steerY) * maxPitchRate * ease * dt,
-      -1.35,
-      1.35
-    );
+    state.pitch = MathUtils.clamp(state.pitch - exploreInput.lookY - pitchRate * dt, -1.35, 1.35);
     exploreInput.lookX = 0;
     exploreInput.lookY = 0;
 

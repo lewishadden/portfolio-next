@@ -271,4 +271,10 @@ export const exploreInput = {
    */
   steerX: 0,
   steerY: 0,
+  /**
+   * How far the touch look stick is held over, -1..1 (y down). It turns the
+   * view too, more gently than the mouse
+   */
+  stickX: 0,
+  stickY: 0,
 };

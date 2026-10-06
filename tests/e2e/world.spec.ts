@@ -200,9 +200,21 @@ test.describe('free roam on touch', () => {
       await expect.poll(() => knob(move, '--ky')).toBeCloseTo(-40);
       await expect.poll(() => knob(look, '--kx')).toBeCloseTo(40);
 
+      // Pushed on out to its dashed ring, the move stick boosts and the rocket jet fires
+      const jet = hud.locator('.explore-hud__jet');
+      await expect(move).not.toHaveAttribute('data-boost');
+      await expect(jet).not.toHaveAttribute('data-on');
+      await touch('touchMove', [
+        [90, 414],
+        [340, 520],
+      ]);
+      await expect(move).toHaveAttribute('data-boost', '');
+      await expect(jet).toHaveAttribute('data-on', '');
+
       // Lifting one thumb leaves the other holding its stick
       await touch('touchEnd', [[340, 520]]);
       await expect(move).not.toHaveAttribute('data-active');
+      await expect(jet).not.toHaveAttribute('data-on');
       await expect(look).toHaveAttribute('data-active', '');
       await touch('touchEnd', []);
       await expect(look).not.toHaveAttribute('data-active');
