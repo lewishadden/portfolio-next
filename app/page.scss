@@ -48,10 +48,20 @@ body {
   max-width: 44rem;
   margin-bottom: clamp(3rem, 8vh, 5.5rem);
 
+  /* Under the eyebrow: where the camera is docked (StationReadout) */
+  &__station {
+    display: flex;
+    margin-top: 0.85rem;
+  }
+
   &--center {
     margin-inline: auto;
     text-align: center;
     justify-items: center;
+  }
+
+  &--center &__station {
+    justify-content: center;
   }
 
   /* Leaves the right side of the header free for the 3D station on wide screens */

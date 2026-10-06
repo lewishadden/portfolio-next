@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 
 import { lockPointer, unlockPointer } from './pointerLock';
 import { navigableStations } from './routes';
+import { emitCue } from './worldStore';
 
 import type { StationKey } from './routes';
 
@@ -28,7 +29,10 @@ let state = initial;
 const listeners = new Set<() => void>();
 
 function set(next: Partial<WorldModeState>) {
+  const previous = state;
   state = { ...state, ...next };
+  if (state.mode !== previous.mode) emitCue(state.mode === 'page' ? 'blip' : 'select');
+  else if (state.tourStop !== previous.tourStop) emitCue('blip');
   listeners.forEach((listener) => listener());
 }
 

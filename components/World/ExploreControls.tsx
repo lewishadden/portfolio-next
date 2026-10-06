@@ -5,11 +5,11 @@ import { useFrame } from '@react-three/fiber';
 import { Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
 import { canLockPointer, lockPointer } from './pointerLock';
-import { navigableStations } from './routes';
+import { navigableStations, stationForPath } from './routes';
 import { setViewRange, useLite } from './stationHooks';
 import { baseFov, beaconHeight, stationPositions } from './stations';
 import { worldMode } from './worldMode';
-import { exploreInput, setAutopilot, setDock, worldStore } from './worldStore';
+import { exploreInput, setAutopilot, setDock, setDocking, worldStore } from './worldStore';
 
 import type { Scene } from 'three';
 import type { StationKey } from './routes';
@@ -207,6 +207,17 @@ function flyTo(key: StationKey, state: LookState, cam: PerspectiveCamera, dt: nu
   return settling && distance < 2 && velocity.length() < 3 && aligned;
 }
 
+/** Docking: drifts to a stop and turns to face the station while the clamps close */
+function settle(key: StationKey, state: LookState, cam: PerspectiveCamera, dt: number) {
+  aim.fromArray(stationPositions[key]).sub(cam.position);
+  const yaw = state.yaw + wrap(Math.atan2(-aim.x, -aim.z) - state.yaw);
+  const pitch = MathUtils.clamp(Math.atan2(aim.y, Math.hypot(aim.x, aim.z)), -1.2, 1.2);
+  const ease = 1 - Math.exp(-3 * dt);
+  state.yaw += (yaw - state.yaw) * ease;
+  state.pitch += (pitch - state.pitch) * ease;
+  velocity.multiplyScalar(Math.exp(-3.5 * dt));
+}
+
 export function ExploreControls() {
   const look = useRef<LookState>({ yaw: 0, pitch: 0, active: false, since: 0 });
   const lite = useLite();
@@ -351,6 +362,7 @@ export function ExploreControls() {
         velocity.set(0, 0, 0);
         setDock('');
         setAutopilot('');
+        setDocking('');
       }
       return;
     }
@@ -375,6 +387,10 @@ export function ExploreControls() {
     const manual =
       exploreInput.forward || exploreInput.strafe || exploreInput.lift || exploreInput.turn;
     if (manual && worldStore.autopilot) setAutopilot('');
+    if (worldStore.docking) {
+      exploreInput.lookX = 0;
+      exploreInput.lookY = 0;
+    }
 
     // Steering eases in over the first half second, so it never lurches
     const ease = MathUtils.smoothstep(clock.elapsedTime - state.since, 0, 0.5);
@@ -389,7 +405,10 @@ export function ExploreControls() {
     exploreInput.lookY = 0;
 
     const course = worldStore.autopilot as StationKey | '';
-    if (course) {
+    if (worldStore.docking) {
+      // Docking: hands off the controls, coast to a stop facing the station
+      settle(stationForPath(worldStore.docking), state, cam, dt);
+    } else if (course) {
       if (flyTo(course, state, cam, dt)) setAutopilot('');
     } else {
       // Thrust along where the camera faces, with drag

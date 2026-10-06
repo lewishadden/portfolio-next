@@ -290,10 +290,16 @@ html[data-world-mode='explore'] {
 
 /* ----- Explore mode HUD ----- */
 .explore-hud {
+  --signal: #fbbf24;
+
   position: fixed;
   inset: 0;
   z-index: 80;
   pointer-events: none;
+
+  [data-theme='light'] & {
+    --signal: #b45309;
+  }
 
   &__top {
     position: absolute;
@@ -450,6 +456,212 @@ html[data-world-mode='explore'] {
     background: var(--accent-tertiary);
     box-shadow: 0 0 12px var(--accent-tertiary);
     animation: autopilot-blink 1.2s ease-in-out infinite;
+  }
+
+  /* Hidden signals: the tally in the top bar, the detector under it and
+     the card for each find */
+  &__signals {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid color-mix(in oklab, var(--signal) 45%, transparent);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.08em;
+    color: var(--signal);
+
+    &--all {
+      background: color-mix(in oklab, var(--signal) 14%, transparent);
+      box-shadow: 0 0 14px -4px var(--signal);
+    }
+  }
+
+  &__detector {
+    position: absolute;
+    top: 88px;
+    left: 50%;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--signal);
+    text-shadow: 0 1px 8px var(--bg-primary);
+    transform: translateX(-50%);
+    animation: tour-in 0.3s var(--ease-out) both;
+  }
+
+  &__detector-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 14px;
+
+    span {
+      width: 4px;
+      border-radius: 1px;
+      background: color-mix(in oklab, var(--signal) 25%, transparent);
+      transition: background 0.3s ease;
+
+      @for $i from 1 through 5 {
+        &:nth-child(#{$i}) {
+          height: #{$i * 20%};
+        }
+      }
+
+      &.is-on {
+        background: var(--signal);
+        box-shadow: 0 0 8px var(--signal);
+      }
+    }
+  }
+
+  &__signal {
+    position: absolute;
+    top: 50%;
+    right: clamp(16px, 4vw, 48px);
+    display: grid;
+    gap: 0.6rem;
+    width: min(360px, calc(100vw - 32px));
+    padding: 1.1rem 1.2rem;
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+    border-radius: var(--radius-lg);
+    background: var(--surface-strong);
+    box-shadow: 0 0 40px -12px var(--signal);
+    transform: translateY(-50%);
+    pointer-events: auto;
+    animation: signal-in 0.5s var(--ease-out) both;
+  }
+
+  &__signal-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--signal);
+  }
+
+  &__signal-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    letter-spacing: -0.02em;
+  }
+
+  &__signal-text {
+    margin: 0;
+    font-size: var(--fs-body-sm);
+    line-height: 1.55;
+    color: var(--text-secondary);
+
+    &--all b {
+      color: var(--signal);
+    }
+  }
+
+  &__signal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.2rem;
+
+    .btn {
+      padding: 0.55rem 1rem;
+      font-size: var(--fs-caption);
+    }
+  }
+
+  /* Docking: clamps close in from the edges, a light sweeps the view and a
+     bar fills (World.tsx opens the page after dockTime, 1.7s) */
+  &__docking {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(
+      ellipse 70% 60% at 50% 50%,
+      transparent 40%,
+      color-mix(in oklab, var(--bg-primary) 70%, transparent)
+    );
+    animation: dock-dim 0.5s ease both;
+  }
+
+  &__clamp {
+    position: absolute;
+    top: 50%;
+    width: 18vmin;
+    height: 34vmin;
+    border: 2px solid var(--accent-secondary);
+    box-shadow:
+      0 0 24px -6px var(--glow-cyan),
+      inset 0 0 18px -8px var(--glow-cyan);
+
+    &--left {
+      left: 50%;
+      border-right: 0;
+      border-radius: 14px 0 0 14px;
+      animation: clamp-left 1s cubic-bezier(0.7, 0, 0.2, 1) both;
+    }
+
+    &--right {
+      right: 50%;
+      border-left: 0;
+      border-radius: 0 14px 14px 0;
+      animation: clamp-right 1s cubic-bezier(0.7, 0, 0.2, 1) both;
+    }
+  }
+
+  &__sweep {
+    position: absolute;
+    right: 0;
+    left: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-secondary), transparent);
+    box-shadow: 0 0 24px 4px var(--glow-cyan);
+    animation: dock-sweep 1.3s 0.25s var(--ease-in-out) both;
+  }
+
+  &__docking-text {
+    display: grid;
+    justify-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+
+    b {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      letter-spacing: -0.01em;
+      text-transform: none;
+      color: var(--text-primary);
+    }
+  }
+
+  &__docking-bar {
+    width: 160px;
+    height: 2px;
+    margin-top: 0.5rem;
+    background: color-mix(in oklab, var(--text-primary) 18%, transparent);
+
+    span {
+      display: block;
+      height: 100%;
+      background: var(--gradient-brand);
+      transform-origin: left;
+      animation: dock-fill 1.6s linear both;
+    }
   }
 
   /* One marker per station, positioned every frame (see Waypoints) */
@@ -664,6 +876,65 @@ html[data-world-mode='explore'] {
   }
 }
 
+@keyframes signal-in {
+  from {
+    opacity: 0;
+    transform: translate(24px, -50%);
+  }
+}
+
+@keyframes dock-dim {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes clamp-left {
+  from {
+    transform: translate(-48vw, -50%);
+  }
+
+  to {
+    transform: translate(-100%, -50%) translateX(-6vmin);
+  }
+}
+
+@keyframes clamp-right {
+  from {
+    transform: translate(48vw, -50%);
+  }
+
+  to {
+    transform: translate(100%, -50%) translateX(6vmin);
+  }
+}
+
+@keyframes dock-sweep {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes dock-fill {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @keyframes autopilot-blink {
   50% {
     opacity: 0.35;
@@ -704,7 +975,11 @@ html[data-pointer-lock] {
   }
 
   .waypoint--course .waypoint__mark,
-  .explore-hud__autopilot-dot {
+  .explore-hud__autopilot-dot,
+  .explore-hud__signal,
+  .explore-hud__detector,
+  .explore-hud__clamp,
+  .explore-hud__sweep {
     animation: none;
   }
 }

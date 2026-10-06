@@ -20,6 +20,14 @@ import './Contact.scss';
 
 const toastAutoDismissMs = 8000;
 
+/** When a message landed, in UK time (where it's read) */
+const receivedTime = () =>
+  new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/London',
+  }).format(new Date());
+
 const ContactCard = ({ info }: { info: ContactInfo }) => {
   const ref = usePointerGlow<HTMLDivElement>();
   const [copied, setCopied] = useState(false);
@@ -102,6 +110,7 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
   } = contact;
 
   const [submitted, setSubmitted] = useState(false);
+  const [receivedAt, setReceivedAt] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [error, setError] = useState(false);
   const [limited, setLimited] = useState(false);
@@ -186,6 +195,11 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
                   <path d="M25 41 l10 10 l20 -22" />
                 </svg>
                 <p className="contact__success-eyebrow">Transmission received</p>
+                {receivedAt && (
+                  <p className="contact__success-log">
+                    Logged {receivedAt} UK time · relayed by the comms array to Peterborough
+                  </p>
+                )}
                 <h2 className="contact__success-title">{success.headerText}</h2>
                 <p className="contact__success-text">{success.bodyText}</p>
                 <button type="button" className="btn btn--ghost" onClick={handleSendAnother}>
@@ -211,6 +225,7 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
                   contact={contact}
                   onSuccess={() => {
                     setError(false);
+                    setReceivedAt(receivedTime());
                     setSubmitted(true);
                     setShowToast(true);
                     requestLaunch();

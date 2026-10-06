@@ -6,12 +6,14 @@ import { Icon } from '@iconify/react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 import { canLockPointer, usePointerLocked } from './pointerLock';
-import { stationNames, stationPaths } from './routes';
+import { stationForPath, stationNames, stationPaths } from './routes';
+import { SignalCard, SignalCount, SignalDetector } from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
-import { exploreInput, onDock, setAutopilot, worldStore } from './worldStore';
+import { exploreInput, onDock, onDocking, setAutopilot, worldStore } from './worldStore';
 
 import type { StationKey } from './routes';
+import type { WorldContent } from './types';
 
 const noDock = () => '';
 const readDock = () => worldStore.dock;
@@ -96,16 +98,49 @@ function TouchPad() {
 
 const noLock = () => false;
 const subscribeNothing = () => () => {};
+const readDocking = () => worldStore.docking;
+
+/**
+ * Docking: clamps close in from the edges, a light sweeps the view and a
+ * bar fills while the camera settles (ExploreControls), then the page opens
+ */
+function DockingOverlay({ path }: { path: string }) {
+  const { craft, page } = stationNames[stationForPath(path)];
+  return (
+    <div className="explore-hud__docking" role="status">
+      <span className="explore-hud__clamp explore-hud__clamp--left" aria-hidden="true" />
+      <span className="explore-hud__clamp explore-hud__clamp--right" aria-hidden="true" />
+      <span className="explore-hud__sweep" aria-hidden="true" />
+      <div className="explore-hud__docking-text">
+        <span>Docking at</span>
+        <b>{craft}</b>
+        <span className="explore-hud__docking-bar" aria-hidden="true">
+          <span />
+        </span>
+        <span className="sr-only">Opening the {page} page</span>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Explore mode's heads-up display: how to fly, an exit, a marker for
- * every station (which sets the autopilot), the autopilot's status, and a
- * docking prompt when you are close enough to a station to open its page.
+ * every station (which sets the autopilot), the autopilot's status, a
+ * docking prompt when you are close enough to a station to open its page
+ * and the docking sequence once you do, and the hidden signals: how many
+ * you have found, a detector, and what each one says.
  */
-export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) => void }) {
+export function ExploreHud({
+  onDockRequest,
+  cv,
+}: {
+  onDockRequest: (path: string) => void;
+  cv: WorldContent['cv'];
+}) {
   const { mode } = useWorldMode();
   const exploring = mode === 'explore';
   const dock = useSyncExternalStore(onDock, readDock, noDock) as StationKey | '';
+  const docking = useSyncExternalStore(onDocking, readDocking, noDock);
   const course = useAutopilot() as StationKey | '';
   const touch = useMediaQuery('(pointer: coarse)');
   const lockable = useSyncExternalStore(subscribeNothing, canLockPointer, noLock);
@@ -123,8 +158,8 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
   }, [locked]);
 
   useEffect(() => {
-    // Not while the autopilot is flying somewhere else
-    if (!exploring || !dock || course) return;
+    // Not while the autopilot is flying somewhere else, or already docking
+    if (!exploring || !dock || course || docking) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !(e.target instanceof HTMLInputElement)) {
         e.preventDefault();
@@ -133,9 +168,16 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [exploring, dock, course, onDockRequest]);
+  }, [exploring, dock, course, docking, onDockRequest]);
 
   if (!exploring) return null;
+  if (docking) {
+    return (
+      <div className="explore-hud" role="region" aria-label="Explore mode">
+        <DockingOverlay path={docking} />
+      </div>
+    );
+  }
   return (
     <div className="explore-hud" role="region" aria-label="Explore mode">
       <div className="explore-hud__top glass">
@@ -143,6 +185,7 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
           <span className="explore-hud__dot" aria-hidden="true" />
           Explore mode
         </span>
+        <SignalCount />
         <span className="explore-hud__keys">
           {touch ? (
             'Pad to fly · drag to look · tap a station for autopilot'
@@ -162,6 +205,8 @@ export function ExploreHud({ onDockRequest }: { onDockRequest: (path: string) =>
       </div>
 
       <Waypoints />
+      <SignalDetector />
+      <SignalCard cv={cv} onPage={onDockRequest} />
 
       {!touch && (
         <span

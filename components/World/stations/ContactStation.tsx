@@ -5,10 +5,12 @@ import { useFrame } from '@react-three/fiber';
 import { easing } from 'maath';
 import {
   AdditiveBlending,
+  BufferAttribute,
   Color,
   Group,
   MathUtils,
   Mesh,
+  Points,
   QuadraticBezierCurve3,
   Quaternion,
   ShaderMaterial,
@@ -94,6 +96,42 @@ const dotFragment = /* glsl */ `
   }
 `;
 
+/** The transmission: packets streaming from the dish to the Peterborough pin */
+const packetCount = 28;
+/** Seconds the stream shows at least, so a fast send is still seen */
+const transmitHold = 1.8;
+const packetFrom = new Vector3();
+const packetTo = new Vector3();
+const packetBend = new Vector3();
+const packetPoint = new Vector3();
+const globeCentre = new Vector3(0, 0.5, 0);
+const packetCurve = new QuadraticBezierCurve3(packetFrom, packetBend, packetTo);
+
+const packetVertex = /* glsl */ `
+  uniform float uPixelRatio;
+  attribute float aAlong;
+  varying float vAlong;
+  void main() {
+    vAlong = aAlong;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = (2.0 + 4.0 * sin(aAlong * 3.1416)) * uPixelRatio * (10.0 / -mv.z);
+  }
+`;
+
+const packetFragment = /* glsl */ `
+  uniform vec3 uFrom;
+  uniform vec3 uTo;
+  uniform float uActive;
+  uniform float uLight;
+  varying float vAlong;
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    float alpha = smoothstep(0.5, 0.0, d) * uActive;
+    gl_FragColor = vec4(mix(uFrom, uTo, vAlong) * mix(2.4, 1.1, uLight), alpha);
+  }
+`;
+
 const exhaustVertex = /* glsl */ `
   uniform float uTime;
   uniform float uActive;
@@ -154,6 +192,23 @@ const buildMaterials = (p: WorldPalette) => ({
   beacon0: createRingMaterial({ colorA: p.pink, colorB: p.violet, intensity: 3, speed: 0 }),
   beacon1: createRingMaterial({ colorA: p.pink, colorB: p.violet, intensity: 3, speed: 0 }),
   beacon2: createRingMaterial({ colorA: p.pink, colorB: p.violet, intensity: 3, speed: 0 }),
+  packets: asGlow(
+    new ShaderMaterial({
+      uniforms: {
+        uPixelRatio: { value: 1 },
+        uActive: { value: 0 },
+        uFrom: { value: new Color(p.cyan) },
+        uTo: { value: new Color(p.pink) },
+        uLight: { value: 0 },
+      },
+      vertexShader: packetVertex,
+      fragmentShader: packetFragment,
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      toneMapped: false,
+    })
+  ),
   exhaust: asGlow(
     new ShaderMaterial({
       uniforms: {
@@ -173,6 +228,30 @@ const buildMaterials = (p: WorldPalette) => ({
     })
   ),
 });
+
+/** Lays the packets out along an arc from the dish to the pin, wherever the globe has turned it */
+function streamPackets(points: Points, globe: Group, tip: Vector3, t: number) {
+  globe.updateMatrix();
+  packetFrom.copy(dishFocus);
+  packetTo.copy(tip).applyMatrix4(globe.matrix);
+  // Bend the arc out over the globe so it never cuts through it
+  packetBend
+    .addVectors(packetFrom, packetTo)
+    .multiplyScalar(0.5)
+    .sub(globeCentre)
+    .setLength(radius * 1.9)
+    .add(globeCentre);
+  const position = points.geometry.getAttribute('position') as BufferAttribute;
+  const along = points.geometry.getAttribute('aAlong') as BufferAttribute;
+  for (let i = 0; i < packetCount; i++) {
+    const u = (t * 0.85 + i / packetCount) % 1;
+    packetCurve.getPoint(u, packetPoint);
+    position.setXYZ(i, packetPoint.x, packetPoint.y, packetPoint.z);
+    along.setX(i, u);
+  }
+  position.needsUpdate = true;
+  along.needsUpdate = true;
+}
 
 function buildArcs() {
   const start = latLngToVector3(home.lat, home.lng, radius);
@@ -270,7 +349,11 @@ function updateRocket(rocket: Group, baseY: number, t: number, dt: number) {
   return 0;
 }
 
-/** `/contact` — dotted holo-globe with a Peterborough beacon, and a rocket for sent messages */
+/**
+ * `/contact` — dotted holo-globe with a Peterborough beacon, a comms array
+ * that streams a message to the beacon while it sends, and a rocket that
+ * launches once it has landed
+ */
 export function ContactStation({ theme }: { theme: WorldTheme }) {
   const groupRef = useRef<Group>(null);
   const globeRef = useRef<Group>(null);
@@ -285,6 +368,8 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   });
   const beaconRef = useRef<Group>(null);
   const rocketRef = useRef<Group>(null);
+  const packetsRef = useRef<Points>(null);
+  const transmit = useRef({ since: -Infinity, was: false, level: 0 });
   const wide = useWide();
   const materials = useThemedMaterials(buildMaterials, theme);
   const palette = palettes[theme];
@@ -313,6 +398,18 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   useEffect(() => () => arcs.forEach((arc) => arc.dispose()), [arcs]);
 
   const beaconPosition = useMemo(() => latLngToVector3(home.lat, home.lng, radius), []);
+  /** The pin's tip, on the globe (the stream lands on it) */
+  const beaconTip = useMemo(
+    () => beaconPosition.clone().addScaledVector(beaconPosition.clone().normalize(), 0.72),
+    [beaconPosition]
+  );
+  const packetBuffers = useMemo(
+    () => ({
+      positions: new Float32Array(packetCount * 3),
+      along: new Float32Array(packetCount),
+    }),
+    []
+  );
 
   // The data link: a pulse of light from the dish to the globe's surface
   const link = useMemo(() => {
@@ -359,8 +456,23 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
       globe.rotation.x = 0.62 + worldStore.pointerY * 0.08 + spin.pitch;
     }
 
+    // Transmitting: packets stream along an arc over the globe to the pin
+    // (wherever the globe has turned it), and the pin's rings speed up
+    const sending = transmit.current;
+    if (worldStore.transmitting && !sending.was) sending.since = t;
+    sending.was = worldStore.transmitting;
+    const active = worldStore.transmitting || t - sending.since < transmitHold;
+    sending.level = MathUtils.damp(sending.level, active ? 1 : 0, active ? 6 : 3, dt);
+    setUniform(materials.packets, 'uActive', sending.level);
+    setUniform(materials.packets, 'uPixelRatio', viewport.dpr);
+    const packets = packetsRef.current;
+    if (packets && globe) {
+      packets.visible = sending.level > 0.01;
+      if (packets.visible) streamPackets(packets, globe, beaconTip, t);
+    }
+
     beaconRef.current?.children.forEach((ring, i) => {
-      const phase = (t * 0.6 + i / 3) % 1;
+      const phase = (t * (0.6 + sending.level * 1.2) + i / 3) % 1;
       ring.scale.setScalar(0.1 + phase * 0.9);
       const material = (ring as Mesh).material as ShaderMaterial;
       setUniform(material, 'uOpacity', 1 - phase);
@@ -436,6 +548,12 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
       <mesh material={materials.link} position={link.position} quaternion={link.quaternion}>
         <cylinderGeometry args={[0.025, 0.025, link.length, 8, 1, true]} />
       </mesh>
+      <points ref={packetsRef} material={materials.packets} visible={false} frustumCulled={false}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[packetBuffers.positions, 3]} />
+          <bufferAttribute attach="attributes-aAlong" args={[packetBuffers.along, 1]} />
+        </bufferGeometry>
+      </points>
 
       <group
         ref={rocketRef}

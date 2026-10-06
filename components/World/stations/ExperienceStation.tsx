@@ -18,7 +18,7 @@ import {
   stationPositions,
 } from '../stations';
 import { palettes, setUniform } from '../utils';
-import { focusOnPage, setWorldHover, worldTip } from '../worldStore';
+import { focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import type { ThreeEvent } from '@react-three/fiber';
 import type { WorldTip } from '../worldStore';
@@ -63,8 +63,10 @@ function lightNode(node: Group, activation: number, dt: number) {
 
 /**
  * `/experience`: a satellite escorts the camera down a pulsing beam that
- * hangs from the station's hull; one glowing node per role lights up as the
- * camera passes it (hover for the role, click to jump to it on the page).
+ * hangs from the station's hull; one glowing node per role. On the page the
+ * camera rides down to the role being read and its node lights (a mission
+ * log); elsewhere nodes light as the camera passes them. Hover for the role,
+ * click to jump to it on the page.
  */
 export function ExperienceStation({
   theme,
@@ -121,9 +123,14 @@ export function ExperienceStation({
       satellite.rotation.z = Math.sin(t * 0.5) * 0.15;
     }
 
+    // The pod of the role being read on the page lights; elsewhere (the
+    // tour, free roam) whichever pods the camera passes
+    const reading = worldStore.roleFocus;
     nodesRef.current?.children.forEach((node, i) => {
-      const distance = Math.abs(localCameraY - nodeYs[i]);
-      const activation = Math.max(0, 1 - distance / 5);
+      const activation =
+        reading > -0.99
+          ? Math.max(0, 1 - Math.abs(i - reading) * 1.4)
+          : Math.max(0, 1 - Math.abs(localCameraY - nodeYs[i]) / 5);
       lightNode(node as Group, activation, dt);
     });
   });

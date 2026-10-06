@@ -59,6 +59,18 @@
     }
   }
 
+  /* The availability badge and, beside it, where the camera is docked */
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 1rem;
+  }
+
+  &__station {
+    animation: hero-fade 0.9s var(--ease-out) 0.05s both;
+  }
+
   &__greeting {
     font-family: var(--font-mono);
     font-size: var(--fs-body-sm);

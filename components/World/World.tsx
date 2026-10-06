@@ -13,18 +13,22 @@ import { reportWebGLUnavailable, useWorldPreference } from '@/hooks/useWorldPref
 import { projectSlugFromPath } from '@/utils/projectPaths';
 
 import { readyBoot, reportBoot, useBooted } from './boot';
+import { rememberLoaded } from './bootMemory';
 import { ExploreHud } from './ExploreHud';
 import { NavRadar } from './NavRadar';
 import { TourOverlay } from './TourOverlay';
 import { WorldTooltip } from './WorldTooltip';
 import { liteQuery, prefetchStationModel, stationForPath } from './routes';
 import { useWorldMode, worldMode } from './worldMode';
-import { worldNavigateEvent, worldStore } from './worldStore';
+import { setDocking, worldNavigateEvent, worldStore } from './worldStore';
 
 import type { ReactNode } from 'react';
 import type { WorldContent } from './types';
 
 import './World.scss';
+
+/** How long the docking sequence plays before the page opens (ms; World.scss's clamps match) */
+const dockTime = 1700;
 
 // three.js + R3F live in their own chunk, fetched after the page is interactive
 const WorldCanvas = dynamic(() => import('./WorldCanvas'), { ssr: false });
@@ -156,6 +160,11 @@ export function World({ content }: { content: WorldContent }) {
     }
   }, [active, mode, booted]);
 
+  // Loaded: a visit soon after skips the loading screen (it's all cached)
+  useEffect(() => {
+    if (ready) rememberLoaded();
+  }, [ready]);
+
   // The loading screen's first steps: the page is up, then the 3D chunk is on its way
   useEffect(() => {
     reportBoot(idle ? 0.1 : 0.04, idle ? 1 : 0);
@@ -166,19 +175,32 @@ export function World({ content }: { content: WorldContent }) {
     if (!active) worldMode.exit();
   }, [active]);
 
-  // Docking opens the station's page; the camera is handed back once it has
-  // loaded, so the flight in is one continuous move
+  // Docking plays a short sequence (clamps close, the camera settles), then
+  // opens the station's page; the camera is handed back once it has loaded,
+  // so the flight in is one continuous move
   const pendingDock = useRef<string | null>(null);
   const onDockRequest = useCallback(
     (path: string) => {
-      if (path === pathname) {
-        worldMode.exit();
+      if (worldStore.docking) return;
+      const open = () => {
+        if (path === pathname) {
+          worldMode.exit();
+          return;
+        }
+        pendingDock.current = path;
+        router.push(path);
+      };
+      if (reducedMotion || worldMode.get().mode !== 'explore') {
+        open();
         return;
       }
-      pendingDock.current = path;
-      router.push(path);
+      setDocking(path);
+      // Leaving free roam mid-sequence (Esc) cancels it
+      window.setTimeout(() => {
+        if (worldStore.docking === path) open();
+      }, dockTime);
     },
-    [pathname, router]
+    [pathname, reducedMotion, router]
   );
   useEffect(() => {
     if (pendingDock.current === pathname) {
@@ -224,7 +246,7 @@ export function World({ content }: { content: WorldContent }) {
       {showCanvas && ready && <NavRadar />}
       {showCanvas && ready && <WorldTooltip />}
       {showCanvas && ready && <TourOverlay captions={content.tour} />}
-      {showCanvas && ready && <ExploreHud onDockRequest={onDockRequest} />}
+      {showCanvas && ready && <ExploreHud onDockRequest={onDockRequest} cv={content.cv} />}
     </>
   );
 }

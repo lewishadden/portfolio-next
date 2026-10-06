@@ -66,6 +66,7 @@ const worldContent: WorldContent = {
   categories: content.skills.categories.map((c) => c.categoryKey),
   roles: content.experience.items.map(({ title, company }) => ({ title, company })),
   tour: content.tour.stops,
+  cv: { url: content.about.cta.primary.url, name: content.about.cv.download },
 };
 
 // What the ⌘K palette can jump to and do

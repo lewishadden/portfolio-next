@@ -25,6 +25,7 @@ import { ExperienceStation } from './stations/ExperienceStation';
 import { HomeStation } from './stations/HomeStation';
 import { LostStation } from './stations/LostStation';
 import { ProjectsStation } from './stations/ProjectsStation';
+import { Signals } from './Signals';
 import { SkillsStation } from './stations/SkillsStation';
 import { lowerTier, raiseTier, tierSettings } from './quality';
 import { navigableStations } from './routes';
@@ -46,6 +47,9 @@ import type { QualityTier } from './quality';
 import type { StationKey } from './stations';
 import type { WorldContent } from './types';
 import type { WorldTheme } from './utils';
+
+/** Everywhere free roam can reach: every station, and the 404 derelict as a hidden signal */
+const roamable: StationKey[] = [...navigableStations, 'lost'];
 
 /** With frameloop="demand" (reduced motion), repaint on scroll, resize and route changes */
 function DemandDriver({
@@ -156,19 +160,23 @@ export default function WorldCanvas({
   const missing = wanted.filter((key) => !visited.includes(key));
   if (missing.length) setVisited([...visited, ...missing]);
 
-  // Explore mode can reach every station: mount the rest one at a time, so
-  // their downloads and warm-ups queue up instead of landing together
-  const allMounted = navigableStations.every((key) => visited.includes(key));
+  // Explore mode can reach every station, and the derelict is one of its
+  // hidden signals: mount the rest one at a time, so their downloads and
+  // warm-ups queue up instead of landing together
+  const allMounted = roamable.every((key) => visited.includes(key));
   useEffect(() => {
     if (mode !== 'explore' || allMounted) return;
     const id = window.setInterval(() => {
       setVisited((current) => {
-        const next = navigableStations.find((key) => !current.includes(key));
+        const next = roamable.find((key) => !current.includes(key));
         return next ? [...current, next] : current;
       });
     }, 700);
     return () => window.clearInterval(id);
   }, [mode, allMounted]);
+  // The signals hidden out in the world, from the first free roam on
+  const [roamed, setRoamed] = useState(false);
+  if (mode === 'explore' && !roamed) setRoamed(true);
 
   // Phones / touch devices start (and top out) one tier down
   const ceiling: QualityTier = lite ? 'medium' : 'high';
@@ -297,6 +305,12 @@ export default function WorldCanvas({
           {has('lost') && (
             <Precompiled>
               <LostStation theme={theme} />
+            </Precompiled>
+          )}
+
+          {roamed && (
+            <Precompiled>
+              <Signals theme={theme} />
             </Precompiled>
           )}
 

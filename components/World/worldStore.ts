@@ -21,6 +21,21 @@ export const worldStore = {
   projectIntro: 0,
   /** A project page: its screen sits beside the copy rather than centred */
   projectAside: false,
+  /**
+   * /experience: which role's card is at the reading line, as a fractional
+   * index (-0.6 above the first card, up to count - 0.4 past the last), -1
+   * off that page. The camera rides the beam to that role's pod and lights it.
+   */
+  roleFocus: -1,
+  roleCount: 0,
+  /** /contact: a message is on its way (the comms array streams it to the globe) */
+  transmitting: false,
+  /**
+   * /contact: until when (performance.now(), ms) the camera holds on the
+   * globe and rocket rather than following the page down to the form, so a
+   * message's transmission and the launch after it are seen
+   */
+  showcaseUntil: 0,
   /** Viewport heights scrolled (scrollY / innerHeight) */
   screens: 0,
   /** Pointer position normalised to -1..1 (y up) */
@@ -40,6 +55,8 @@ export const worldStore = {
   dock: '',
   /** Explore mode: the station the autopilot is flying to, '' when flying by hand */
   autopilot: '',
+  /** Explore mode: the page being docked at while the docking sequence plays, '' otherwise */
+  docking: '',
   /**
    * Explore mode: where each station's beacon is on screen, written every
    * frame for the HUD's waypoints. x / y run -1..1 from the centre (y up);
@@ -100,7 +117,26 @@ export function onDock(listener: () => void) {
 export function setDock(station: string) {
   if (worldStore.dock === station) return;
   worldStore.dock = station;
+  if (station) emitCue('proximity');
   dockListeners.forEach((listener) => listener());
+}
+
+const dockingListeners = new Set<() => void>();
+
+/** Explore mode: subscribe to a docking sequence starting or ending */
+export function onDocking(listener: () => void) {
+  dockingListeners.add(listener);
+  return () => {
+    dockingListeners.delete(listener);
+  };
+}
+
+/** Starts the docking sequence for a page ('' when it is over) */
+export function setDocking(path: string) {
+  if (worldStore.docking === path) return;
+  worldStore.docking = path;
+  if (path) emitCue('dock');
+  dockingListeners.forEach((listener) => listener());
 }
 
 const autopilotListeners = new Set<() => void>();
@@ -117,12 +153,50 @@ export function onAutopilot(listener: () => void) {
 export function setAutopilot(station: string) {
   if (worldStore.autopilot === station) return;
   worldStore.autopilot = station;
+  emitCue(station ? 'select' : 'blip');
   autopilotListeners.forEach((listener) => listener());
 }
 
 /** Called by the contact form after a successful send: fires the rocket on /contact */
 export function requestLaunch() {
   worldStore.launchRequested = true;
+  worldStore.showcaseUntil = performance.now() + 6500;
+  emitCue('launch');
+}
+
+/** Called by the contact form while a message is sending */
+export function setTransmitting(on: boolean) {
+  if (worldStore.transmitting === on) return;
+  worldStore.transmitting = on;
+  // Hold on the globe a little after a failed send too, so it doesn't jerk away
+  worldStore.showcaseUntil = Math.max(worldStore.showcaseUntil, performance.now() + 1800);
+  if (on) emitCue('transmit');
+}
+
+/* ----------------- Sound cues (components/Sound plays them when sound is on) ----------------- */
+
+export type Cue =
+  | 'blip'
+  | 'select'
+  | 'proximity'
+  | 'dock'
+  | 'found'
+  | 'complete'
+  | 'launch'
+  | 'transmit';
+
+const cueListeners = new Set<(cue: Cue) => void>();
+
+export function onCue(listener: (cue: Cue) => void) {
+  cueListeners.add(listener);
+  return () => {
+    cueListeners.delete(listener);
+  };
+}
+
+/** Something happened that has a sound; silent unless the visitor turned sound on */
+export function emitCue(cue: Cue) {
+  cueListeners.forEach((listener) => listener(cue));
 }
 
 /* ----------------- Hovering things in 3D: cursor ring + tooltip ----------------- */

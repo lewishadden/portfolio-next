@@ -71,8 +71,10 @@ html {
 /* Skip to main content link */
 .skip-link {
   position: absolute;
-  top: -40px;
+  top: 0;
   left: 0;
+  /* Fully above the viewport until focused (a fixed -40px left a sliver showing) */
+  transform: translateY(-100%);
   background: var(--accent-primary);
   color: var(--accent-contrast);
   padding: 8px 16px;
@@ -82,8 +84,8 @@ html {
   border-radius: 0 0 4px;
 
   &:focus {
-    top: 0;
     left: 16px;
+    transform: none;
   }
 }
 
