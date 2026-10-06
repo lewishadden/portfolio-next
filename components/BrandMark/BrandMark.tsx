@@ -177,7 +177,7 @@ export function BrandMark({
           <stop offset="0" className="brand-mark__cyan" />
           <stop offset="1" className="brand-mark__violet" />
         </linearGradient>
-        {/* The ring's near half cuts a gap where it crosses the H */}
+        {/* The ring's near half cuts a gap where it crosses the letters */}
         <mask
           id={`${id}-cut`}
           maskUnits="userSpaceOnUse"
@@ -212,6 +212,7 @@ export function BrandMark({
         </g>
       </g>
       <g fill={`url(#${id}-letters)`} mask={`url(#${id}-cut)`}>
+        <Bars letter={letterL} />
         <Bars letter={letterH} />
       </g>
       <g transform={tilt}>
@@ -227,9 +228,6 @@ export function BrandMark({
         <g clipPath={`url(#${id}-near)`}>
           <Moons at={at} orbit={orbit} filter={filter} />
         </g>
-      </g>
-      <g fill={`url(#${id}-letters)`}>
-        <Bars letter={letterL} />
       </g>
     </svg>
   );

@@ -1,9 +1,10 @@
 /* ------------------------------------------------------------------
    The LH orbital monogram: bold geometric L and H with a tilted ring
-   round them and a moon on it. Depth, front to back: the L, the ring's
-   near half (which cuts a gap where it crosses the H), the H, the
-   ring's far half. So the ring passes behind the L and in front of the
-   H, and the moon slips behind the L as it comes round.
+   round them and a moon on it. Depth, front to back: the ring's near
+   half (cutting a gap where it crosses the letters: diagonally through
+   the L's foot and across the H), the letters, the ring's far half. So
+   the ring passes in front of the letters low down and behind them at
+   the top, and the moon slips behind them as it comes round.
    One geometry for every use: the live header mark (BrandMark.tsx), the
    loading screen, the favicon and app icons (scripts/generate-brand-
    icons.mjs) and the Open Graph cards. No imports and only erasable
@@ -18,23 +19,22 @@ export const markHeight = 52;
 export const markBounds = { x: 1, y: 6, width: 70, height: 40 } as const;
 
 /** The ring: centre, radii and tilt (degrees, anticlockwise on screen) */
-export const ring = { cx: 36, cy: 26, rx: 33, ry: 9, tilt: -21 } as const;
+export const ring = { cx: 36, cy: 24.5, rx: 33, ry: 9, tilt: -21 } as const;
 
 const degrees = Math.PI / 180;
 
 /**
- * Where the moon sits for each station, as an angle round the ring
- * (radians: 0 at the right end, π/2 front and centre, negative behind).
- * Home is at the left end; the rest run along the front from just past the
- * L's foot up to the right end, so flying Home → About slips the moon behind
- * the L. The 404 is "signal lost": round the back, dimmed.
+ * Where each station's notch sits, as an angle round the ring (radians: 0
+ * at the right end, π/2 front and centre, negative behind): evenly along
+ * the front, Home at the left end to Contact at the right. The 404 is
+ * "signal lost": round the back, behind the letters.
  */
 export const stationSlots: Record<string, number> = {
   home: 180 * degrees,
-  about: 94 * degrees,
-  experience: 74 * degrees,
-  projects: 50 * degrees,
-  skills: 25 * degrees,
+  about: 144 * degrees,
+  experience: 108 * degrees,
+  projects: 72 * degrees,
+  skills: 36 * degrees,
   contact: 0,
   lost: -90 * degrees,
 };
@@ -180,11 +180,10 @@ export function brandMarkSvg({
     ${small ? '' : `<path d="${backArc}" fill="none" class="r" stroke="${colors.ring}" stroke-opacity="0.45" stroke-width="1.8"/>`}
     ${behind ? moonDot : ''}
   </g>
-  <g fill="url(#lh-letters)" mask="url(#lh-cut)">${bars(letterH)}</g>
+  <g fill="url(#lh-letters)" mask="url(#lh-cut)">${bars(letterL)}${bars(letterH)}</g>
   <g transform="${tiltTransform}">
     <path d="${frontArc}" fill="none" stroke="url(#lh-ring)" stroke-width="${ringStroke}" stroke-linecap="round"/>
     ${behind ? '' : moonDot}
   </g>
-  <g fill="url(#lh-letters)">${bars(letterL)}</g>
 </svg>`;
 }

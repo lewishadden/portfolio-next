@@ -32,8 +32,8 @@ import type { MarkPose } from './markMotion';
    Same geometry as markGeometry.ts, in its units with y up and the
    letters' centre at the origin: the letters are extruded and bevelled,
    the ring is a torus inclined so it projects to the SVG's ellipse, so
-   the depth buffer does the passing in front of and behind the H. The L
-   draws in front of the whole ring (inFront), as in the SVG. The moon and
+   the depth buffer does the passing in front of the letters low down
+   (through the L's foot and across the H) and behind them at the top. The moon and
    the station notch move as in markMotion.ts; the whole mark sways
    slowly and leans towards the pointer while it hovers.
    ------------------------------------------------------------------ */
@@ -149,23 +149,6 @@ function glowTexture(color: string) {
   return texture;
 }
 
-/**
- * Draws as if nearer the camera than anything else in the mark (its depth
- * pulled forward, its own shading and self-occlusion unchanged), so the L
- * hides the ring, moon and glows wherever they cross it: the ring passes
- * behind the L, as in the SVG. The L and H never overlap on screen.
- */
-function inFront(material: MeshStandardMaterial) {
-  material.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <project_vertex>',
-      '#include <project_vertex>\n  gl_Position.z -= 0.6 * gl_Position.w;'
-    );
-  };
-  material.customProgramCacheKey = () => 'brand-mark-in-front';
-  return material;
-}
-
 /** Builds everything theme-dependent once per theme */
 function buildAssets(theme: Theme) {
   const colors = palette[theme];
@@ -202,7 +185,6 @@ function buildAssets(theme: Theme) {
     notch: new TorusGeometry(ring.rx, 1.5, 12, 16, notchArc),
     // Low metal and soft reflections, so the gradient stays saturated
     letters,
-    frontLetter: inFront(letters.clone()),
     ringMaterial: new MeshStandardMaterial({
       vertexColors: true,
       metalness: 0.3,
@@ -227,7 +209,6 @@ function disposeAssets(assets: Assets) {
   }
   for (const material of [
     assets.letters,
-    assets.frontLetter,
     assets.ringMaterial,
     assets.bright,
     assets.moonGlow,
@@ -321,7 +302,7 @@ function Mark({
 
   return (
     <group ref={swayRef}>
-      <mesh geometry={assets.letterL} material={assets.frontLetter} />
+      <mesh geometry={assets.letterL} material={assets.letters} />
       <mesh geometry={assets.letterH} material={assets.letters} />
       <group position={[0, ringCentreY, 0]} rotation={[0, 0, tilt]}>
         <group rotation={[-inclination, 0, 0]}>
