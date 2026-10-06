@@ -109,14 +109,12 @@ export function CameraRig({
     const screensTarget = mode === 'page' ? worldStore.screens : 0;
     const retarget = rig.station !== station || rig.mode !== mode;
     if (reducedMotion || retarget) {
-      // A flight is planned to the destination as its page is now. Easing
-      // out of the last station's scroll would plan it to a point as far down
-      // the new station as the visitor had scrolled the old one; a new page
-      // opens at the top (PageTransition scrolls it there)
-      const newPage =
-        rig.station !== null && rig.station !== station && rig.mode === 'page' && mode === 'page';
-      rig.progress = newPage ? 0 : scrollTarget;
-      rig.screens = newPage ? 0 : screensTarget;
+      // A flight is planned to the destination as its page is now (a new
+      // page has been scrolled to its top by the time its station gets
+      // here). Easing out of the last station's scroll would plan it to a
+      // point as far down the new station as the old one had been scrolled
+      rig.progress = scrollTarget;
+      rig.screens = screensTarget;
     } else {
       easing.damp(rig, 'progress', scrollTarget, 0.14, dt);
       easing.damp(rig, 'screens', screensTarget, 0.14, dt);
