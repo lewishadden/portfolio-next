@@ -16,9 +16,11 @@ import './HeaderHud.scss';
    so the links stay readable.
 
    It hangs in the cockpit, so it moves with the world's camera: it lags
-   behind turns and drifts, banks into them, shakes a little at speed
-   and leans towards the pointer, by transforming the whole bar (links
-   included) every frame. Reduced motion holds it still.
+   behind turns and drifts, twists away from them and banks into them,
+   dips as the camera climbs, is pushed back by acceleration, shakes a
+   little at speed and leans towards the pointer, by transforming the
+   whole bar (links included) every frame, on loose springs. It holds
+   still when the camera does, and for reduced motion.
    ------------------------------------------------------------------ */
 
 const vertexShader = `
@@ -44,6 +46,7 @@ uniform vec3 uFillColour;
 uniform float uFill;
 uniform float uGlow;
 uniform float uMotion;
+uniform float uLineAlpha;
 
 float rectDist(vec2 p, vec4 r) {
   vec2 c = r.xy + r.zw * 0.5;
@@ -94,10 +97,14 @@ void main() {
 
   float flicker = 1.0 - uMotion * 0.1 * (0.5 + 0.5 * sin(t * 53.0) * sin(t * 17.0));
   float a = clamp(line, 0.0, 1.0) * flicker;
-  float fill = uFill * inside;
-  // Premultiplied: the lines over the fill
+  // A see-through tint, thickest along the row of links, with a faint
+  // interference ripple through it
+  float row = 0.5 + 0.5 * exp(-pow((p.y - uSize.y * 0.5) / (uSize.y * 0.3), 2.0));
+  float ripple = 0.92 + 0.08 * sin(p.y * 0.9 + p.x * 0.05 - t * 3.0);
+  float fill = uFill * inside * row * ripple;
+  // Premultiplied; with uLineAlpha under 1 the lines add light to what's behind
   vec3 colour = uLine * a + uFillColour * fill * (1.0 - a);
-  gl_FragColor = vec4(colour, a + fill * (1.0 - a));
+  gl_FragColor = vec4(colour, a * uLineAlpha + fill * (1.0 - a));
 }
 `;
 
@@ -112,13 +119,29 @@ const rgb = (hex: string): Rgb => {
 };
 
 /**
- * The hologram per theme; `clear` is the fill over open space, `dense` once
- * the page is under it (no backdrop blur: blurring under a bar that moves
- * every frame is costly, and it glitched on Android, so the fill is thick)
+ * The hologram per theme. It's see-through: `clear` is its tint over open
+ * space and `dense` once the page is under it (thickest along the row of
+ * links, so they stay readable; no backdrop blur, which is costly under a
+ * bar that moves every frame and glitched on Android). `lineAlpha` below 1
+ * makes its lines add light to what's behind, like a projection
  */
 const palettes = {
-  dark: { line: rgb('#5ee7fa'), fill: rgb('#060818'), clear: 0.12, dense: 0.93, glow: 1 },
-  light: { line: rgb('#0e7490'), fill: rgb('#f5f7fd'), clear: 0.2, dense: 0.95, glow: 0.45 },
+  dark: {
+    line: rgb('#5ee7fa'),
+    fill: rgb('#05091a'),
+    clear: 0.05,
+    dense: 0.78,
+    glow: 1,
+    lineAlpha: 0.55,
+  },
+  light: {
+    line: rgb('#0e7490'),
+    fill: rgb('#f2f6fc'),
+    clear: 0.08,
+    dense: 0.84,
+    glow: 0.45,
+    lineAlpha: 1,
+  },
 };
 export type HudTheme = keyof typeof palettes;
 
@@ -180,6 +203,7 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
     fill: at('uFill'),
     glow: at('uGlow'),
     motion: at('uMotion'),
+    lineAlpha: at('uLineAlpha'),
   };
 
   const lost = (e: Event) => {
@@ -214,6 +238,7 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
       gl.uniform1f(u.fill, palette.clear + (palette.dense - palette.clear) * fill);
       gl.uniform1f(u.glow, palette.glow);
       gl.uniform1f(u.motion, motion);
+      gl.uniform1f(u.lineAlpha, palette.lineAlpha);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -242,46 +267,63 @@ function offsetIn(node: HTMLElement, bar: HTMLElement) {
 
 /* ---------- How the HUD moves with the camera ---------- */
 
-interface Sway {
-  primed: boolean;
-  camera: { x: number; y: number; z: number; heading: number; pitch: number };
-  /** Current offsets (px, degrees) and their velocities */
-  x: number;
-  y: number;
-  roll: number;
-  vx: number;
-  vy: number;
-  vroll: number;
-  tiltX: number;
-  tiltY: number;
+/** One axis of the HUD's motion: where it is and how fast it's going */
+interface Axis {
+  at: number;
+  speed: number;
 }
 
+interface Sway {
+  primed: boolean;
+  camera: { x: number; y: number; z: number; heading: number; pitch: number; ahead: number };
+  /** Offsets (px) and turns (degrees), each on its own spring */
+  x: Axis;
+  y: Axis;
+  z: Axis;
+  roll: Axis;
+  rx: Axis;
+  ry: Axis;
+  /** Leaning towards the pointer (degrees) */
+  lean: { x: number; y: number };
+}
+
+const axis = (): Axis => ({ at: 0, speed: 0 });
 const createSway = (): Sway => ({
   primed: false,
-  camera: { x: 0, y: 0, z: 0, heading: 0, pitch: 0 },
-  x: 0,
-  y: 0,
-  roll: 0,
-  vx: 0,
-  vy: 0,
-  vroll: 0,
-  tiltX: 0,
-  tiltY: 0,
+  camera: { x: 0, y: 0, z: 0, heading: 0, pitch: 0, ahead: 0 },
+  x: axis(),
+  y: axis(),
+  z: axis(),
+  roll: axis(),
+  rx: axis(),
+  ry: axis(),
+  lean: { x: 0, y: 0 },
 });
 
 const clamp = (x: number, a: number, b: number) => Math.min(Math.max(x, a), b);
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
-/** A damped spring towards `target` */
-function spring(value: number, velocity: number, target: number, dt: number): [number, number] {
-  const next = velocity + ((target - value) * 70 - velocity * 13) * dt;
-  return [value + next * dt, next];
+/**
+ * A loose spring towards `target`: it overshoots and wobbles a little, like
+ * a projection settling, then comes exactly to rest (so the bar is still,
+ * and its links easy to click, whenever the camera is)
+ */
+function spring(a: Axis, target: number, dt: number) {
+  a.speed += ((target - a.at) * 38 - a.speed * 7.5) * dt;
+  a.at += a.speed * dt;
+  if (Math.abs(target - a.at) < 0.005 && Math.abs(a.speed) < 0.01) {
+    a.at = target;
+    a.speed = 0;
+  }
 }
 
 /**
- * One frame of sway: the camera's turn, bank and drift (from worldStore,
- * written by the world every frame) push the HUD the other way, a spring
- * brings it back; it floats a little at rest and leans with the pointer
+ * One frame of sway. The camera's turns, climbs, sideways drift and
+ * acceleration (from worldStore, written by the world every frame) throw
+ * the HUD the other way, as if it hung in the cockpit: it lags behind a
+ * turn and twists away from it, banks into it, dips as the camera climbs
+ * and is pushed back as it speeds up. Springs bring it home, and it leans
+ * towards the pointer. At rest it holds still
  */
 function stepSway(s: Sway, dt: number, t: number) {
   const cam = worldStore.camera;
@@ -293,15 +335,21 @@ function stepSway(s: Sway, dt: number, t: number) {
   let vertical = 0;
   let yawRate = 0;
   let pitchRate = 0;
+  let surge = 0;
   if (s.primed && !jumped && dt > 0) {
     const vx = (cam.x - last.x) / dt;
     const vy = (cam.y - last.y) / dt;
     const vz = (cam.z - last.z) / dt;
-    // Sideways in the camera's view: right is (cos h, 0, sin h)
+    // In the camera's view: right is (cos h, 0, sin h), ahead is its forward vector
     lateral = vx * Math.cos(cam.heading) + vz * Math.sin(cam.heading);
     vertical = vy;
     yawRate = wrap(cam.heading - last.heading) / dt;
     pitchRate = (pitch - last.pitch) / dt;
+    const ahead = vx * cam.fx + vy * cam.fy + vz * cam.fz;
+    // Smoothed, so frame-to-frame jitter isn't read as acceleration
+    const smoothed = last.ahead + (ahead - last.ahead) * (1 - Math.exp(-8 * dt));
+    surge = (smoothed - last.ahead) / dt;
+    last.ahead = smoothed;
   }
   s.primed = true;
   last.x = cam.x;
@@ -310,26 +358,27 @@ function stepSway(s: Sway, dt: number, t: number) {
   last.heading = cam.heading;
   last.pitch = pitch;
 
-  const shake = clamp(worldStore.velocity / 220, 0, 1);
-  const targetX =
-    clamp(-lateral * 0.1 - yawRate * 16, -14, 14) +
-    Math.sin(t * 0.37) * 1.2 +
-    Math.sin(t * 31) * shake * 0.7;
-  const targetY =
-    clamp(vertical * 0.08 + pitchRate * 10, -8, 8) +
-    Math.cos(t * 0.29) * 0.8 +
-    Math.cos(t * 27) * shake * 0.5;
-  const targetRoll = clamp(yawRate * 2.4 + lateral * 0.01, -2.5, 2.5) + Math.sin(t * 0.21) * 0.12;
-  [s.x, s.vx] = spring(s.x, s.vx, targetX, dt);
-  [s.y, s.vy] = spring(s.y, s.vy, targetY, dt);
-  [s.roll, s.vroll] = spring(s.roll, s.vroll, targetRoll, dt);
+  const shake = clamp(worldStore.velocity / 180, 0, 1);
+  spring(s.x, clamp(-lateral * 0.22 - yawRate * 30, -30, 30) + Math.sin(t * 31) * shake * 1.2, dt);
+  spring(
+    s.y,
+    clamp(vertical * 0.18 + pitchRate * 24, -18, 18) + Math.cos(t * 27) * shake * 0.9,
+    dt
+  );
+  // Pushed back by acceleration, and sitting a little further off at speed
+  spring(s.z, clamp(-surge * 0.2 - worldStore.velocity * 0.12, -80, 35), dt);
+  spring(s.roll, clamp(yawRate * 5 + lateral * 0.02, -5, 5), dt);
+  spring(s.ry, clamp(-yawRate * 7, -9, 9), dt);
+  spring(s.rx, clamp(pitchRate * 7, -7, 7), dt);
   const ease = 1 - Math.exp(-4 * dt);
-  s.tiltY += (worldStore.pointerX * 2.2 - s.tiltY) * ease;
-  s.tiltX += (worldStore.pointerY * 1.4 - s.tiltX) * ease;
+  s.lean.x += (worldStore.pointerX * 3 - s.lean.x) * ease;
+  s.lean.y += (worldStore.pointerY * 1.8 - s.lean.y) * ease;
+  if (Math.abs(worldStore.pointerX * 3 - s.lean.x) < 0.002) s.lean.x = worldStore.pointerX * 3;
+  if (Math.abs(worldStore.pointerY * 1.8 - s.lean.y) < 0.002) s.lean.y = worldStore.pointerY * 1.8;
 }
 
 const swayTransform = (s: Sway) =>
-  `perspective(1100px) translate3d(${s.x.toFixed(2)}px, ${s.y.toFixed(2)}px, 0) rotate(${s.roll.toFixed(3)}deg) rotateX(${s.tiltX.toFixed(3)}deg) rotateY(${s.tiltY.toFixed(3)}deg)`;
+  `perspective(900px) translate3d(${s.x.at.toFixed(2)}px, ${s.y.at.toFixed(2)}px, ${s.z.at.toFixed(2)}px) rotate(${s.roll.at.toFixed(3)}deg) rotateX(${(s.rx.at + s.lean.y).toFixed(3)}deg) rotateY(${(s.ry.at + s.lean.x).toFixed(3)}deg)`;
 
 /** What the loop reads from React, handed over through a ref */
 interface HudProps {
@@ -374,6 +423,7 @@ export function HeaderHud({
     }
     onLive(true);
 
+    const header = bar.closest('header');
     const targets: Targets = {
       rects: new Float32Array(maxTargets * 4),
       count: 0,
@@ -417,15 +467,18 @@ export function HeaderHud({
     bar.addEventListener('focusin', over);
     bar.addEventListener('focusout', out);
 
+    measure();
+    // Anything that moves what it frames: the bar resizing, a link or
+    // button resizing (fonts loading, the header's HUD styles arriving)
     const resize = new ResizeObserver(measure);
     resize.observe(bar);
-    // The current page changes with navigation
+    elements.forEach((el) => resize.observe(el));
+    // The current page changes with navigation; the header's look with its class
     const mutations = new MutationObserver(measure);
     mutations.observe(bar, { subtree: true, attributes: true, attributeFilter: ['aria-current'] });
+    if (header) mutations.observe(header, { attributes: true, attributeFilter: ['class'] });
     document.fonts?.ready.then(measure);
-    measure();
 
-    const header = bar.closest('header');
     const root = document.documentElement;
     /** Nothing to draw while the header is out of sight: tour, free roam, scrolled away, loading */
     const away = () =>

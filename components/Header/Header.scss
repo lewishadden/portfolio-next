@@ -239,7 +239,9 @@
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--hud-text);
-    text-shadow: 0 0 8px var(--hud-glow);
+    text-shadow:
+      0 0 8px var(--hud-glow),
+      0 0 3px var(--hud-halo);
 
     &:hover {
       color: var(--hud-text-strong);
@@ -271,6 +273,11 @@
     background: currentcolor;
   }
 
+  /* The theme toggle's sun and moon have their own colours off the HUD */
+  .theme-toggle__icon {
+    color: inherit;
+  }
+
   .header__cta {
     border-color: transparent;
     background: transparent;
@@ -280,7 +287,9 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--hud-text);
-    text-shadow: 0 0 8px var(--hud-glow);
+    text-shadow:
+      0 0 8px var(--hud-glow),
+      0 0 3px var(--hud-halo);
 
     &:hover {
       background: transparent;
