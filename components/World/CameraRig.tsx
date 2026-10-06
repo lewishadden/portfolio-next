@@ -106,7 +106,17 @@ export function CameraRig({
     // Tours ignore the page's scroll: each stop is framed from the top
     const scrollTarget = mode === 'page' ? worldStore.scroll : 0;
     const screensTarget = mode === 'page' ? worldStore.screens : 0;
-    if (reducedMotion) {
+    const retarget = rig.station !== station || rig.mode !== mode;
+    // A new page opens at its top: fly there, not to the scroll still easing
+    // out from the last page (or that page's scroll, which the store can hold
+    // for a frame). Leaving the bottom of a long page, that aimed the flight
+    // far below the station until it corrected at the end. Switching between
+    // the page, the tour and free roam picks the page up where it is scrolled
+    const newPage = retarget && rig.station !== null && mode === 'page' && rig.mode === 'page';
+    if (newPage) {
+      rig.progress = 0;
+      rig.screens = 0;
+    } else if (reducedMotion || retarget) {
       rig.progress = scrollTarget;
       rig.screens = screensTarget;
     } else {
@@ -130,7 +140,6 @@ export function CameraRig({
       target.y += worldStore.pointerY * 0.28;
     }
 
-    const retarget = rig.station !== station || rig.mode !== mode;
     // Out in deep space until the loading screen lifts, then warp in
     if (!rig.started && !reducedMotion && !isBooted()) {
       cam.position.copy(target).add(introOffset);
