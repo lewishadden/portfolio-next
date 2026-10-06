@@ -40,6 +40,14 @@
     backdrop-filter: blur(18px) saturate(160%);
   }
 
+  /* Over the open menu (MobileMenu, opaque) there is nothing to blur, and
+     a backdrop blur over its live WebGL warp (and beside the logo's own
+     canvas) is what flickered on Android */
+  &--open &__bar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
   /* ---------- Logo: the LH orbital monogram (BrandMark) ---------- */
   &__logo {
     position: relative;
@@ -197,105 +205,6 @@
       transform: rotate(-45deg);
     }
   }
-
-  /* ---------- Mobile overlay ---------- */
-  &__mobile {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 100px var(--gutter) 40px;
-    background:
-      radial-gradient(600px 400px at 90% 0%, var(--glow-violet), transparent 70%),
-      radial-gradient(500px 400px at 0% 100%, var(--glow-cyan), transparent 70%),
-      var(--surface-strong);
-    -webkit-backdrop-filter: blur(24px);
-    backdrop-filter: blur(24px);
-    clip-path: circle(0% at calc(100% - 44px) 44px);
-    transition: clip-path 0.8s var(--ease-in-out);
-    pointer-events: none;
-    visibility: hidden;
-  }
-
-  &--open &__mobile {
-    clip-path: circle(150% at calc(100% - 44px) 44px);
-    pointer-events: auto;
-    visibility: visible;
-  }
-
-  &__mobile-links {
-    display: grid;
-    gap: 0.25rem;
-
-    li {
-      opacity: 0;
-      transform: translateY(30px);
-      transition:
-        opacity 0.5s ease,
-        transform 0.7s var(--ease-out);
-      transition-delay: calc(var(--i) * 60ms);
-    }
-  }
-
-  &--open &__mobile-links li {
-    opacity: 1;
-    transform: none;
-    transition-delay: calc(200ms + var(--i) * 60ms);
-  }
-
-  &__mobile-link {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.7rem 0;
-    border-bottom: 1px solid var(--border-color);
-    font-family: var(--font-display);
-    font-size: clamp(1.75rem, 8vw, 2.5rem);
-    font-weight: var(--fw-semibold);
-    letter-spacing: -0.03em;
-
-    svg {
-      margin-left: auto;
-      opacity: 0.4;
-      transition:
-        transform var(--dur-med) var(--ease-out),
-        opacity var(--dur-med) ease;
-    }
-
-    &:hover svg,
-    &.is-active svg {
-      opacity: 1;
-      transform: rotate(45deg);
-      color: var(--accent-secondary);
-    }
-
-    &.is-active span:nth-child(2) {
-      background: var(--gradient-brand);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-  }
-
-  &__mobile-index {
-    font-family: var(--font-mono);
-    font-size: var(--fs-xs);
-    font-weight: var(--fw-medium);
-    color: var(--accent-secondary);
-    letter-spacing: 0.1em;
-  }
-
-  &__mobile-foot {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    margin-top: 2rem;
-    font-family: var(--font-mono);
-    font-size: var(--fs-xs);
-    color: var(--text-secondary);
-  }
 }
 
 @keyframes ping {
@@ -319,12 +228,6 @@
 
   .header__burger {
     display: inline-block;
-  }
-}
-
-@media (min-width: 901px) {
-  .header__mobile {
-    display: none;
   }
 }
 
