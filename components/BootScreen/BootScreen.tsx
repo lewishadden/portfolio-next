@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLenis } from 'lenis/react';
 
+import { BrandMark } from 'components/BrandMark/BrandMark';
 import {
   bootState,
   bootSteps,
@@ -127,12 +128,7 @@ export function BootScreen() {
       </div>
 
       <div className="boot__content">
-        <div className="boot__emblem" aria-hidden="true">
-          <span className="boot__orbit">
-            <span className="boot__moon" />
-          </span>
-          <span className="boot__planet" />
-        </div>
+        <BrandMark className="boot__mark" orbit />
 
         <p className="boot__name">Lewis Hadden</p>
 

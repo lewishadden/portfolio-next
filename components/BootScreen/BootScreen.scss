@@ -111,47 +111,11 @@
     width: min(340px, 100% - 48px);
   }
 
-  /* The header's mark: a planet inside a dashed orbit, a moon riding it */
-  &__emblem {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: 148px;
-    height: 148px;
-  }
-
-  &__orbit {
-    position: absolute;
-    inset: 0;
-    border: 1px dashed color-mix(in oklab, var(--accent-secondary) 60%, transparent);
-    border-radius: 50%;
-    animation: boot-turn 7s linear infinite;
-  }
-
-  &__moon {
-    position: absolute;
-    top: -5px;
-    left: 50%;
-    width: 10px;
-    height: 10px;
-    margin-left: -5px;
-    border-radius: 50%;
-    background: var(--accent-secondary);
-    box-shadow:
-      0 0 14px var(--accent-secondary),
-      0 0 32px var(--glow-cyan);
-  }
-
-  &__planet {
-    width: 84px;
-    height: 84px;
-    border-radius: 50%;
-    background:
-      radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.45), transparent 42%),
-      var(--gradient-brand);
-    box-shadow:
-      0 0 42px var(--glow-violet),
-      0 0 90px -10px var(--glow-cyan);
+  /* The header's mark, large, its moon circling */
+  &__mark {
+    width: min(220px, 56vw);
+    height: auto;
+    filter: drop-shadow(0 0 28px var(--glow-violet));
     animation: boot-breathe 3.2s ease-in-out infinite alternate;
   }
 
@@ -288,12 +252,6 @@ html[data-boot='loading'] {
   }
 }
 
-@keyframes boot-turn {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes boot-approach {
   0% {
     opacity: 0;
@@ -368,8 +326,7 @@ html[data-boot='loading'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .boot__orbit,
-  .boot__planet {
+  .boot__mark {
     animation: none !important;
   }
 

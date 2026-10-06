@@ -1,0 +1,42 @@
+/* The LH orbital monogram (BrandMark.tsx); its colours follow the theme */
+.brand-mark {
+  display: block;
+  overflow: visible;
+
+  &__violet {
+    stop-color: var(--accent-primary);
+  }
+
+  &__cyan {
+    stop-color: var(--accent-secondary);
+  }
+
+  &__ring {
+    fill: none;
+    stroke-linecap: round;
+
+    &--far {
+      stroke: var(--text-secondary);
+      stroke-opacity: 0.45;
+      stroke-width: 1.8;
+    }
+  }
+
+  &__moon,
+  &__ghost {
+    fill: #fff;
+
+    [data-theme='light'] & {
+      fill: var(--accent-secondary);
+    }
+  }
+
+  &__ghost {
+    fill: var(--accent-secondary);
+  }
+
+  /* The 404: signal lost, the moon round the back and dimmed */
+  &--lost &__moon {
+    opacity: 0.4;
+  }
+}

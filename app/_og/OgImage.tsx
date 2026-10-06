@@ -2,6 +2,8 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { ImageResponse } from 'next/og';
 
+import { brandMarkSvg } from '@/components/BrandMark/markGeometry';
+
 import content from '../../content/content.json';
 
 /**
@@ -27,7 +29,6 @@ const colors = {
   muted: '#a6abcc',
   violet: '#a78bfa',
   cyan: '#22d3ee',
-  lime: '#bef264',
   border: 'rgba(167, 139, 250, 0.35)',
 };
 
@@ -62,6 +63,11 @@ function loadFonts() {
 }
 
 const mono = { fontFamily: 'Geist Mono' } as const;
+
+/** The LH orbital monogram, as the header draws it (satori reads SVG images) */
+const markUri = `data:image/svg+xml;base64,${Buffer.from(
+  brandMarkSvg({ size: 160, pad: 0.02 })
+).toString('base64')}`;
 
 /** Cut to whole words so long copy never overflows the card */
 function clip(text: string, max: number) {
@@ -179,16 +185,9 @@ export async function renderOgImage({
           height: '100%',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div
-            style={{
-              width: 14,
-              height: 14,
-              borderRadius: 9999,
-              backgroundColor: colors.lime,
-              boxShadow: `0 0 16px ${colors.lime}`,
-            }}
-          />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text -- satori markup, not a page */}
+          <img src={markUri} width={80} height={80} style={{ margin: '-14px 0 -14px -8px' }} />
           <div
             style={{
               display: 'flex',

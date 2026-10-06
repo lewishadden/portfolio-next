@@ -9,6 +9,7 @@ import { commandPalette } from 'components/CommandPalette/CommandPalette';
 import { ThemeToggle } from 'components/ThemeToggle/ThemeToggle';
 import { WorldToggle } from 'components/WorldToggle/WorldToggle';
 import { SoundToggle } from 'components/Sound/SoundToggle';
+import { BrandMark } from 'components/BrandMark/BrandMark';
 import { ScrambleText } from 'components/Motion/ScrambleText';
 
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -96,12 +97,7 @@ export const Header = ({
     >
       <nav className="header__bar" aria-label="Main navigation">
         <Link href={header.home.href} className="header__logo" aria-label={header.home.ariaLabel}>
-          <span className="header__logo-orbit" aria-hidden="true">
-            <span className="header__logo-planet" />
-          </span>
-          <span className="header__logo-mark" aria-hidden="true">
-            {header.home.label}
-          </span>
+          <BrandMark className="header__logo-mark" />
         </Link>
 
         <div className="header__links" ref={linksRef}>
