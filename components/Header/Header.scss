@@ -5,12 +5,7 @@
   right: 0;
   z-index: 50;
   padding: 14px var(--gutter);
-  transition: transform 0.6s var(--ease-out);
   pointer-events: none;
-
-  &--hidden {
-    transform: translateY(-130%);
-  }
 
   &__bar {
     position: relative;
@@ -204,6 +199,44 @@
       top: 21px;
       transform: rotate(-45deg);
     }
+  }
+}
+
+/* ---------- 3D effects on: the bar is a slab of glass ----------
+   The slab itself (bevel, reflections, lit edge, plasma) is a canvas
+   behind the bar's content (HeaderGlass); the bar frosts whatever is
+   behind it, which the slab's glass then tints. The current page sits
+   on the slab's plasma, so the sliding indicator goes */
+.header--glass {
+  .header__bar,
+  &.header--scrolled .header__bar {
+    isolation: isolate;
+    border-color: transparent;
+    background: color-mix(in oklab, var(--bg-primary) 22%, transparent);
+    box-shadow: 0 22px 44px -26px rgb(0 0 0 / 70%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    backdrop-filter: blur(12px) saturate(150%);
+  }
+
+  /* Over the open menu there's nothing to frost (and blurring over its
+     WebGL warp glitched on Android) */
+  &.header--open .header__bar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .header__links {
+    border-color: transparent;
+    background: none;
+  }
+
+  .header__indicator {
+    display: none;
+  }
+
+  .header__link.is-active {
+    color: #fff;
+    text-shadow: 0 1px 6px rgb(46 16 101 / 60%);
   }
 }
 

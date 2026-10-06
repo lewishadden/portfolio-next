@@ -1,0 +1,19 @@
+/* The glass slab's canvas: behind the bar's links and buttons, with room
+   round the bar for its glow and sparks (keep in step with glassMargin).
+   It's placed from the bar's padding box, inside its 1px border, and
+   fades in once the slab is drawing */
+.header-glass {
+  position: absolute;
+  top: -29px;
+  left: -29px;
+  z-index: -1;
+  width: calc(100% + 58px);
+  height: calc(100% + 58px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s var(--ease-out);
+
+  &[data-shown] {
+    opacity: 1;
+  }
+}
