@@ -74,6 +74,20 @@
     transform: none;
   }
 
+  /* Free roam on touch: the move stick has its corner. Tablets lift the map
+     over it; phones have no room, and the station markers show the way */
+  @media (pointer: coarse) {
+    [data-world-mode='explore'] & {
+      bottom: 220px;
+    }
+  }
+
+  @media (pointer: coarse) and (max-width: 699px), (pointer: coarse) and (max-height: 599px) {
+    [data-world-mode='explore'] & {
+      visibility: hidden;
+    }
+  }
+
   &__title {
     font-family: var(--font-mono);
     font-size: 9px;
@@ -282,6 +296,20 @@ html[data-world-mode='explore'] {
   }
 }
 
+@keyframes jet-flicker {
+  to {
+    transform: scale(0.82, 1.12);
+    opacity: 0.85;
+  }
+}
+
+@keyframes hud-rise {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
 @keyframes tour-fill {
   to {
     transform: scaleX(1);
@@ -301,21 +329,30 @@ html[data-world-mode='explore'] {
     --signal: #b45309;
   }
 
-  &__top {
+  /* The top bar with the signal detector under it, however tall the bar
+     wraps on a narrow screen */
+  &__head {
     position: absolute;
     top: 16px;
     left: 50%;
+    display: grid;
+    justify-items: center;
+    gap: 0.75rem;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    transform: translateX(-50%);
+  }
+
+  &__top {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 0.5rem 1rem;
-    width: max-content;
-    max-width: calc(100vw - 32px);
+    max-width: 100%;
     padding: 0.55rem 0.6rem 0.55rem 1rem;
     border-radius: var(--radius-pill);
     background: var(--surface-strong);
-    transform: translateX(-50%);
     pointer-events: auto;
   }
 
@@ -479,9 +516,6 @@ html[data-world-mode='explore'] {
   }
 
   &__detector {
-    position: absolute;
-    top: 88px;
-    left: 50%;
     display: flex;
     align-items: center;
     gap: 0.6rem;
@@ -491,8 +525,7 @@ html[data-world-mode='explore'] {
     text-transform: uppercase;
     color: var(--signal);
     text-shadow: 0 1px 8px var(--bg-primary);
-    transform: translateX(-50%);
-    animation: tour-in 0.3s var(--ease-out) both;
+    animation: hud-rise 0.3s var(--ease-out) both;
   }
 
   &__detector-bars {
@@ -696,55 +729,250 @@ html[data-world-mode='explore'] {
     }
   }
 
-  &__touch {
+  /* Touch: the layer under the HUD that takes thumbs on open space. With
+     touch-action: none the browser never claims a drag as a scroll */
+  &__sticks {
     position: absolute;
-    right: 0;
-    bottom: 24px;
-    left: 0;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    padding: 0 24px;
+    inset: 0;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
 
-  &__pad {
-    position: relative;
+  /* A thumbstick: faint in its corner at rest, under the thumb when held */
+  &__stick {
+    --x: -200px;
+    --y: -200px;
+    --kx: 0px;
+    --ky: 0px;
+
+    position: absolute;
+    top: 0;
+    left: 0;
     display: grid;
     place-items: center;
     width: 128px;
     height: 128px;
     border: 1px solid var(--border-strong);
     border-radius: 50%;
-    background: color-mix(in oklab, var(--surface-strong) 70%, transparent);
-    pointer-events: auto;
-    touch-action: none;
+    background: color-mix(in oklab, var(--surface-strong) 55%, transparent);
+    opacity: 0.5;
+    transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%));
+    transition:
+      transform 0.3s var(--ease-out),
+      opacity 0.3s ease;
+    pointer-events: none;
+
+    &::after {
+      content: attr(data-label);
+      position: absolute;
+      top: calc(100% + 0.45rem);
+      font-family: var(--font-mono);
+      font-size: var(--fs-tiny);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      transition: opacity 0.2s ease;
+    }
+
+    /* Held: straight to the thumb, no glide */
+    &[data-active] {
+      opacity: 1;
+      transition: opacity 0.15s ease;
+
+      &::after {
+        opacity: 0;
+      }
+    }
   }
 
-  &__knob {
+  &__stick-knob {
     width: 52px;
     height: 52px;
     border-radius: 50%;
     background: var(--gradient-brand);
     box-shadow: 0 0 22px -4px var(--glow-cyan);
-    transition: transform 0.08s linear;
+    transform: translate(var(--kx), var(--ky));
+    transition:
+      transform 0.2s var(--ease-out),
+      box-shadow 0.2s ease;
+
+    [data-active] > & {
+      transition: box-shadow 0.2s ease;
+    }
+
+    /* Pushed on past the rim: boost */
+    [data-boost] > & {
+      box-shadow: 0 0 34px 4px var(--glow-cyan);
+    }
   }
 
-  &__lift {
+  /* The move stick's boost ring: push the thumb out to it to boost. A ring
+     follows the thumb out from the rim, so you can see how far is left */
+  &__stick-boost,
+  &__stick-charge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    border-radius: 50%;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition:
+      opacity 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+    pointer-events: none;
+  }
+
+  &__stick-boost {
+    width: var(--boost-d, 200px);
+    height: var(--boost-d, 200px);
+    border: 1.5px dashed color-mix(in oklab, var(--accent-secondary) 65%, transparent);
+
+    /* Towards the middle of the screen, clear of the thumb pushing forward */
+    &::after {
+      content: 'Boost';
+      position: absolute;
+      top: 50%;
+      left: calc(100% + 0.45rem);
+      font-family: var(--font-mono);
+      font-size: var(--fs-tiny);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent-secondary);
+      text-shadow: 0 1px 8px var(--bg-primary);
+      transform: translateY(-50%);
+    }
+  }
+
+  &__stick-charge {
+    width: var(--thumb, 0px);
+    height: var(--thumb, 0px);
+    border: 2px solid var(--accent-secondary);
+  }
+
+  [data-active] > &__stick-boost {
+    opacity: 1;
+  }
+
+  [data-active] > &__stick-charge {
+    opacity: var(--charge, 0);
+  }
+
+  [data-boost] > &__stick-boost {
+    border-style: solid;
+    border-color: var(--accent-secondary);
+    box-shadow:
+      0 0 24px -2px var(--glow-cyan),
+      inset 0 0 18px -6px var(--glow-cyan);
+  }
+
+  /* Boosting: a rocket jet fires under the middle of the view (BoostJet),
+     its flame longer the faster you go */
+  &__jet {
+    --thrust: 0;
+
+    position: absolute;
+    top: calc(50% + 60px);
+    left: 50%;
     display: grid;
-    gap: 0.6rem;
+    justify-items: center;
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.9);
+    transition:
+      opacity 0.2s ease,
+      transform 0.25s var(--ease-out);
+
+    &[data-on] {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+
+  &__rocket {
+    position: relative;
+    z-index: 1;
+    filter: drop-shadow(0 0 6px var(--glow-violet));
+  }
+
+  &__rocket-window {
+    fill: var(--bg-primary);
+  }
+
+  &__flame {
+    width: 11px;
+    height: 34px;
+    margin-top: -3px;
+    border-radius: 50% / 25% 25% 75% 75%;
+    background: linear-gradient(
+      to bottom,
+      #fff 0%,
+      #a5f3fc 22%,
+      var(--accent-secondary) 48%,
+      color-mix(in oklab, var(--gradient-start) 70%, transparent) 78%,
+      transparent 100%
+    );
+    box-shadow: 0 0 16px 2px var(--glow-cyan);
+    transform-origin: top center;
+    scale: 1 calc(0.65 + var(--thrust) * 0.85);
+    animation: jet-flicker 0.11s ease-in-out infinite alternate;
+  }
+
+  &__jet-label {
+    position: absolute;
+    top: 7px;
+    left: calc(100% + 0.5rem);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent-secondary);
+    text-shadow: 0 1px 8px var(--bg-primary);
+  }
+
+  /* Rise and sink, stacked over the look stick's corner (centred on its
+     rest, ExploreHud restInset), clear of the markers riding the edge */
+  &__lift {
+    position: absolute;
+    right: 72px;
+    bottom: 200px;
+    display: grid;
+    gap: 0.5rem;
     pointer-events: auto;
 
     button {
       display: grid;
       place-items: center;
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       border: 1px solid var(--border-strong);
       border-radius: 50%;
       color: var(--text-primary);
       background: color-mix(in oklab, var(--surface-strong) 70%, transparent);
       touch-action: none;
     }
+  }
+}
+
+/* Phones held upright: the autopilot's status and the dock prompt sit in the
+   head, under the top bar, clear of the thumbsticks (ExploreHud) */
+.explore-hud__head {
+  .explore-hud__autopilot,
+  .explore-hud__dock {
+    position: static;
+    max-width: 100%;
+    transform: none;
+    animation-name: hud-rise;
+  }
+}
+
+/* Short screens (a phone on its side): rise and sink beside the look stick,
+   not over it, where they would reach the top bar */
+@media (max-height: 500px) {
+  .explore-hud__lift {
+    right: 176px;
+    bottom: 60px;
   }
 }
 
@@ -979,7 +1207,8 @@ html[data-pointer-lock] {
   .explore-hud__signal,
   .explore-hud__detector,
   .explore-hud__clamp,
-  .explore-hud__sweep {
+  .explore-hud__sweep,
+  .explore-hud__flame {
     animation: none;
   }
 }
