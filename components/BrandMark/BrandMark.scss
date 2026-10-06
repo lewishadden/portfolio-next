@@ -35,8 +35,59 @@
     fill: var(--accent-secondary);
   }
 
+  /* Marks the docked station on the ring */
+  &__notch {
+    fill: none;
+    stroke: #fff;
+    stroke-linecap: round;
+    stroke-width: 3.6;
+
+    [data-theme='light'] & {
+      stroke: var(--accent-secondary);
+    }
+  }
+
   /* The 404: signal lost, the moon round the back and dimmed */
   &--lost &__moon {
     opacity: 0.4;
+  }
+}
+
+/* The header's logo (HeaderMark): the SVG, cross-fading to the WebGL model.
+   The model's stage is twice the logo's height (BrandMark3D's stageUnits
+   frames it to match), so the sway and the ring's ends never clip */
+.brand-mark-live {
+  position: relative;
+  display: inline-block;
+  height: 42px;
+
+  &__svg {
+    width: auto;
+    height: 100%;
+    transition: opacity 0.6s var(--ease-out);
+  }
+
+  &__stage {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 132px;
+    height: 84px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.6s var(--ease-out);
+
+    canvas {
+      pointer-events: none;
+    }
+  }
+
+  &--3d &__svg {
+    opacity: 0;
+  }
+
+  &--3d &__stage {
+    opacity: 1;
   }
 }

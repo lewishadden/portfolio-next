@@ -60,6 +60,32 @@ export const letterH: readonly Bar[] = [
   [43, 23.25, 8, 7],
 ];
 export const barRadius = 1.8;
+
+/** Each letter's outline (SVG units, clockwise), for the 3D mark's extrusion */
+export const outlineL: readonly (readonly [number, number])[] = [
+  [14, 12],
+  [21.5, 12],
+  [21.5, 34.5],
+  [32, 34.5],
+  [32, 42],
+  [14, 42],
+];
+export const outlineH: readonly (readonly [number, number])[] = [
+  [36.5, 12],
+  [44, 12],
+  [44, 23.25],
+  [50.5, 23.25],
+  [50.5, 12],
+  [58, 12],
+  [58, 42],
+  [50.5, 42],
+  [50.5, 30.25],
+  [44, 30.25],
+  [44, 42],
+  [36.5, 42],
+];
+/** The letters' centre (the 3D mark's origin) */
+export const lettersCentre = { x: 36, y: 27 } as const;
 /** Ring and cut widths: the cut is the gap the near half leaves in the H */
 export const ringWidth = 2.4;
 export const cutWidth = 5.4;

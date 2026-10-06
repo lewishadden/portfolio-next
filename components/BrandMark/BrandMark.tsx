@@ -4,8 +4,6 @@ import { useEffect, useId, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { stationForPath } from 'components/World/routes';
-import { worldMode } from 'components/World/worldMode';
-import { worldStore } from 'components/World/worldStore';
 
 import {
   backArc,
@@ -23,24 +21,23 @@ import {
   ringWidth,
   stationSlots,
 } from './markGeometry';
+import { createMarkMotion } from './markMotion';
 
 import './BrandMark.scss';
 
-/** Ghost moons behind the moon when it moves fast (a flight, free roam) */
+/** Ghost moons behind the moon when it races (a flight, free roam, a hover) */
 const ghosts = 4;
-/** Frames of history between ghosts */
-const ghostSpacing = 3;
-/** How long a hover lap takes (ms) */
-const lapTime = 1100;
+/** Half the station notch's length round the ring (radians) */
+const notchHalf = 0.09;
 
 const tilt = `rotate(${ring.tilt} ${ring.cx} ${ring.cy})`;
-const smootherstep = (x: number) => {
-  const t = Math.min(Math.max(x, 0), 1);
-  return t * t * t * (t * (t * 6 - 15) + 10);
-};
-/** The same angle, brought within half a turn of `near` */
-const near = (angle: number, to: number) =>
-  to + ((((angle - to + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
+
+/** A short stretch of the ring centred on `angle`, as a path */
+function notchPath(angle: number) {
+  const a = moonPoint(angle - notchHalf);
+  const b = moonPoint(angle + notchHalf);
+  return `M ${a.x.toFixed(2)} ${a.y.toFixed(2)} A ${ring.rx} ${ring.ry} 0 0 1 ${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
+}
 
 function Bars({ letter }: { letter: typeof letterL }) {
   return (
@@ -83,13 +80,13 @@ function Moons({ at, orbit, filter }: { at: number; orbit: boolean; filter: stri
 }
 
 /**
- * The LH orbital monogram (geometry in brandMark.ts). Live, it follows the
- * world: the moon rests at the station you're docked at (Home at the ring's
- * left end, the rest along its front), sweeps round to the next one during
- * a camera flight with a trail of ghosts, circles freely in free roam (as
- * fast as you fly) and slips behind the L on the way. A hover sends it on a
- * lap. `orbit` (the loading screen) just circles, declaratively, so it moves
- * before the page has hydrated. Still for reduced motion.
+ * The LH orbital monogram (geometry in markGeometry.ts), as SVG: the
+ * header's logo until the 3D model takes over (HeaderMark), and wherever
+ * WebGL isn't used. Live, it moves as markMotion.ts says: the moon orbits,
+ * slipping behind the letters, faster with a trail during flights, free roam
+ * or a hover, and a notch on the ring marks the docked station. `orbit` (the
+ * loading screen) just circles, declaratively, so it moves before the page
+ * has hydrated. Still for reduced motion.
  */
 export function BrandMark({
   className = '',
@@ -101,7 +98,7 @@ export function BrandMark({
   const id = useId().replace(/[^\w-]/g, '');
   const station = stationForPath(usePathname());
   const svgRef = useRef<SVGSVGElement>(null);
-  const lapRef = useRef(-1);
+  const hoverRef = useRef(false);
   const at = stationSlots[station] ?? stationSlots.home;
 
   useEffect(() => {
@@ -110,17 +107,14 @@ export function BrandMark({
     const layers = Array.from({ length: ghosts + 1 }, (_, k) => [
       ...svg.querySelectorAll<SVGCircleElement>(`[data-moon="${k}"]`),
     ]);
+    const notch = svg.querySelector<SVGPathElement>('[data-notch]');
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const root = document.documentElement;
-    const history: number[] = [];
-    let angle = stationSlots[stationForPath(window.location.pathname)] ?? stationSlots.home;
-    let from = angle;
-    let flying = false;
+    const motion = createMarkMotion();
     let last = performance.now();
     let frame = 0;
 
-    const place = (circles: SVGCircleElement[], a: number) => {
-      const { x, y } = moonPoint(a);
+    const place = (circles: SVGCircleElement[], angle: number) => {
+      const { x, y } = moonPoint(angle);
       for (const circle of circles) {
         circle.setAttribute('cx', x.toFixed(2));
         circle.setAttribute('cy', y.toFixed(2));
@@ -131,55 +125,19 @@ export function BrandMark({
       frame = requestAnimationFrame(tick);
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
-      const worldOn = root.dataset.world === 'on';
-      const { mode } = worldMode.get();
-      const { flight } = worldStore;
-      const docked = worldOn && flight.to ? flight.to : stationForPath(window.location.pathname);
-      const target = stationSlots[docked] ?? stationSlots.home;
-
-      if (worldOn && mode === 'explore') {
-        // Free roam: round and round, faster as you fly faster
-        angle -= (0.6 + Math.min(worldStore.velocity / 25, 3.5)) * dt;
-        flying = false;
-      } else if (worldOn && flight.active && !reduce.matches) {
-        // A flight: from wherever it was to the destination's place, in step
-        if (!flying) from = near(angle, target);
-        flying = true;
-        angle = from + (target - from) * smootherstep(flight.progress);
-      } else {
-        flying = false;
-        angle = reduce.matches ? target : near(angle, target);
-        angle += (target - angle) * (1 - Math.exp(-4 * dt));
-      }
-
-      let shown = angle;
-      if (lapRef.current >= 0) {
-        const p = (now - lapRef.current) / lapTime;
-        if (p >= 1) lapRef.current = -1;
-        else shown -= Math.PI * 2 * smootherstep(p);
-      }
-      if (!reduce.matches && !flying && mode !== 'explore') shown += 0.04 * Math.sin(now / 900);
-
-      history.unshift(shown);
-      history.length = Math.min(history.length, ghosts * ghostSpacing + 1);
-      place(layers[0], shown);
+      const pose = motion.step(dt, hoverRef.current, reduce.matches);
+      place(layers[0], pose.moon);
       for (let k = 1; k <= ghosts; k++) {
-        const past = history[Math.min(k * ghostSpacing, history.length - 1)];
-        place(layers[k], past);
-        const opacity = Math.min(Math.abs(shown - past) * 3, 1) * (1 - k / (ghosts + 1)) * 0.7;
+        place(layers[k], pose.moon + k * (0.08 + pose.rush * 0.1));
+        const opacity = pose.rush * 0.7 * (1 - k / (ghosts + 1));
         for (const circle of layers[k]) circle.setAttribute('opacity', opacity.toFixed(2));
       }
-      svg.classList.toggle('brand-mark--lost', docked === 'lost');
+      notch?.setAttribute('d', notchPath(pose.notch));
+      svg.classList.toggle('brand-mark--lost', pose.station === 'lost');
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [orbit]);
-
-  const lap = () => {
-    if (orbit || lapRef.current >= 0) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    lapRef.current = performance.now();
-  };
 
   const filter = `url(#${id}-glow)`;
   return (
@@ -189,7 +147,12 @@ export function BrandMark({
       viewBox={`${markBounds.x} ${markBounds.y} ${markBounds.width} ${markBounds.height}`}
       aria-hidden="true"
       focusable="false"
-      onPointerEnter={lap}
+      onPointerEnter={() => {
+        hoverRef.current = true;
+      }}
+      onPointerLeave={() => {
+        hoverRef.current = false;
+      }}
     >
       <defs>
         <linearGradient
@@ -258,6 +221,9 @@ export function BrandMark({
           stroke={`url(#${id}-ring)`}
           strokeWidth={ringWidth}
         />
+        {!orbit && (
+          <path className="brand-mark__notch" data-notch="" d={notchPath(at)} filter={filter} />
+        )}
         <g clipPath={`url(#${id}-near)`}>
           <Moons at={at} orbit={orbit} filter={filter} />
         </g>
