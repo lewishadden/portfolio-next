@@ -26,10 +26,11 @@ import './HeaderHud.scss';
    - Depth: the hologram sits a little behind the links (CSS 3D, scaled
      so it lines up exactly at rest) and its grid deeper still, so a tilt
      shows parallax.
-   - Motion: it hangs in the cockpit, so it moves with the world's camera
-     only, on loose springs: it trails behind turns and sideways drift,
-     twists and banks with them, dips as the camera climbs and is pushed
-     back by acceleration, then comes exactly to rest.
+   - Motion: it hangs in the cockpit, so during a flight between pages
+     it moves with the world's camera, on loose springs: it trails behind
+     turns and sideways drift, banks with them, dips as the camera climbs
+     and is pushed back by acceleration, then comes exactly to rest.
+     Scrolling and small camera moves leave it still.
    - Sound (when on): a hum while it's on screen, ticks and clicks, the
      lock and the power-up.
 
@@ -482,6 +483,8 @@ interface Axis {
 
 interface Sway {
   primed: boolean;
+  /** 0..1: how much it's following the camera (only during flights, eased in and out) */
+  flying: number;
   camera: { x: number; y: number; z: number; heading: number; pitch: number; ahead: number };
   /** Offsets (px) and turns (degrees), each on its own spring */
   x: Axis;
@@ -495,6 +498,7 @@ interface Sway {
 const axis = (): Axis => ({ at: 0, speed: 0 });
 const createSway = (): Sway => ({
   primed: false,
+  flying: 0,
   camera: { x: 0, y: 0, z: 0, heading: 0, pitch: 0, ahead: 0 },
   x: axis(),
   y: axis(),
@@ -520,9 +524,12 @@ function spring(a: Axis, target: number, dt: number) {
 
 /**
  * One frame of sway, from the camera alone (worldStore, written by the
- * world every frame): it trails behind turns and sideways drift, twisting
- * and banking with them, dips as the camera climbs and is pushed back as
- * it speeds up. Springs bring it home; at rest it holds still
+ * world every frame), and only during a flight between pages: then it
+ * trails behind turns and sideways drift, banking with them, dips as the
+ * camera climbs and is pushed back as it speeds up. Scrolling and small
+ * camera moves leave it alone (the header is something you read and click;
+ * the flight is when you're watching). Springs bring it home; it then holds
+ * still
  */
 function stepSway(s: Sway, dt: number, t: number) {
   const cam = worldStore.camera;
@@ -557,18 +564,26 @@ function stepSway(s: Sway, dt: number, t: number) {
   last.heading = cam.heading;
   last.pitch = pitch;
 
-  const shake = clamp(worldStore.velocity / 180, 0, 1);
-  spring(s.x, clamp(lateral * 0.22 + yawRate * 30, -30, 30) + Math.sin(t * 31) * shake * 1.2, dt);
+  s.flying += (Number(worldStore.flight.active) - s.flying) * (1 - Math.exp(-5 * dt));
+  if (s.flying < 0.001) s.flying = 0;
+  const f = s.flying;
+  const shake = clamp(worldStore.velocity / 180, 0, 1) * f;
+  spring(
+    s.x,
+    clamp(lateral * 0.11 + yawRate * 15, -15, 15) * f + Math.sin(t * 31) * shake * 0.6,
+    dt
+  );
   spring(
     s.y,
-    clamp(vertical * 0.18 + pitchRate * 24, -18, 18) + Math.cos(t * 27) * shake * 0.9,
+    clamp(vertical * 0.09 + pitchRate * 12, -9, 9) * f + Math.cos(t * 27) * shake * 0.45,
     dt
   );
   // Pushed back by acceleration, and sitting a little further off at speed
-  spring(s.z, clamp(-surge * 0.2 - worldStore.velocity * 0.12, -80, 35), dt);
-  spring(s.roll, clamp(yawRate * 5 + lateral * 0.02, -5, 5), dt);
-  spring(s.ry, clamp(yawRate * 7, -9, 9), dt);
-  spring(s.rx, clamp(pitchRate * 7, -7, 7), dt);
+  spring(s.z, clamp(-surge * 0.1 - worldStore.velocity * 0.06, -40, 18) * f, dt);
+  spring(s.roll, clamp(yawRate * 2.5 + lateral * 0.01, -2.5, 2.5) * f, dt);
+  // Only a hint of 3D twist: tilted text renders soft
+  spring(s.ry, clamp(yawRate * 1.5, -2, 2) * f, dt);
+  spring(s.rx, clamp(pitchRate * 1.5, -1.5, 1.5) * f, dt);
 }
 
 const swayTransform = (s: Sway) =>
