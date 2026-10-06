@@ -21,8 +21,8 @@ import type { StationKey } from './routes';
    every movement turns the view at once, like a flight sim (Esc frees
    the mouse for the HUD; a click takes it back). Where the pointer can't
    be locked, the further the mouse rests from the centre the faster the
-   view turns that way. Touch has no resting pointer, so a finger drags
-   the view instead.
+   view turns that way. Touch gets twin thumbsticks instead (ExploreHud):
+   one flies, the other turns the view the way it is held.
 
    Finding your way: the fog draws back so distant stations stay in
    sight, the HUD marks every station (edge arrows for those off screen),
@@ -99,7 +99,7 @@ function steering(offset: number) {
 const overControls = (target: EventTarget | null) =>
   target instanceof Element &&
   !!target.closest(
-    'button, a, input, .explore-hud__top, .explore-hud__dock, .explore-hud__touch, .explore-hud__waypoints'
+    'button, a, input, .explore-hud__top, .explore-hud__dock, .explore-hud__lift, .explore-hud__waypoints'
   );
 
 function typing(target: EventTarget | null) {
@@ -277,39 +277,24 @@ export function ExploreControls() {
     };
   }, []);
 
-  // The mouse looks (locked) or steers by where it rests; a finger drags the view
+  // The mouse looks (locked) or steers by where it rests. Touch is the
+  // thumbsticks' (ExploreHud), which steer through the same input
   useEffect(() => {
     const lockable = canLockPointer();
-    let dragging = false;
-    let lastX = 0;
-    let lastY = 0;
     let travel = 0;
-    const centre = () => {
+    const centre = (e?: Event) => {
+      // A thumb lifting from the move stick must not stop the look stick
+      if (e instanceof PointerEvent && e.pointerType !== 'mouse') return;
       exploreInput.steerX = 0;
       exploreInput.steerY = 0;
     };
     const down = (e: PointerEvent) => {
-      if (worldMode.get().mode !== 'explore' || overControls(e.target)) return;
-      if (e.pointerType === 'touch') {
-        dragging = true;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        setAutopilot('');
-      } else if (lockable && e.button === 0) {
-        // A click on open space takes the mouse back
-        lockPointer();
-      }
+      if (worldMode.get().mode !== 'explore' || e.pointerType !== 'mouse') return;
+      // A click on open space takes the mouse back
+      if (lockable && e.button === 0 && !overControls(e.target)) lockPointer();
     };
     const move = (e: PointerEvent) => {
-      if (worldMode.get().mode !== 'explore') return;
-      if (e.pointerType === 'touch') {
-        if (!dragging) return;
-        exploreInput.lookX += (e.clientX - lastX) * 0.0042;
-        exploreInput.lookY += (e.clientY - lastY) * 0.0036;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        return;
-      }
+      if (worldMode.get().mode !== 'explore' || e.pointerType !== 'mouse') return;
       if (lockable) {
         // Free, the mouse is for the HUD; locked, every movement turns the view
         if (!document.pointerLockElement) return;
@@ -330,22 +315,15 @@ export function ExploreControls() {
       exploreInput.steerX = (e.clientX / window.innerWidth) * 2 - 1;
       exploreInput.steerY = (e.clientY / window.innerHeight) * 2 - 1;
     };
-    const end = () => {
-      dragging = false;
-    };
     const root = document.documentElement;
     window.addEventListener('pointerdown', down);
     window.addEventListener('pointermove', move, { passive: true });
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
     // Leaving the window (or switching away) holds course
     root.addEventListener('pointerleave', centre);
     window.addEventListener('blur', centre);
     return () => {
       window.removeEventListener('pointerdown', down);
       window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', end);
-      window.removeEventListener('pointercancel', end);
       root.removeEventListener('pointerleave', centre);
       window.removeEventListener('blur', centre);
     };

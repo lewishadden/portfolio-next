@@ -74,6 +74,20 @@
     transform: none;
   }
 
+  /* Free roam on touch: the move stick has its corner. Tablets lift the map
+     over it; phones have no room, and the station markers show the way */
+  @media (pointer: coarse) {
+    [data-world-mode='explore'] & {
+      bottom: 220px;
+    }
+  }
+
+  @media (pointer: coarse) and (max-width: 699px), (pointer: coarse) and (max-height: 599px) {
+    [data-world-mode='explore'] & {
+      visibility: hidden;
+    }
+  }
+
   &__title {
     font-family: var(--font-mono);
     font-size: 9px;
@@ -282,6 +296,13 @@ html[data-world-mode='explore'] {
   }
 }
 
+@keyframes hud-rise {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
 @keyframes tour-fill {
   to {
     transform: scaleX(1);
@@ -301,21 +322,30 @@ html[data-world-mode='explore'] {
     --signal: #b45309;
   }
 
-  &__top {
+  /* The top bar with the signal detector under it, however tall the bar
+     wraps on a narrow screen */
+  &__head {
     position: absolute;
     top: 16px;
     left: 50%;
+    display: grid;
+    justify-items: center;
+    gap: 0.75rem;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    transform: translateX(-50%);
+  }
+
+  &__top {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 0.5rem 1rem;
-    width: max-content;
-    max-width: calc(100vw - 32px);
+    max-width: 100%;
     padding: 0.55rem 0.6rem 0.55rem 1rem;
     border-radius: var(--radius-pill);
     background: var(--surface-strong);
-    transform: translateX(-50%);
     pointer-events: auto;
   }
 
@@ -479,9 +509,6 @@ html[data-world-mode='explore'] {
   }
 
   &__detector {
-    position: absolute;
-    top: 88px;
-    left: 50%;
     display: flex;
     align-items: center;
     gap: 0.6rem;
@@ -491,8 +518,7 @@ html[data-world-mode='explore'] {
     text-transform: uppercase;
     color: var(--signal);
     text-shadow: 0 1px 8px var(--bg-primary);
-    transform: translateX(-50%);
-    animation: tour-in 0.3s var(--ease-out) both;
+    animation: hud-rise 0.3s var(--ease-out) both;
   }
 
   &__detector-bars {
@@ -696,55 +722,127 @@ html[data-world-mode='explore'] {
     }
   }
 
-  &__touch {
+  /* Touch: the layer under the HUD that takes thumbs on open space. With
+     touch-action: none the browser never claims a drag as a scroll */
+  &__sticks {
     position: absolute;
-    right: 0;
-    bottom: 24px;
-    left: 0;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    padding: 0 24px;
+    inset: 0;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
 
-  &__pad {
-    position: relative;
+  /* A thumbstick: faint in its corner at rest, under the thumb when held */
+  &__stick {
+    --x: -200px;
+    --y: -200px;
+    --kx: 0px;
+    --ky: 0px;
+
+    position: absolute;
+    top: 0;
+    left: 0;
     display: grid;
     place-items: center;
     width: 128px;
     height: 128px;
     border: 1px solid var(--border-strong);
     border-radius: 50%;
-    background: color-mix(in oklab, var(--surface-strong) 70%, transparent);
-    pointer-events: auto;
-    touch-action: none;
+    background: color-mix(in oklab, var(--surface-strong) 55%, transparent);
+    opacity: 0.5;
+    transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%));
+    transition:
+      transform 0.3s var(--ease-out),
+      opacity 0.3s ease;
+    pointer-events: none;
+
+    &::after {
+      content: attr(data-label);
+      position: absolute;
+      top: calc(100% + 0.45rem);
+      font-family: var(--font-mono);
+      font-size: var(--fs-tiny);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      transition: opacity 0.2s ease;
+    }
+
+    /* Held: straight to the thumb, no glide */
+    &[data-active] {
+      opacity: 1;
+      transition: opacity 0.15s ease;
+
+      &::after {
+        opacity: 0;
+      }
+    }
   }
 
-  &__knob {
+  &__stick-knob {
     width: 52px;
     height: 52px;
     border-radius: 50%;
     background: var(--gradient-brand);
     box-shadow: 0 0 22px -4px var(--glow-cyan);
-    transition: transform 0.08s linear;
+    transform: translate(var(--kx), var(--ky));
+    transition:
+      transform 0.2s var(--ease-out),
+      box-shadow 0.2s ease;
+
+    [data-active] > & {
+      transition: box-shadow 0.2s ease;
+    }
+
+    /* Pushed on past the rim: boost */
+    [data-boost] > & {
+      box-shadow: 0 0 34px 4px var(--glow-cyan);
+    }
   }
 
+  /* Rise and sink, stacked over the look stick's corner (centred on its
+     rest, ExploreHud restInset), clear of the markers riding the edge */
   &__lift {
+    position: absolute;
+    right: 72px;
+    bottom: 200px;
     display: grid;
-    gap: 0.6rem;
+    gap: 0.5rem;
     pointer-events: auto;
 
     button {
       display: grid;
       place-items: center;
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       border: 1px solid var(--border-strong);
       border-radius: 50%;
       color: var(--text-primary);
       background: color-mix(in oklab, var(--surface-strong) 70%, transparent);
       touch-action: none;
     }
+  }
+}
+
+/* Phones held upright: the autopilot's status and the dock prompt sit in the
+   head, under the top bar, clear of the thumbsticks (ExploreHud) */
+.explore-hud__head {
+  .explore-hud__autopilot,
+  .explore-hud__dock {
+    position: static;
+    max-width: 100%;
+    transform: none;
+    animation-name: hud-rise;
+  }
+}
+
+/* Short screens (a phone on its side): rise and sink beside the look stick,
+   not over it, where they would reach the top bar */
+@media (max-height: 500px) {
+  .explore-hud__lift {
+    right: 176px;
+    bottom: 60px;
   }
 }
 

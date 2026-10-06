@@ -255,10 +255,13 @@ export const exploreInput = {
   lift: 0,
   turn: 0,
   boost: false,
-  /** Accumulated look deltas in radians from touch drags, consumed each frame */
+  /** Accumulated look deltas in radians from mouse movement, consumed each frame */
   lookX: 0,
   lookY: 0,
-  /** Where the mouse rests, -1..1 from the centre of the screen (y down); it steers */
+  /**
+   * Where the mouse rests, -1..1 from the centre of the screen (y down), or
+   * how far the touch look stick is held over; it steers
+   */
   steerX: 0,
   steerY: 0,
 };
