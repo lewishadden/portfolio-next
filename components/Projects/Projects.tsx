@@ -188,7 +188,8 @@ const snapEase = (t: number) => 1 - Math.pow(1 - t, 3);
  * each screen, centred and large, while the stage writes that project's
  * details around it and an index links to every project. Scroll that comes
  * to rest on the ride snaps to the nearest project (or back to the top),
- * and the first project's details stay hidden until its stage docks. Without
+ * and the first project's details stay hidden until its stage docks. Past
+ * the last project the camera descends with the page. Without
  * the 3D world the ride is the same, but the stage shows each project's own
  * screenshot where the 3D screen would be, and nothing waits.
  */
@@ -232,6 +233,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       if (selected >= 0) {
         worldStore.projectFocus = selected;
         worldStore.projectIntro = 0;
+        worldStore.projectTail = 0;
         return;
       }
       const stage = stageRef.current;
@@ -244,6 +246,10 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         items.length - 1
       );
       worldStore.projectFocus = focus;
+      // Past the last project the camera descends with the page, so the last
+      // screen scrolls away with its copy
+      const last = lane.docked + lane.step * (items.length - 1);
+      worldStore.projectTail = Math.max(window.scrollY - last, 0) / window.innerHeight;
       // The first screen comes forward as the stage docks, not under the page
       // head, and its details wait for it
       const intro =
@@ -269,6 +275,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       window.removeEventListener('scroll', schedule);
       worldStore.projectFocus = -1;
       worldStore.projectIntro = 0;
+      worldStore.projectTail = 0;
     };
   }, [items.length, runway, selected]);
 
