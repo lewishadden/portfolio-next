@@ -107,6 +107,18 @@ export async function uploadTextures(gl: WebGLRenderer, object: Object3D) {
   }
 }
 
+let uploads: Promise<unknown> = Promise.resolve();
+
+/**
+ * Uploads a texture on a coming frame, one per frame however many are
+ * queued, so textures that arrive together don't all land in one frame
+ */
+export function queueUpload(gl: WebGLRenderer, texture: Texture) {
+  const upload = uploads.then(nextFrame).then(() => gl.initTexture(texture));
+  uploads = upload.catch(() => undefined);
+  return upload;
+}
+
 /** Every material a composer's passes (and their effects' internal passes) render with */
 function composerMaterials(composer: EffectComposer) {
   const onscreen = new Set<Material>();

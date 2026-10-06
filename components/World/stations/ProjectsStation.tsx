@@ -10,19 +10,21 @@ import {
   MathUtils,
   ShaderMaterial,
   SRGBColorSpace,
-  TextureLoader,
+  Texture,
   Vector2,
 } from 'three';
 
+import { decodeImage } from '../imageDecoder';
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { NavLights, Truss } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { helix, helixScreenY, projectIntro, settleFocus, stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
 import { palettes, setUniform } from '../utils';
+import { queueUpload } from '../warmup';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 
-import type { Texture, WebGLRenderer } from 'three';
+import type { WebGLRenderer } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
@@ -162,15 +164,28 @@ function createScreenMaterial(edge: string, tint: string, white: number) {
 const optimisedImage = (src: string, width: number) =>
   `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=75`;
 
-const loader = new TextureLoader();
+type Shot = WorldContent['projects'][number]['images'][number];
 
-/** Loads, decodes off the main thread and uploads a screenshot */
-async function loadShot(gl: WebGLRenderer, url: string, width: number) {
-  const texture = await loader.loadAsync(optimisedImage(url, width));
-  await (texture.image as HTMLImageElement).decode?.().catch(() => undefined);
+/**
+ * Loads a screenshot `width` pixels wide (or the source's width, if
+ * narrower), decoded and scaled off the main thread, and uploads it on a
+ * coming frame. It is scaled here as well as by the image endpoint, which
+ * can hand back the full-size original instead (up to 3024 × 8206):
+ * uploading those blocked the first flight to the station for over a second
+ */
+async function loadShot(gl: WebGLRenderer, shot: Shot, width: number) {
+  const bitmap = await decodeImage(optimisedImage(shot.url, width), {
+    imageOrientation: 'flipY',
+    premultiplyAlpha: 'none',
+    ...(shot.width > width && { resizeWidth: width, resizeQuality: 'high' }),
+  });
+  const texture = new Texture(bitmap);
+  // Flipped as it was decoded
+  texture.flipY = false;
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = 4;
-  gl.initTexture(texture);
+  texture.needsUpdate = true;
+  await queueUpload(gl, texture);
   return texture;
 }
 
@@ -224,7 +239,7 @@ class ScreenShots {
     const image = this.screens[i].images[index];
     if (!image || state.textures.has(index) || state.loading.has(index)) return;
     state.loading.add(index);
-    loadShot(this.gl, image.url, shotWidth)
+    loadShot(this.gl, image, shotWidth)
       .then((texture) => {
         state.loading.delete(index);
         if (this.disposed) {
@@ -247,7 +262,7 @@ class ScreenShots {
     const image = this.screens[i].images[index];
     if (!image || state.sharpIndex === index || state.sharpLoading || state.next >= 0) return;
     state.sharpLoading = true;
-    loadShot(this.gl, image.url, frontWidth)
+    loadShot(this.gl, image, frontWidth)
       .then((texture) => {
         state.sharpLoading = false;
         if (this.disposed) {

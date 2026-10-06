@@ -7,8 +7,11 @@ export interface WorldContent {
   projects: {
     title: string;
     slug: string;
-    /** Up to four screenshots; `tall` marks full-page captures, which scroll on screen */
-    images: { url: string; tall: boolean }[];
+    /**
+     * Up to four screenshots; `tall` marks full-page captures, which scroll on
+     * screen, and `width` is the source's width in pixels
+     */
+    images: { url: string; tall: boolean; width: number }[];
   }[];
   skills: { name: string; icon: string; category: string }[];
   categories: string[];
