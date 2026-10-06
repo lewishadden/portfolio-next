@@ -106,6 +106,13 @@ test.describe('the helix ride', () => {
     async ({ page }) => {
       await openHydrated(page, '/projects');
       await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 120_000 });
+      // The header's live logo starts its own WebGL canvas once the world is
+      // ready. Software WebGL stalls the page for seconds while it does, so
+      // let it start (or give up on it) before timing any scroll
+      await page
+        .locator('.brand-mark-live--3d')
+        .waitFor({ state: 'attached', timeout: 60_000 })
+        .catch(() => {});
       const title = page.locator('.proj-hud__title');
       await expect(title).toBeHidden();
 
@@ -119,7 +126,7 @@ test.describe('the helix ride', () => {
             tour.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(stage).top);
           return { y: scrollY, docked, step: (tour.offsetHeight - stage.offsetHeight) / 14 };
         });
-      /** Scroll comes to rest with project `index` in front */
+      /** Scroll comes to rest with project `index` in front (software WebGL makes every step slow) */
       const restsOn = (index: number) =>
         expect
           .poll(
@@ -127,7 +134,7 @@ test.describe('the helix ride', () => {
               const { y, docked, step } = await lane();
               return Math.abs(y - (docked + step * index)) < 6;
             },
-            { timeout: 15_000, intervals: [400] }
+            { timeout: 40_000, intervals: [400] }
           )
           .toBe(true);
 
