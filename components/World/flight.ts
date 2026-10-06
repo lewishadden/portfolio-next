@@ -3,6 +3,7 @@ import { CubicBezierCurve3, Euler, MathUtils, Matrix4, Quaternion, Vector3 } fro
 import { stationKeys, stationPositions } from './stations';
 
 import type { Curve } from 'three';
+import type { StationKey } from './stations';
 
 /* ------------------------------------------------------------------
    Camera flights between stations.
@@ -23,6 +24,14 @@ import type { Curve } from 'three';
    station as it pulls away and keeps it in view the whole way, so as
    the arc rounds the station the view turns back the other way onto its
    front: two opposite half turns, never a full spin.
+
+   Either can start deep in a station, down the experience beam or round
+   the projects helix, facing any way. The planner is told which station
+   it is leaving, so that one is not mistaken for an obstacle. An
+   about-turn sets off round it rather than through it, and bows out the
+   far side when the near side would run its two turns into one long
+   spin. A flight ahead that would have to swing the view well round
+   turns to face the station first, as an about-turn does.
 
    Distance along the path eases in and out, so speed rises and falls
    without a jolt at either end; about-turns gather speed slowly while
@@ -53,6 +62,17 @@ const roundReach = 34;
 const bearingFollow = 9;
 /** Steepest the camera pitches to keep the station in view */
 const maxPitch = 0.3;
+/**
+ * Flights that have to swing the view round further than this (radians)
+ * turn to face the station first, as about-turns do
+ */
+const turnRoundBeyond = 1.3;
+/** Turning to face the station further than this (radians) either way is about half a turn: it goes the planned way */
+const nearHalfTurn = 2.6;
+/** About-turns: a turn this small (radians) hardly counts, and two this close are about as long */
+const slack = 0.35;
+/** About-turns that bow out the far side sweep further round the station: they take this much longer */
+const farSideTime = 1.2;
 
 export interface Flight {
   curve: Curve<Vector3>;
@@ -62,14 +82,21 @@ export interface Flight {
   rotationFrom: Quaternion;
   about: boolean;
   /**
-   * About-turns: when speed stops building, braking begins, the turn to
-   * face the station ends and the arc starts rounding it (shares of the flight)
+   * Turns to face the destination as it pulls away and keeps it in view:
+   * about-turns, and any flight that starts facing well away from the
+   * destination's view (deep in the projects ride, or as free roam left it)
+   */
+  turn: boolean;
+  /**
+   * Turning flights: when speed stops building, braking begins and the turn
+   * to face the station ends; about-turns: when the arc starts rounding it
+   * (shares of the flight)
    */
   accel: number;
   brake: number;
   departEnd: number;
   roundFrom: number;
-  /** About-turns: the station the camera keeps in view, and which way (+1 left, -1 right) it first turns */
+  /** Turning flights: the station the camera keeps in view, and which way (+1 left, -1 right) it first turns */
   focus: Vector3;
   departTurn: number;
   length: number;
@@ -147,7 +174,7 @@ function planBrake(length: number, accel: number, roundFrom: number) {
 
 /** Share of the path covered `s` (0..1) of the way through the flight */
 export function flightEase(f: Flight, s: number) {
-  return f.about ? aboutEase(s, f.accel, f.brake) : smootherstep(s);
+  return f.turn ? aboutEase(s, f.accel, f.brake) : smootherstep(s);
 }
 
 export function flightPosition(f: Flight, s: number, out: Vector3) {
@@ -158,16 +185,23 @@ export function flightPosition(f: Flight, s: number, out: Vector3) {
  * How far a path stays outside every station's keep-out radius (negative
  * when it cuts in). The stations it leaves and reaches are framed from ~11
  * units out, so they get a tighter radius and only the stretch between the
- * ends is checked against them.
+ * ends is checked against them. The one it leaves is `leaving` when known:
+ * scrolled down the experience beam or the projects helix, the camera looks
+ * at a point too far below the station's centre to tell.
  */
-function clearance(curve: Curve<Vector3>, fromLook: Vector3, toLook: Vector3) {
+function clearance(
+  curve: Curve<Vector3>,
+  fromLook: Vector3,
+  toLook: Vector3,
+  leaving: StationKey | null
+) {
   let closest = Infinity;
   for (let i = 1; i < samples; i++) {
     const t = i / samples;
     const point = curve.getPoint(t);
     for (const key of stationKeys) {
       scratch.fromArray(stationPositions[key]);
-      const isFrom = scratch.distanceToSquared(fromLook) < 400;
+      const isFrom = key === leaving || scratch.distanceToSquared(fromLook) < 400;
       const isTo = scratch.distanceToSquared(toLook) < 400;
       if ((isFrom && t < 0.04) || (isTo && t > 0.96)) continue;
       const radius = isFrom || isTo ? 8 : 14;
@@ -184,7 +218,8 @@ function planAhead(
   toPos: Vector3,
   toLook: Vector3,
   velocity: Vector3,
-  ahead: number
+  ahead: number,
+  leaving: StationKey | null
 ) {
   const distance = fromPos.distanceTo(toPos);
   // Short hops (docking, small adjustments) barely arc
@@ -213,7 +248,7 @@ function planAhead(
   };
   let curve = build();
   // Raise the arc until it clears every station it would otherwise skim
-  for (let i = 0; i < 6 && distance > 20 && clearance(curve, fromLook, toLook) < 0; i++) {
+  for (let i = 0; i < 6 && distance > 20 && clearance(curve, fromLook, toLook, leaving) < 0; i++) {
     lift += 8;
     curve = build();
   }
@@ -224,7 +259,13 @@ function planAhead(
 const turnSign = (from: Vector3, to: Vector3) =>
   Math.sign(scratch.crossVectors(from, to).dot(up)) || 1;
 
-function planAbout(fromPos: Vector3, fromLook: Vector3, toPos: Vector3, toLook: Vector3) {
+function planAbout(
+  fromPos: Vector3,
+  fromLook: Vector3,
+  toPos: Vector3,
+  toLook: Vector3,
+  leaving: StationKey | null
+) {
   const distance = fromPos.distanceTo(toPos);
   const toward = new Vector3().subVectors(toPos, fromPos).normalize();
   const arrival = new Vector3().subVectors(toPos, toLook);
@@ -238,21 +279,46 @@ function planAbout(fromPos: Vector3, fromLook: Vector3, toPos: Vector3, toLook: 
   const side = across.multiplyScalar(
     Math.abs(lateral) > 4 ? Math.sign(lateral) : Math.sign(framed) || -1
   );
-  // Rounding the station the view turns towards it, so it first turns the other way
+  // Rounding the station the view turns towards it, so it first turns the
+  // other way. Looking down the line, the turn to face the station already
+  // goes that way; facing elsewhere (deep in the projects ride, say) it may
+  // not, and the two turns run on into one long spin. When rounding the
+  // station from the other side turns the view about as far, bow out that
+  // side instead, so the turns are opposite
+  const viewYaw = heading(scratch.subVectors(fromLook, fromPos), 0).yaw;
+  const bearing = heading(scratch.subVectors(toLook, fromPos), viewYaw).yaw;
+  const away = bearing - viewYaw;
+  const rounding = turnSign(arrival, side.clone().negate());
+  const endYaw = heading(scratch.subVectors(toLook, toPos), 0).yaw;
+  const round = MathUtils.euclideanModulo((endYaw - bearing) * rounding, Math.PI * 2);
+  const farSide =
+    Math.abs(away) > slack &&
+    Math.abs(away) < nearHalfTurn &&
+    Math.sign(away) === rounding &&
+    round > Math.PI - slack;
+  if (farSide) side.negate();
   const departTurn = -turnSign(arrival, side.clone().negate());
   let bow = MathUtils.clamp(distance * 0.14, 12, 30);
   let lift = MathUtils.clamp(distance * 0.05, 0, 12);
+  // Leaving from round the back of a station (riding the projects helix),
+  // set off round it rather than through it: no heading in towards its middle
+  const inward = leaving
+    ? new Vector3().fromArray(stationPositions[leaving]).sub(fromPos).setY(0).normalize()
+    : null;
+  const depart = new Vector3();
 
   // One cubic arc: away from the start bowing out to the side, and in level
   // with the pose from out to that side, so it curls round onto the front
   const build = () => {
+    depart
+      .copy(toward)
+      .multiplyScalar(distance * 0.38)
+      .addScaledVector(side, bow)
+      .addScaledVector(up, lift);
+    if (inward) depart.addScaledVector(inward, -Math.max(depart.dot(inward), 0));
     const curve = new CubicBezierCurve3(
       fromPos.clone(),
-      fromPos
-        .clone()
-        .addScaledVector(toward, distance * 0.38)
-        .addScaledVector(side, bow)
-        .addScaledVector(up, lift),
+      fromPos.clone().add(depart),
       toPos
         .clone()
         .addScaledVector(side, curlOut)
@@ -263,25 +329,27 @@ function planAbout(fromPos: Vector3, fromLook: Vector3, toPos: Vector3, toLook: 
     return curve;
   };
   let curve = build();
-  for (let i = 0; i < 6 && clearance(curve, fromLook, toLook) < 0; i++) {
+  for (let i = 0; i < 6 && clearance(curve, fromLook, toLook, leaving) < 0; i++) {
     bow += 4;
     lift += 6;
     curve = build();
   }
-  return { curve, departTurn };
+  return { curve, departTurn, farSide };
 }
 
 /**
  * Plans a flight from the camera's current pose to a destination pose.
  * `velocity` (world units per second) carries momentum into the new flight
- * when the camera is retargeted mid-flight.
+ * when the camera is retargeted mid-flight; `leaving` is the station the
+ * camera is docked at, if any.
  */
 export function planFlight(
   fromPos: Vector3,
   fromRotation: Quaternion,
   toPos: Vector3,
   toLook: Vector3,
-  velocity: Vector3
+  velocity: Vector3,
+  leaving: StationKey | null = null
 ): Flight | null {
   const distance = fromPos.distanceTo(toPos);
   if (distance < 0.25) return null;
@@ -293,12 +361,16 @@ export function planFlight(
   // Travelling the way the destination faces (positive) or against it
   const ahead = -toward.dot(arrival);
   const about = ahead < aboutTurnBeyond && distance > 30;
+  // How far the view swings round between the start and the destination
+  const rotationTo = lookRotation(toPos, toLook, new Quaternion());
+  const swing = fromRotation.angleTo(rotationTo);
 
   const f: Flight = {
     curve: new CubicBezierCurve3(),
     end: toPos.clone(),
     rotationFrom: fromRotation.clone(),
     about,
+    turn: about || swing > turnRoundBeyond,
     accel: 0,
     brake: 1,
     departEnd: 0,
@@ -310,19 +382,38 @@ export function planFlight(
     elapsed: 0,
   };
   if (about) {
-    const plan = planAbout(fromPos, fromLook, toPos, toLook);
+    const plan = planAbout(fromPos, fromLook, toPos, toLook, leaving);
     f.curve = plan.curve;
     f.departTurn = plan.departTurn;
     f.length = f.curve.getLength();
-    f.duration = MathUtils.clamp(3.4 + f.length / 60, 5.2, 7.8);
+    f.duration = MathUtils.clamp(3.4 + f.length / 60, 5.2, 7.8) * (plan.farSide ? farSideTime : 1);
     f.departEnd = Math.min(departTime / f.duration, 0.5);
     f.roundFrom = Math.max(1 - roundTime / f.duration, 0.42);
     f.accel = f.departEnd * 0.9;
     f.brake = planBrake(f.length, f.accel, f.roundFrom);
   } else {
-    f.curve = planAhead(fromPos, fromLook, viewFrom, toPos, toLook, velocity, ahead);
+    f.curve = planAhead(fromPos, fromLook, viewFrom, toPos, toLook, velocity, ahead, leaving);
     f.length = f.curve.getLength();
     f.duration = MathUtils.clamp(1.2 + f.length / 85, 1.1, 3.6);
+    if (f.turn) {
+      // Facing well away from the destination's view (deep in the projects
+      // ride, say), blending the view round mid-flight would whip it: turn to
+      // face the station first as speed builds, then settle onto its view.
+      // About half a turn from the station, set off the way the view turns
+      // the shorter way overall, so the two turns are opposite rather than
+      // one long spin. Half a turn takes as long as an about-turn's
+      const from = yawPitch(fromRotation).yaw;
+      f.departTurn = Math.sign(wrap(yawPitch(rotationTo).yaw - from)) || 1;
+      let away = heading(scratch.subVectors(toLook, fromPos), from).yaw - from;
+      if (Math.abs(away) > nearHalfTurn && Math.sign(away) !== f.departTurn) {
+        away -= Math.sign(away) * Math.PI * 2;
+      }
+      const turnTime = departTime * Math.max(Math.abs(away) / Math.PI, 0.4);
+      f.duration += turnTime;
+      f.departEnd = turnTime / f.duration;
+      f.accel = f.departEnd * 0.9;
+      f.brake = MathUtils.lerp(f.departEnd, 1, 0.5);
+    }
   }
   return f;
 }
@@ -348,10 +439,11 @@ function heading(direction: Vector3, near: number) {
  * Ahead: the start view blended into `rotationTo`, leaning into the
  * direction of travel mid-flight when that is roughly ahead, or dipping the
  * nose a touch when the camera is drifting back.
- * About-turn: the start view turns to face the station (the way
- * `departTurn` says when it is a half turn or so either way), then follows
- * its bearing (eased, unwrapped frame to frame) as the arc rounds it, and
- * settles into `rotationTo`, which looks at the same station.
+ * Turning (about-turns, and flights that start facing well away): the start
+ * view turns to face the station (the way `departTurn` says when it is a
+ * half turn or so either way), then follows its bearing (eased, unwrapped
+ * frame to frame) as the arc rounds it, and settles into `rotationTo`, which
+ * looks at the same station.
  */
 export function flightRotation(
   f: Flight,
@@ -362,7 +454,7 @@ export function flightRotation(
   dt: number,
   out: Quaternion
 ) {
-  if (f.about) {
+  if (f.turn) {
     scratch.subVectors(f.focus, position);
     if (!view.started) {
       view.started = true;
@@ -372,7 +464,7 @@ export function flightRotation(
       const start = heading(scratch, from.yaw);
       let away = start.yaw - from.yaw;
       // Near enough a half turn either way: turn the planned way
-      if (Math.abs(away) > 2.6 && Math.sign(away) !== f.departTurn) {
+      if (Math.abs(away) > nearHalfTurn && Math.sign(away) !== f.departTurn) {
         away -= Math.sign(away) * Math.PI * 2;
       }
       view.bearingYaw = from.yaw + away;

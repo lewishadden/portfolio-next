@@ -30,6 +30,7 @@ const previous = new Vector3();
 const correction = new Vector3();
 const forward = new Vector3();
 const toPoint = new Vector3();
+const atRest = new Vector3();
 const rotationTo = new Quaternion();
 const bank = new Quaternion();
 const yAxis = new Vector3(0, 1, 0);
@@ -106,9 +107,16 @@ export function CameraRig({
     // Tours ignore the page's scroll: each stop is framed from the top
     const scrollTarget = mode === 'page' ? worldStore.scroll : 0;
     const screensTarget = mode === 'page' ? worldStore.screens : 0;
-    if (reducedMotion) {
-      rig.progress = scrollTarget;
-      rig.screens = screensTarget;
+    const retarget = rig.station !== station || rig.mode !== mode;
+    if (reducedMotion || retarget) {
+      // A flight is planned to the destination as its page is now. Easing
+      // out of the last station's scroll would plan it to a point as far down
+      // the new station as the visitor had scrolled the old one; a new page
+      // opens at the top (PageTransition scrolls it there)
+      const newPage =
+        rig.station !== null && rig.station !== station && rig.mode === 'page' && mode === 'page';
+      rig.progress = newPage ? 0 : scrollTarget;
+      rig.screens = newPage ? 0 : screensTarget;
     } else {
       easing.damp(rig, 'progress', scrollTarget, 0.14, dt);
       easing.damp(rig, 'screens', screensTarget, 0.14, dt);
@@ -130,7 +138,6 @@ export function CameraRig({
       target.y += worldStore.pointerY * 0.28;
     }
 
-    const retarget = rig.station !== station || rig.mode !== mode;
     // Out in deep space until the loading screen lifts, then warp in
     if (!rig.started && !reducedMotion && !isBooted()) {
       cam.position.copy(target).add(introOffset);
@@ -183,8 +190,13 @@ export function CameraRig({
 
 function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey) {
   // Plan from wherever the camera is and however it is turned: mid-flight,
-  // banked, or wherever the visitor left it in explore mode
-  const flight = planFlight(cam.position, cam.quaternion, target, look, rig.velocity);
+  // banked, or wherever the visitor left it in explore mode. Only a flight in
+  // progress carries its momentum on: following the page's scroll (down a
+  // station, or back up it as the old page resets) is not a heading to keep
+  const momentum = rig.flight ? rig.velocity : atRest;
+  // The station it is docked at, however far down it the page had scrolled
+  const leaving = rig.flight || rig.mode === 'explore' ? null : rig.station;
+  const flight = planFlight(cam.position, cam.quaternion, target, look, momentum, leaving);
   rig.flight = flight;
   rig.approached = false;
   if (!flight) return;
