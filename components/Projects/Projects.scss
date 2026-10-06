@@ -3,8 +3,8 @@
    step per project) moves the camera from screen to screen; a
    sticky stage writes the project in front around its screen,
    which sits centred and large in the middle, so nothing but
-   the world moves. Without the 3D world the runway collapses
-   and the middle shows each project's own screenshot.
+   the world moves. Without the 3D world the ride is the same,
+   but the middle shows each project's own screenshot.
    ============================================================= */
 
 .projects {
@@ -28,16 +28,13 @@
     }
   }
 
+  &__hint-plain {
+    display: none;
+  }
+
   &__tour {
     position: relative;
     height: calc((var(--steps) - 1) * var(--step) + var(--stage-h));
-  }
-
-  /* The first project's details wait until its stage docks (see Projects) */
-  &__stage[data-waiting] .proj-hud > * {
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(14px);
   }
 
   &__stage {
@@ -96,6 +93,14 @@
       }
     }
   }
+}
+
+/* The first project's details wait until its stage docks (see Projects),
+   as the camera brings its screen forward; without the world, nothing waits */
+:root:not([data-world='off']) .projects__stage[data-waiting] .proj-hud > * {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(14px);
 }
 
 /* Written round the screen: head top left, stack top right, summary and
@@ -316,33 +321,29 @@
   }
 }
 
-/* Without the 3D world: the shot sits where the screen would, chosen from the index */
+/* Without the 3D world the ride is the same: the shot sits where the screen
+   would, as large as the screen's cell allows */
 [data-world='off'] {
-  .projects__hint {
+  .projects__hint-ride {
     display: none;
   }
 
-  .projects__tour {
-    height: auto;
+  .projects__hint-plain {
+    display: inline;
   }
 
-  .projects__stage {
-    position: static;
-    align-items: start;
-    height: auto;
-    padding-bottom: 0;
-  }
-
-  .proj-hud {
-    grid-template-rows: auto auto auto;
-    height: auto;
-    max-height: none;
+  .proj-hud__screen {
+    container-type: size;
+    display: grid;
+    place-items: center;
+    align-self: stretch;
   }
 
   .proj-hud__shot {
     position: relative;
     display: block;
     overflow: hidden;
+    width: min(100cqw, 160cqh);
     aspect-ratio: 16 / 10;
     border-radius: var(--radius-md);
     background: var(--surface);
