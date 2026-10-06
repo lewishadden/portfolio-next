@@ -1,0 +1,58 @@
+.stats-overlay {
+  position: fixed;
+  top: 88px;
+  right: 16px;
+  z-index: 60;
+  display: grid;
+  gap: 0.5rem;
+  width: min(330px, calc(100vw - 32px));
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--surface-strong);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+
+    b {
+      font-size: 1.6rem;
+      letter-spacing: -0.02em;
+      color: var(--accent-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__close {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    color: var(--text-secondary);
+
+    &:hover {
+      color: var(--accent-secondary);
+      border-color: var(--accent-secondary);
+    }
+  }
+
+  &__graph {
+    width: 100%;
+    height: 34px;
+  }
+
+  &__body {
+    margin: 0;
+    font: inherit;
+    line-height: 1.6;
+    white-space: pre;
+    color: var(--text-primary);
+  }
+}

@@ -1,27 +1,51 @@
-import { Vector3 } from 'three';
+import { MathUtils, Vector3 } from 'three';
 
-import type { Vector3Tuple } from 'three';
 import type { StationKey } from './routes';
+import { worldStore } from './worldStore';
 
-export { stationForPath, stationKeys, stationModels } from './routes';
+export { stationForPath, stationKeys, stationModels, stationPositions } from './routes';
 export type { StationKey } from './routes';
 
-/**
- * Where each route lives in space. Stations are spread far enough apart that
- * the camera visibly travels (and passes stars/dust) between them.
- */
-export const stationPositions: Record<StationKey, Vector3Tuple> = {
-  home: [0, 0, 0],
-  about: [48, 12, -36],
-  experience: [-42, -4, -82],
-  projects: [36, -16, -132],
-  skills: [-36, 14, -178],
-  contact: [8, -6, -226],
-  lost: [96, 44, 34],
-};
+/** Height of each station's beacon (and the HUD's waypoint for it) above its centre */
+const beaconHeights: Partial<Record<StationKey, number>> = { experience: 6, skills: 5 };
+export const beaconHeight = (key: StationKey) => beaconHeights[key] ?? 3.6;
 
 /** Total fall of the camera through the experience beam (world units) */
 export const experienceDepth = 34;
+
+/** The projects helix: screens on a spiral down the station's spine */
+export const helix = { radius: 5.4, turn: 0.78, rise: 1.05, top: 2.4, screens: 15 } as const;
+export const helixScreenY = (i: number) => helix.top - i * helix.rise;
+/** A project page sits the screen beside its copy, this much further back than the ride */
+const asideDistance = 2.2;
+/**
+ * Before the ride: the camera holds back on the whole yard (eye height and
+ * distance, the framed point's height, and how far right of the page head
+ * it sits on wide layouts)
+ */
+const overview = { height: 1.6, distance: 16, lookY: -0.8, room: 4.6 };
+
+/**
+ * How far the projects camera is from its ride down the helix: 1 holds it
+ * back on the whole yard. Off the projects page (touring past, or flying in
+ * before the page has mounted) it holds back too; a project page never does.
+ */
+export function projectIntro() {
+  if (worldStore.projectAside) return 0;
+  if (worldStore.projectFocus < 0) return 1;
+  return MathUtils.smoothstep(worldStore.projectIntro, 0, 1);
+}
+
+/**
+ * The projects page runs through its projects as a fractional index; this
+ * settles it on each one: the middle 60% of the way from one screen to the
+ * next carries the move, the rest holds still on the nearer screen
+ */
+export function settleFocus(focus: number) {
+  const whole = Math.floor(focus);
+  const x = MathUtils.clamp((focus - whole - 0.2) / 0.6, 0, 1);
+  return whole + x * x * x * (x * (x * 6 - 15) + 10);
+}
 
 /** Wide layouts push the station's hero object to the right of the copy */
 export const isWideViewport = (width: number, height: number) =>
@@ -51,8 +75,8 @@ const shots: Record<StationKey, Shot> = {
   about: { height: 0.3, distance: 11, halfWidth: 3, halfHeight: 1.7, offsetY: 0.3 },
   // The satellite's orbit around the beam
   experience: { height: 0.6, distance: 12, halfWidth: 3.1, halfHeight: 1.4, offsetY: 0 },
-  // Terminal and the screen in front of it (the helix wraps around off-screen)
-  projects: { height: 0.8, distance: 12.5, halfWidth: 2.6, halfHeight: 1.8, offsetY: -0.1 },
+  // The project screen in front of the camera, centred and close
+  projects: { height: 0.15, distance: 4.3, halfWidth: 1.45, halfHeight: 0.9, offsetY: 0 },
   // Planet and its ring (the skill orbits wrap around off-screen)
   skills: { height: 0.4, distance: 12.5, halfWidth: 3.9, halfHeight: 2.1, offsetY: 0 },
   // Globe with the rocket parked above its right shoulder
@@ -122,6 +146,8 @@ export function framedHeight(key: StationKey, cameraY: number, width: number, he
 const right = new Vector3();
 const up = new Vector3(0, 1, 0);
 const forward = new Vector3();
+const overviewEye = new Vector3();
+const overviewLook = new Vector3();
 
 /**
  * Camera pose inside a station, in station-local space.
@@ -157,9 +183,21 @@ export function stationCamera(
       pos.set(0, eyeY, distance);
       break;
     case 'projects': {
-      const angle = progress * Math.PI * 0.85;
-      look.set(0, -progress * 10, 0);
-      pos.set(Math.sin(angle) * distance, eyeY, Math.cos(angle) * distance);
+      // Ride the helix: the camera orbits down the spiral to face the project
+      // the page has scrolled to (worldStore.projectFocus), screen centred.
+      // A project page sits the screen beside its copy instead, further back
+      const focus = settleFocus(MathUtils.clamp(worldStore.projectFocus, 0, helix.screens - 1));
+      const angle = focus * helix.turn;
+      const back = worldStore.projectAside ? asideDistance : 1;
+      look.set(Math.sin(angle) * helix.radius, helixScreenY(focus), Math.cos(angle) * helix.radius);
+      pos.set(Math.sin(angle) * distance * back, eyeY, Math.cos(angle) * distance * back);
+      // At the top of the page it holds back on the whole yard, and comes in
+      // to the first screen as the page scrolls to it
+      const intro = projectIntro();
+      if (intro > 0) {
+        look.lerp(overviewLook.set(0, overview.lookY, 0), intro);
+        pos.lerp(overviewEye.set(0, overview.height, overview.distance), intro);
+      }
       break;
     }
     case 'skills': {
@@ -182,8 +220,18 @@ export function stationCamera(
   // above the copy on narrow ones. Shift along the camera's own axes.
   forward.subVectors(look, pos).normalize();
   right.crossVectors(forward, up).normalize();
-  // The skills constellation is wider than the other stations — give it more room
-  const shiftX = isWideViewport(width, height) ? (key === 'skills' ? 4.4 : 3.3) : 0;
+  // The skills constellation is wider than the other stations: give it more
+  // room. On the projects page the screen is centred, with its copy around it
+  const wide = isWideViewport(width, height);
+  const centred = key === 'projects' && !worldStore.projectAside;
+  const intro = centred ? projectIntro() : 0;
+  const roomy = key === 'skills' ? 4.4 : centred ? overview.room * intro : 3.3;
+  const shiftX = wide ? roomy : 0;
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
+  // Centred in the space below the header, not the whole viewport
+  if (centred && wide) {
+    pos.addScaledVector(up, 0.19 * (1 - intro));
+    look.addScaledVector(up, 0.19 * (1 - intro));
+  }
 }

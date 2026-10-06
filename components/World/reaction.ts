@@ -1,0 +1,81 @@
+import { useMemo } from 'react';
+import { MathUtils } from 'three';
+
+import { setWorldHover, worldStore, worldTip } from './worldStore';
+
+import type { RefObject } from 'react';
+import type { ThreeEvent } from '@react-three/fiber';
+import type { WorldTip } from './worldStore';
+
+/**
+ * Characters that notice you: they turn towards the pointer, lean in when
+ * hovered and do a trick when clicked. State lives in a ref (it changes
+ * every frame); the handlers and `stepReaction` mutate it.
+ */
+export interface Reaction {
+  hovered: boolean;
+  /** 0..1, eased towards hovered */
+  amount: number;
+  /** Eased pointer direction, -1..1 */
+  yaw: number;
+  pitch: number;
+  /** Clock time of the last click, -Infinity before the first */
+  trickAt: number;
+  now: number;
+}
+
+export const createReaction = (): Reaction => ({
+  hovered: false,
+  amount: 0,
+  yaw: 0,
+  pitch: 0,
+  trickAt: -Infinity,
+  now: 0,
+});
+
+export function stepReaction(state: Reaction, t: number, dt: number) {
+  state.now = t;
+  state.amount = MathUtils.damp(state.amount, state.hovered ? 1 : 0, 6, dt);
+  state.yaw = MathUtils.damp(state.yaw, worldStore.pointerX, 3.2, dt);
+  state.pitch = MathUtils.damp(state.pitch, worldStore.pointerY, 3.2, dt);
+}
+
+/** Progress (0..1) of the click trick, or -1 when none is playing */
+export function trickProgress(state: Reaction, duration: number) {
+  const since = state.now - state.trickAt;
+  return since >= 0 && since < duration ? since / duration : -1;
+}
+
+/** Ease in and out (0..1) */
+export const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+
+function hover(state: Reaction, on: boolean, tip: WorldTip) {
+  if (state.hovered === on) return;
+  state.hovered = on;
+  setWorldHover(on);
+  if (on) worldTip.set(tip);
+  else if (worldTip.get() === tip) worldTip.set(null);
+}
+
+function trick(state: Reaction) {
+  state.trickAt = state.now;
+}
+
+export function useReactionHandlers(state: RefObject<Reaction>, tip: WorldTip) {
+  return useMemo(
+    () => ({
+      onPointerOver(e: ThreeEvent<PointerEvent>) {
+        e.stopPropagation();
+        hover(state.current, true, tip);
+      },
+      onPointerOut() {
+        hover(state.current, false, tip);
+      },
+      onClick(e: ThreeEvent<MouseEvent>) {
+        e.stopPropagation();
+        trick(state.current);
+      },
+    }),
+    [state, tip]
+  );
+}

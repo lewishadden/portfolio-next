@@ -1,0 +1,31 @@
+.world-launch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin-top: 1.1rem;
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-secondary);
+    transition: color var(--dur-fast) ease;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--text-primary);
+    }
+  }
+
+  &__sep {
+    width: 1px;
+    height: 1rem;
+    background: var(--border-strong);
+  }
+}

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useBooted } from '@/components/World/boot';
+
 export function useCountUp<T extends HTMLElement = HTMLElement>(
   target: number,
   duration = 1600
@@ -7,10 +9,12 @@ export function useCountUp<T extends HTMLElement = HTMLElement>(
   const [val, setVal] = useState(0);
   const [started, setStarted] = useState(false);
   const ref = useRef<T | null>(null);
+  // Counts once the loading screen has lifted, so it is seen
+  const booted = useBooted();
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || !booted) return;
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !started) setStarted(true);
@@ -19,7 +23,7 @@ export function useCountUp<T extends HTMLElement = HTMLElement>(
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [started]);
+  }, [started, booted]);
 
   useEffect(() => {
     if (!started) return;

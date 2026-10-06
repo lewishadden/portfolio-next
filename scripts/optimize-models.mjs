@@ -8,8 +8,9 @@
  * so the site never fetches a decoder from a CDN.
  *
  * Usage:  node scripts/optimize-models.mjs <raw-dir> [out-dir]
- *   raw-dir must contain astronaut.glb, helmet.glb, satellite.glb,
- *   terminal.glb and rocket.glb (the names components/World/stations.ts loads).
+ *   raw-dir must contain astronaut.glb, helmet.glb, satellite.glb and
+ *   rocket.glb (the names components/World/routes.ts loads). The station
+ *   hulls have their own pipeline: scripts/optimize-stations.mjs.
  */
 import { execFileSync } from 'child_process';
 import { readdirSync, statSync, mkdirSync } from 'fs';

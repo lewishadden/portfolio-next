@@ -67,7 +67,7 @@ export const palettes: Record<WorldTheme, WorldPalette> = {
     ambient: 0.45,
     key: 1.6,
     bloom: 1.05,
-    bloomThreshold: 0.32,
+    bloomThreshold: 0.6,
     vignette: 0.62,
   },
   light: {

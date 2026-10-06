@@ -164,12 +164,14 @@ export function precompileComposer(gl: WebGLRenderer, composer: EffectComposer, 
 /** Counts in-flight warm-up work; a plain store so changes don't re-render the world */
 export function createWarmupTracker() {
   let pending = 0;
+  let started = 0;
   let queued = false;
   const listeners = new Set<() => void>();
   const notify = () => listeners.forEach((listener) => listener());
   return {
     track(task: Promise<unknown>) {
       pending += 1;
+      started += 1;
       notify();
       task
         .catch((error) => {
@@ -180,6 +182,8 @@ export function createWarmupTracker() {
           notify();
         });
     },
+    /** Tasks tracked so far, and how many of them have finished (the loading screen's progress) */
+    counts: () => ({ started, settled: started - pending }),
     /** The initial scene has been queued — from here, pending === 0 means warm */
     markQueued() {
       queued = true;

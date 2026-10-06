@@ -9,6 +9,7 @@ import Magnet from 'components/Magnet/Magnet';
 import { Marquee } from 'components/Marquee/Marquee';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
+import { useBooted } from 'components/World/boot';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
 
@@ -32,7 +33,7 @@ const SkillTile = ({ skill }: { skill: SkillIcon }) => {
   const level = parseLevel(skill.level);
   return (
     <RevealItem as="li" className="skills__tile-cell" y={24}>
-      <div className="skills__tile">
+      <div className="skills__tile" data-world-target={`skill:${skill.name}`}>
         <span className="skills__tile-icon" aria-hidden="true">
           <Icon icon={skill.class} width={26} height={26} />
         </span>
@@ -59,6 +60,7 @@ const SkillTile = ({ skill }: { skill: SkillIcon }) => {
 /** Ring gauge of a category's average proficiency (decorative; the value is also in text) */
 const Gauge = ({ value }: { value: number }) => {
   const gradientId = `gauge-${useId().replace(/[^\w-]/g, '')}`;
+  const booted = useBooted();
   return (
     <span className="skills__gauge" aria-hidden="true">
       <svg viewBox="0 0 48 48">
@@ -76,7 +78,7 @@ const Gauge = ({ value }: { value: number }) => {
           r="20"
           stroke={`url(#${gradientId})`}
           initial={{ pathLength: 0 }}
-          whileInView={{ pathLength: value / 100 }}
+          whileInView={booted ? { pathLength: value / 100 } : undefined}
           viewport={{ once: true }}
           transition={{ duration: 1.8, ease, delay: 0.3 }}
         />

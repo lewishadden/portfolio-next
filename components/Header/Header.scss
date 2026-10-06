@@ -369,3 +369,25 @@
     display: none;
   }
 }
+
+/* ⌘K: opens the command palette */
+.header__palette {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--accent-primary);
+  background: var(--surface);
+  transition:
+    border-color var(--dur-fast) ease,
+    box-shadow var(--dur-med) ease,
+    color var(--dur-fast) ease;
+
+  &:hover {
+    color: var(--accent-secondary);
+    border-color: var(--accent-secondary);
+    box-shadow: 0 0 20px -4px var(--glow-cyan);
+  }
+}

@@ -446,3 +446,138 @@
     opacity: 0;
   }
 }
+
+/* =============================================================
+   Full-page screenshots: a browser frame at the slide's full width.
+   The page pans down and back on its own until the visitor scrolls it.
+   ============================================================= */
+.project-gallery__slide--page {
+  display: grid;
+  padding: clamp(0.5rem, 1.6vw, 1rem);
+}
+
+.page-shot {
+  --progress: 0;
+
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+
+  &__bar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--surface-strong);
+  }
+
+  &__dots {
+    display: flex;
+    gap: 0.35rem;
+
+    i {
+      width: 0.6rem;
+      height: 0.6rem;
+      border-radius: 50%;
+      background: var(--border-strong);
+
+      &:first-child {
+        background: color-mix(in oklab, var(--status-err) 75%, transparent);
+      }
+
+      &:nth-child(2) {
+        background: color-mix(in oklab, #fbbf24 75%, transparent);
+      }
+
+      &:last-child {
+        background: color-mix(in oklab, var(--status-ok) 75%, transparent);
+      }
+    }
+  }
+
+  &__url {
+    display: inline-flex;
+    align-items: center;
+    justify-self: center;
+    gap: 0.35rem;
+    max-width: 100%;
+    padding: 0.2rem 0.75rem;
+    overflow: hidden;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    background: color-mix(in oklab, var(--bg-tertiary) 70%, transparent);
+  }
+
+  &__hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-secondary);
+  }
+
+  &__viewport {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--accent-secondary);
+      outline-offset: -2px;
+    }
+  }
+
+  &__img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* Scroll position, drawn as a thin glowing rail on the right */
+  &__track {
+    position: absolute;
+    top: 3rem;
+    right: 0.35rem;
+    bottom: 0.6rem;
+    width: 3px;
+    border-radius: 3px;
+    background: color-mix(in oklab, var(--border-strong) 70%, transparent);
+    pointer-events: none;
+  }
+
+  &__thumb {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 18%;
+    top: calc(var(--progress) * 82%);
+    border-radius: 3px;
+    background: var(--accent-secondary);
+    box-shadow: 0 0 10px var(--accent-secondary);
+  }
+}
+
+/* Solid-ink brand icons (see techIcon.ts) flip to light on the dark theme */
+[data-theme='dark'] .tech-ink {
+  filter: invert(1) hue-rotate(180deg);
+}

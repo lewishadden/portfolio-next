@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 
+import { commandPalette } from 'components/CommandPalette/CommandPalette';
 import { ThemeToggle } from 'components/ThemeToggle/ThemeToggle';
 import { WorldToggle } from 'components/WorldToggle/WorldToggle';
 import { ScrambleText } from 'components/Motion/ScrambleText';
@@ -131,6 +132,16 @@ export const Header = ({
         </div>
 
         <div className="header__actions">
+          <button
+            type="button"
+            className="header__palette"
+            onClick={commandPalette.open}
+            aria-label="Open command palette"
+            aria-keyshortcuts="Meta+K Control+K"
+            title="Command palette (⌘K / Ctrl+K)"
+          >
+            <Icon icon="ph:command-bold" width={17} height={17} aria-hidden="true" />
+          </button>
           <WorldToggle />
           <ThemeToggle />
           <Link href="/contact" className="header__cta">

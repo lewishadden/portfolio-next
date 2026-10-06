@@ -45,7 +45,9 @@ for (const file of (await readdir(source)).filter((f) => f.endsWith('.webp')).so
   );
   const target = path.join(out, file.replace(/\.webp$/, '.png'));
   await writeFile(target, Buffer.from(png, 'base64'));
-  console.log(`${path.relative(root, target)} (${Math.round(Buffer.byteLength(png, 'base64') / 1024)} KB)`);
+  console.log(
+    `${path.relative(root, target)} (${Math.round(Buffer.byteLength(png, 'base64') / 1024)} KB)`
+  );
 }
 
 await browser.close();

@@ -1,0 +1,390 @@
+@use 'sass:list';
+@use 'sass:math';
+
+/* =============================================================
+   Loading screen: the header's orbit mark, blown up, over stars
+   flying past, with the load drawn as a flight path. It only
+   shows while html[data-boot] is set (ThemeScript, before first
+   paint). Lifting, the stars streak past and the screen dissolves
+   into the camera's warp in. Every loop is transform or opacity, so
+   it stays smooth while the main thread compiles shaders.
+   ============================================================= */
+
+/** A tile of scattered stars, as gradient images for a repeating background */
+@function star-tile($count, $tile) {
+  $images: ();
+
+  @for $i from 1 through $count {
+    $x: math.random($tile);
+    $y: math.random($tile);
+    $r: 1.1px;
+
+    @if math.random(10) > 7 {
+      $r: 1.9px;
+    }
+
+    $images: list.append(
+      $images,
+      radial-gradient(#{$r} #{$r} at #{$x}px #{$y}px, var(--star) 35%, transparent),
+      $separator: comma
+    );
+  }
+
+  @return $images;
+}
+
+.boot {
+  --progress: 0;
+  --star: color-mix(in oklab, var(--text-primary) 85%, transparent);
+
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: none;
+  place-items: center;
+  overflow: hidden;
+  color: var(--text-primary);
+  background:
+    radial-gradient(
+      ellipse 70% 55% at 50% 52%,
+      color-mix(in oklab, var(--accent-primary) 14%, transparent),
+      transparent 70%
+    ),
+    var(--bg-primary);
+
+  html[data-boot] & {
+    display: grid;
+  }
+
+  &__sky {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* Three layers of stars flying out past the viewer, a third of a loop
+     apart, so the flow never stops */
+  &__stars {
+    position: absolute;
+    inset: -45%;
+    background-size: 260px 260px;
+    opacity: 0;
+    animation: boot-approach 9s linear infinite;
+
+    &--far {
+      background-image: star-tile(16, 260);
+    }
+
+    &--mid {
+      background-image: star-tile(16, 260);
+      animation-delay: -3s;
+    }
+
+    &--near {
+      background-image: star-tile(16, 260);
+      animation-delay: -6s;
+    }
+  }
+
+  /* Hyperspace streaks, only seen as the screen lifts */
+  &__streaks {
+    position: absolute;
+    inset: -40%;
+    opacity: 0;
+    background:
+      repeating-conic-gradient(
+        from 3deg,
+        transparent 0deg 4.1deg,
+        color-mix(in oklab, var(--accent-secondary) 55%, transparent) 4.1deg 4.25deg
+      ),
+      repeating-conic-gradient(
+        from 1deg,
+        transparent 0deg 6.7deg,
+        color-mix(in oklab, var(--star) 70%, transparent) 6.7deg 6.8deg
+      );
+    mask-image: radial-gradient(circle, transparent 12%, #000 34%, transparent 72%);
+  }
+
+  &__content {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    width: min(340px, 100% - 48px);
+  }
+
+  /* The header's mark: a planet inside a dashed orbit, a moon riding it */
+  &__emblem {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 148px;
+    height: 148px;
+  }
+
+  &__orbit {
+    position: absolute;
+    inset: 0;
+    border: 1px dashed color-mix(in oklab, var(--accent-secondary) 60%, transparent);
+    border-radius: 50%;
+    animation: boot-turn 7s linear infinite;
+  }
+
+  &__moon {
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    border-radius: 50%;
+    background: var(--accent-secondary);
+    box-shadow:
+      0 0 14px var(--accent-secondary),
+      0 0 32px var(--glow-cyan);
+  }
+
+  &__planet {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.45), transparent 42%),
+      var(--gradient-brand);
+    box-shadow:
+      0 0 42px var(--glow-violet),
+      0 0 90px -10px var(--glow-cyan);
+    animation: boot-breathe 3.2s ease-in-out infinite alternate;
+  }
+
+  &__name {
+    margin: 2.25rem 0 1.75rem;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: var(--fw-bold, 700);
+    letter-spacing: -0.01em;
+  }
+
+  /* The load as a flight path: dashed course, travelled trail, a glowing
+     craft at its head and the destination ring at the far end */
+  &__track {
+    position: relative;
+    width: 100%;
+    height: 10px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      left: 0;
+      height: 1px;
+      background: repeating-linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--text-primary) 28%, transparent) 0 6px,
+        transparent 6px 11px
+      );
+    }
+  }
+
+  &__trail {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    left: 0;
+    height: 2px;
+    margin-top: -1px;
+    border-radius: 2px;
+    background: var(--gradient-brand);
+    box-shadow: 0 0 10px var(--glow-cyan);
+    transform: scaleX(var(--progress));
+    transform-origin: left center;
+  }
+
+  &__head {
+    position: absolute;
+    top: 50%;
+    left: calc((100% - 6px) * var(--progress));
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow:
+      0 0 0 2px color-mix(in oklab, var(--accent-secondary) 60%, transparent),
+      0 0 16px 2px var(--accent-secondary);
+  }
+
+  &__goal {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    border: 1px solid color-mix(in oklab, var(--accent-primary) 70%, transparent);
+    border-radius: 50%;
+  }
+
+  &__status {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    margin: 0.9rem 0 0;
+    font-size: var(--fs-caption, 0.8125rem);
+    color: var(--text-secondary);
+  }
+
+  &__percent {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+  }
+
+  &__skip {
+    position: absolute;
+    bottom: clamp(24px, 6vh, 48px);
+    left: 50%;
+    padding: 0.55rem 1.1rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-pill);
+    font-size: var(--fs-caption, 0.8125rem);
+    color: var(--text-secondary);
+    background: transparent;
+    transform: translateX(-50%);
+    animation: boot-fade-in 0.6s var(--ease-out) both;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--text-primary);
+      border-color: var(--accent-secondary);
+    }
+  }
+
+  /* ---------- Lifting: streak past, then dissolve into the warp ---------- */
+  html[data-boot='leaving'] & {
+    pointer-events: none;
+    animation: boot-lift 1s cubic-bezier(0.5, 0, 0.75, 0) both;
+
+    .boot__sky {
+      animation: boot-rush 0.95s cubic-bezier(0.55, 0, 0.85, 0.35) both;
+    }
+
+    .boot__streaks {
+      animation: boot-streak 0.95s cubic-bezier(0.4, 0, 0.8, 0.4) both;
+    }
+
+    .boot__content {
+      animation: boot-recede 0.55s var(--ease-out) both;
+    }
+  }
+}
+
+/* The page waits underneath: no scrolling, and its entrance animations hold */
+html[data-boot='loading'] {
+  overflow: hidden;
+
+  #main-content * {
+    animation-play-state: paused !important;
+  }
+}
+
+@keyframes boot-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes boot-approach {
+  0% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+
+  30%,
+  72% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+@keyframes boot-breathe {
+  to {
+    transform: scale(1.04);
+    filter: brightness(1.12);
+  }
+}
+
+@keyframes boot-fade-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+@keyframes boot-lift {
+  0%,
+  35% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes boot-rush {
+  to {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
+@keyframes boot-streak {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  40% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+@keyframes boot-recede {
+  to {
+    opacity: 0;
+    transform: scale(0.82);
+    filter: blur(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot__orbit,
+  .boot__planet {
+    animation: none !important;
+  }
+
+  .boot__stars {
+    opacity: 1;
+    animation: none !important;
+  }
+
+  html[data-boot='leaving'] .boot {
+    animation: boot-lift 0.5s ease both;
+
+    .boot__sky,
+    .boot__streaks,
+    .boot__content {
+      animation: none;
+    }
+  }
+}

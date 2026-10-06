@@ -7,6 +7,7 @@ import {
   AdditiveBlending,
   Color,
   Group,
+  MathUtils,
   Mesh,
   QuadraticBezierCurve3,
   Quaternion,
@@ -16,14 +17,33 @@ import {
 } from 'three';
 
 import globePoints from '../data/globePoints.json';
-import { asGlow, createFresnelMaterial, createRingMaterial } from '../materials';
+import {
+  asGlow,
+  createBeamMaterial,
+  createFresnelMaterial,
+  createRingMaterial,
+} from '../materials';
 import { Model } from '../Model';
+import { NavLights, Spin } from '../parts';
 import { stationInRange, useThemedMaterials, useWide } from '../stationHooks';
+import { StationHull } from '../StationHull';
 import { stationModels, stationPositions } from '../stations';
 import { latLngToVector3, palettes, seededRandom, setUniform } from '../utils';
-import { worldStore } from '../worldStore';
+import { setWorldHover, worldStore, worldTip } from '../worldStore';
 
+import type { ThreeEvent } from '@react-three/fiber';
+import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
+
+/** Where the dish array sits, and the point on it the data link leaves from */
+const arrayPosition = new Vector3(4.3, -0.9, -3.2);
+const dishFocus = new Vector3(3.85, 0.65, -2.9);
+/** Relative to the array, which sweeps about its base */
+const arrayLights: NavLight[] = [
+  { position: [-0.95, -0.65, 0], kind: 'red' },
+  { position: [0.95, -0.65, 0], kind: 'green' },
+  { position: [0, -0.7, 0.95], kind: 'white' },
+];
 
 const radius = 2.25;
 const home = { lat: 52.57, lng: -0.24 };
@@ -123,6 +143,7 @@ const buildMaterials = (p: WorldPalette) => ({
   ),
   atmosphere: createFresnelMaterial({ color: p.cyan, power: 3.2, intensity: 1.5 }),
   aura: createFresnelMaterial({ color: p.violet, power: 2.4, intensity: 1.1, backSide: true }),
+  link: createBeamMaterial({ color: p.cyan, intensity: 2.6, opacity: 0.7, speed: 1.4 }),
   arc: createRingMaterial({
     colorA: p.cyan,
     colorB: p.pink,
@@ -163,6 +184,69 @@ function buildArcs() {
   });
 }
 
+const globeTip = { label: 'Peterborough, UK', sub: 'Drag to spin the globe' };
+
+/** Drag-to-spin state: offsets added to the globe's idle sway, plus momentum */
+interface Spin {
+  yaw: number;
+  pitch: number;
+  velocity: number;
+  dragging: boolean;
+  lastX: number;
+  lastY: number;
+  lastTime: number;
+}
+
+/**
+ * The globe sits behind the page, so the same press would also start a text
+ * selection in the copy under the pointer. Nothing selects until release.
+ */
+function holdSelection() {
+  const root = document.documentElement;
+  const block = (event: Event) => event.preventDefault();
+  window.getSelection()?.removeAllRanges();
+  root.classList.add('world-dragging');
+  document.addEventListener('selectstart', block);
+  return () => {
+    root.classList.remove('world-dragging');
+    document.removeEventListener('selectstart', block);
+  };
+}
+
+/** Starts a drag on the globe; window listeners follow the pointer until release */
+function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>) {
+  e.stopPropagation();
+  e.nativeEvent.preventDefault();
+  const release = holdSelection();
+  spin.dragging = true;
+  spin.lastX = e.clientX;
+  spin.lastY = e.clientY;
+  spin.lastTime = performance.now();
+  spin.velocity = 0;
+  const move = (event: PointerEvent) => {
+    const now = performance.now();
+    const dx = event.clientX - spin.lastX;
+    const dy = event.clientY - spin.lastY;
+    const step = dx * 0.0085;
+    spin.yaw += step;
+    spin.pitch = MathUtils.clamp(spin.pitch + dy * 0.004, -0.5, 0.5);
+    spin.velocity = step / Math.max((now - spin.lastTime) / 1000, 1 / 120);
+    spin.lastX = event.clientX;
+    spin.lastY = event.clientY;
+    spin.lastTime = now;
+  };
+  const end = () => {
+    spin.dragging = false;
+    release();
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+}
+
 const launchDuration = 5.5;
 const returnDuration = 1.6;
 
@@ -190,6 +274,15 @@ function updateRocket(rocket: Group, baseY: number, t: number, dt: number) {
 export function ContactStation({ theme }: { theme: WorldTheme }) {
   const groupRef = useRef<Group>(null);
   const globeRef = useRef<Group>(null);
+  const spinRef = useRef<Spin>({
+    yaw: 0,
+    pitch: 0,
+    velocity: 0,
+    dragging: false,
+    lastX: 0,
+    lastY: 0,
+    lastTime: 0,
+  });
   const beaconRef = useRef<Group>(null);
   const rocketRef = useRef<Group>(null);
   const wide = useWide();
@@ -220,6 +313,19 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   useEffect(() => () => arcs.forEach((arc) => arc.dispose()), [arcs]);
 
   const beaconPosition = useMemo(() => latLngToVector3(home.lat, home.lng, radius), []);
+
+  // The data link: a pulse of light from the dish to the globe's surface
+  const link = useMemo(() => {
+    const globeCentre = new Vector3(0, 0.5, 0);
+    const towards = globeCentre.clone().sub(dishFocus).normalize();
+    const end = globeCentre.clone().addScaledVector(towards, -radius * 1.02);
+    const length = end.distanceTo(dishFocus);
+    return {
+      length,
+      position: dishFocus.clone().lerp(end, 0.5),
+      quaternion: new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), towards),
+    };
+  }, []);
   const beaconQuaternion = useMemo(
     () =>
       new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), beaconPosition.clone().normalize()),
@@ -235,13 +341,22 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
     setUniform(materials.dots, 'uTime', t);
     setUniform(materials.dots, 'uPixelRatio', viewport.dpr);
     setUniform(materials.arc, 'uTime', t);
+    setUniform(materials.link, 'uTime', t);
     setUniform(materials.exhaust, 'uTime', t);
     setUniform(materials.exhaust, 'uPixelRatio', viewport.dpr);
 
     const globe = globeRef.current;
     if (globe) {
-      globe.rotation.y = -Math.PI / 2 + Math.sin(t * 0.12) * 0.35 + worldStore.pointerX * 0.2;
-      globe.rotation.x = 0.62 + worldStore.pointerY * 0.08;
+      // Momentum after a drag, easing out; the tilt drifts back to rest
+      const spin = spinRef.current;
+      if (!spin.dragging) {
+        spin.yaw += spin.velocity * dt;
+        spin.velocity *= Math.exp(-1.6 * dt);
+        spin.pitch = MathUtils.damp(spin.pitch, 0, 1.2, dt);
+      }
+      globe.rotation.y =
+        -Math.PI / 2 + Math.sin(t * 0.12) * 0.35 + worldStore.pointerX * 0.2 + spin.yaw;
+      globe.rotation.x = 0.62 + worldStore.pointerY * 0.08 + spin.pitch;
     }
 
     beaconRef.current?.children.forEach((ring, i) => {
@@ -261,7 +376,18 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   return (
     <group ref={groupRef} position={stationPositions.contact}>
       <group ref={globeRef} position={[0, 0.5, 0]} rotation={[0.62, -Math.PI / 2, 0]}>
-        <mesh>
+        <mesh
+          onPointerDown={(e) => startSpin(spinRef.current, e)}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setWorldHover(true, 'grab');
+            worldTip.set(globeTip);
+          }}
+          onPointerOut={() => {
+            setWorldHover(false);
+            if (worldTip.get() === globeTip) worldTip.set(null);
+          }}
+        >
           <sphereGeometry args={[radius * 0.985, 64, 48]} />
           <meshBasicMaterial color={theme === 'dark' ? '#070916' : '#dfe3f3'} />
         </mesh>
@@ -298,6 +424,18 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
           </group>
         </group>
       </group>
+
+      {/* The deep-space comms array, dish turned towards the globe */}
+      {/* It sweeps a little either side, as if tracking the signal */}
+      <Spin position={arrayPosition} sweep={0.3} speed={0.09}>
+        <group rotation={[0.08, -2.3, 0.05]}>
+          <StationHull station="contact" height={2.5} theme={theme} />
+        </group>
+        <NavLights lights={arrayLights} />
+      </Spin>
+      <mesh material={materials.link} position={link.position} quaternion={link.quaternion}>
+        <cylinderGeometry args={[0.025, 0.025, link.length, 8, 1, true]} />
+      </mesh>
 
       <group
         ref={rocketRef}

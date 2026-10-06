@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Bloom, ChromaticAberration, EffectComposer, Vignette } from '@react-three/postprocessing';
-import { ChromaticAberrationEffect } from 'postprocessing';
+import { BloomEffect, ChromaticAberrationEffect } from 'postprocessing';
 import { Vector2 } from 'three';
 
 import { palettes } from './utils';
@@ -18,6 +18,11 @@ function updateAberration(effect: ChromaticAberrationEffect | null, velocity: nu
   if (!effect) return;
   const amount = Math.min(velocity / 40, 1.2) * 0.0035;
   effect.offset.set(amount, amount * 0.6);
+}
+
+/** Bloom's working resolution, as a share of the screen: resizes its buffers, nothing else */
+function setBloomScale(effect: BloomEffect | null, scale: number) {
+  if (effect && effect.resolution.scale !== scale) effect.resolution.scale = scale;
 }
 
 /** Resolves once the composer has built its passes (they're added a render after mount) */
@@ -35,14 +40,14 @@ function composerReady(ref: { current: EffectComposerImpl | null }) {
 }
 
 /**
- * Post-processing per quality tier. One composer serves every tier: the scene
- * is always drawn into its input buffer, so a tier change never invalidates
- * the scene's compiled shaders.
- * high — bloom + velocity-driven chromatic aberration + vignette;
- * medium — the same passes (aberration held at zero); the saving is the
- * lower pixel ratio; low — vignette only, no bloom.
- * Bloom's constructor args are identical on high and medium, so switching
- * between them doesn't rebuild (and recompile) anything.
+ * Post-processing. The same passes run on every quality tier (bloom,
+ * velocity-driven chromatic aberration, vignette), so a tier change never
+ * rebuilds the composer, recompiles a shader, or shifts the exposure: a
+ * tier that dropped bloom used to read as the whole world flickering
+ * between bright and dim. The tiers differ in cost only: the pixel ratio
+ * (WorldCanvas), bloom's internal resolution (a quarter on low, set
+ * through the effect so nothing is recreated) and aberration held at
+ * zero below high.
  */
 export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier }) {
   const palette = palettes[theme];
@@ -50,38 +55,39 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
   const camera = useThree((s) => s.camera);
   const track = useWarmupTask();
   const composerRef = useRef<EffectComposerImpl>(null);
+  const bloomRef = useRef<BloomEffect>(null);
   const aberrationRef = useRef<ChromaticAberrationEffect>(null);
   const offset = useMemo(() => new Vector2(0, 0), []);
-  const bloom = tier !== 'low';
   const aberration = tier === 'high';
 
   useFrame(() => updateAberration(aberrationRef.current, aberration ? worldStore.velocity : 0));
 
-  // Precompile the passes whenever the pass list is (re)built: on mount, on a
-  // theme change (new bloom threshold) and when bloom is switched on or off
+  useEffect(() => {
+    setBloomScale(bloomRef.current, tier === 'low' ? 0.25 : 0.5);
+  }, [tier]);
+
+  // Precompile the passes whenever the pass list is (re)built: on mount and
+  // on a theme change (new bloom threshold)
   useEffect(() => {
     track(composerReady(composerRef).then((composer) => precompileComposer(gl, composer, camera)));
-  }, [bloom, palette.bloomThreshold, gl, camera, track]);
+  }, [palette.bloomThreshold, gl, camera, track]);
 
   return (
     <EffectComposer ref={composerRef} multisampling={0}>
-      {bloom && (
-        <Bloom
-          mipmapBlur
-          intensity={palette.bloom}
-          luminanceThreshold={palette.bloomThreshold}
-          luminanceSmoothing={0.25}
-          radius={0.75}
-        />
-      )}
-      {bloom && (
-        <ChromaticAberration
-          ref={aberrationRef}
-          offset={offset}
-          radialModulation
-          modulationOffset={0.25}
-        />
-      )}
+      <Bloom
+        ref={bloomRef}
+        mipmapBlur
+        intensity={palette.bloom}
+        luminanceThreshold={palette.bloomThreshold}
+        luminanceSmoothing={0.25}
+        radius={0.75}
+      />
+      <ChromaticAberration
+        ref={aberrationRef}
+        offset={offset}
+        radialModulation
+        modulationOffset={0.25}
+      />
       <Vignette darkness={palette.vignette} offset={0.28} />
     </EffectComposer>
   );

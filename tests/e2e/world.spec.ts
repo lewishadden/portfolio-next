@@ -22,6 +22,14 @@ test.describe('without WebGL', () => {
   });
 });
 
+test('no loading screen holds the page when the world is off', async ({ page }) => {
+  await openHydrated(page, '/');
+  await expect(page.locator('html')).not.toHaveAttribute('data-boot');
+  await expect(page.locator('.boot')).toHaveCount(0);
+  await expect(page.locator('#main-content')).not.toHaveAttribute('inert');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+});
+
 test.describe('3D effects toggle', () => {
   // Reduced motion renders on demand, so software WebGL isn't redrawing all the time
   test.use({ world: 'on', reducedMotion: 'reduce' });
@@ -55,4 +63,76 @@ test.describe('3D effects toggle', () => {
       expect(await page.evaluate(() => localStorage.getItem('world'))).toBeNull();
     }
   );
+});
+
+test.describe('tour and explore modes', () => {
+  test.use({ world: 'on', reducedMotion: 'reduce' });
+
+  test('take over the page and hand it back', { tag: '@webgl' }, async ({ page }) => {
+    await openHydrated(page, '/');
+    await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+    // The page stays inert under the loading screen until it lifts
+    await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+    const main = page.locator('#main-content');
+
+    // The guided tour hides the page while it flies station to station. The
+    // pointer rests where its caption card appears, which holds the tour at
+    // each stop: software WebGL makes every action slow, and the tour moves
+    // on by itself in real time
+    const { width, height } = page.viewportSize()!;
+    await page.mouse.move(width / 2, height - 120);
+    await page.getByRole('button', { name: 'Take the tour' }).focus();
+    await page.keyboard.press('Enter');
+    const tour = page.getByRole('region', { name: 'Guided tour' });
+    await expect(tour).toBeVisible();
+    await expect(tour).toContainText('01 / 06');
+    await expect(main).toHaveAttribute('inert', '');
+    await expect(page.locator('html')).toHaveAttribute('data-world-mode', 'tour');
+
+    await tour.getByRole('button', { name: 'Next stop' }).click();
+    await expect(tour).toContainText('02 / 06');
+    await tour.getByRole('button', { name: 'Visit About' }).click();
+    await expect(page).toHaveURL(/\/about$/);
+    await expect(tour).toBeHidden();
+    await expect(main).not.toHaveAttribute('inert');
+
+    // Free flight from the command palette; Escape lands back on the page
+    await page.keyboard.press('ControlOrMeta+k');
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    await palette.getByRole('combobox', { name: 'Command' }).fill('free flight');
+    await page.keyboard.press('Enter');
+    const hud = page.getByRole('region', { name: 'Explore mode' });
+    await expect(hud).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-world-mode', 'explore');
+    await expect(main).toHaveAttribute('inert', '');
+
+    // Every station is marked; its number key sets the autopilot for it
+    const stations = hud.getByRole('list', { name: 'Stations' });
+    await expect(stations.getByRole('button')).toHaveCount(6);
+    const projects = stations.getByRole('button', { name: /^Autopilot to Projects/ });
+    await expect(projects).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('Digit3');
+    await expect(projects).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      hud.getByRole('status').filter({ hasText: 'Autopilot to Projects' })
+    ).toBeVisible();
+    await page.keyboard.press('Digit3');
+    await expect(projects).toHaveAttribute('aria-pressed', 'false');
+
+    await page.keyboard.press('Escape');
+    await expect(hud).toBeHidden();
+    await expect(page.locator('html')).toHaveAttribute('data-world-mode', 'page');
+    await expect(main).not.toHaveAttribute('inert');
+    await expect(page).toHaveURL(/\/about$/);
+
+    // The floating button toggles free roam too. Starting it locks the
+    // pointer where the browser allows, and a locked pointer clicks the
+    // page, not the button: the browser's own Esc frees it first
+    await page.getByRole('button', { name: 'Free roam' }).click();
+    await expect(hud).toBeVisible();
+    await page.evaluate(() => document.exitPointerLock());
+    await page.getByRole('button', { name: 'Exit free roam' }).click();
+    await expect(hud).toBeHidden();
+    await expect(main).not.toHaveAttribute('inert');
+  });
 });

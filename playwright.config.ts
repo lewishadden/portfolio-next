@@ -36,6 +36,10 @@ export default defineConfig({
       // rest of the suite on CI machines
       name: 'chromium-webgl',
       grep: /@webgl/,
+      // Software WebGL compiles and draws the world on the CPU: one test at
+      // a time, with room for it, or two of them starve each other
+      workers: 1,
+      timeout: 180_000,
       use: {
         ...devices['Desktop Chrome'],
         launchOptions: {

@@ -4,8 +4,16 @@ export type GroupProps = ThreeElements['group'];
 
 /** Content the world needs from content.json (serialisable, passed from the root layout) */
 export interface WorldContent {
-  projects: { title: string; slug: string; image?: string }[];
+  projects: {
+    title: string;
+    slug: string;
+    /** Up to four screenshots; `tall` marks full-page captures, which scroll on screen */
+    images: { url: string; tall: boolean }[];
+  }[];
   skills: { name: string; icon: string; category: string }[];
   categories: string[];
-  experienceCount: number;
+  /** Roles from the top of the timeline down (one tether pod each) */
+  roles: { title: string; company: string }[];
+  /** Guided tour captions, one per stop */
+  tour: { station: string; title: string; text: string }[];
 }

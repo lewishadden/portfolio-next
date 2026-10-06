@@ -7,7 +7,9 @@ import { Group, Mesh, MeshStandardMaterial } from 'three';
 
 import { createBeamMaterial, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
+import { Spin } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
+import { StationHull } from '../StationHull';
 import {
   experienceDepth,
   framedHeight,
@@ -16,8 +18,23 @@ import {
   stationPositions,
 } from '../stations';
 import { palettes, setUniform } from '../utils';
+import { focusOnPage, setWorldHover, worldTip } from '../worldStore';
 
+import type { ThreeEvent } from '@react-three/fiber';
+import type { WorldTip } from '../worldStore';
+import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
+
+function hoverNode(e: ThreeEvent<PointerEvent>, tip: WorldTip, on: boolean) {
+  if (on) {
+    e.stopPropagation();
+    setWorldHover(true);
+    worldTip.set(tip);
+  } else {
+    setWorldHover(false);
+    if (worldTip.get() === tip) worldTip.set(null);
+  }
+}
 
 const buildMaterials = (p: WorldPalette) => ({
   core: createBeamMaterial({ color: p.cyan, intensity: 3, speed: 0.6 }),
@@ -44,8 +61,27 @@ function lightNode(node: Group, activation: number, dt: number) {
   halo.scale.setScalar(2.4 + activation * 2.4);
 }
 
-/** `/experience` — a satellite escorts the camera down a beam; one glowing node per role */
-export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: number }) {
+/**
+ * `/experience`: a satellite escorts the camera down a pulsing beam that
+ * hangs from the station's hull; one glowing node per role lights up as the
+ * camera passes it (hover for the role, click to jump to it on the page).
+ */
+export function ExperienceStation({
+  theme,
+  roles,
+}: {
+  theme: WorldTheme;
+  roles: WorldContent['roles'];
+}) {
+  const count = roles.length;
+  const tips = useMemo(
+    () =>
+      roles.map((role) => ({
+        label: `${role.title} · ${role.company}`,
+        sub: 'Click to read more',
+      })),
+    [roles]
+  );
   const groupRef = useRef<Group>(null);
   const satelliteRef = useRef<Group>(null);
   const nodesRef = useRef<Group>(null);
@@ -98,6 +134,11 @@ export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: 
         <planeGeometry />
       </mesh>
 
+      {/* The station the beam hangs from, behind it and off to the side */}
+      <Spin position={[-4.6, 4.6, -13]}>
+        <StationHull station="experience" height={3.4} theme={theme} />
+      </Spin>
+
       <group position={[0, 4 - beamLength / 2, 0]}>
         <mesh material={materials.core}>
           <cylinderGeometry args={[0.045, 0.045, beamLength, 12, 1, true]} />
@@ -108,7 +149,7 @@ export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: 
       </group>
 
       <group ref={nodesRef}>
-        {nodeYs.map((y) => (
+        {nodeYs.map((y, i) => (
           <group key={y} position={[0, y, 0]}>
             <mesh>
               <sphereGeometry args={[0.24, 32, 16]} />
@@ -126,6 +167,18 @@ export function ExperienceStation({ theme, count }: { theme: WorldTheme; count: 
             </mesh>
             <mesh material={materials.halo} visible={false}>
               <planeGeometry />
+            </mesh>
+            {/* Never drawn: a comfortable target for the pointer */}
+            <mesh
+              visible={false}
+              onPointerOver={(e) => hoverNode(e, tips[i], true)}
+              onPointerOut={(e) => hoverNode(e, tips[i], false)}
+              onClick={(e) => {
+                e.stopPropagation();
+                focusOnPage(`role:${i}`);
+              }}
+            >
+              <sphereGeometry args={[0.8, 12, 8]} />
             </mesh>
           </group>
         ))}

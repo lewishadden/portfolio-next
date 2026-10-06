@@ -69,6 +69,20 @@ export interface About {
   };
   cta: CtaPair;
   highlights: Highlight[];
+  recommendations?: Recommendation[];
+}
+
+/** A recommendation quoted from LinkedIn */
+export interface Recommendation {
+  name: string;
+  title: string;
+  company: string;
+  /** ISO date it was written */
+  date: string;
+  relationship: string;
+  /** Paragraphs, verbatim */
+  text: string[];
+  source: { label: string; url: string };
 }
 
 export interface Highlight {

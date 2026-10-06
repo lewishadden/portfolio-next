@@ -1,8 +1,18 @@
 import { expect, openHydrated, test } from './fixtures';
 
-test.describe('project grid modal', () => {
-  test('opens at the project URL and closes back to the grid', async ({ page }) => {
+import type { Page } from '@playwright/test';
+
+/** Brings a project to the front (the index link), where its "View details" lives */
+async function pick(page: Page, name: string) {
+  const index = page.getByRole('navigation', { name: 'Projects' });
+  await index.getByRole('link', { name, exact: true }).click();
+  await expect(page.getByRole('heading', { level: 2, name })).toBeVisible();
+}
+
+test.describe('project modal', () => {
+  test('opens at the project URL and closes back to the list', async ({ page }) => {
     await openHydrated(page, '/projects');
+    await pick(page, 'Drive King');
     const card = page.getByRole('link', { name: 'View details for Drive King' });
     await expect(card).toHaveAttribute('href', '/projects/drive-king');
 
@@ -10,7 +20,7 @@ test.describe('project grid modal', () => {
     await expect(page).toHaveURL(/\/projects\/drive-king$/);
     const dialog = page.getByRole('dialog', { name: 'Drive King' });
     await expect(dialog).toBeVisible();
-    // The grid stays mounted underneath — no navigation happened
+    // The project steps stay mounted underneath: no navigation happened
     await expect(page.getByRole('heading', { level: 1, name: 'Selected projects' })).toBeAttached();
 
     await page.keyboard.press('Escape');
@@ -21,6 +31,7 @@ test.describe('project grid modal', () => {
 
   test('the Back button closes it and Forward reopens it', async ({ page }) => {
     await openHydrated(page, '/projects');
+    await pick(page, 'Sidenote');
     await page.getByRole('link', { name: 'View details for Sidenote' }).click();
     const dialog = page.getByRole('dialog', { name: 'Sidenote' });
     await expect(dialog).toBeVisible();
@@ -34,12 +45,13 @@ test.describe('project grid modal', () => {
     await expect(page).toHaveURL(/\/projects\/sidenote$/);
   });
 
-  test('keeps the grid scroll position', async ({ page }) => {
+  test('keeps the scroll position', async ({ page }) => {
     await openHydrated(page, '/projects');
+    await pick(page, 'Audex');
     const card = page.getByRole('link', { name: 'View details for Audex' });
     const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
 
-    // Where the visitor left the grid: scroll the card into view and let the
+    // Where the visitor left the list: scroll the card into view and let the
     // smooth scrolling (CSS + Lenis) settle before clicking
     await card.scrollIntoViewIfNeeded();
     let settled = -1;
@@ -60,6 +72,80 @@ test.describe('project grid modal', () => {
     // The dialog pins the page while open, snapping back anything that scrolls it
     await expect.poll(scrollY).toBe(settled);
   });
+});
+
+test.describe('project index', () => {
+  test('picks the project in front, and every project keeps its own link', async ({ page }) => {
+    await openHydrated(page, '/projects');
+    const index = page.getByRole('navigation', { name: 'Projects' });
+    const links = index.getByRole('link');
+    await expect(links.first()).toHaveAttribute('aria-current', 'true');
+    await expect(links.first()).toHaveAttribute('href', /^\/projects\/[\w-]+$/);
+
+    const sidenote = index.getByRole('link', { name: 'Sidenote', exact: true });
+    await sidenote.click();
+    await expect(sidenote).toHaveAttribute('aria-current', 'true');
+    await expect(links.first()).not.toHaveAttribute('aria-current', 'true');
+    await expect(page.getByRole('heading', { level: 2, name: 'Sidenote' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View details for Sidenote' })).toBeVisible();
+
+    // One crawlable link per project
+    const count = await links.count();
+    expect(count).toBeGreaterThan(5);
+    const hrefs = await links.evaluateAll((els) => els.map((el) => el.getAttribute('href')));
+    expect(new Set(hrefs).size).toBe(count);
+  });
+});
+
+test.describe('the helix ride', () => {
+  test.use({ world: 'on' });
+
+  test(
+    'holds the first project back until its stage docks, and snaps to projects',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/projects');
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 120_000 });
+      const title = page.locator('.proj-hud__title');
+      await expect(title).toBeHidden();
+
+      // Where each project is in front: the stage docks, then one step
+      // apiece. Measured live: late layout (web fonts swapping in) moves it
+      const lane = () =>
+        page.evaluate(() => {
+          const tour = document.querySelector<HTMLElement>('.projects__tour')!;
+          const stage = document.querySelector<HTMLElement>('.projects__stage')!;
+          const docked =
+            tour.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(stage).top);
+          return { y: scrollY, docked, step: (tour.offsetHeight - stage.offsetHeight) / 14 };
+        });
+      /** Scroll comes to rest with project `index` in front */
+      const restsOn = (index: number) =>
+        expect
+          .poll(
+            async () => {
+              const { y, docked, step } = await lane();
+              return Math.abs(y - (docked + step * index)) < 6;
+            },
+            { timeout: 15_000, intervals: [400] }
+          )
+          .toBe(true);
+
+      // Most of the way to the first project: it glides the rest and docks
+      const { width, height } = page.viewportSize()!;
+      await page.mouse.move(width / 2, height / 2);
+      await page.mouse.wheel(0, (await lane()).docked * 0.7);
+      await restsOn(0);
+      await expect(title).toBeVisible();
+      await expect(title).toHaveText('ZGS Carpentry');
+
+      // A little past a project glides back to it, not to a point in between
+      await page.mouse.wheel(0, (await lane()).step * 0.3);
+      await restsOn(0);
+      await page.mouse.wheel(0, (await lane()).step * 0.7);
+      await restsOn(1);
+    }
+  );
 });
 
 test.describe('project pages', () => {
@@ -98,5 +184,33 @@ test.describe('project pages', () => {
   test('unknown slugs are a 404', async ({ page }) => {
     const response = await page.goto('/projects/not-a-real-project');
     expect(response?.status()).toBe(404);
+  });
+});
+
+test.describe('full-page screenshots', () => {
+  test('show in a browser frame that scrolls itself and by hand', async ({ page }) => {
+    await openHydrated(page, '/projects/drive-king');
+    const gallery = page.getByRole('region', { name: 'Drive King screenshots' });
+    await gallery.getByRole('button', { name: 'Next screenshot' }).click();
+
+    const viewport = gallery.getByRole('region', { name: /Full-page screenshot/ });
+    await expect(viewport).toBeVisible();
+    await expect(gallery.locator('.page-shot__url')).toHaveText(/drive-king\.co\.uk/);
+    // Wide, not a thin portrait strip
+    const box = await viewport.boundingBox();
+    expect(box && box.width > box.height).toBe(true);
+
+    // Pans down on its own after a short pause
+    const scrollTop = () => viewport.evaluate((el) => el.scrollTop);
+    await expect.poll(scrollTop, { timeout: 8_000 }).toBeGreaterThan(100);
+
+    // A wheel scroll hands control to the visitor
+    await viewport.hover();
+    await page.mouse.wheel(0, 600);
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(300);
+    const held = await scrollTop();
+    await page.waitForTimeout(1500);
+    expect(Math.abs((await scrollTop()) - held)).toBeLessThan(2);
   });
 });

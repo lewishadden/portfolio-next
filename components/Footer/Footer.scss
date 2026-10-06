@@ -22,11 +22,11 @@
     opacity: 0.6;
   }
 
-  /* ---------- Big call to action ---------- */
+  /* ---------- Call to action ---------- */
   &__cta {
     display: grid;
-    gap: 1.5rem;
-    margin-bottom: clamp(4rem, 10vh, 6rem);
+    gap: 1.1rem;
+    margin-bottom: clamp(3rem, 7vh, 4.5rem);
   }
 
   &__cta-eyebrow {
@@ -56,7 +56,7 @@
     &:hover .footer__cta-orb {
       transform: scale(1.08) rotate(45deg);
       box-shadow:
-        0 0 0 10px color-mix(in oklab, var(--accent-primary) 12%, transparent),
+        0 0 0 7px color-mix(in oklab, var(--accent-primary) 12%, transparent),
         0 20px 60px -10px var(--glow-violet);
     }
 
@@ -67,10 +67,10 @@
 
   &__cta-title {
     font-family: var(--font-display);
-    font-size: clamp(2.5rem, 8.5vw, 7rem);
+    font-size: clamp(2rem, 4.8vw, 3.75rem);
     font-weight: var(--fw-bold);
-    line-height: 0.98;
-    letter-spacing: -0.05em;
+    line-height: 1.02;
+    letter-spacing: -0.04em;
     text-wrap: balance;
     transition: letter-spacing 0.8s var(--ease-out);
   }
@@ -80,7 +80,7 @@
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    width: clamp(5.5rem, 12vw, 9rem);
+    width: clamp(3.75rem, 7vw, 5.5rem);
     aspect-ratio: 1;
     border-radius: 50%;
     color: var(--accent-contrast);
@@ -93,7 +93,7 @@
 
   &__cta-orb-ring {
     position: absolute;
-    inset: -12px;
+    inset: -8px;
     border-radius: 50%;
     border: 1px dashed color-mix(in oklab, var(--accent-secondary) 60%, transparent);
     animation: footer-orbit 14s linear infinite;

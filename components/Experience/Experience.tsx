@@ -7,6 +7,7 @@ import { m, useInView, useScroll, useTransform } from 'framer-motion';
 
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
+import { useBooted } from 'components/World/boot';
 import { illustrations } from 'components/World/StationFallback';
 import { Reveal } from 'components/Motion/Reveal';
 
@@ -66,9 +67,19 @@ const chipVariants: Variants = {
   },
 };
 
-const TimelineItem = ({ item, number }: { item: ExperienceItem; number: string }) => {
+const TimelineItem = ({
+  item,
+  number,
+  index,
+}: {
+  item: ExperienceItem;
+  number: string;
+  /** Position from the top, matching the role's pod on the 3D tether */
+  index: number;
+}) => {
   const itemRef = useRef<HTMLLIElement>(null);
   const lit = useInView(itemRef, { margin: litMargin });
+  const booted = useBooted();
   const glowRef = usePointerGlow<HTMLElement>({ tilt: 2.5 });
   const duration = roleDuration(item.years);
 
@@ -77,7 +88,7 @@ const TimelineItem = ({ item, number }: { item: ExperienceItem; number: string }
       ref={itemRef}
       className={`xp__item${lit ? ' xp__item--lit' : ''}`}
       initial="hidden"
-      whileInView="shown"
+      whileInView={booted ? 'shown' : undefined}
       viewport={{ once: true, margin: '0px 0px -10% 0px' }}
     >
       <m.div className="xp__node" variants={nodeVariants} aria-hidden="true">
@@ -88,7 +99,11 @@ const TimelineItem = ({ item, number }: { item: ExperienceItem; number: string }
       </m.div>
 
       <m.div className="xp__card-wrap" variants={cardVariants}>
-        <article className="xp__card glass spotlight" ref={glowRef}>
+        <article
+          className="xp__card glass spotlight"
+          ref={glowRef}
+          data-world-target={`role:${index}`}
+        >
           <span className="xp__num" aria-hidden="true">
             {number}
           </span>
@@ -195,6 +210,7 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
             <TimelineItem
               key={`${item.company}-${item.years}`}
               item={item}
+              index={i}
               number={String(items.length - i).padStart(2, '0')}
             />
           ))}

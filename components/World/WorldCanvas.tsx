@@ -1,14 +1,24 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Environment, Lightformer, PerformanceMonitor } from '@react-three/drei';
+import { PerformanceMonitor } from '@react-three/drei';
 
+import { Asteroids } from './Asteroids';
+import { Beacons } from './Beacons';
+import { bootState, readyBoot, reportBoot } from './boot';
+import { downloads } from './downloads';
 import { CameraRig } from './CameraRig';
 import { Dust } from './Dust';
 import { Effects } from './Effects';
+import { ExploreControls } from './ExploreControls';
+import { setHullTheme } from './hull';
+import { worldEvents } from './interaction';
+import { Landmarks } from './Landmarks';
+import { Lighting } from './Lighting';
 import { Nebula } from './Nebula';
-import { Starfield } from './Starfield';
+import { BrightStars, Starfield } from './Starfield';
+import { StatsProbe } from './StatsProbe';
 import { AboutStation } from './stations/AboutStation';
 import { ContactStation } from './stations/ContactStation';
 import { ExperienceStation } from './stations/ExperienceStation';
@@ -17,6 +27,8 @@ import { LostStation } from './stations/LostStation';
 import { ProjectsStation } from './stations/ProjectsStation';
 import { SkillsStation } from './stations/SkillsStation';
 import { lowerTier, raiseTier, tierSettings } from './quality';
+import { navigableStations } from './routes';
+import { LiteContext } from './stationHooks';
 import { baseFov } from './stations';
 import { palettes } from './utils';
 import {
@@ -26,6 +38,7 @@ import {
   createWarmupTracker,
   useWarmupIdle,
 } from './warmup';
+import { tourStops, useWorldMode } from './worldMode';
 import { worldStore } from './worldStore';
 
 import type { Dispatch, SetStateAction } from 'react';
@@ -33,36 +46,6 @@ import type { QualityTier } from './quality';
 import type { StationKey } from './stations';
 import type { WorldContent } from './types';
 import type { WorldTheme } from './utils';
-
-/** Local studio lighting for PBR reflections — no HDR download needed */
-function StudioEnvironment() {
-  return (
-    <Environment resolution={128} frames={1}>
-      <Lightformer
-        form="rect"
-        intensity={3}
-        color="#ffffff"
-        position={[0, 5, 6]}
-        scale={[10, 4, 1]}
-      />
-      <Lightformer
-        form="rect"
-        intensity={5}
-        color="#8b5cf6"
-        position={[-6, 1, -2]}
-        scale={[3, 10, 1]}
-      />
-      <Lightformer
-        form="rect"
-        intensity={5}
-        color="#22d3ee"
-        position={[6, -1, -2]}
-        scale={[3, 10, 1]}
-      />
-      <Lightformer form="ring" intensity={2} color="#f472b6" position={[0, -6, 3]} scale={4} />
-    </Environment>
-  );
-}
 
 /** With frameloop="demand" (reduced motion), repaint on scroll, resize and route changes */
 function DemandDriver({
@@ -130,7 +113,11 @@ function QualityGovernor({
     <PerformanceMonitor
       onDecline={() => setTier(lowerTier)}
       onIncline={() => setTier((current) => raiseTier(current, ceiling))}
-      flipflops={4}
+      // Judge over four seconds, and only step for a clear and sustained change
+      ms={400}
+      iterations={10}
+      bounds={(refreshRate) => (refreshRate > 90 ? [48, 84] : [42, 56])}
+      flipflops={3}
       onFallback={() => setTier('low')}
     />
   );
@@ -148,7 +135,7 @@ export interface WorldCanvasProps {
 }
 
 export default function WorldCanvas({
-  station,
+  station: pageStation,
   theme,
   reducedMotion,
   lite,
@@ -156,10 +143,32 @@ export default function WorldCanvas({
   focusProject,
   onReady,
 }: WorldCanvasProps) {
+  // The tour flies its own route; explore mode can reach every station
+  const { mode, tourStop } = useWorldMode();
+  const station = mode === 'tour' ? tourStops[tourStop] : pageStation;
+
   // Stations mount the first time they are visited and stay mounted so flights
-  // back to them are seamless; unvisited stations cost nothing.
+  // back to them are seamless; unvisited stations cost nothing. The tour
+  // warms the next stop while it lingers at this one.
   const [visited, setVisited] = useState<StationKey[]>([station]);
-  if (!visited.includes(station)) setVisited([...visited, station]);
+  const wanted =
+    mode === 'tour' ? [station, tourStops[(tourStop + 1) % tourStops.length]] : [station];
+  const missing = wanted.filter((key) => !visited.includes(key));
+  if (missing.length) setVisited([...visited, ...missing]);
+
+  // Explore mode can reach every station: mount the rest one at a time, so
+  // their downloads and warm-ups queue up instead of landing together
+  const allMounted = navigableStations.every((key) => visited.includes(key));
+  useEffect(() => {
+    if (mode !== 'explore' || allMounted) return;
+    const id = window.setInterval(() => {
+      setVisited((current) => {
+        const next = navigableStations.find((key) => !current.includes(key));
+        return next ? [...current, next] : current;
+      });
+    }, 700);
+    return () => window.clearInterval(id);
+  }, [mode, allMounted]);
 
   // Phones / touch devices start (and top out) one tier down
   const ceiling: QualityTier = lite ? 'medium' : 'high';
@@ -171,6 +180,10 @@ export default function WorldCanvas({
   }, [tier]);
   const palette = palettes[theme];
   const has = (key: StationKey) => visited.includes(key);
+  // Shadows are decided once: switching them later would recompile every lit material
+  const [shadows] = useState(!lite);
+
+  useEffect(() => setHullTheme(theme), [theme]);
 
   // Shader compiles, the nebula bake and texture uploads run before the first
   // frame is drawn (the canvas is paused and hidden until then) and before
@@ -186,6 +199,28 @@ export default function WorldCanvas({
     return () => cancelAnimationFrame(id);
   }, [warm, onReady]);
 
+  // The loading screen: progress from asset downloads and warm-up work, and
+  // ready once the first view is drawn with nothing loading or warming up
+  useEffect(() => {
+    // Only on the first load (switching the world back on later has no screen)
+    if (bootState().ready) return;
+    reportBoot(0.2, 1);
+    let calm = 0;
+    const id = window.setInterval(() => {
+      const work = tracker.counts();
+      const units = downloads.total + work.started;
+      const done = downloads.loaded + work.settled;
+      reportBoot(0.2 + 0.78 * (units ? done / units : 0), downloads.busy ? 2 : 3);
+      // Settled for a moment: a finished download's warm-up registers a frame or two later
+      calm = warm && !downloads.busy && tracker.idle() ? calm + 1 : 0;
+      if (calm >= 3) {
+        window.clearInterval(id);
+        readyBoot();
+      }
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [tracker, warm]);
+
   return (
     <Canvas
       className="world__canvas"
@@ -193,6 +228,11 @@ export default function WorldCanvas({
       gl={{ antialias: false, alpha: false, stencil: false, powerPreference: 'high-performance' }}
       camera={{ fov: baseFov, near: 0.1, far: 2000, position: [0, 0, 60] }}
       frameloop={!warm ? 'never' : reducedMotion ? 'demand' : 'always'}
+      shadows={shadows ? 'percentage' : false}
+      // The canvas sits behind the page: listen on the document, react only over open space
+      events={worldEvents}
+      eventSource={document.body}
+      eventPrefix="client"
       onCreated={({ gl }) => {
         // Reading every shader's info log on first use is a synchronous round
         // trip to the GPU process per shader; keep it for development only
@@ -200,65 +240,72 @@ export default function WorldCanvas({
       }}
     >
       <WarmupProvider tracker={tracker}>
-        <color attach="background" args={[palette.background]} />
-        <fog attach="fog" args={[palette.background, palette.fog[0], palette.fog[1]]} />
-        <QualityGovernor ceiling={ceiling} setTier={setTier} />
-        {reducedMotion && (
-          <DemandDriver station={station} theme={theme} focusProject={focusProject} />
-        )}
+        <LiteContext.Provider value={lite}>
+          <color attach="background" args={[palette.background]} />
+          <fog attach="fog" args={[palette.background, palette.fog[0], palette.fog[1]]} />
+          <QualityGovernor ceiling={ceiling} setTier={setTier} />
+          {reducedMotion && (
+            <DemandDriver station={station} theme={theme} focusProject={focusProject} />
+          )}
 
-        <CameraRig station={station} reducedMotion={reducedMotion} />
+          <CameraRig station={station} reducedMotion={reducedMotion} />
+          <ExploreControls />
 
-        <ambientLight intensity={palette.ambient} />
-        <hemisphereLight args={['#c4b5fd', '#0e7490', theme === 'dark' ? 0.55 : 0.8]} />
-        <directionalLight position={[6, 10, 8]} intensity={palette.key} />
-        <Suspense fallback={null}>
-          <StudioEnvironment />
-        </Suspense>
+          <Lighting theme={theme} station={station} shadows={shadows} />
 
-        <Nebula theme={theme} octaves={lite ? 4 : 5} size={lite ? 1024 : 2048} />
-        <Starfield count={lite ? 1800 : 4200} theme={theme} />
-        <Dust count={lite ? 260 : 600} theme={theme} />
+          <Nebula theme={theme} octaves={lite ? 4 : 5} size={lite ? 1024 : 3072} />
+          <Starfield count={lite ? 1800 : 4200} theme={theme} />
+          <BrightStars count={lite ? 24 : 48} theme={theme} />
+          <Landmarks theme={theme} />
+          <Asteroids count={lite ? 120 : 300} theme={theme} />
+          <Dust count={lite ? 260 : 600} theme={theme} />
 
-        {has('home') && (
-          <Precompiled>
-            <HomeStation theme={theme} />
-          </Precompiled>
-        )}
-        {has('about') && (
-          <Precompiled>
-            <AboutStation theme={theme} />
-          </Precompiled>
-        )}
-        {has('experience') && (
-          <Precompiled>
-            <ExperienceStation theme={theme} count={content.experienceCount} />
-          </Precompiled>
-        )}
-        {has('projects') && (
-          <Precompiled>
-            <ProjectsStation theme={theme} projects={content.projects} focus={focusProject} />
-          </Precompiled>
-        )}
-        {has('skills') && (
-          <Precompiled>
-            <SkillsStation theme={theme} skills={content.skills} categories={content.categories} />
-          </Precompiled>
-        )}
-        {has('contact') && (
-          <Precompiled>
-            <ContactStation theme={theme} />
-          </Precompiled>
-        )}
-        {has('lost') && (
-          <Precompiled>
-            <LostStation theme={theme} />
-          </Precompiled>
-        )}
+          {has('home') && (
+            <Precompiled>
+              <HomeStation theme={theme} />
+            </Precompiled>
+          )}
+          {has('about') && (
+            <Precompiled>
+              <AboutStation theme={theme} />
+            </Precompiled>
+          )}
+          {has('experience') && (
+            <Precompiled>
+              <ExperienceStation theme={theme} roles={content.roles} />
+            </Precompiled>
+          )}
+          {has('projects') && (
+            <Precompiled>
+              <ProjectsStation theme={theme} projects={content.projects} focus={focusProject} />
+            </Precompiled>
+          )}
+          {has('skills') && (
+            <Precompiled>
+              <SkillsStation
+                theme={theme}
+                skills={content.skills}
+                categories={content.categories}
+              />
+            </Precompiled>
+          )}
+          {has('contact') && (
+            <Precompiled>
+              <ContactStation theme={theme} />
+            </Precompiled>
+          )}
+          {has('lost') && (
+            <Precompiled>
+              <LostStation theme={theme} />
+            </Precompiled>
+          )}
 
-        <Effects theme={theme} tier={tier} />
-        {/* Last, so every sibling has mounted and queued its own warm-up first */}
-        <WarmupGate onWarm={onWarm} />
+          <Beacons theme={theme} current={station} />
+          <StatsProbe station={station} />
+          <Effects theme={theme} tier={tier} />
+          {/* Last, so every sibling has mounted and queued its own warm-up first */}
+          <WarmupGate onWarm={onWarm} />
+        </LiteContext.Provider>
       </WarmupProvider>
     </Canvas>
   );

@@ -23,6 +23,11 @@ for (const theme of ['dark', 'light'] as const) {
 
     test('the project dialog has no WCAG 2.1 A/AA violations', async ({ page }) => {
       await openHydrated(page, '/projects');
+      // "View details" belongs to the project in front: pick it from the index first
+      await page
+        .getByRole('navigation', { name: 'Projects' })
+        .getByRole('link', { name: 'Drive King', exact: true })
+        .click();
       await page.getByRole('link', { name: 'View details for Drive King' }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();

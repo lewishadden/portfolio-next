@@ -1,16 +1,19 @@
 'use client';
 
 import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { easing } from 'maath';
 import { Box3, Group, Mesh, MeshStandardMaterial, Object3D, Vector3 } from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
 import { applyGlowTheme, createFresnelMaterial } from './materials';
 import { palettes } from './utils';
 import { precompile, uploadTextures, useWarmupTask } from './warmup';
 
 import type { ReactNode } from 'react';
+import type { WebGLRenderer } from 'three';
 import type { GroupProps } from './types';
 import type { WorldTheme } from './utils';
 
@@ -79,6 +82,21 @@ class ModelBoundary extends Component<{ fallback: ReactNode; children: ReactNode
   }
 }
 
+/* ------------------------------------------------------------------
+   Loading: meshopt geometry (decoder bundled) and KTX2 textures, which
+   stay compressed on the GPU. The Basis transcoder is self-hosted in
+   public/static/basis, so nothing is fetched from a CDN.
+   ------------------------------------------------------------------ */
+let ktx2Loader: KTX2Loader | null = null;
+
+function configureLoader(gl: WebGLRenderer) {
+  return (loader: GLTFLoader) => {
+    ktx2Loader ??= new KTX2Loader().setTranscoderPath('/static/basis/').detectSupport(gl);
+    loader.setKTX2Loader(ktx2Loader);
+    loader.setMeshoptDecoder(MeshoptDecoder);
+  };
+}
+
 const box = new Box3();
 const size = new Vector3();
 const center = new Vector3();
@@ -87,7 +105,12 @@ const center = new Vector3();
  * Clones the scene, centres it on the origin and scales it to `height` world
  * units. Tripo exports face -Z, so the result is turned to face the camera (+Z).
  */
-function normaliseScene(scene: Object3D, height: number, envIntensity: number) {
+function normaliseScene(
+  scene: Object3D,
+  height: number,
+  envIntensity: number,
+  prepare?: (model: Object3D) => void
+) {
   const clone = scene.clone(true);
   box.setFromObject(clone);
   box.getSize(size);
@@ -104,6 +127,7 @@ function normaliseScene(scene: Object3D, height: number, envIntensity: number) {
       material.needsUpdate = true;
     }
   });
+  prepare?.(clone);
   const holder = new Group();
   holder.add(clone);
   holder.rotation.y = Math.PI;
@@ -115,23 +139,26 @@ function GltfModel({
   height,
   envIntensity,
   placeholder,
+  prepare,
 }: {
   url: string;
   height: number;
   envIntensity: number;
   /** Shown until the model's shaders are compiled and its textures uploaded */
   placeholder: ReactNode;
+  prepare?: (model: Object3D) => void;
 }) {
-  // No Draco (would fetch a decoder from a CDN); meshopt decoder ships with three-stdlib
-  const { scene } = useGLTF(url, false, true);
+  const gl = useThree((s) => s.gl);
+  // No Draco (would fetch a decoder from a CDN)
+  const { scene } = useLoader(GLTFLoader, url, configureLoader(gl));
   const model = useMemo(
-    () => normaliseScene(scene, height, envIntensity),
-    [scene, height, envIntensity]
+    () => normaliseScene(scene, height, envIntensity, prepare),
+    [scene, height, envIntensity, prepare]
   );
   const wrapperRef = useRef<Group>(null);
   // On-demand rendering (reduced motion) has no frames to animate with — appear at full size
   const popIn = useThree((s) => s.frameloop !== 'demand');
-  const { gl, scene: world, camera } = useThree();
+  const { scene: world, camera } = useThree();
   const track = useWarmupTask();
   const [preparedFor, setPreparedFor] = useState<Group | null>(null);
 
@@ -172,6 +199,8 @@ export function Model({
   theme,
   envIntensity = 1.1,
   fallbackSize,
+  placeholder = true,
+  prepare,
   ...props
 }: GroupProps & {
   url: string;
@@ -179,13 +208,25 @@ export function Model({
   theme: WorldTheme;
   envIntensity?: number;
   fallbackSize?: number;
+  /** Show the hologram while loading (false: nothing until the model is ready) */
+  placeholder?: boolean;
+  /** Adjusts the normalised clone (materials, shadows) before it is compiled; keep it stable */
+  prepare?: (model: Object3D) => void;
 }) {
-  const fallback = <HoloCore theme={theme} size={fallbackSize ?? height * 0.36} />;
+  const fallback = placeholder ? (
+    <HoloCore theme={theme} size={fallbackSize ?? height * 0.36} />
+  ) : null;
   return (
     <group {...props}>
       <ModelBoundary fallback={fallback}>
         <Suspense fallback={fallback}>
-          <GltfModel url={url} height={height} envIntensity={envIntensity} placeholder={fallback} />
+          <GltfModel
+            url={url}
+            height={height}
+            envIntensity={envIntensity}
+            placeholder={fallback}
+            prepare={prepare}
+          />
         </Suspense>
       </ModelBoundary>
     </group>
