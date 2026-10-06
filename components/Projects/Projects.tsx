@@ -189,8 +189,8 @@ const snapEase = (t: number) => 1 - Math.pow(1 - t, 3);
  * details around it and an index links to every project. Scroll that comes
  * to rest on the ride snaps to the nearest project (or back to the top),
  * and the first project's details stay hidden until its stage docks. Without
- * the 3D world the runway collapses: the index picks the project and the
- * stage shows its own screenshot.
+ * the 3D world the ride is the same, but the stage shows each project's own
+ * screenshot where the 3D screen would be, and nothing waits.
  */
 export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   const { label, items } = projects;
@@ -207,8 +207,8 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
 
   /**
    * Scroll runway: the scroll at which the stage docks under the header,
-   * where the ride starts, and how much scroll each project takes (0 without
-   * the world). Project i is in front at docked + step * i
+   * where the ride starts, and how much scroll each project takes (0 when
+   * there's nothing to ride). Project i is in front at docked + step * i
    */
   const runway = useCallback(() => {
     const tour = tourRef.current;
@@ -364,7 +364,11 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       >
         <p className="projects__hint">
           <Icon icon="ph:mouse-scroll-bold" width={16} height={16} aria-hidden="true" />
-          <span>Scroll to ride the helix · {pad(items.length)} projects</span>
+          <span>
+            <span className="projects__hint-ride">Scroll to ride the helix</span>
+            <span className="projects__hint-plain">Scroll to browse</span> · {pad(items.length)}{' '}
+            projects
+          </span>
         </p>
       </PageHead>
 
