@@ -5,6 +5,7 @@ import Magnet from 'components/Magnet/Magnet';
 import { Marquee } from 'components/Marquee/Marquee';
 import { ScrambleText } from 'components/Motion/ScrambleText';
 import { SplitText } from 'components/Motion/SplitText';
+import { StationReadout } from 'components/StationReadout/StationReadout';
 import { HeroHud } from './HeroHud';
 import { RoleRotator } from './RoleRotator';
 import { StationFallback, illustrations } from 'components/World/StationFallback';
@@ -37,12 +38,15 @@ export const Home = ({
         <StationFallback src={illustrations.astronaut} />
 
         <div className="hero__content">
-          {openToWork && (
-            <p className="hero__badge">
-              <span className="hero__badge-dot" aria-hidden="true" />
-              {openToWorkText}
-            </p>
-          )}
+          <div className="hero__meta">
+            {openToWork && (
+              <p className="hero__badge">
+                <span className="hero__badge-dot" aria-hidden="true" />
+                {openToWorkText}
+              </p>
+            )}
+            <StationReadout className="hero__station" />
+          </div>
 
           <p className="hero__greeting">
             <ScrambleText text="// hello world, I'm" trigger="mount" delay={150} />

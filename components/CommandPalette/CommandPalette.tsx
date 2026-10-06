@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation';
 import { Icon } from '@iconify/react';
 
+import { useSound } from 'components/Sound/sound';
 import { statsOverlay } from 'components/StatsOverlay/statsStore';
 import { launchWorldMode } from 'components/World/worldMode';
 import { onFlight, requestLaunch } from 'components/World/worldStore';
@@ -142,6 +143,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     };
   }, [open]);
 
+  const { on: soundOn, setSound } = useSound();
   const enableWorld = useCallback(() => setEnabled(true), [setEnabled]);
   const startTour = useCallback(() => launchWorldMode('tour', enableWorld), [enableWorld]);
   const startExplore = useCallback(() => launchWorldMode('explore', enableWorld), [enableWorld]);
@@ -318,6 +320,14 @@ export function CommandPalette({ data }: { data: PaletteData }) {
         },
       },
       {
+        id: 'sound',
+        group: 'Actions',
+        label: soundOn ? 'Turn sound off' : 'Turn sound on',
+        icon: soundOn ? 'ph:speaker-simple-x-bold' : 'ph:speaker-high-bold',
+        keywords: 'audio music ambience mute volume',
+        run: () => setSound(!soundOn),
+      },
+      {
         id: 'theme',
         group: 'Actions',
         label: 'Toggle light / dark theme',
@@ -381,6 +391,8 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     print,
     router,
     setEnabled,
+    setSound,
+    soundOn,
     startExplore,
     startTour,
     supported,

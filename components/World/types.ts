@@ -16,4 +16,6 @@ export interface WorldContent {
   roles: { title: string; company: string }[];
   /** Guided tour captions, one per stop */
   tour: { station: string; title: string; text: string }[];
+  /** The CV, which one of free roam's hidden signals carries */
+  cv: { url: string; name: string };
 }

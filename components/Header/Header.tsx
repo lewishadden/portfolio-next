@@ -8,6 +8,7 @@ import { Icon } from '@iconify/react';
 import { commandPalette } from 'components/CommandPalette/CommandPalette';
 import { ThemeToggle } from 'components/ThemeToggle/ThemeToggle';
 import { WorldToggle } from 'components/WorldToggle/WorldToggle';
+import { SoundToggle } from 'components/Sound/SoundToggle';
 import { ScrambleText } from 'components/Motion/ScrambleText';
 
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -143,6 +144,7 @@ export const Header = ({
             <Icon icon="ph:command-bold" width={17} height={17} aria-hidden="true" />
           </button>
           <WorldToggle />
+          <SoundToggle />
           <ThemeToggle />
           <Link href="/contact" className="header__cta">
             {available && <span className="header__cta-dot" aria-hidden="true" />}

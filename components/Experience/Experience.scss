@@ -238,29 +238,92 @@
       box-shadow: var(--shadow-card), var(--shadow-glow);
     }
 
-    &:hover .xp__num {
-      -webkit-text-stroke-color: color-mix(in oklab, var(--accent-primary) 55%, transparent);
-      transform: translateY(-4px);
+    &:hover .xp__patch {
+      transform: rotate(0deg) scale(1.04);
     }
   }
 
-  /* Oversized outlined index, counting down to the first role */
-  &__num {
+  /* Mission patch (MissionPatch): numbered, counting down to the first role,
+     sewn on a little crooked and straightened on hover */
+  &__patch {
+    --patch: var(--accent-primary);
+
     position: absolute;
-    top: 0.9rem;
-    right: 1.25rem;
-    font-family: var(--font-display);
-    font-size: clamp(2.75rem, 5.5vw, 4.25rem);
-    font-weight: var(--fw-black);
-    line-height: 1;
-    letter-spacing: -0.05em;
-    color: transparent;
-    -webkit-text-stroke: 1px color-mix(in oklab, var(--text-primary) 16%, transparent);
+    top: 0.75rem;
+    right: 0.9rem;
+    width: clamp(4.5rem, 7vw, 5.75rem);
+    height: auto;
+    overflow: visible;
     pointer-events: none;
-    user-select: none;
-    transition:
-      -webkit-text-stroke-color var(--dur-med) ease,
-      transform var(--dur-slow) var(--ease-out);
+    transform: rotate(-9deg);
+    transition: transform var(--dur-slow) var(--ease-spring);
+
+    &--1 {
+      --patch: var(--accent-secondary);
+    }
+
+    &--2 {
+      --patch: var(--accent-tertiary);
+    }
+
+    &--3 {
+      --patch: #f59e0b;
+    }
+
+    &--4 {
+      --patch: var(--status-ok);
+    }
+  }
+
+  &__patch-rim {
+    fill: color-mix(in oklab, var(--patch) 14%, var(--bg-secondary, var(--bg-primary)));
+    stroke: var(--patch);
+    stroke-width: 3;
+  }
+
+  &__patch-stitch {
+    fill: none;
+    stroke: color-mix(in oklab, var(--patch) 70%, transparent);
+    stroke-dasharray: 2.4 2.2;
+    stroke-width: 1;
+  }
+
+  &__patch-field {
+    fill: color-mix(in oklab, var(--bg-primary) 75%, var(--patch));
+    stroke: color-mix(in oklab, var(--patch) 50%, transparent);
+    stroke-width: 1;
+  }
+
+  &__patch-planet {
+    fill: color-mix(in oklab, var(--patch) 55%, var(--bg-primary));
+  }
+
+  &__patch-orbit {
+    fill: none;
+    stroke: var(--text-primary);
+    stroke-opacity: 0.6;
+    stroke-width: 1;
+  }
+
+  &__patch-sat,
+  &__patch-star {
+    fill: var(--text-primary);
+  }
+
+  &__patch-initials {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: var(--fw-bold);
+    letter-spacing: -0.02em;
+    fill: var(--text-primary);
+  }
+
+  &__patch-ring {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.14em;
+    fill: var(--text-primary);
   }
 
   &__meta {
@@ -268,7 +331,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem 0.9rem;
-    padding-right: 4.5rem;
+    padding-right: 6.5rem;
   }
 
   &__date {
@@ -290,7 +353,7 @@
   }
 
   &__role {
-    padding-right: 3.5rem;
+    padding-right: 5rem;
     font-family: var(--font-display);
     font-size: clamp(1.25rem, 2.3vw, 1.625rem);
     font-weight: var(--fw-semibold);
@@ -480,16 +543,17 @@
   }
 
   .xp__meta {
-    padding-right: 3rem;
+    padding-right: 4.25rem;
   }
 
   .xp__role {
-    padding-right: 0;
+    padding-right: 3rem;
   }
 
-  .xp__num {
-    top: 0.75rem;
-    right: 0.9rem;
+  .xp__patch {
+    top: 0.6rem;
+    right: 0.6rem;
+    width: 3.75rem;
   }
 
   .xp__also {

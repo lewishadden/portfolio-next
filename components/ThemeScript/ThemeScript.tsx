@@ -1,3 +1,5 @@
+import { bootMemory, bootMemoryKey } from 'components/World/bootMemory';
+
 export function ThemeScript() {
   const themeScript = `
     (function() {
@@ -12,9 +14,12 @@ export function ThemeScript() {
           document.documentElement.setAttribute('data-world', 'off');
         }
         // The 3D world will load: raise the loading screen (components/BootScreen)
-        // until it is ready. Not for crawlers, Save-Data or browsers without WebGL
+        // until it is ready. Not for crawlers, Save-Data or browsers without WebGL,
+        // nor when it loaded within the last ${bootMemory / 60000} minutes (it's all cached)
         var saveData = navigator.connection && navigator.connection.saveData;
-        if (!worldOff && !saveData && typeof WebGLRenderingContext !== 'undefined' &&
+        var loadedAt = Number(localStorage.getItem('${bootMemoryKey}')) || 0;
+        var recent = Date.now() - loadedAt < ${bootMemory};
+        if (!worldOff && !saveData && !recent && typeof WebGLRenderingContext !== 'undefined' &&
             !/bot|crawl|spider|slurp/i.test(navigator.userAgent)) {
           document.documentElement.setAttribute('data-boot', 'loading');
         }

@@ -106,6 +106,9 @@ test.describe('tour and explore modes', () => {
     await expect(page.locator('html')).toHaveAttribute('data-world-mode', 'explore');
     await expect(main).toHaveAttribute('inert', '');
 
+    // Hidden signals: none found yet
+    await expect(hud.getByText('0 of 5 hidden signals found')).toBeAttached();
+
     // Every station is marked; its number key sets the autopilot for it
     const stations = hud.getByRole('list', { name: 'Stations' });
     await expect(stations.getByRole('button')).toHaveCount(6);
@@ -134,5 +137,10 @@ test.describe('tour and explore modes', () => {
     await page.getByRole('button', { name: 'Exit free roam' }).click();
     await expect(hud).toBeHidden();
     await expect(main).not.toHaveAttribute('inert');
+
+    // Loaded moments ago, everything is cached: a reload skips the loading screen
+    await page.reload({ waitUntil: 'commit' });
+    await page.waitForSelector('html[data-theme]', { state: 'attached' });
+    await expect(page.locator('html')).not.toHaveAttribute('data-boot');
   });
 });

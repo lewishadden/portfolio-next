@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
 import { m, useInView, useScroll, useTransform } from 'framer-motion';
@@ -8,13 +8,16 @@ import { m, useInView, useScroll, useTransform } from 'framer-motion';
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { useBooted } from 'components/World/boot';
+import { worldStore } from 'components/World/worldStore';
 import { illustrations } from 'components/World/StationFallback';
 import { Reveal } from 'components/Motion/Reveal';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
 
+import { MissionPatch } from './MissionPatch';
 import { companyInitials, firstYear, formatRange, roleDuration } from './timeline';
 
+import type { RefObject } from 'react';
 import type { Variants } from 'framer-motion';
 import type { Experience as ExperienceProps, ExperienceItem } from '@/types';
 
@@ -104,9 +107,12 @@ const TimelineItem = ({
           ref={glowRef}
           data-world-target={`role:${index}`}
         >
-          <span className="xp__num" aria-hidden="true">
-            {number}
-          </span>
+          <MissionPatch
+            number={number}
+            company={item.company}
+            initials={companyInitials(item.company)}
+            tone={index}
+          />
 
           <m.p className="xp__meta" variants={partVariants}>
             <span className="chip xp__date">
@@ -165,9 +171,63 @@ const TimelineItem = ({
   );
 };
 
+/** Line down the viewport (share of its height) where a role is being read: the rail's */
+const readingLine = 0.62;
+
+/**
+ * Which role's card is at the reading line, as a fractional index for the 3D
+ * beam (worldStore.roleFocus): the camera rides down to that role's pod and
+ * lights it. Before the first card it eases in from -0.6 (the top of the
+ * beam), and past the last it runs on to the beam's end.
+ */
+function useRoleFocus(listRef: RefObject<HTMLOListElement | null>) {
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const cards = [...list.children] as HTMLElement[];
+      if (!cards.length) return;
+      const line = window.innerHeight * readingLine;
+      const reach = window.innerHeight * 0.8;
+      const centres = cards.map((card) => {
+        const box = card.getBoundingClientRect();
+        return box.top + box.height / 2;
+      });
+      const last = centres.length - 1;
+      let focus: number;
+      if (line <= centres[0]) {
+        focus = -0.6 + 0.6 * Math.max(0, 1 - (centres[0] - line) / reach);
+      } else if (line >= centres[last]) {
+        focus = last + 0.4 * Math.min(1, (line - centres[last]) / reach);
+      } else {
+        const i = centres.findIndex((centre, n) => line >= centre && line < centres[n + 1]);
+        focus = i + (line - centres[i]) / (centres[i + 1] - centres[i]);
+      }
+      worldStore.roleFocus = focus;
+      worldStore.roleCount = cards.length;
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      worldStore.roleFocus = -1;
+    };
+  }, [listRef]);
+}
+
 export const Experience = ({ experience }: { experience: ExperienceProps }) => {
   const { label, items } = experience;
   const timelineRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLOListElement>(null);
+  useRoleFocus(listRef);
   const { scrollYProgress } = useScroll({ target: timelineRef, offset: railOffset });
   const cometTop = useTransform(scrollYProgress, (v) => `${v * 100}%`);
   const cometOpacity = useTransform(scrollYProgress, [0, 0.015, 0.985, 1], [0, 1, 1, 0]);
@@ -205,7 +265,7 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
           <m.div className="xp__rail-comet" style={{ top: cometTop, opacity: cometOpacity }} />
         </div>
 
-        <ol className="xp__list">
+        <ol ref={listRef} className="xp__list">
           {items.map((item, i) => (
             <TimelineItem
               key={`${item.company}-${item.years}`}

@@ -5,6 +5,7 @@ import { Formik } from 'formik';
 import { object, string } from 'yup';
 import { Icon } from '@iconify/react';
 
+import { setTransmitting } from 'components/World/worldStore';
 import { contactLimits, honeypotField } from 'utils/contactValidation';
 
 import { Contact as ContactProps } from '@/types';
@@ -62,6 +63,8 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
     message: string;
   }) => {
     setLoading(true);
+    // The comms array streams the message to the globe while it sends
+    setTransmitting(true);
     try {
       const response = await fetch('/api/sendmail', {
         method: 'POST',
@@ -81,6 +84,8 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
     } catch {
       setLoading(false);
       onFail(new Response(null, { status: 0, statusText: 'Network Error' }));
+    } finally {
+      setTransmitting(false);
     }
   };
 

@@ -178,10 +178,17 @@ export function stationCamera(
       look.set(0, -screens * 5.2 * zoom, 0);
       pos.set(0, eyeY, distance);
       break;
-    case 'experience':
-      look.set(0, -progress * experienceDepth, 0);
+    case 'experience': {
+      // Down the beam to the pod of the role being read on the page (each
+      // pod sits (i + 0.6) / count of the way down), else with the scroll
+      const reading = worldStore.roleFocus > -0.99 && worldStore.roleCount > 0;
+      const depth = reading
+        ? MathUtils.clamp((worldStore.roleFocus + 0.6) / worldStore.roleCount, 0, 1)
+        : progress;
+      look.set(0, -depth * experienceDepth, 0);
       pos.set(0, eyeY, distance);
       break;
+    }
     case 'projects': {
       // Ride the helix: the camera orbits down the spiral to face the project
       // the page has scrolled to (worldStore.projectFocus), screen centred.
@@ -206,10 +213,13 @@ export function stationCamera(
       pos.set(Math.sin(angle) * distance, eyeY, Math.cos(angle) * distance);
       break;
     }
-    case 'contact':
-      look.set(0, -screens * 3.4 * zoom, 0);
+    case 'contact': {
+      // A message sending (and the launch after it) holds the globe in view
+      const held = worldStore.transmitting || performance.now() < worldStore.showcaseUntil;
+      look.set(0, -(held ? 0 : screens) * 3.4 * zoom, 0);
       pos.set(0, eyeY, distance);
       break;
+    }
     default:
       look.set(0, 0, 0);
       pos.set(0, eyeY, distance);

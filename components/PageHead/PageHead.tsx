@@ -1,5 +1,6 @@
 import { Reveal } from 'components/Motion/Reveal';
 import { ScrambleText } from 'components/Motion/ScrambleText';
+import { StationReadout } from 'components/StationReadout/StationReadout';
 import { StationFallback } from 'components/World/StationFallback';
 
 import type { ReactNode } from 'react';
@@ -47,6 +48,9 @@ export function PageHead({
             <span className="eyebrow__line" aria-hidden="true" />
             <ScrambleText text={label} trigger="mount" delay={250} />
           </p>
+          <div className="page-head__station">
+            <StationReadout />
+          </div>
         </Reveal>
         <Reveal delay={0.08}>
           <h1 id={id} className="page-title">
