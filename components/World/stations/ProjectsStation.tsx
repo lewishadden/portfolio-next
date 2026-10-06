@@ -41,7 +41,7 @@ const frontWidth = 1200;
 /** How long a screen sits in front, settled, before its sharp copy loads */
 const sharpenAfter = 0.3;
 /** Where white page content lands, per theme: a lit display that stays under the bloom threshold */
-const screenWhite: Record<WorldTheme, number> = { dark: 0.56, light: 0.8 };
+const screenWhite: Record<WorldTheme, number> = { dark: 0.57, light: 0.8 };
 
 const spineLights: NavLight[] = [
   { position: [0, 5.1, 0], kind: 'white' },
@@ -80,6 +80,7 @@ const screenFragment = /* glsl */ `
   uniform vec3 uTint;
   uniform float uAspect;
   uniform float uDim;
+  uniform float uFocus;
   uniform float uWhite;
   varying vec2 vUv;
   // A vertical window onto the image: x = its height as a share of the image, y = its top
@@ -96,18 +97,25 @@ const screenFragment = /* glsl */ `
     if (d > 0.0) discard;
     vec3 img = uHasMap > 0.5 ? shot(uMap, uWindow) : mix(uTint * 0.25, uTint * 0.6, vUv.y);
     if (uMix > 0.0) img = mix(img, shot(uMapB, uWindowB), uMix);
-    // A display, not a lamp: a soft knee lands white pages at uWhite, under
-    // the bloom threshold, so the content reads and only the edge lighting glows
-    img = img * (uWhite * 1.3) / (1.0 + img * 0.3);
-    float scan = 0.94 + 0.06 * sin(vUv.y * 420.0 - uTime * 6.0);
+    // A display, not a lamp: scaled so a white page lands at uWhite, under
+    // the bloom threshold, so the content reads and only the edge lighting
+    // glows. A gentle curve first deepens mid-tones and text (white stays
+    // white), which keeps the dimmed page from looking washed out
+    img = pow(img, vec3(1.15)) * uWhite;
+    // Scanlines and a passing sweep, faint on the screen in front (uFocus):
+    // that one is being read
+    float lines = mix(0.08, 0.025, uFocus);
+    float scan = 1.0 - lines * (0.5 + 0.5 * sin(vUv.y * 420.0 - uTime * 6.0));
     float sweep = smoothstep(0.0, 0.08, abs(vUv.y - fract(uTime * 0.12)));
-    vec3 col = img * scan * mix(1.06, 1.0, sweep) * (1.0 + uHover * 0.04);
+    float boost = mix(1.0 + 0.06 * (1.0 - uFocus), 1.0, sweep);
+    vec3 col = img * scan * boost * (1.0 + uHover * 0.04);
     float edge = smoothstep(-0.03, 0.0, d);
     col = mix(col, uEdge * (2.4 + uHover * 1.8), edge);
     float reveal = smoothstep(uReveal - 0.1, uReveal, 1.0 - vUv.y);
     // Screens other than the focused project recede
     col *= 1.0 - uDim * 0.75;
-    gl_FragColor = vec4(col, (1.0 - reveal) * 0.96 * (1.0 - uDim * 0.6));
+    // The screen in front is solid; the rest let a little of the yard through
+    gl_FragColor = vec4(col, (1.0 - reveal) * mix(0.96, 1.0, uFocus) * (1.0 - uDim * 0.6));
   }
 `;
 
@@ -139,6 +147,7 @@ function createScreenMaterial(edge: string, tint: string, white: number) {
       uTint: { value: new Color(tint) },
       uAspect: { value: 1.6 },
       uDim: { value: 0 },
+      uFocus: { value: 0 },
       uWhite: { value: white },
     },
     vertexShader: screenVertex,
@@ -466,6 +475,10 @@ export function ProjectsStation({
       const dim = front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) * ride : 0;
       const current = material.uniforms.uDim.value as number;
       setUniform(material, 'uDim', instant ? dim : approach(current, dim, 6, dt));
+      // The screen in front is being read: solid, with faint scanlines
+      const reading = front >= 0 ? Math.max(0, 1 - Math.abs(i - front)) * ride : 0;
+      const shown = material.uniforms.uFocus.value as number;
+      setUniform(material, 'uFocus', instant ? reading : approach(shown, reading, 6, dt));
     });
 
     const spiral = helixRef.current;
