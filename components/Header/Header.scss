@@ -40,7 +40,7 @@
     backdrop-filter: blur(18px) saturate(160%);
   }
 
-  /* Over the open menu (MobileMenu, opaque) there is nothing to blur, and
+  /* Over the open menu (NavMenu, opaque) there is nothing to blur, and
      a backdrop blur over its live WebGL warp (and beside the logo's own
      canvas) is what flickered on Android */
   &--open &__bar {
@@ -164,8 +164,8 @@
     }
   }
 
+  /* Opens the star map (NavMenu), on every screen */
   &__burger {
-    display: none;
     position: relative;
     width: 44px;
     height: 44px;
@@ -224,10 +224,6 @@
 @media (max-width: 900px) {
   .header__links {
     display: none;
-  }
-
-  .header__burger {
-    display: inline-block;
   }
 }
 

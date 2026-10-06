@@ -1,0 +1,418 @@
+/* =============================================================
+   Navigation menu (NavMenu): a star map over a warp starfield with
+   3D effects on, a list without. It sits under the header (z-index
+   49), so the bar and its close button stay on top. No backdrop blur
+   and no clip-path reveal: re-blurring a live WebGL page every frame
+   made the old menu glitch on Android. It is opaque, and fades.
+   ============================================================= */
+
+.nav-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  overflow: hidden;
+
+  /* Under the star map, or the whole backdrop without it */
+  background:
+    radial-gradient(600px 400px at 90% 0%, var(--glow-violet), transparent 70%),
+    radial-gradient(500px 400px at 0% 100%, var(--glow-cyan), transparent 70%), var(--bg-primary);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.35s ease,
+    visibility 0s linear 0.35s;
+
+  &[data-open] {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 0.25s ease;
+  }
+
+  &__map {
+    position: absolute !important;
+    inset: 0;
+  }
+
+  &__body {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: safe center;
+    padding: 100px var(--gutter) 40px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* ---------- The list (no star map): links swing up out of the depth ---------- */
+  &__stations {
+    display: grid;
+    gap: 0.25rem;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0;
+    list-style: none;
+    perspective: 760px;
+    perspective-origin: 50% 20%;
+  }
+
+  &__item {
+    opacity: 0;
+    transform: translate3d(0, 28px, -240px) rotateX(-58deg);
+    transform-origin: 50% 100%;
+    transition:
+      opacity 0.22s ease,
+      transform 0.3s var(--ease-in-out);
+  }
+
+  &[data-open] &__item {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 0.45s ease,
+      transform 0.85s var(--ease-spring);
+    transition-delay: calc(170ms + var(--i) * 65ms);
+  }
+
+  &__station {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.65rem 0;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+
+    /* A sheen sweeps each link as it lands, like a hologram coming on */
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        100deg,
+        transparent 35%,
+        color-mix(in oklab, var(--accent-secondary) 22%, transparent) 50%,
+        transparent 65%
+      );
+      transform: translateX(-110%);
+      pointer-events: none;
+    }
+  }
+
+  &[data-open]:not([data-map]) &__station::after {
+    animation: menu-sheen 0.9s var(--ease-out) both;
+    animation-delay: calc(420ms + var(--i) * 65ms);
+  }
+
+  &__hit {
+    display: none;
+  }
+
+  &__index {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    color: var(--accent-secondary);
+  }
+
+  &__name {
+    display: grid;
+    gap: 0.1rem;
+  }
+
+  &__label {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 8vw, 2.5rem);
+    font-weight: var(--fw-semibold);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+
+  &__craft {
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  &__arrow {
+    opacity: 0.4;
+    transition:
+      transform var(--dur-med) var(--ease-out),
+      opacity var(--dur-med) ease;
+  }
+
+  &__station:hover &__arrow,
+  &__station.is-active &__arrow {
+    opacity: 1;
+    color: var(--accent-secondary);
+    transform: rotate(45deg);
+  }
+
+  &__station.is-active &__label {
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  &__station.is-active &__craft {
+    color: var(--accent-secondary);
+
+    &::before {
+      content: 'Docked · ';
+    }
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-top: 2rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-secondary);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  &[data-open] &__foot {
+    opacity: 1;
+    transition-delay: 0.6s;
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--status-ok);
+    box-shadow: 0 0 10px var(--status-ok);
+  }
+
+  /* ---------- The star map: each link over its world (StarMap places them) ---------- */
+  &[data-map] &__body {
+    justify-content: flex-end;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+
+  &[data-map] &__stations {
+    position: absolute;
+    inset: 0;
+    max-width: none;
+    margin: 0;
+    pointer-events: none;
+    perspective: none;
+  }
+
+  &[data-map] &__item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 1;
+    transform: none;
+  }
+
+  &[data-map] &__station {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    width: max-content;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    text-align: center;
+    opacity: calc(0.5 + 0.5 * var(--near, 1));
+    transform: translate3d(
+        calc(var(--x, -999px) - 50%),
+        calc(var(--y, -999px) - var(--d, 48px) / 2),
+        0
+      )
+      scale(calc(0.8 + 0.2 * var(--near, 1)));
+    transform-origin: 50% calc(var(--d, 48px) / 2);
+    pointer-events: auto;
+    outline: none;
+
+    &::after {
+      display: none;
+    }
+
+    &:not([data-placed]) {
+      visibility: hidden;
+    }
+  }
+
+  /* Over the world: invisible until picked, then a turning reticle */
+  &[data-map] &__hit {
+    display: block;
+    width: var(--d, 48px);
+    height: var(--d, 48px);
+    border: 1.5px dashed transparent;
+    border-radius: 50%;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  &[data-map] &__station[data-picked] &__hit,
+  &[data-map] &__station:focus-visible &__hit {
+    border-color: var(--accent-secondary);
+    box-shadow: 0 0 26px -4px var(--glow-cyan);
+    animation: map-reticle 8s linear infinite;
+  }
+
+  &[data-map] &__index,
+  &[data-map] &__name {
+    text-shadow: 0 1px 10px var(--bg-primary);
+  }
+
+  &[data-map] &__name {
+    gap: 0;
+    justify-items: center;
+  }
+
+  &[data-map] &__label {
+    font-size: clamp(0.95rem, 2.4vw, 1.15rem);
+    letter-spacing: -0.01em;
+  }
+
+  &[data-map] &__craft {
+    font-size: 0.6rem;
+  }
+
+  &[data-map] &__arrow {
+    display: none;
+  }
+
+  /* The labels come in once the worlds have popped up */
+  &[data-map] &__index,
+  &[data-map] &__name {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  &[data-map][data-open] &__index,
+  &[data-map][data-open] &__name {
+    opacity: 1;
+    transition: opacity 0.5s ease;
+    transition-delay: calc(550ms + var(--i) * 70ms);
+  }
+
+  /* ---------- Where the picked station is, and the way there ---------- */
+  &__panel {
+    position: relative;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem 1rem;
+    width: min(600px, 100%);
+    min-height: 64px;
+    margin: 0 auto;
+    padding: 0.75rem 0.8rem 0.75rem 1.2rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--surface-strong);
+    box-shadow: var(--shadow-card);
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity 0.25s ease,
+      transform 0.3s var(--ease-out);
+  }
+
+  &[data-open] &__panel {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.7s;
+  }
+
+  &__panel-index {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.1em;
+    color: var(--accent-secondary);
+  }
+
+  &__panel-text {
+    display: grid;
+    flex: 1 1 12rem;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  &__panel-name {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: var(--fw-semibold);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  &__panel-meta {
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  &__fly {
+    white-space: nowrap;
+  }
+
+  &__panel-hint {
+    flex: 1;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    text-align: center;
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 599px) {
+    &__fly {
+      flex: 1 1 100%;
+      justify-content: center;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__item,
+    &[data-open] &__item {
+      transform: none;
+      transition: opacity 0.2s ease;
+      transition-delay: 0s;
+    }
+
+    &[data-open]:not([data-map]) &__station::after,
+    &[data-map] &__station[data-picked] &__hit {
+      animation: none;
+    }
+  }
+}
+
+@keyframes menu-sheen {
+  to {
+    transform: translateX(110%);
+  }
+}
+
+@keyframes map-reticle {
+  to {
+    rotate: 1turn;
+  }
+}

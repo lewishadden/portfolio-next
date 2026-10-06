@@ -11,7 +11,7 @@ import { WorldToggle } from 'components/WorldToggle/WorldToggle';
 import { SoundToggle } from 'components/Sound/SoundToggle';
 import { HeaderMark } from 'components/BrandMark/HeaderMark';
 import { ScrambleText } from 'components/Motion/ScrambleText';
-import { MobileMenu } from 'components/MobileMenu/MobileMenu';
+import { NavMenu } from 'components/NavMenu/NavMenu';
 
 import { Header as HeaderProps, NavItem } from '@/types';
 
@@ -119,6 +119,7 @@ export const Header = ({
                       href={href}
                       className={`header__link${active ? ' is-active' : ''}`}
                       aria-current={active ? 'page' : undefined}
+                      onClick={closeMenu}
                     >
                       <ScrambleText text={label} hover trigger="none" duration={420} />
                     </Link>
@@ -152,7 +153,7 @@ export const Header = ({
               onClick={() => setMobileOpen((p) => !p)}
               aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
               aria-expanded={mobileOpen}
-              aria-controls="mobile-menu"
+              aria-controls="nav-menu"
               type="button"
             >
               <span />
@@ -161,7 +162,7 @@ export const Header = ({
           </div>
         </nav>
       </header>
-      <MobileMenu
+      <NavMenu
         open={mobileOpen}
         navItems={navItems}
         icon={header.mobile.icon}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
 
@@ -31,6 +31,7 @@ import { lowerTier, raiseTier, tierSettings } from './quality';
 import { navigableStations } from './routes';
 import { LiteContext } from './stationHooks';
 import { baseFov } from './stations';
+import { worldCover } from './worldCover';
 import { palettes } from './utils';
 import {
   Precompiled,
@@ -190,6 +191,8 @@ export default function WorldCanvas({
   const has = (key: StationKey) => visited.includes(key);
   // Shadows are decided once: switching them later would recompile every lit material
   const [shadows] = useState(!lite);
+  // The navigation menu, fully open, hides the whole world: nothing to draw
+  const covered = useSyncExternalStore(worldCover.subscribe, worldCover.get, () => false);
 
   useEffect(() => setHullTheme(theme), [theme]);
 
@@ -235,7 +238,7 @@ export default function WorldCanvas({
       dpr={[1, dpr]}
       gl={{ antialias: false, alpha: false, stencil: false, powerPreference: 'high-performance' }}
       camera={{ fov: baseFov, near: 0.1, far: 2000, position: [0, 0, 60] }}
-      frameloop={!warm ? 'never' : reducedMotion ? 'demand' : 'always'}
+      frameloop={!warm || covered ? 'never' : reducedMotion ? 'demand' : 'always'}
       shadows={shadows ? 'percentage' : false}
       // The canvas sits behind the page: listen on the document, react only over open space
       events={worldEvents}
