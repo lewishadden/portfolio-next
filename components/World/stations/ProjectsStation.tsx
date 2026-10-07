@@ -12,7 +12,6 @@ import {
   ShaderMaterial,
   SRGBColorSpace,
   Texture,
-  Vector3,
   Vector4,
 } from 'three';
 
@@ -21,13 +20,22 @@ import { decodeImage } from '../imageDecoder';
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { NavLights, Truss } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
-import { helix, helixScreenY, projectIntro, settleFocus, stationPositions } from '../stations';
+import {
+  baseFov,
+  frontScreenDistance,
+  helix,
+  helixScreenY,
+  projectIntro,
+  settleFocus,
+  stationPositions,
+} from '../stations';
 import { StationHull } from '../StationHull';
 import { palettes, setUniform } from '../utils';
 import { queueUpload } from '../warmup';
+import { prefetch } from '../routes';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 
-import type { Camera, Object3D, PerspectiveCamera, WebGLRenderer } from 'three';
+import type { WebGLRenderer } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
@@ -53,14 +61,14 @@ const fadeTime = 0.9;
 /** Width of every screen's working copy of its shots */
 const shotWidth = 640;
 /**
- * The widths the image endpoint serves (`deviceSizes` in next.config.mjs):
+ * The widths the image endpoint serves (`deviceSizes` in next.config.js):
  * a shot is fetched at the next one up and scaled to the size it needs
  */
 const imageWidths = [640, 750, 828, 1080, 1200, 1920, 2048, 3840];
 /** Widest a sharp copy gets: a full-page capture at this width is ~60MB on the GPU */
 const maxSharpWidth = 2048;
-/** How long a screen sits in front, settled, before its sharp copies load */
-const sharpenAfter = 0.3;
+/** Sharp copies decoded and uploaded at once, nearest the front first */
+const maxSharpLoads = 3;
 /** Longest a crossfade waits for the next shot's sharp copy before using its working copy */
 const sharpWait = 3;
 /** Where white page content lands, per theme: a lit display that stays under the bloom threshold */
@@ -221,7 +229,13 @@ type Shot = WorldContent['projects'][number]['images'][number];
  * can hand back the full-size original instead (up to 3024 × 8206):
  * uploading those blocked the first flight to the station for over a second
  */
-async function loadShot(gl: WebGLRenderer, shot: Shot, width: number) {
+async function loadShot(
+  gl: WebGLRenderer,
+  shot: Shot,
+  width: number,
+  /** Holds the upload back until it resolves */
+  beforeUpload?: () => Promise<void>
+) {
   const bitmap = await decodeImage(optimisedImage(shot.url, width), {
     imageOrientation: 'flipY',
     premultiplyAlpha: 'none',
@@ -239,8 +253,21 @@ async function loadShot(gl: WebGLRenderer, shot: Shot, width: number) {
       ? 'logo'
       : 'whole';
   texture.userData.fit = fit;
+  await beforeUpload?.();
   await queueUpload(gl, texture);
   return texture;
+}
+
+/**
+ * Resolves on the first frame with no flight under way: sharp copies load
+ * mid-flight but wait to upload (uploads mid-flight made the first flight
+ * to the station lag)
+ */
+function landed() {
+  return new Promise<void>((resolve) => {
+    const check = () => (worldStore.flight.active ? requestAnimationFrame(check) : resolve());
+    check();
+  });
 }
 
 /** The project art's colour pairs (`--art-a` / `--art-b` per tone in ProjectArt.scss) */
@@ -391,41 +418,37 @@ interface ScreenState {
   fadeStart: number;
   nextSwitch: number;
   hover: number;
-  /**
-   * While the screen is in front, sharp copies of the shot that is up and
-   * the next one, `sharpWidth` wide (0 when it isn't in front)
-   */
+  /** Sharp copies of the shot that is up and, on the screen in front, the next one */
   sharp: Map<number, Texture>;
   sharpLoading: Set<number>;
-  sharpWidth: number;
-  /** When the screen settled in front of the parked camera (0 while it is not there) */
-  settledAt: number;
 }
 
-const screenPosition = new Vector3();
-
 /**
- * How wide the screen in front is on the canvas, in pixels: its sharp
- * copies are made that wide, so they are neither soft nor bigger than needed
- * (0 if the working copy is already enough)
+ * How wide a screen is on the canvas, in pixels, once it is in front on the
+ * projects page (its sharp copies are made that wide, so they are neither
+ * soft nor bigger than needed), or 0 if the working copy is enough. Worked
+ * out from the layout rather than measured, so they can load before the
+ * camera gets there
  */
-function sharpWidthFor(screen: Object3D | undefined, camera: Camera, canvasHeight: number) {
-  if (!screen) return 0;
-  const distance = camera.position.distanceTo(screen.getWorldPosition(screenPosition));
-  const fov = MathUtils.degToRad((camera as PerspectiveCamera).fov);
-  const visible = 2 * distance * Math.tan(fov / 2);
-  const width = ((screenSize.width * focusScale) / visible) * canvasHeight;
-  return width > shotWidth ? Math.min(Math.ceil(width), maxSharpWidth) : 0;
+function frontScreenWidth(width: number, height: number, canvasHeight: number) {
+  const fov = MathUtils.degToRad(baseFov);
+  const visible = 2 * frontScreenDistance(width, height) * Math.tan(fov / 2);
+  const pixels = ((screenSize.width * focusScale) / visible) * canvasHeight;
+  return pixels > shotWidth ? Math.min(Math.ceil(pixels), maxSharpWidth) : 0;
 }
 
 /**
  * Each screen's shots: the first loads up front, the rest the first time the
- * screen goes live. The screen in front fills half the viewport, so it also
- * gets sharp copies of the shot that is up and the next one (so crossfades
- * stay sharp too), dropped again once the camera moves on.
+ * screen goes live. On the page, every screen also gets a sharp copy of the
+ * shot it shows, and the screen in front one of the next too, loaded ahead
+ * of the camera (see sharpen), so a screen is never soft when it is in front.
  */
 class ScreenShots {
   private disposed = false;
+  /** Width the sharp copies are made at, 0 before the first */
+  private sharpWidth = 0;
+  /** Sharp copies that failed to load ("screen:shot"), not tried again */
+  private failed = new Set<string>();
 
   constructor(
     private gl: WebGLRenderer,
@@ -479,33 +502,61 @@ class ScreenShots {
     return this.states[i].sharp.has(index) || !image || image.width <= shotWidth;
   }
 
-  /**
-   * In front: sharp copies, `width` wide, of the shots in `wanted` (the one
-   * up and the next), each swapped in as it loads; any others are dropped
-   */
-  sharpen(i: number, width: number, wanted: number[]) {
+  /** The shots a screen wants sharp: the one up, the one fading in, and in front the next */
+  private wantedSharp(i: number, front: number) {
     const state = this.states[i];
-    // Made for a smaller view (the window has grown since): start again
-    if (state.sharpWidth && width > state.sharpWidth * 1.15) this.soften(i);
-    if (!state.sharpWidth) state.sharpWidth = width;
-    for (const [index, texture] of state.sharp) {
-      if (!wanted.includes(index)) this.drop(i, index, texture);
-    }
-    for (const index of wanted) this.loadSharp(i, index);
+    const count = this.screens[i].images.length;
+    const wanted = [state.index];
+    if (state.next >= 0) wanted.push(state.next);
+    else if (i === front && count > 1) wanted.push((state.index + 1) % count);
+    return wanted;
   }
 
+  /**
+   * Keeps every screen sharp ahead of the camera: sharp copies, `width`
+   * wide, of the shots each wants (wantedSharp), loaded a few at a time,
+   * nearest the project in `focus` first, and swapped in as they land.
+   * Copies of shots a screen has moved on from are dropped
+   */
+  sharpen(width: number, focus: number, front: number) {
+    // Made for a smaller canvas (the window has grown since): start again
+    if (this.sharpWidth && width > this.sharpWidth * 1.15) this.soften();
+    if (!this.sharpWidth) this.sharpWidth = width;
+    let loads = 0;
+    this.states.forEach((state, i) => {
+      const wanted = this.wantedSharp(i, front);
+      for (const [index, texture] of state.sharp) {
+        if (!wanted.includes(index)) this.drop(i, index, texture);
+      }
+      loads += state.sharpLoading.size;
+    });
+    const order = this.states
+      .map((_, i) => i)
+      .sort((a, b) => Math.abs(a - focus) - Math.abs(b - focus));
+    for (const i of order) {
+      for (const index of this.wantedSharp(i, front)) {
+        // All of them download now, at low priority, so none waits on the
+        // network (or the image endpoint's first resize) when its turn comes
+        const image = this.screens[i].images[index];
+        if (image && image.width > shotWidth) prefetch(optimisedImage(image.url, this.sharpWidth));
+        if (loads < maxSharpLoads && this.loadSharp(i, index)) loads += 1;
+      }
+    }
+  }
+
+  /** Starts loading a shot's sharp copy; false if it has one, is loading it or needs none */
   private loadSharp(i: number, index: number) {
     const state = this.states[i];
-    const width = state.sharpWidth;
+    const width = this.sharpWidth;
     const image = this.screens[i].images[index];
-    if (!image || image.width <= shotWidth) return;
-    if (state.sharp.has(index) || state.sharpLoading.has(index)) return;
+    if (!image || image.width <= shotWidth || this.failed.has(`${i}:${index}`)) return false;
+    if (state.sharp.has(index) || state.sharpLoading.has(index)) return false;
     state.sharpLoading.add(index);
-    loadShot(this.gl, image, width)
+    loadShot(this.gl, image, width, landed)
       .then((texture) => {
         state.sharpLoading.delete(index);
-        // Disposed, or the screen has left the front (or been resized) since
-        if (this.disposed || state.sharpWidth !== width) {
+        // Disposed, or remade at another size since
+        if (this.disposed || this.sharpWidth !== width) {
           texture.dispose();
           return;
         }
@@ -517,7 +568,11 @@ class ScreenShots {
         }
         if (state.next === index) setUniform(material, 'uMapB', texture);
       })
-      .catch(() => state.sharpLoading.delete(index));
+      .catch(() => {
+        state.sharpLoading.delete(index);
+        this.failed.add(`${i}:${index}`);
+      });
+    return true;
   }
 
   /** Drops a sharp copy, putting the working copy back wherever it is showing */
@@ -531,11 +586,12 @@ class ScreenShots {
     state.sharp.delete(index);
   }
 
-  /** Back to the working copies once the screen has left the front */
-  soften(i: number) {
-    const state = this.states[i];
-    state.sharpWidth = 0;
-    for (const [index, texture] of state.sharp) this.drop(i, index, texture);
+  /** Back to the working copies everywhere, to sharpen again at a new size */
+  private soften() {
+    this.sharpWidth = 0;
+    this.states.forEach((state, i) => {
+      for (const [index, texture] of state.sharp) this.drop(i, index, texture);
+    });
   }
 
   dispose() {
@@ -549,7 +605,6 @@ class ScreenShots {
       state.loading.clear();
       state.sharp.clear();
       state.sharpLoading.clear();
-      state.sharpWidth = 0;
       state.index = 0;
       state.next = -1;
     });
@@ -570,9 +625,9 @@ function openProject(slug: string) {
 /**
  * Runs one screen: scrolls full-page captures, and while the screen is live
  * (focused or hovered) crossfades through the project's other shots,
- * loading each the first time it is needed. In front (`sharpWidth` > 0) it
- * keeps sharp copies of the shot that is up and the next one, and waits a
- * little for the next one's before fading to it.
+ * loading each the first time it is needed. With `waitForSharp` (the screen
+ * in front, while sharp copies load) it waits a little for the next shot's
+ * sharp copy before fading to it.
  */
 function liveScreen(
   material: ShaderMaterial,
@@ -583,17 +638,10 @@ function liveScreen(
   dt: number,
   live: boolean,
   shots: ScreenShots,
-  sharpWidth: number
+  waitForSharp: boolean
 ) {
   state.hover = approach(state.hover, live ? 1 : 0, 6, dt);
   setUniform(material, 'uHover', state.hover);
-  if (sharpWidth > 0) {
-    shots.sharpen(
-      i,
-      sharpWidth,
-      count > 1 ? [state.index, (state.index + 1) % count] : [state.index]
-    );
-  }
   const current = shots.copy(i, state.index);
   if (current)
     setUniform(material, 'uPlate', frameShot(material.uniforms.uRect.value, current, t, i * 1.7));
@@ -628,7 +676,7 @@ function liveScreen(
   shots.load(i, upcoming);
   const ready =
     state.textures.has(upcoming) &&
-    (!sharpWidth || shots.sharpReady(i, upcoming) || t >= state.nextSwitch + sharpWait);
+    (!waitForSharp || shots.sharpReady(i, upcoming) || t >= state.nextSwitch + sharpWait);
   if (t >= state.nextSwitch && ready) {
     state.next = upcoming;
     state.fadeStart = t;
@@ -682,8 +730,6 @@ export function ProjectsStation({
         hover: 0,
         sharp: new Map(),
         sharpLoading: new Set(),
-        sharpWidth: 0,
-        settledAt: 0,
       })),
     [screens]
   );
@@ -724,7 +770,7 @@ export function ProjectsStation({
   const settled = useRef(false);
   const opened = focus >= 0 && focus < screens.length ? focus : -1;
 
-  useFrame(({ camera, clock }, delta) => {
+  useFrame(({ camera, clock, size }, delta) => {
     const group = groupRef.current;
     if (!stationInRange(group, camera, 'projects')) return;
     const t = clock.elapsedTime;
@@ -744,25 +790,19 @@ export function ProjectsStation({
     // yard: the first screen only comes forward (and lights up) on scroll
     const ride = front >= 0 ? 1 - (opened >= 0 ? 0 : projectIntro()) : 0;
     const live = front >= 0 && ride > 0.9 ? Math.round(front) : -1;
-    // Settled in front with the camera parked: the moment to sharpen its
-    // shots, to the size it is on the canvas
-    const parked =
-      live >= 0 && ride > 0.99 && Math.abs(front - live) < 0.02 && !worldStore.flight.active;
-    const frontWidth = parked
-      ? sharpWidthFor(helixRef.current?.children[live], camera, gl.domElement.height)
+    // On the page (or a project's), sharp copies load ahead of the camera,
+    // nearest the project in front first, so none is ever soft once it gets
+    // there (flying in, they download and decode but wait to upload)
+    const sharpening = scrolled >= 0 || opened >= 0;
+    const sharpWidth = sharpening
+      ? frontScreenWidth(size.width, size.height, gl.domElement.height)
       : 0;
+    if (sharpWidth) shots.sharpen(sharpWidth, Math.max(front, 0), live);
 
     setUniform(materials.base, 'uTime', t);
     screenMaterials.forEach((material, i) => {
       const state = states[i];
       setUniform(material, 'uTime', t + i);
-      if (parked && i === live) {
-        if (!state.settledAt) state.settledAt = t;
-      } else {
-        state.settledAt = 0;
-        if (i !== live) shots.soften(i);
-      }
-      const sharp = state.settledAt > 0 && t - state.settledAt > sharpenAfter;
       liveScreen(
         material,
         state,
@@ -772,7 +812,7 @@ export function ProjectsStation({
         dt,
         i === live || i === hoveredRef.current,
         shots,
-        sharp ? frontWidth : 0
+        sharpWidth > 0 && i === live
       );
       const reveal = material.uniforms.uReveal.value as number;
       if (reveal < 1.1) setUniform(material, 'uReveal', snap ? 1.1 : reveal + dt * 0.8);

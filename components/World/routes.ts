@@ -82,7 +82,8 @@ export const hullUrl = (key: StationKey, lite: boolean) =>
 
 const prefetched = new Set<string>();
 
-function prefetch(url: string) {
+/** Fetches a URL once, at low priority, into the HTTP cache (plain fetch, no three.js) */
+export function prefetch(url: string) {
   if (prefetched.has(url)) return;
   prefetched.add(url);
   fetch(url, { priority: 'low' } as RequestInit).catch(() => prefetched.delete(url));
