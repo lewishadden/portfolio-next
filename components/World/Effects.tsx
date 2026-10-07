@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Bloom, ChromaticAberration, EffectComposer, Vignette } from '@react-three/postprocessing';
-import { BloomEffect, ChromaticAberrationEffect } from 'postprocessing';
+import { ChromaticAberration, EffectComposer, Vignette } from '@react-three/postprocessing';
+import { ChromaticAberrationEffect, SelectiveBloomEffect } from 'postprocessing';
 import { Vector2 } from 'three';
 
+import { bloomMaskLayer, bloomMasks, bloomMasksShown, bloomMasksVersion } from './bloomMask';
 import { palettes } from './utils';
 import { precompileComposer, useWarmupTask } from './warmup';
 import { worldStore } from './worldStore';
@@ -21,8 +22,21 @@ function updateAberration(effect: ChromaticAberrationEffect | null, velocity: nu
 }
 
 /** Bloom's working resolution, as a share of the screen: resizes its buffers, nothing else */
-function setBloomScale(effect: BloomEffect | null, scale: number) {
-  if (effect && effect.resolution.scale !== scale) effect.resolution.scale = scale;
+function setBloomScale(effect: SelectiveBloomEffect, scale: number) {
+  if (effect.resolution.scale !== scale) effect.resolution.scale = scale;
+}
+
+/**
+ * Keeps the bloom's selection in step with the bloom masks on show
+ * (bloomMask.ts). With none on show it's empty, and the bloom skips its
+ * mask passes (drawing the masks' depth, and masking the frame with it)
+ */
+function followMasks(masking: { bloom: SelectiveBloomEffect; version: number }) {
+  const version = bloomMasksShown() ? bloomMasksVersion() : -1;
+  if (version === masking.version) return;
+  masking.version = version;
+  if (version < 0) masking.bloom.selection.clear();
+  else masking.bloom.selection.set(bloomMasks());
 }
 
 /** Resolves once the composer has built its passes (they're added a render after mount) */
@@ -47,41 +61,55 @@ function composerReady(ref: { current: EffectComposerImpl | null }) {
  * between bright and dim. The tiers differ in cost only: the pixel ratio
  * (WorldCanvas), bloom's internal resolution (a quarter on low, set
  * through the effect so nothing is recreated) and aberration held at
- * zero below high.
+ * zero below high. Bloom leaves out whatever a bloom mask covers (the
+ * project screens, so their pages show at their own brightness): an
+ * inverted selective bloom, whose depth pass only draws the masks and only
+ * runs while there are some.
  */
 export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier }) {
   const palette = palettes[theme];
   const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera);
+  const scene = useThree((s) => s.scene);
   const track = useWarmupTask();
   const composerRef = useRef<EffectComposerImpl>(null);
-  const bloomRef = useRef<BloomEffect>(null);
   const aberrationRef = useRef<ChromaticAberrationEffect>(null);
   const offset = useMemo(() => new Vector2(0, 0), []);
   const aberration = tier === 'high';
 
   useFrame(() => updateAberration(aberrationRef.current, aberration ? worldStore.velocity : 0));
 
+  const bloom = useMemo(() => {
+    const effect = new SelectiveBloomEffect(scene, camera, {
+      mipmapBlur: true,
+      intensity: palette.bloom,
+      luminanceThreshold: palette.bloomThreshold,
+      luminanceSmoothing: 0.25,
+      radius: 0.75,
+    });
+    effect.inverted = true;
+    effect.selection.layer = bloomMaskLayer;
+    return effect;
+  }, [scene, camera, palette.bloom, palette.bloomThreshold]);
+  useEffect(() => () => bloom.dispose(), [bloom]);
+  const masking = useMemo(() => ({ bloom, version: -1 }), [bloom]);
+  useFrame(() => followMasks(masking));
+
   useEffect(() => {
-    setBloomScale(bloomRef.current, tier === 'low' ? 0.25 : 0.5);
-  }, [tier]);
+    setBloomScale(bloom, tier === 'low' ? 0.25 : 0.5);
+  }, [bloom, tier]);
 
   // Precompile the passes whenever the pass list is (re)built: on mount and
   // on a theme change (new bloom threshold)
   useEffect(() => {
-    track(composerReady(composerRef).then((composer) => precompileComposer(gl, composer, camera)));
-  }, [palette.bloomThreshold, gl, camera, track]);
+    track(
+      composerReady(composerRef).then((composer) => precompileComposer(gl, composer, camera, scene))
+    );
+  }, [palette.bloomThreshold, gl, camera, scene, track]);
 
   return (
     <EffectComposer ref={composerRef} multisampling={0}>
-      <Bloom
-        ref={bloomRef}
-        mipmapBlur
-        intensity={palette.bloom}
-        luminanceThreshold={palette.bloomThreshold}
-        luminanceSmoothing={0.25}
-        radius={0.75}
-      />
+      <primitive object={bloom} />
       <ChromaticAberration
         ref={aberrationRef}
         offset={offset}

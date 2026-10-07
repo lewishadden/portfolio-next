@@ -56,9 +56,14 @@ const worldContent: WorldContent = {
   projects: content.projects.items.map((p) => ({
     title: p.title,
     slug: p.slug,
+    icon: p.thumbnail,
     // Full-page captures first: they make the best "live" screens
     images: [...p.images]
-      .map((image) => ({ url: image.url, tall: image.fullPage === true }))
+      .map((image) => ({
+        url: image.url,
+        tall: image.fullPage === true,
+        width: image.size.width,
+      }))
       .sort((a, b) => Number(b.tall) - Number(a.tall))
       .slice(0, 4),
   })),

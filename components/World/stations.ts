@@ -143,6 +143,11 @@ export function framedHeight(key: StationKey, cameraY: number, width: number, he
   return cameraY - shots[key].height * framing.zoom + framing.lift;
 }
 
+/** How far the camera is from the project screen in front, riding the helix */
+export function frontScreenDistance(width: number, height: number) {
+  return shots.projects.distance * stationFraming('projects', width, height, framing).zoom;
+}
+
 const right = new Vector3();
 const up = new Vector3(0, 1, 0);
 const forward = new Vector3();

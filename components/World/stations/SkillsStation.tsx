@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
   BufferGeometry,
@@ -14,7 +14,7 @@ import {
   SRGBColorSpace,
 } from 'three';
 
-import { loadIconBundle } from 'components/IconifyLoader/IconifyLoader';
+import { iconSvg, useIconCollections } from '../icons';
 import { asGlow, createFresnelMaterial, noiseGlsl } from '../materials';
 import { NavLights, SolarArray, Spin } from '../parts';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
@@ -23,7 +23,6 @@ import { StationHull } from '../StationHull';
 import { setUniform } from '../utils';
 import { focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
 
-import type { IconifyJSON } from '@iconify/react';
 import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
 
@@ -182,32 +181,6 @@ function drawBadge(svg: string | null, label: string, theme: WorldTheme) {
   image.onerror = paintLabel;
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   return texture;
-}
-
-function iconSvg(collections: IconifyJSON[], name: string, color: string) {
-  const [prefix, iconName] = name.split(':');
-  const collection = collections.find((c) => c.prefix === prefix);
-  const resolved =
-    collection?.icons[iconName] ?? collection?.icons[collection.aliases?.[iconName]?.parent ?? ''];
-  if (!collection || !resolved) return null;
-  const width = resolved.width ?? collection.width ?? 16;
-  const height = resolved.height ?? collection.height ?? 16;
-  const body = resolved.body.replace(/currentColor/g, color);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="${resolved.left ?? 0} ${resolved.top ?? 0} ${width} ${height}">${body}</svg>`;
-}
-
-function useIconCollections() {
-  const [collections, setCollections] = useState<IconifyJSON[] | null>(null);
-  useEffect(() => {
-    let active = true;
-    loadIconBundle().then((loaded) => {
-      if (active) setCollections(loaded);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-  return collections;
 }
 
 function orbitGeometry(radius: number) {

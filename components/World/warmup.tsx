@@ -9,7 +9,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useThree } from '@react-three/fiber';
-import { Effect, Pass } from 'postprocessing';
+import { Effect, Pass, RenderPass } from 'postprocessing';
 import { Group, Mesh, PlaneGeometry, Scene, Texture, WebGLRenderTarget } from 'three';
 
 import type { ReactNode } from 'react';
@@ -107,14 +107,29 @@ export async function uploadTextures(gl: WebGLRenderer, object: Object3D) {
   }
 }
 
+let uploads: Promise<unknown> = Promise.resolve();
+
+/**
+ * Uploads a texture on a coming frame, one per frame however many are
+ * queued, so textures that arrive together don't all land in one frame
+ */
+export function queueUpload(gl: WebGLRenderer, texture: Texture) {
+  const upload = uploads.then(nextFrame).then(() => gl.initTexture(texture));
+  uploads = upload.catch(() => undefined);
+  return upload;
+}
+
 /** Every material a composer's passes (and their effects' internal passes) render with */
 function composerMaterials(composer: EffectComposer) {
   const onscreen = new Set<Material>();
   const offscreen = new Set<Material>();
+  // Materials a pass draws the scene's own meshes in (the selective bloom's depth pass)
+  const overrides = new Set<Material>();
   const visit = (pass: Pass, depth: number) => {
     const target = pass.renderToScreen ? onscreen : offscreen;
     // fullscreenMaterial is a getter; other materials (e.g. the bloom mip chain's) are fields
     if (pass.fullscreenMaterial) target.add(pass.fullscreenMaterial);
+    if (pass instanceof RenderPass && pass.overrideMaterial) overrides.add(pass.overrideMaterial);
     for (const value of Object.values(pass)) {
       if ((value as Material)?.isMaterial) target.add(value as Material);
       else if (depth < 2 && value instanceof Pass) visit(value, depth + 1);
@@ -126,31 +141,46 @@ function composerMaterials(composer: EffectComposer) {
       for (const inner of Object.values(effect)) if (inner instanceof Pass) visit(inner, depth + 1);
   };
   for (const pass of composer.passes) visit(pass, 0);
-  return { onscreen, offscreen };
+  return { onscreen, offscreen, overrides };
 }
 
 /** Precompiles the post-processing passes (bloom mip chain, effect pass, …) */
-export function precompileComposer(gl: WebGLRenderer, composer: EffectComposer, camera: Camera) {
-  const { onscreen, offscreen } = composerMaterials(composer);
+export function precompileComposer(
+  gl: WebGLRenderer,
+  composer: EffectComposer,
+  camera: Camera,
+  scene: Scene
+) {
+  const { onscreen, offscreen, overrides } = composerMaterials(composer);
   // Compile against the passes' own fullscreen triangle: its attributes (no
   // normals) are part of the shader variant, so a plane would miss
   const screen = composer.passes
     .map((pass) => (pass as Pass & { screen?: Mesh | null }).screen)
     .find((mesh): mesh is Mesh => !!mesh?.geometry);
   const geometry = screen?.geometry ?? new PlaneGeometry(2, 2);
-  const build = (materials: Set<Material>) => {
-    const scene = new Scene();
-    for (const material of materials) scene.add(new Mesh(geometry, material));
-    return scene;
+  // A pass drawing the scene's meshes in a material of its own (a plane
+  // stands in for them) draws them in the scene, whose fog is part of the
+  // variant even for a material without fog, and with its camera on a layer
+  // of its own it sees none of the lights, which are part of it too
+  const plane = new PlaneGeometry();
+  const blind = camera.clone();
+  blind.layers.disableAll();
+  const build = (materials: Set<Material>, shape = geometry) => {
+    const stage = new Scene();
+    for (const material of materials) stage.add(new Mesh(shape, material));
+    return stage;
   };
   const screenScene = build(onscreen);
   const offscreenScene = build(offscreen);
+  const overrideScene = build(overrides, plane);
   return Promise.all([
     withTarget(gl, false, () => gl.compileAsync(screenScene, camera)),
     withTarget(gl, true, () => gl.compileAsync(offscreenScene, camera)),
+    withTarget(gl, true, () => gl.compileAsync(overrideScene, blind, scene)),
   ])
-    .then(() => primePrograms(gl, [...onscreen, ...offscreen]))
+    .then(() => primePrograms(gl, [...onscreen, ...offscreen, ...overrides]))
     .then(() => {
+      plane.dispose();
       if (!screen) geometry.dispose();
     });
 }
