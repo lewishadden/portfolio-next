@@ -1,7 +1,10 @@
 'use client';
 
 import { Icon } from '@iconify/react';
+
+import { emitCue } from 'components/World/worldStore';
 import { useTheme } from 'contexts/ThemeContext';
+
 import './ThemeToggle.scss';
 
 export const ThemeToggle = () => {
@@ -10,7 +13,10 @@ export const ThemeToggle = () => {
 
   return (
     <button
-      onClick={toggleTheme}
+      onClick={() => {
+        toggleTheme();
+        emitCue('theme');
+      }}
       className={`theme-toggle theme-toggle--${theme}`}
       aria-label={`Switch to ${next} mode`}
       title={`Switch to ${next} mode`}

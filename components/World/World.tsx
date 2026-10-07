@@ -4,6 +4,7 @@ import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 
+import { snapshotPage } from '@/components/PageTransition/pageSnapshot';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -16,6 +17,7 @@ import { readyBoot, reportBoot, useBooted } from './boot';
 import { rememberLoaded } from './bootMemory';
 import { ExploreHud } from './ExploreHud';
 import { NavRadar } from './NavRadar';
+import { usePageReading, useRoutePreview, useSkillHover, useTilt } from './pageInputs';
 import { TourOverlay } from './TourOverlay';
 import { WorldTooltip } from './WorldTooltip';
 import { liteQuery, prefetchStationModel, stationForPath } from './routes';
@@ -125,10 +127,19 @@ export function World({ content }: { content: WorldContent }) {
   useWorldInputs();
   useModelPrefetch(active);
   useWorldFocus();
+  useRoutePreview(active && ready);
+  usePageReading(active, routeKey);
+  useSkillHover(active && ready);
+  useTilt(active && ready, reducedMotion);
 
-  // Navigation requested from inside the canvas (screens, docking)
+  // Navigation requested from inside the canvas (screens, docking): the page
+  // being left flies off with the camera, as a clicked link's does
   useEffect(() => {
-    const onNavigate = (e: Event) => router.push((e as CustomEvent<string>).detail);
+    const onNavigate = (e: Event) => {
+      const href = (e as CustomEvent<string>).detail;
+      snapshotPage(href);
+      router.push(href);
+    };
     window.addEventListener(worldNavigateEvent, onNavigate);
     return () => window.removeEventListener(worldNavigateEvent, onNavigate);
   }, [router]);

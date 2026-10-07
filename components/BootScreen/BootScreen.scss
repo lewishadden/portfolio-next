@@ -204,6 +204,55 @@
     color: var(--text-primary);
   }
 
+  /* Optional: sound on, started by this click in time for the warp in */
+  &__sound {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.6rem;
+    padding: 0.45rem 0.6rem 0.45rem 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-pill);
+    font-size: var(--fs-caption, 0.8125rem);
+    color: var(--text-secondary);
+    background: color-mix(in oklab, var(--bg-primary) 60%, transparent);
+    animation: boot-rise-in 0.6s var(--ease-out) both;
+    transition:
+      color var(--dur-fast) ease,
+      border-color var(--dur-fast) ease;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--text-primary);
+      border-color: var(--accent-secondary);
+    }
+
+    &--on {
+      color: var(--text-primary);
+      border-color: color-mix(in oklab, var(--accent-secondary) 60%, transparent);
+    }
+  }
+
+  &__sound-state {
+    min-width: 2.1rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny, 0.6875rem);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--text-secondary);
+    background: color-mix(in oklab, var(--text-primary) 8%, transparent);
+  }
+
+  &__sound--on &__sound-state {
+    color: var(--accent-contrast);
+    background: var(--gradient-brand);
+  }
+
+  /* In the server HTML from the start, so it works even if the app never
+     starts (ThemeScript); it appears once the wait is worth skipping */
   &__skip {
     position: absolute;
     bottom: clamp(24px, 6vh, 48px);
@@ -215,7 +264,7 @@
     color: var(--text-secondary);
     background: transparent;
     transform: translateX(-50%);
-    animation: boot-fade-in 0.6s var(--ease-out) both;
+    animation: boot-fade-in 0.6s var(--ease-out) 3.5s both;
 
     &:hover,
     &:focus-visible {
@@ -276,10 +325,23 @@ html[data-boot='loading'] {
   }
 }
 
+/* Hidden until it starts: out of reach of the pointer and the keyboard */
 @keyframes boot-fade-in {
   from {
+    visibility: hidden;
     opacity: 0;
     transform: translate(-50%, 8px);
+  }
+
+  to {
+    visibility: visible;
+  }
+}
+
+@keyframes boot-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
 }
 

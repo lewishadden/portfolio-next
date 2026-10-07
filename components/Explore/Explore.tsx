@@ -44,7 +44,7 @@ export const Explore = ({
   title: string;
   items: ExploreItem[];
 }) => (
-  <section className="explore" aria-labelledby="explore-heading">
+  <section className="explore" aria-labelledby="explore-heading" data-world-section="explore">
     <Reveal className="explore__head">
       <p className="eyebrow">
         <span className="eyebrow__line" aria-hidden="true" />

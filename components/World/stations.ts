@@ -153,6 +153,46 @@ const up = new Vector3(0, 1, 0);
 const forward = new Vector3();
 const overviewEye = new Vector3();
 const overviewLook = new Vector3();
+const companionEye = new Vector3();
+const companionLook = new Vector3();
+
+/**
+ * Long pages keep their station in view as they are read (wide layouts:
+ * the copy stays in one column and the veil keeps it legible). Past the
+ * hero the camera pulls back and swings round the station as each section
+ * ([data-world-section], worldStore.sectionFocus) reaches the reading line,
+ * so the station stays beside the copy as a backdrop instead of scrolling
+ * away. Each pose: the swing round the station (radians), how far back
+ * (times the usual distance) and how high the eye is, the framed point,
+ * and the extra push to the right. The home page's last pose looks out
+ * past the hub along the line of stations its cards lead to.
+ */
+interface Companion {
+  swing: number;
+  back: number;
+  rise: number;
+  look: [number, number, number];
+  room: number;
+}
+
+const companions: Partial<Record<StationKey, Companion[]>> = {
+  home: [
+    { swing: 0.42, back: 1.75, rise: 2.2, look: [0, 0.3, 0], room: 1.5 },
+    { swing: 0.13, back: 5.5, rise: 5.8, look: [-6, -2, -46], room: 0.4 },
+  ],
+  // Its story runs down the right-hand column, so the station waits for the recommendations
+  about: [{ swing: 0.5, back: 1.9, rise: 1.6, look: [0, 0.3, 0], room: 2.4 }],
+  contact: [{ swing: 0.38, back: 1.65, rise: 1.6, look: [0.8, 0.6, -1], room: 1.4 }],
+};
+
+/** How far the page has moved the camera into each companion pose, 0..1 */
+function companionWeights(count: number, out: number[]) {
+  const focus = worldStore.sectionCount > 0 ? worldStore.sectionFocus : -1;
+  for (let i = 0; i < count; i++)
+    out[i] = MathUtils.smoothstep(focus, i === 0 ? -0.7 : i - 0.3, i === 0 ? 0.2 : i + 0.3);
+  return out;
+}
+const weights: number[] = [];
 
 /**
  * Camera pose inside a station, in station-local space.
@@ -239,6 +279,30 @@ export function stationCamera(
       look.set(0, 0, 0);
       pos.set(0, eyeY, distance);
   }
+
+  // Long pages on wide layouts: into the companion poses as they are read
+  // (not while the contact page holds the globe for a launch)
+  const wide = isWideViewport(width, height);
+  const poses = wide ? companions[key] : undefined;
+  const showcase =
+    key === 'contact' && (worldStore.transmitting || performance.now() < worldStore.showcaseUntil);
+  let room = 0;
+  if (poses && !showcase) {
+    companionWeights(poses.length, weights);
+    poses.forEach((pose, i) => {
+      const weight = weights[i];
+      if (weight <= 0) return;
+      companionLook.fromArray(pose.look);
+      companionEye.set(
+        Math.sin(pose.swing) * distance * pose.back,
+        eyeY + pose.rise,
+        Math.cos(pose.swing) * distance * pose.back
+      );
+      look.lerp(companionLook, weight);
+      pos.lerp(companionEye, weight);
+      room = MathUtils.lerp(room, pose.room, weight);
+    });
+  }
   pos.multiplyScalar(zoom).add(look);
 
   // Frame the station: object to the right of the copy on wide screens,
@@ -247,10 +311,9 @@ export function stationCamera(
   right.crossVectors(forward, up).normalize();
   // The skills constellation is wider than the other stations: give it more
   // room. On the projects page the screen is centred, with its copy around it
-  const wide = isWideViewport(width, height);
   const centred = key === 'projects' && !worldStore.projectAside;
   const intro = centred ? projectIntro() : 0;
-  const roomy = key === 'skills' ? 4.4 : centred ? overview.room * intro : 3.3;
+  const roomy = (key === 'skills' ? 4.4 : centred ? overview.room * intro : 3.3) + room;
   const shiftX = wide ? roomy : 0;
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);

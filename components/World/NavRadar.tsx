@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 
 import { navigableStations, stationNames, stationPositions } from './routes';
 import { worldMode } from './worldMode';
-import { onFlight, worldStore } from './worldStore';
+import { onFlight, onPreview, worldStore } from './worldStore';
 
 import type { StationKey } from './routes';
 
@@ -14,14 +14,23 @@ import type { StationKey } from './routes';
    scale on every axis, so distances and heights are true; each station
    stands on a stalk above a ground grid to show its height, the planned
    route is the real flight curve, and the camera is an arrow pointing
-   the way it looks. The view sways a little so it reads as 3D.
+   the way it looks. The view sways a little so it reads as 3D. Hovering
+   or focusing a link to another station plots the course there first
+   (worldStore.preview), marching towards it, before anything is clicked.
    ------------------------------------------------------------------ */
+
+/** The course being previewed, when there is no flight: its station and path */
+function previewed() {
+  const { flight, preview, previewPath } = worldStore;
+  return !flight.active && preview && previewPath.length ? preview : '';
+}
 
 const width = 236;
 const height = 176;
 const pad = 20;
-/** How long the map lingers after a flight lands */
+/** How long the map lingers after a flight lands, and after a previewed course is let go */
 const linger = 1400;
+const previewLinger = 350;
 /** Map view: turned so the line of stations runs corner to corner, looking down */
 const baseYaw = 0.62;
 const sway = 0.16;
@@ -169,18 +178,22 @@ function paint(
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // Planned route, with how far along it the camera is
-  if (flight.active && flight.path.length) {
+  // Planned route, with how far along it the camera is; or the course a
+  // hovered link would take, marching towards its station
+  const course = previewed();
+  const path = flight.active ? flight.path : course ? worldStore.previewPath : null;
+  if (path?.length) {
     const route: [number, number][] = [];
-    for (let i = 0; i < flight.path.length; i += 3) {
-      const [x, y] = project(view, flight.path[i], flight.path[i + 1], flight.path[i + 2]);
+    for (let i = 0; i < path.length; i += 3) {
+      const [x, y] = project(view, path[i], path[i + 1], path[i + 2]);
       route.push([x, y]);
     }
     ctx.save();
     ctx.setLineDash([3, 4]);
+    if (course) ctx.lineDashOffset = still ? 0 : -(now / 60) % 7;
     ctx.lineWidth = 1.2;
-    ctx.strokeStyle = colours.cyan;
-    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = course ? colours.pink : colours.cyan;
+    ctx.globalAlpha = course ? 0.9 : 0.8;
     ctx.beginPath();
     route.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
     ctx.stroke();
@@ -188,7 +201,7 @@ function paint(
   }
 
   // Stations, far to near, each on a stalk down to the grid
-  const target = flight.active ? flight.to : '';
+  const target = flight.active ? flight.to : course;
   const stations = navigableStations
     .map((key) => {
       const [x, y, z] = stationPositions[key];
@@ -293,7 +306,7 @@ function paint(
   if (target) {
     const [tx, ty, tz] = stationPositions[target as StationKey];
     const left = Math.hypot(tx - camera.x, ty - camera.y, tz - camera.z);
-    const label = `→ ${stationNames[target as StationKey].page.toUpperCase()}`;
+    const label = `${course ? 'Course ' : ''}→ ${stationNames[target as StationKey].page.toUpperCase()}`;
     ctx.textAlign = 'left';
     ctx.fillStyle = colours.text;
     ctx.fillText(label, 8, by - 1);
@@ -323,6 +336,7 @@ export function NavRadar() {
 
     let frame = 0;
     let lastActive = -Infinity;
+    let lastPreview = -Infinity;
     let colours = readColours();
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const font =
@@ -332,7 +346,12 @@ export function NavRadar() {
     const tick = (now: number) => {
       const active = worldStore.flight.active || worldMode.get().mode !== 'page';
       if (active) lastActive = now;
-      const show = now - lastActive < linger;
+      if (previewed()) lastPreview = now;
+      const show = now - lastActive < linger || now - lastPreview < previewLinger;
+      // A preview opens it up under the header, clear of the page's copy, and
+      // it stays there if the course is then flown
+      if (!root.classList.contains('nav-radar--on'))
+        root.classList.toggle('nav-radar--aside', !active && now - lastPreview < previewLinger);
       root.classList.toggle('nav-radar--on', show);
       if (!show) {
         frame = 0;
@@ -350,10 +369,13 @@ export function NavRadar() {
       if (event === 'start') start();
     });
     const stopMode = worldMode.subscribe(start);
+    // The preview's path is planned on the camera's next frame: look then
+    const stopPreview = onPreview(() => requestAnimationFrame(() => requestAnimationFrame(start)));
     start();
     return () => {
       stopFlight();
       stopMode();
+      stopPreview();
       cancelAnimationFrame(frame);
     };
   }, []);

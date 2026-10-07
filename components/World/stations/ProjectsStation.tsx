@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { Billboard } from '@react-three/drei';
 import { easing } from 'maath';
 import {
   CanvasTexture,
@@ -22,6 +23,8 @@ import { iconSvg, useIconCollections } from '../icons';
 import { decodeImage } from '../imageDecoder';
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { NavLights, Truss } from '../parts';
+import { spawnPing } from '../Pings';
+import { StationScope } from '../power';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import {
   baseFov,
@@ -614,7 +617,7 @@ class ScreenShots {
 /** Opens a project: the grid's modal when on /projects, its page from anywhere else */
 function openProject(slug: string) {
   const href = `/projects/${slug}`;
-  if (document.querySelector('section.projects')) {
+  if (document.querySelector('#main-content section.projects')) {
     window.history.pushState({ projectModal: true }, '', href);
   } else {
     navigateTo(href);
@@ -731,7 +734,7 @@ export function ProjectsStation({
   const groupRef = useRef<Group>(null);
   const helixRef = useRef<Group>(null);
   const hubRef = useRef<Group>(null);
-  const materials = useThemedMaterials(buildMaterials, theme);
+  const materials = useThemedMaterials(buildMaterials, theme, 'projects');
   const palette = palettes[theme];
 
   const screens = useMemo(() => projects.slice(0, helix.screens), [projects]);
@@ -879,66 +882,73 @@ export function ProjectsStation({
   });
 
   return (
-    <group ref={groupRef} position={stationPositions.projects}>
-      <mesh material={materials.haloViolet} position={[0, 0.4, -2.5]} scale={9}>
-        <planeGeometry />
-      </mesh>
-      <mesh material={materials.halo} position={[0, -6, -4]} scale={14}>
-        <planeGeometry />
-      </mesh>
+    <StationScope station="projects">
+      <group ref={groupRef} position={stationPositions.projects}>
+        <Billboard position={[0, 0.4, -2.5]}>
+          <mesh material={materials.haloViolet} scale={9}>
+            <planeGeometry />
+          </mesh>
+        </Billboard>
+        <Billboard position={[0, -6, -4]}>
+          <mesh material={materials.halo} scale={14}>
+            <planeGeometry />
+          </mesh>
+        </Billboard>
 
-      <mesh material={materials.base} position={[0, -1.7, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[2.1, 0.018, 8, 200]} />
-      </mesh>
+        <mesh material={materials.base} position={[0, -1.7, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[2.1, 0.018, 8, 200]} />
+        </mesh>
 
-      <group ref={helixRef}>
-        {screens.map((screen, i) => {
-          const angle = i * helix.turn;
-          return (
-            <group
-              key={screen.title}
-              position={[
-                Math.sin(angle) * helix.radius,
-                helixScreenY(i),
-                Math.cos(angle) * helix.radius,
-              ]}
-            >
-              <mesh
-                material={screenMaterials[i]}
-                scale={[screenSize.width, screenSize.height, 1]}
-                onPointerOver={(e) => {
-                  e.stopPropagation();
-                  if (hoveredRef.current === i) return;
-                  if (hoveredRef.current >= 0) setWorldHover(false);
-                  hoveredRef.current = i;
-                  setWorldHover(true);
-                  worldTip.set(tips[i]);
-                }}
-                onPointerOut={() => {
-                  if (hoveredRef.current !== i) return;
-                  hoveredRef.current = -1;
-                  setWorldHover(false);
-                  if (worldTip.get() === tips[i]) worldTip.set(null);
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openProject(screen.slug);
-                }}
+        <group ref={helixRef}>
+          {screens.map((screen, i) => {
+            const angle = i * helix.turn;
+            return (
+              <group
+                key={screen.title}
+                position={[
+                  Math.sin(angle) * helix.radius,
+                  helixScreenY(i),
+                  Math.cos(angle) * helix.radius,
+                ]}
               >
-                <planeGeometry />
-              </mesh>
-              <ScreenMask geometry={maskGeometry} />
-            </group>
-          );
-        })}
-      </group>
+                <mesh
+                  material={screenMaterials[i]}
+                  scale={[screenSize.width, screenSize.height, 1]}
+                  onPointerOver={(e) => {
+                    e.stopPropagation();
+                    if (hoveredRef.current === i) return;
+                    if (hoveredRef.current >= 0) setWorldHover(false);
+                    hoveredRef.current = i;
+                    setWorldHover(true);
+                    worldTip.set(tips[i]);
+                  }}
+                  onPointerOut={() => {
+                    if (hoveredRef.current !== i) return;
+                    hoveredRef.current = -1;
+                    setWorldHover(false);
+                    if (worldTip.get() === tips[i]) worldTip.set(null);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    spawnPing(e.point);
+                    openProject(screen.slug);
+                  }}
+                >
+                  <planeGeometry />
+                </mesh>
+                <ScreenMask geometry={maskGeometry} />
+              </group>
+            );
+          })}
+        </group>
 
-      {/* The fabrication yard: its hub on a truss spine, the helix of work orbiting it */}
-      <Truss position={[0, -11, 0]} length={16} size={0.36} />
-      <NavLights lights={spineLights} />
-      <group ref={hubRef}>
-        <StationHull station="projects" height={2.7} theme={theme} />
+        {/* The fabrication yard: its hub on a truss spine, the helix of work orbiting it */}
+        <Truss position={[0, -11, 0]} length={16} size={0.36} />
+        <NavLights lights={spineLights} />
+        <group ref={hubRef}>
+          <StationHull station="projects" height={2.7} theme={theme} />
+        </group>
       </group>
-    </group>
+    </StationScope>
   );
 }

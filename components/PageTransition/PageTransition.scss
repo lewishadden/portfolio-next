@@ -12,3 +12,30 @@
     0 0 40px var(--glow-violet);
   pointer-events: none;
 }
+
+/* The page you left, leaving with the camera (pageSnapshot.ts): a still
+   copy where it was on screen, over the new page (hidden until the
+   camera's approach) and under the header and the HUD overlays. Out of
+   sight until the route changes; the animation itself is inline */
+.page-ghost {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  contain: strict;
+  pointer-events: none;
+
+  &:not([data-shown]) {
+    visibility: hidden;
+    opacity: 0;
+  }
+
+  &[data-shown] {
+    will-change: transform, opacity, filter;
+  }
+
+  /* A still: nothing in it eases towards a new value */
+  * {
+    transition: none !important;
+  }
+}

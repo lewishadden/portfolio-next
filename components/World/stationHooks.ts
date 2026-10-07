@@ -4,7 +4,8 @@ import { createContext, useContext, useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import { Camera, Material, Object3D, ShaderMaterial, Vector3 } from 'three';
 
-import { applyGlowTheme } from './materials';
+import { applyGlowTheme, chargeWith } from './materials';
+import { stationPower } from './power';
 import { isWideViewport, stationPositions } from './stations';
 import { palettes } from './utils';
 
@@ -21,19 +22,23 @@ export function useWide() {
 
 /**
  * Builds a station's materials for the current theme and disposes the previous set.
- * `factory` must be a stable module-level function.
+ * `factory` must be a stable module-level function. With `station`, its
+ * glows follow that station's power (power.tsx).
  */
 export function useThemedMaterials<T extends Record<string, Material>>(
   factory: (palette: WorldPalette) => T,
-  theme: WorldTheme
+  theme: WorldTheme,
+  station?: StationKey
 ): T {
   const materials = useMemo(() => {
     const built = factory(palettes[theme]);
     for (const material of Object.values(built)) {
-      if (material instanceof ShaderMaterial) applyGlowTheme(material, theme);
+      if (!(material instanceof ShaderMaterial)) continue;
+      applyGlowTheme(material, theme);
+      if (station) chargeWith(material, stationPower[station].charge);
     }
     return built;
-  }, [factory, theme]);
+  }, [factory, theme, station]);
 
   useEffect(
     () => () => {

@@ -10,7 +10,14 @@ import { stationForPath, stationNames, stationPaths } from './routes';
 import { SignalCard, SignalCount, SignalDetector } from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
-import { exploreInput, onDock, onDocking, setAutopilot, worldStore } from './worldStore';
+import {
+  exploreInput,
+  onDock,
+  onDocking,
+  setAutopilot,
+  worldBumpEvent,
+  worldStore,
+} from './worldStore';
 
 import type { StationKey } from './routes';
 import type { WorldContent } from './types';
@@ -298,6 +305,34 @@ function DockingOverlay({ path }: { path: string }) {
 }
 
 /**
+ * A knock against a hull (worldBumpEvent): the screen's edges flash and a
+ * warning blinks under the reticle, harder for a harder knock
+ */
+function HullContact() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onBump = (e: Event) => {
+      el.style.setProperty('--impact', String((e as CustomEvent<number>).detail));
+      // Restart the flash
+      el.classList.remove('explore-hud__impact--on');
+      void el.offsetWidth;
+      el.classList.add('explore-hud__impact--on');
+    };
+    window.addEventListener(worldBumpEvent, onBump);
+    return () => window.removeEventListener(worldBumpEvent, onBump);
+  }, []);
+
+  return (
+    <div ref={ref} className="explore-hud__impact" aria-hidden="true">
+      <span className="explore-hud__impact-label">Hull contact</span>
+    </div>
+  );
+}
+
+/**
  * Explore mode's heads-up display: how to fly, an exit, a marker for
  * every station (which sets the autopilot), the autopilot's status, a
  * docking prompt when you are close enough to a station to open its page
@@ -429,6 +464,7 @@ export function ExploreHud({
 
       <SignalCard cv={cv} onPage={onDockRequest} />
       <BoostJet />
+      <HullContact />
 
       {!touch && (
         <span

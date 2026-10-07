@@ -81,9 +81,12 @@ function labelTexture(index: number, key: StationKey, theme: WorldTheme) {
 /**
  * A light above every station, visible from anywhere in the world, so the
  * stations read as one place: from any page the others glow in the distance.
- * Names appear while flying or touring, and the destination pulses. In free
- * roam the lights burn bigger and brighter to steer by (the HUD's markers
- * name them), and the autopilot's destination pulses.
+ * Names appear while flying (until the final approach, when the new page's
+ * copy arrives over them) or touring, and the destination pulses. A link
+ * being hovered or focused flares its station's light, a preview of the
+ * course (not its name: the page's copy is still showing). In free roam the lights burn bigger and brighter
+ * to steer by (the HUD's markers name them), and the autopilot's
+ * destination pulses.
  */
 export function Beacons({ theme, current }: { theme: WorldTheme; current: StationKey }) {
   const groupRef = useRef<Group>(null);
@@ -145,7 +148,8 @@ export function Beacons({ theme, current }: { theme: WorldTheme; current: Statio
     const { mode } = worldMode.get();
     const flight = worldStore.flight;
     const exploring = mode === 'explore';
-    const showNames = mode === 'tour' || flight.active;
+    const showNames = mode === 'tour' || (flight.active && !flight.approached);
+    const previewing = mode === 'page' && !flight.active ? worldStore.preview : '';
     const t = clock.elapsedTime;
     const dt = Math.min(delta, 0.05);
     const bright = (beacons.current = MathUtils.damp(beacons.current, exploring ? 1 : 0, 3, dt));
@@ -158,9 +162,11 @@ export function Beacons({ theme, current }: { theme: WorldTheme; current: Statio
       const distance = camera.position.distanceTo(position);
       // Fade out as you arrive: the station itself takes over
       const presence = MathUtils.smoothstep(distance, 22, 60);
+      const previewed = previewing === beacon.key;
       const target =
         (flight.active && flight.to === beacon.key) ||
-        (exploring && worldStore.autopilot === beacon.key);
+        (exploring && worldStore.autopilot === beacon.key) ||
+        previewed;
       const pulse = target
         ? 0.75 + 0.25 * Math.sin(t * 5)
         : 1 + 0.12 * bright * Math.sin(t * 2 + i);

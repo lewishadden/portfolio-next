@@ -2,11 +2,13 @@
 
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Billboard } from '@react-three/drei';
 import { AdditiveBlending, Group, NormalBlending } from 'three';
 
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
-import { NavLights, SolarArray, Spin } from '../parts';
+import { HabitatRing, NavLights, SolarArray, Spin } from '../parts';
+import { StationScope } from '../power';
 import {
   createReaction,
   easeInOut,
@@ -32,6 +34,9 @@ const habitatLights: NavLight[] = [
   { position: [0, 1.65, 0.8], kind: 'cyan' },
   { position: [0, -1.6, 0.8], kind: 'violet' },
 ];
+
+/** Seconds the helmet's spin takes */
+const spinTime = 1.3;
 
 const buildMaterials = (p: WorldPalette) => ({
   ringA: createRingMaterial({
@@ -63,10 +68,10 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
   const ringsRef = useRef<Group>(null);
   const scanRef = useRef<Group>(null);
   const motesRef = useRef<Group>(null);
-  const materials = useThemedMaterials(buildMaterials, theme);
+  const materials = useThemedMaterials(buildMaterials, theme, 'about');
   const palette = palettes[theme];
   const reaction = useRef(createReaction());
-  const handlers = useReactionHandlers(reaction, helmetTip);
+  const handlers = useReactionHandlers(reaction, helmetTip, spinTime);
 
   const motes = useMemo(() => {
     const random = seededRandom(41);
@@ -91,7 +96,7 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
     const helmet = helmetRef.current;
     if (helmet) {
       // The visor follows the pointer, turns to face you on hover, spins on click
-      const spin = trickProgress(r, 1.3);
+      const spin = trickProgress(r, spinTime);
       helmet.position.y = 0.35 + Math.sin(t * 0.8) * 0.14 + r.amount * 0.1;
       helmet.rotation.y =
         (0.15 + Math.sin(t * 0.3) * 0.3) * (1 - r.amount * 0.8) +
@@ -120,65 +125,73 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
   });
 
   return (
-    <group ref={groupRef} position={stationPositions.about}>
-      {/* The crew habitat, cupola turned towards the visitor */}
-      <group position={[-3.4, 3.7, -15]} rotation={[0.2, 0.55, 0.08]}>
-        <Spin>
-          <StationHull station="about" height={3.2} theme={theme} />
-          {/* Wings above and below the module, panels turned to face out */}
-          <group position={[0.6, 1.2, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <SolarArray rotation={[Math.PI / 2, 0, 0]} length={4.4} width={1.3} panels={3} />
-          </group>
-          <group position={[0.6, -1.2, 0]} rotation={[0, 0, -Math.PI / 2]}>
-            <SolarArray rotation={[-Math.PI / 2, 0, 0]} length={4.4} width={1.3} panels={3} />
-          </group>
-          <NavLights lights={habitatLights} />
-        </Spin>
-      </group>
+    <StationScope station="about">
+      <group ref={groupRef} position={stationPositions.about}>
+        {/* The crew habitat, cupola turned towards the visitor */}
+        <group position={[-3.4, 3.7, -15]} rotation={[0.2, 0.55, 0.08]}>
+          <Spin>
+            <StationHull station="about" height={3.2} theme={theme} />
+            {/* Its habitat ring, turning about the module for gravity */}
+            <Spin speed={0.32}>
+              <HabitatRing rotation={[Math.PI / 2, 0, 0]} radius={2.9} tube={0.16} spokes={4} />
+            </Spin>
+            {/* Wings above and below the module, panels turned to face out */}
+            <group position={[0.6, 1.2, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <SolarArray rotation={[Math.PI / 2, 0, 0]} length={4.4} width={1.3} panels={3} />
+            </group>
+            <group position={[0.6, -1.2, 0]} rotation={[0, 0, -Math.PI / 2]}>
+              <SolarArray rotation={[-Math.PI / 2, 0, 0]} length={4.4} width={1.3} panels={3} />
+            </group>
+            <NavLights lights={habitatLights} />
+          </Spin>
+        </group>
 
-      <mesh material={materials.halo} position={[0, 0, -3]} scale={9}>
-        <planeGeometry />
-      </mesh>
-
-      <group ref={ringsRef}>
-        <mesh material={materials.ringA} rotation={[Math.PI / 2.3, 0.2, 0]}>
-          <torusGeometry args={[2.35, 0.012, 8, 240]} />
-        </mesh>
-        <mesh material={materials.ringB} rotation={[Math.PI / 2.6, -0.5, 0]}>
-          <torusGeometry args={[2.75, 0.02, 12, 240]} />
-        </mesh>
-        <mesh material={materials.ringC} rotation={[1.9, 0.6, 0]}>
-          <torusGeometry args={[3.15, 0.012, 8, 240]} />
-        </mesh>
-      </group>
-
-      <group ref={scanRef}>
-        <mesh material={materials.scan} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[1.85, 0.01, 8, 180]} />
-        </mesh>
-        <mesh material={materials.scanDisc} rotation={[-Math.PI / 2, 0, 0]} scale={3.6}>
-          <planeGeometry />
-        </mesh>
-      </group>
-
-      <group ref={motesRef}>
-        {motes.map((m, i) => (
-          <mesh key={i} scale={m.size}>
-            <sphereGeometry args={[1, 8, 8]} />
-            <meshBasicMaterial
-              color={i % 3 ? palette.cyan : palette.violet}
-              transparent
-              opacity={0.85}
-              blending={theme === 'light' ? NormalBlending : AdditiveBlending}
-              toneMapped={false}
-            />
+        <Billboard position={[0, 0, -3]}>
+          <mesh material={materials.halo} scale={9}>
+            <planeGeometry />
           </mesh>
-        ))}
-      </group>
+        </Billboard>
 
-      <group ref={helmetRef} {...handlers}>
-        <Model url={stationModels.about!} height={2.8} theme={theme} />
+        <group ref={ringsRef}>
+          <mesh material={materials.ringA} rotation={[Math.PI / 2.3, 0.2, 0]}>
+            <torusGeometry args={[2.35, 0.012, 8, 240]} />
+          </mesh>
+          <mesh material={materials.ringB} rotation={[Math.PI / 2.6, -0.5, 0]}>
+            <torusGeometry args={[2.75, 0.02, 12, 240]} />
+          </mesh>
+          <mesh material={materials.ringC} rotation={[1.9, 0.6, 0]}>
+            <torusGeometry args={[3.15, 0.012, 8, 240]} />
+          </mesh>
+        </group>
+
+        <group ref={scanRef}>
+          <mesh material={materials.scan} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1.85, 0.01, 8, 180]} />
+          </mesh>
+          <mesh material={materials.scanDisc} rotation={[-Math.PI / 2, 0, 0]} scale={3.6}>
+            <planeGeometry />
+          </mesh>
+        </group>
+
+        <group ref={motesRef}>
+          {motes.map((m, i) => (
+            <mesh key={i} scale={m.size}>
+              <sphereGeometry args={[1, 8, 8]} />
+              <meshBasicMaterial
+                color={i % 3 ? palette.cyan : palette.violet}
+                transparent
+                opacity={0.85}
+                blending={theme === 'light' ? NormalBlending : AdditiveBlending}
+                toneMapped={false}
+              />
+            </mesh>
+          ))}
+        </group>
+
+        <group ref={helmetRef} {...handlers}>
+          <Model url={stationModels.about!} height={2.8} theme={theme} />
+        </group>
       </group>
-    </group>
+    </StationScope>
   );
 }

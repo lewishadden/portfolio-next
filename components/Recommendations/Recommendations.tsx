@@ -71,7 +71,7 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
 export function Recommendations({ items }: { items: Recommendation[] }) {
   if (!items.length) return null;
   return (
-    <section className="recs" aria-labelledby="recs-heading">
+    <section className="recs" aria-labelledby="recs-heading" data-world-section="recommendations">
       <Reveal as="h2" id="recs-heading" className="recs__title">
         <span className="recs__eyebrow" aria-hidden="true">
           {'// '}

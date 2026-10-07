@@ -1,33 +1,31 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { m, useAnimationControls } from 'framer-motion';
 import { useLenis } from 'lenis/react';
 import { usePathname } from 'next/navigation';
 
 import { whenBooted } from '@/components/World/boot';
 import { stationForPath } from '@/components/World/routes';
-import { worldMode } from '@/components/World/worldMode';
 import { onFlight } from '@/components/World/worldStore';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useRouteKey } from '@/hooks/useRouteKey';
+import { releaseSnapshot, watchNavigation, worldIsLive } from './pageSnapshot';
+
+import type { StationKey } from '@/components/World/routes';
 
 import './PageTransition.scss';
 
 /** Longest the copy waits for the camera before showing anyway */
 const maxHold = 6500;
 
-/** The 3D world is on screen and following the page */
-const worldIsLive = () =>
-  document.documentElement.dataset.world === 'on' &&
-  !!document.querySelector('.world--ready') &&
-  worldMode.get().mode === 'page';
-
 /**
  * Route changes: a light sweep crosses the viewport and the new page
  * de-blurs in. With the 3D world on, the copy waits for the camera: it
  * arrives as the flight makes its final approach, rather than appearing
- * over empty space. The first page load enters as the loading screen lifts.
+ * over empty space, and the page you left goes with the camera (a still
+ * copy rushing past or swinging away, see pageSnapshot). The first page
+ * load enters as the loading screen lifts.
  */
 export function PageTransition({ children }: { children: React.ReactNode }) {
   // Keyed by route, not URL: the project modal's shallow URL change must not remount the grid
@@ -36,18 +34,35 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   const reduceMotion = useReducedMotion();
   const lenis = useLenis();
   const controls = useAnimationControls();
-  const station = useRef<string | null>(null);
+  const station = useRef<StationKey | null>(null);
+  const route = useRef<string | null>(null);
+  const flight = useRef(false);
+
+  // Link clicks and Back / Forward snapshot the page they leave
+  useEffect(() => watchNavigation(), []);
 
   useEffect(() => {
     lenis?.scrollTo(0, { immediate: true });
   }, [routeKey, lenis]);
 
-  useEffect(() => {
+  // Before paint, so the page you left never blinks out: is the camera
+  // flying? If it is, that page's snapshot takes its place and leaves with it
+  useLayoutEffect(() => {
     const previous = station.current;
     const next = stationForPath(pathname);
     station.current = next;
-    const expectFlight = previous !== null && previous !== next && !reduceMotion && worldIsLive();
-    if (!expectFlight) {
+    flight.current = previous !== null && previous !== next && !reduceMotion && worldIsLive();
+    releaseSnapshot(next, flight.current);
+    // ThemeScript's failsafe showed the page that loaded before the app did; the next runs as usual
+    if (route.current !== null && route.current !== routeKey) {
+      delete document.documentElement.dataset.failsafe;
+    }
+    route.current = routeKey;
+  }, [routeKey, pathname, reduceMotion]);
+
+  useEffect(() => {
+    const next = station.current;
+    if (!flight.current) {
       // A full page load enters as the loading screen lifts
       return whenBooted(() => controls.start('visible'));
     }

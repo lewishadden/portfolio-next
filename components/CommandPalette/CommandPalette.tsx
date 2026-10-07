@@ -6,8 +6,9 @@ import { Icon } from '@iconify/react';
 
 import { useSound } from 'components/Sound/sound';
 import { statsOverlay } from 'components/StatsOverlay/statsStore';
+import { snapshotPage } from 'components/PageTransition/pageSnapshot';
 import { launchWorldMode } from 'components/World/worldMode';
-import { onFlight, requestLaunch } from 'components/World/worldStore';
+import { emitCue, onFlight, requestLaunch } from 'components/World/worldStore';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useWorldPreference } from '@/hooks/useWorldPreference';
@@ -135,6 +136,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
 
   useEffect(() => {
     if (!open) return;
+    emitCue('palette');
     document.documentElement.classList.add('palette-open');
     const frame = requestAnimationFrame(() => inputRef.current?.focus());
     return () => {
@@ -144,6 +146,10 @@ export function CommandPalette({ data }: { data: PaletteData }) {
   }, [open]);
 
   const { on: soundOn, setSound } = useSound();
+  const switchTheme = useCallback(() => {
+    toggleTheme();
+    emitCue('theme');
+  }, [toggleTheme]);
   const enableWorld = useCallback(() => setEnabled(true), [setEnabled]);
   const startTour = useCallback(() => launchWorldMode('tour', enableWorld), [enableWorld]);
   const startExplore = useCallback(() => launchWorldMode('explore', enableWorld), [enableWorld]);
@@ -157,6 +163,8 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     ];
     steps.forEach(([delay, text, tone]) => window.setTimeout(() => print(text, tone), delay));
     window.setTimeout(() => {
+      // The page leaves with the camera (PageTransition)
+      snapshotPage('/contact');
       close();
       router.push('/contact');
       // Fire the rocket once the camera has arrived (or soon, without the world)
@@ -204,6 +212,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
             print(`cd: no such page: ${arg || '(none)'}`, 'warn');
             return true;
           }
+          snapshotPage(target?.href ?? '/');
           close();
           router.push(target?.href ?? '/');
           return false;
@@ -250,18 +259,19 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           print(`stats overlay ${statsOverlay.get() ? 'on' : 'off'}`, 'dim');
           return true;
         case 'theme':
-          toggleTheme();
+          switchTheme();
           return true;
         default:
           print(`command not found: ${word}. Type help.`, 'warn');
           return true;
       }
     },
-    [close, data, hireSequence, print, router, startExplore, startTour, toggleTheme]
+    [close, data, hireSequence, print, router, startExplore, startTour, switchTheme]
   );
 
   const commands = useMemo<Command[]>(() => {
     const go = (href: string) => () => {
+      snapshotPage(href);
       close();
       router.push(href);
     };
@@ -334,7 +344,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
         icon: 'ph:circle-half-tilt-bold',
         keywords: 'mode colour color',
         run: () => {
-          toggleTheme();
+          switchTheme();
         },
       },
       {
@@ -396,7 +406,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     startExplore,
     startTour,
     supported,
-    toggleTheme,
+    switchTheme,
   ]);
 
   const results = useMemo(() => {

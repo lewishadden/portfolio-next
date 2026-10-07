@@ -100,11 +100,28 @@
     display: block;
   }
 
+  /* Opened by a previewed course: under the header on the right, where the
+     station is rather than the page's copy */
+  &--aside {
+    top: calc(var(--header-h, 72px) + 16px);
+    right: 24px;
+    bottom: auto;
+    left: auto;
+  }
+
   @media (max-width: 760px) {
     bottom: 16px;
     left: 16px;
     transform-origin: bottom left;
     scale: 0.8;
+
+    &--aside {
+      top: calc(var(--header-h, 64px) + 12px);
+      right: 16px;
+      bottom: auto;
+      left: auto;
+      transform-origin: top right;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -405,6 +422,37 @@ html[data-world-mode='explore'] {
     font-size: var(--fs-tiny);
     text-align: center;
     color: var(--text-primary);
+  }
+
+  /* A knock against a hull: the edges flash and a warning blinks */
+  &__impact {
+    --impact: 0.5;
+
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow: inset 0 0 calc(60px + var(--impact) * 120px)
+      color-mix(in oklab, var(--accent-tertiary) 70%, transparent);
+
+    &--on {
+      animation: hull-contact 0.9s var(--ease-out) both;
+    }
+  }
+
+  &__impact-label {
+    position: absolute;
+    top: calc(50% + 10vmin);
+    left: 50%;
+    padding: 2px 8px;
+    font-family: var(--font-geist-mono), monospace;
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent-tertiary);
+    border: 1px solid color-mix(in oklab, var(--accent-tertiary) 60%, transparent);
+    border-radius: 4px;
+    transform: translateX(-50%);
   }
 
   /* Steering reticle: hold the mouse inside the ring to fly straight (a
@@ -1101,6 +1149,25 @@ html[data-world-mode='explore'] {
     .waypoint__mark {
       animation: waypoint-pulse 1.2s ease-in-out infinite;
     }
+  }
+}
+
+@keyframes hull-contact {
+  0% {
+    opacity: calc(0.6 + var(--impact) * 0.4);
+  }
+
+  12%,
+  30% {
+    opacity: calc(0.35 + var(--impact) * 0.4);
+  }
+
+  20% {
+    opacity: calc(0.7 + var(--impact) * 0.3);
+  }
+
+  100% {
+    opacity: 0;
   }
 }
 
