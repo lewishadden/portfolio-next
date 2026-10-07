@@ -11,7 +11,10 @@ import type { RefObject } from 'react';
    style: one full-screen shader in plain WebGL (no three.js; its context
    starts the first time the menu opens) behind the menu's real links.
 
-   - Behind it, space: a dim starfield drifting past.
+   - Behind it, space: opening jumps to warp, stars streaking out from
+     the middle of the screen, and drops out of it as the panel powers
+     on, leaving a dim starfield drifting past. Closing spools the warp
+     back up as the panel switches off.
    - The panel round the links: a thin frame with corner brackets and
      tick marks, a grid and scan lines, a rolling scan line, grain and a
      flicker, lit by the same projector as the header bar, its beam
@@ -25,7 +28,7 @@ import type { RefObject } from 'react';
    - Closing switches it off like an old screen: it collapses to a bright
      line and then to nothing, the links with it (CSS, in step).
 
-   Reduced motion: no power-on, collapse or drift, one frame, redrawn
+   Reduced motion: no warp, power-on, collapse or drift, one frame, redrawn
    only when something changes.
    ------------------------------------------------------------------ */
 
@@ -47,6 +50,7 @@ uniform float uDpr;
 uniform float uTime;
 uniform float uMotion;
 uniform float uTravel;
+uniform float uWarp;
 uniform vec4 uPanel;
 uniform float uBoot;
 uniform float uShut;
@@ -143,28 +147,39 @@ void main() {
   vec2 screen = uRes / uDpr;
   float t = uTime * uMotion;
 
-  // Space: darker towards the edges, with stars drifting out past the
-  // middle (on log-polar grids, where flying forward is a slide outward)
+  // Space, darker towards the edges. The stars live in log-polar space
+  // (angle round the middle, log of the distance from it), where flying
+  // forward is a steady slide outward that spreads and grows them like
+  // perspective, and a warp streak is a stretch along the radius. A glow
+  // at the vanishing point while warping
   vec2 uv = (p - screen * 0.5) / screen.y;
   vec3 col = uBg * (1.0 - 0.3 * dot(uv, uv));
   float r = max(length(uv), 1e-4);
   float angle = atan(uv.y, uv.x);
   float depth = log(r);
-  float stars = 0.0;
-  for (int layer = 0; layer < 2; layer++) {
+  col += uLine * exp(-r * r * 18.0) * uWarp * 0.35 * uGlow;
+  float amount = 0.0;
+  vec3 tint = vec3(0.0);
+  for (int layer = 0; layer < 3; layer++) {
     float l = float(layer);
-    float cell = 6.2831853 / (40.0 + l * 34.0);
+    float cell = 6.2831853 / (36.0 + l * 30.0);
     vec2 grid = vec2(angle, depth - uTravel * (0.7 + 0.3 * l)) / cell;
     vec2 id = floor(grid);
     float seed = l * 19.7;
     float h = hash(id + seed);
     vec2 offset = (vec2(hash(id + seed + 1.7), hash(id + seed + 9.2)) - 0.5) * 0.6;
+    // From cell units to screen units, stretched along the radius by the warp
     vec2 d = (fract(grid) - 0.5 - offset) * cell * r;
-    float star = smoothstep(0.0014 + 0.0022 * h, 0.0, length(d)) * step(0.8, h);
-    star *= 0.55 + 0.45 * sin(uTime * (1.3 + h * 3.0) + h * 40.0);
-    stars += star * smoothstep(0.03, 0.3, r);
+    d.y /= 1.0 + uWarp * 22.0;
+    float size = (0.0016 + 0.0026 * h) * (1.0 + uWarp);
+    float star = smoothstep(size, 0.0, length(d)) * step(0.78, h);
+    star *= 0.6 + 0.4 * sin(uTime * (1.3 + h * 3.0) + h * 40.0);
+    star *= smoothstep(0.03, 0.3, r);
+    amount += star;
+    tint += star * mix(uStar, uLine, hash(id + seed + 4.1) * 0.6);
   }
-  col = mix(col, uStar, clamp(stars, 0.0, 1.0) * 0.55);
+  // Dim while drifting behind the panel, bright at warp
+  col = mix(col, tint / max(amount, 1e-3), clamp(amount, 0.0, 1.0) * (0.55 + 0.45 * uWarp));
 
   // The projector: rays fanning down from above the screen onto the
   // panel, with dust drifting through them
@@ -252,6 +267,11 @@ const bootTime = 1;
 const lockAt = 0.7;
 /** How long switching off takes (s); keep in step with menu-holo-shut in MobileMenu.scss */
 const shutTime = 0.3;
+/** The warp: held this long after opening, then easing off over `settle` (s) */
+const warpHold = 0.12;
+const warpSettle = 1.1;
+/** Closing: how long the warp takes to spool back up (s); the menu fades over the same */
+const spoolUp = 0.35;
 
 const easeIn = (x: number) => x * x;
 /**
@@ -319,6 +339,7 @@ function createHolo(
     'uTime',
     'uMotion',
     'uTravel',
+    'uWarp',
     'uPanel',
     'uBoot',
     'uShut',
@@ -345,6 +366,8 @@ function createHolo(
     still: false,
     openedAt: 0,
     closedAt: 0,
+    /** How hard it was warping as it closed */
+    closeFrom: 0,
     last: 0,
     travel: 0,
     frame: 0,
@@ -362,6 +385,16 @@ function createHolo(
     state.still ? 1 : Math.min(Math.max((now - state.openedAt) / 1000 / bootTime, 0), 1);
   const shutAt = (now: number) =>
     state.open || state.still ? 0 : Math.min((now - state.closedAt) / 1000 / shutTime, 1);
+  /** Opening jumps to warp and drops out of it as the panel powers on; closing spools it back up */
+  const warpAt = (now: number) => {
+    if (state.still) return 0;
+    if (state.open) {
+      const x = Math.min(Math.max(((now - state.openedAt) / 1000 - warpHold) / warpSettle, 0), 1);
+      return (1 - x) ** 3;
+    }
+    const x = Math.min((now - state.closedAt) / 1000 / spoolUp, 1);
+    return state.closeFrom + (0.85 - state.closeFrom) * x * x;
+  };
 
   const draw = (now: number) => {
     // Rendered at up to 1.5× for crisp lines without paying for 3× screens
@@ -376,7 +409,8 @@ function createHolo(
     const dt = Math.min((now - state.last) / 1000, 0.05);
     state.last = now;
     const motion = state.still ? 0 : 1;
-    state.travel = (state.travel + dt * 0.035 * motion) % 200;
+    const warp = warpAt(now);
+    state.travel = (state.travel + dt * (0.05 + warp * 2.2) * motion) % 200;
     const boot = bootAt(now);
     const shut = shutAt(now);
     const squash = squashOf(shut);
@@ -388,6 +422,7 @@ function createHolo(
     gl.uniform1f(u.uTime, now / 1000);
     gl.uniform1f(u.uMotion, motion);
     gl.uniform1f(u.uTravel, state.travel);
+    gl.uniform1f(u.uWarp, warp);
     gl.uniform4fv(u.uPanel, state.panel);
     gl.uniform1f(u.uBoot, boot);
     gl.uniform1f(u.uShut, shut);
@@ -408,10 +443,10 @@ function createHolo(
   };
 
   const loop = (now: number) => {
-    const shutting = !state.open && now - state.closedAt < shutTime * 1000 + 50;
+    const shutting = !state.open && now - state.closedAt < Math.max(shutTime, spoolUp) * 1000 + 50;
     // Every frame while something moves fast, every other one once it's
     // settled into its drift and flicker
-    const busy = shutting || bootAt(now) < 1 || now - state.lockedAt < 700;
+    const busy = shutting || warpAt(now) > 0.01 || bootAt(now) < 1 || now - state.lockedAt < 700;
     state.tick += 1;
     if (busy || state.tick % 2 === 0) draw(now);
     state.frame = state.open || shutting ? requestAnimationFrame(loop) : 0;
@@ -464,8 +499,10 @@ function createHolo(
     },
     close() {
       if (!state.open) return;
+      const now = performance.now();
+      state.closeFrom = warpAt(now);
       state.open = false;
-      state.closedAt = performance.now();
+      state.closedAt = now;
       if (!state.still) run();
     },
     setTheme(theme: HoloTheme) {
