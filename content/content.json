@@ -650,32 +650,85 @@
         "thumbnail": "mdi:paw",
         "images": [
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_homepage.webp",
+            "url": "/static/images/projects/smiley-pets/home.webp",
+            "alt": "Smiley Pets home page with the dog walking and pet sitting hero, happy pets film strip and client reviews",
             "size": {
-              "width": 3024,
-              "height": 1660
-            }
+              "width": 2361,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_film-strip.webp",
+            "url": "/static/images/projects/smiley-pets/about.webp",
+            "alt": "About Smiley Pets and its founder Liz Bracey, with the mission and values behind the business",
             "size": {
               "width": 3024,
-              "height": 1418
-            }
+              "height": 6312
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_gallery.webp",
+            "url": "/static/images/projects/smiley-pets/dog-walking.webp",
+            "alt": "Smiley Pets dog walking page covering solo walks, walk options and prices",
             "size": {
-              "width": 3024,
-              "height": 1658
-            }
+              "width": 2090,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_contact.webp",
+            "url": "/static/images/projects/smiley-pets/areas.webp",
+            "alt": "Biggleswade and the mid-Bedfordshire villages Smiley Pets covers",
             "size": {
               "width": 3024,
-              "height": 1656
-            }
+              "height": 4314
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/pricing.webp",
+            "alt": "Smiley Pets 2026 price list for dog walking and pet sitting",
+            "size": {
+              "width": 3024,
+              "height": 4546
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/gallery.webp",
+            "alt": "Smiley Pets gallery of the dogs, cats and other pets in their care",
+            "size": {
+              "width": 1251,
+              "height": 8192
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/faq.webp",
+            "alt": "Smiley Pets frequently asked questions",
+            "size": {
+              "width": 3024,
+              "height": 5144
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/blog.webp",
+            "alt": "Smiley Pets blog of pet care advice and guides",
+            "size": {
+              "width": 3024,
+              "height": 5322
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/contact.webp",
+            "alt": "Smiley Pets contact page with WhatsApp, opening hours and a message form",
+            "size": {
+              "width": 3024,
+              "height": 4460
+            },
+            "fullPage": true
           }
         ],
         "url": "https://smileypets.co.uk",
