@@ -247,6 +247,19 @@ test.describe('project pages', () => {
 });
 
 test.describe('full-page screenshots', () => {
+  test('are the ones content.json marks, however tall they are', async ({ page }) => {
+    // Audi Form Builder's are full pages, though barely taller than wide
+    await openHydrated(page, '/projects/audi-form-builder');
+    const gallery = page.getByRole('region', { name: 'Audi Form Builder screenshots' });
+    await expect(gallery.getByRole('region', { name: /Full-page screenshot/ })).toBeVisible();
+
+    // AirDoctor's logo isn't
+    await openHydrated(page, '/projects/airdoctor-webhook');
+    const logo = page.getByRole('region', { name: 'AirDoctor Webhook screenshots' });
+    await expect(logo.locator('.project-gallery__slide')).toBeVisible();
+    await expect(logo.getByRole('region', { name: /Full-page screenshot/ })).toHaveCount(0);
+  });
+
   test('show in a browser frame that scrolls itself and by hand', async ({ page }) => {
     await openHydrated(page, '/projects/drive-king');
     const gallery = page.getByRole('region', { name: 'Drive King screenshots' });

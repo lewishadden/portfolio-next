@@ -225,6 +225,8 @@ export interface Project {
     url: string;
     alt?: string;
     size: { width: number; height: number };
+    /** A capture of a whole page, top to bottom: shown in a scrolling browser frame */
+    fullPage?: boolean;
   }[];
   url: string;
   technologies: Technology[];

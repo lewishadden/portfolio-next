@@ -58,7 +58,7 @@ const worldContent: WorldContent = {
     slug: p.slug,
     // Full-page captures first: they make the best "live" screens
     images: [...p.images]
-      .map((image) => ({ url: image.url, tall: image.size.height / image.size.width > 1.5 }))
+      .map((image) => ({ url: image.url, tall: image.fullPage === true }))
       .sort((a, b) => Number(b.tall) - Number(a.tall))
       .slice(0, 4),
   })),
