@@ -18,12 +18,24 @@ type ProjectImage = Project['images'][number];
 
 const ease = [0.16, 1, 0.3, 1] as const;
 const slideSizes = '(min-width: 1180px) 1080px, 100vw';
+/**
+ * Full-page captures show at most 1066px wide (86% of a narrower window),
+ * declared here as 1024 so a 2× screen gets the 2048 copy, not the 3840 one
+ * (the original: up to 3024 × 8192). The browser decodes the whole capture
+ * before it can draw the slide, and 25 megapixels held up the frame after a
+ * click in the gallery for a quarter of a second; at 2048 wide it is under
+ * half that, and looks the same at that size
+ */
+const pageSizes = '(min-width: 1180px) 1024px, 86vw';
 const swipeThreshold = 44;
 
 export const pad = (n: number) => String(n).padStart(2, '0');
 const isLogo = (size: ProjectImage['size']) => size.width / size.height > 2.2;
 /** Full-page captures (`fullPage` in content.json): shown at full width in a scrollable browser frame */
 export const isFullPage = (image: ProjectImage) => image.fullPage === true;
+/** The `sizes` a slide's image is drawn with: its preload has to match, or it fetches another copy */
+const sizesFor = (image: ProjectImage) =>
+  isFullPage(image) ? pageSizes : isLogo(image.size) ? '640px' : slideSizes;
 
 const slideVariants = {
   enter: (dir: number) => ({ opacity: 0, x: `${dir * 7}%`, scale: 1.04, filter: 'blur(12px)' }),
@@ -167,7 +179,7 @@ function PageShot({ image, alt, site }: { image: ProjectImage; alt: string; site
           alt={alt}
           width={image.size.width}
           height={image.size.height}
-          sizes={slideSizes}
+          sizes={pageSizes}
           className="page-shot__img"
           loading="eager"
           draggable={false}
@@ -182,7 +194,7 @@ function PageShot({ image, alt, site }: { image: ProjectImage; alt: string; site
 
 /** Warm the cache for a slide the visitor is likely to open next */
 function preloadSlide(image: ProjectImage) {
-  const { props } = getImageProps({ src: image.url, alt: '', fill: true, sizes: slideSizes });
+  const { props } = getImageProps({ src: image.url, alt: '', fill: true, sizes: sizesFor(image) });
   preload(props.src, {
     as: 'image',
     imageSrcSet: props.srcSet,
@@ -292,7 +304,7 @@ function Gallery({
                     src={image.url}
                     alt={altFor(image, index)}
                     fill
-                    sizes={logo ? '640px' : slideSizes}
+                    sizes={sizesFor(image)}
                     className="project-gallery__img"
                     loading="eager"
                     fetchPriority={index === 0 ? 'high' : 'auto'}
