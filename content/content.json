@@ -792,18 +792,58 @@
         "thumbnail": "mdi:glass-cocktail",
         "images": [
           {
-            "url": "/static/images/projects/sip-happens/sip-happens_homepage.webp",
+            "url": "/static/images/projects/sip-happens/home.webp",
+            "alt": "Sip Happens home page with the latest espresso martini reviews and an interactive globe of the bars reviewed",
             "size": {
-              "width": 3024,
-              "height": 1656
-            }
+              "width": 2853,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/sip-happens/sip-happens_globe.webp",
+            "url": "/static/images/projects/sip-happens/reviews.webp",
+            "alt": "Sip Happens reviews page listing every espresso martini review",
             "size": {
               "width": 3024,
-              "height": 1658
-            }
+              "height": 3172
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/sip-happens/review-starbucks-reserve-nyc.webp",
+            "alt": "Sip Happens review of a flight of six espresso martinis at Starbucks Reserve NYC",
+            "size": {
+              "width": 2492,
+              "height": 8192
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/sip-happens/blog.webp",
+            "alt": "Sip Happens blog on espresso martini culture",
+            "size": {
+              "width": 3024,
+              "height": 2442
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/sip-happens/about.webp",
+            "alt": "About Sip Happens, with its mission and espresso martini rating scale",
+            "size": {
+              "width": 3024,
+              "height": 5504
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/sip-happens/contact.webp",
+            "alt": "Sip Happens contact form for bar recommendations and questions",
+            "size": {
+              "width": 3024,
+              "height": 3328
+            },
+            "fullPage": true
           }
         ],
         "url": "https://sip-happens.co.uk",
