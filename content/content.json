@@ -541,14 +541,6 @@
         "thumbnail": "mdi:steering",
         "images": [
           {
-            "url": "/static/images/projects/drive-king/poster.webp",
-            "alt": "Drive King driving school promotional poster",
-            "size": {
-              "width": 3024,
-              "height": 1928
-            }
-          },
-          {
             "url": "/static/images/projects/drive-king/home.webp",
             "alt": "Drive King driving school home page",
             "size": {
