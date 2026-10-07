@@ -10,11 +10,14 @@ import {
   Group,
   MathUtils,
   ShaderMaterial,
+  Shape,
+  ShapeGeometry,
   SRGBColorSpace,
   Texture,
   Vector4,
 } from 'three';
 
+import { bloomMaskLayer, maskBloom } from '../bloomMask';
 import { iconSvg, useIconCollections } from '../icons';
 import { decodeImage } from '../imageDecoder';
 import { createHaloMaterial, createRingMaterial } from '../materials';
@@ -35,7 +38,7 @@ import { queueUpload } from '../warmup';
 import { prefetch } from '../routes';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 
-import type { WebGLRenderer } from 'three';
+import type { BufferGeometry, Mesh, WebGLRenderer } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
@@ -46,6 +49,9 @@ const hoverScale = 1.1;
 /** A screen's size in world units, before scaling */
 const screenSize = { width: 2.08, height: 1.3 };
 const screenAspect = screenSize.width / screenSize.height;
+/** A screen's corner radius, and the width of the light round its edge, as shares of its height */
+const screenCorner = 0.06;
+const edgeBand = 0.03;
 /** How a shot sits on its screen, as the project gallery shows it (see frameShot) */
 type Fit = 'page' | 'logo' | 'whole';
 /** Wider than this (width / height) is a logo (isLogo in ProjectBody) */
@@ -71,8 +77,6 @@ const maxSharpWidth = 2048;
 const maxSharpLoads = 3;
 /** Longest a crossfade waits for the next shot's sharp copy before using its working copy */
 const sharpWait = 3;
-/** Where white page content lands, per theme: a lit display that stays under the bloom threshold */
-const screenWhite: Record<WorldTheme, number> = { dark: 0.57, light: 0.8 };
 
 const spineLights: NavLight[] = [
   { position: [0, 5.1, 0], kind: 'white' },
@@ -116,7 +120,6 @@ const screenFragment = /* glsl */ `
   uniform float uAspect;
   uniform float uDim;
   uniform float uFocus;
-  uniform float uWhite;
   varying vec2 vUv;
   float roundedBox(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + r;
@@ -140,15 +143,13 @@ const screenFragment = /* glsl */ `
   }
   void main() {
     vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0);
-    float d = roundedBox(p, vec2(uAspect, 1.0) * 0.5, 0.06);
+    float d = roundedBox(p, vec2(uAspect, 1.0) * 0.5, ${screenCorner});
     if (d > 0.0) discard;
+    // Shots show at their own colours and brightness: bloom leaves the
+    // screen out inside its edge light (ScreenMask), so a white page reads
+    // as a page, not a lamp
     vec3 img = uHasMap > 0.5 ? shot(uMap, uRect, uPlate) : mix(uTint * 0.25, uTint * 0.6, vUv.y);
     if (uMix > 0.0) img = mix(img, shot(uMapB, uRectB, uPlateB), uMix);
-    // A display, not a lamp: scaled so a white page lands at uWhite, under
-    // the bloom threshold, so the content reads and only the edge lighting
-    // glows. A gentle curve first deepens mid-tones and text (white stays
-    // white), which keeps the dimmed page from looking washed out
-    img = pow(img, vec3(1.15)) * uWhite;
     // Scanlines and a passing sweep, faint on the screen in front (uFocus):
     // that one is being read
     float lines = mix(0.08, 0.025, uFocus);
@@ -156,7 +157,7 @@ const screenFragment = /* glsl */ `
     float sweep = smoothstep(0.0, 0.08, abs(vUv.y - fract(uTime * 0.12)));
     float boost = mix(1.0 + 0.06 * (1.0 - uFocus), 1.0, sweep);
     vec3 col = img * scan * boost * (1.0 + uHover * 0.04);
-    float edge = smoothstep(-0.03, 0.0, d);
+    float edge = smoothstep(-${edgeBand}, 0.0, d);
     col = mix(col, uEdge * (2.4 + uHover * 1.8), edge);
     float reveal = smoothstep(uReveal - 0.1, uReveal, 1.0 - vUv.y);
     // Screens other than the focused project recede
@@ -178,7 +179,7 @@ const buildMaterials = (p: WorldPalette) => ({
   }),
 });
 
-/** A screen's material; `themeScreen` gives it its edge light and white level */
+/** A screen's material; `themeScreen` gives it its edge light */
 function createScreenMaterial(tint: string) {
   return new ShaderMaterial({
     uniforms: {
@@ -198,7 +199,6 @@ function createScreenMaterial(tint: string) {
       uAspect: { value: 1.6 },
       uDim: { value: 0 },
       uFocus: { value: 0 },
-      uWhite: { value: screenWhite.dark },
     },
     vertexShader: screenVertex,
     fragmentShader: screenFragment,
@@ -208,10 +208,9 @@ function createScreenMaterial(tint: string) {
   });
 }
 
-/** The parts of a screen that follow the theme: its edge light, and where white page content lands */
-function themeScreen(material: ShaderMaterial, edge: string, theme: WorldTheme) {
+/** The part of a screen that follows the theme: its edge light */
+function themeScreen(material: ShaderMaterial, edge: string) {
   setUniform(material, 'uEdge', edge);
-  setUniform(material, 'uWhite', screenWhite[theme]);
 }
 
 /** Optimised (and cached) through the Next.js image endpoint, at the next width it serves */
@@ -685,6 +684,31 @@ function liveScreen(
 }
 
 /**
+ * The part of a screen kept out of bloom (bloomMask.ts): all of it inside
+ * the light round its edge, which still glows. A rounded rectangle in world
+ * units, as the screen's mesh is scaled to its size
+ */
+function screenMaskGeometry() {
+  const band = edgeBand * screenSize.height;
+  const radius = (screenCorner - edgeBand) * screenSize.height;
+  const x = screenSize.width / 2 - band - radius;
+  const y = screenSize.height / 2 - band - radius;
+  const shape = new Shape();
+  shape.absarc(x, y, radius, 0, Math.PI / 2);
+  shape.absarc(-x, y, radius, Math.PI / 2, Math.PI);
+  shape.absarc(-x, -y, radius, Math.PI, Math.PI * 1.5);
+  shape.absarc(x, -y, radius, Math.PI * 1.5, Math.PI * 2);
+  return new ShapeGeometry(shape, 4);
+}
+
+/** Keeps a screen's page out of bloom, so it shows at its own brightness */
+function ScreenMask({ geometry }: { geometry: BufferGeometry }) {
+  const ref = useRef<Mesh>(null);
+  useEffect(() => (ref.current ? maskBloom(ref.current) : undefined), []);
+  return <mesh ref={ref} geometry={geometry} layers={bloomMaskLayer} />;
+}
+
+/**
  * `/projects`: the fabrication yard, its hub on a truss spine inside a helix
  * of project screens. On the projects page the camera rides the helix
  * (`stationCamera` follows worldStore.projectFocus down the spiral), so the
@@ -742,14 +766,16 @@ export function ProjectsStation({
   );
   useEffect(() => {
     screenMaterials.forEach((material, i) =>
-      themeScreen(material, i % 2 ? palette.cyan : palette.violet, theme)
+      themeScreen(material, i % 2 ? palette.cyan : palette.violet)
     );
-  }, [screenMaterials, palette.cyan, palette.violet, theme]);
+  }, [screenMaterials, palette.cyan, palette.violet]);
 
   const shots = useMemo(
     () => new ScreenShots(gl, screens, states, screenMaterials),
     [gl, screens, states, screenMaterials]
   );
+  const maskGeometry = useMemo(() => screenMaskGeometry(), []);
+  useEffect(() => () => maskGeometry.dispose(), [maskGeometry]);
 
   useEffect(() => {
     screens.forEach((_, i) => shots.load(i, 0));
@@ -901,6 +927,7 @@ export function ProjectsStation({
               >
                 <planeGeometry />
               </mesh>
+              <ScreenMask geometry={maskGeometry} />
             </group>
           );
         })}
