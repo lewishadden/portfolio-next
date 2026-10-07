@@ -121,7 +121,7 @@ Each group must be separated by a newline for clarity and consistency.
 - Content is loaded from `content/content.json` via `utils/serverUtils.ts` (`getPageContent()`)
 - Page data is fetched in each `app/**/page.tsx` (server components) and passed as props to child components
 - The root layout passes a small serialisable slice of content (`WorldContent` in `components/World/types.ts`: project slugs + up to four images each, tall full-page shots first; skill icons and categories; roles; the tour's captions from `content.json` `tour`) to the 3D world, and a `PaletteData` slice to the command palette
-- Project screenshots whose height is more than 1.5× their width are treated as full-page captures (`isFullPage` in `ProjectBody`): the carousel shows them full width in a browser frame (`PageShot`) that pans down on its own (off for reduced motion, paused on hover, stopped for good once the visitor scrolls it) and scrolls by hand (`data-lenis-prevent`)
+- Project screenshots marked `"fullPage": true` in `content.json` are full-page captures, top of the page to its end, whatever their proportions (`isFullPage` in `ProjectBody`; the 3D screens scroll them too): the carousel shows them full width in a browser frame (`PageShot`) that pans down on its own (off for reduced motion, paused on hover, stopped for good once the visitor scrolls it) and scrolls by hand (`data-lenis-prevent`)
 - `about.recommendations` in `content.json` are quoted verbatim from LinkedIn (`components/Recommendations`); keep the wording exact
 - No client-side data fetching for portfolio content
 - The contact form submits to `/api/sendmail` (Next.js API route) which sends email via nodemailer

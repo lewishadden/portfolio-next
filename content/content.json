@@ -530,7 +530,8 @@
             "size": {
               "width": 3019,
               "height": 8192
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/drive-king/about.webp",
@@ -538,7 +539,8 @@
             "size": {
               "width": 3024,
               "height": 6592
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/drive-king/hall-of-fame.webp",
@@ -546,7 +548,8 @@
             "size": {
               "width": 2239,
               "height": 8192
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/drive-king/areas.webp",
@@ -554,7 +557,8 @@
             "size": {
               "width": 3024,
               "height": 5558
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/drive-king/pricing.webp",
@@ -562,7 +566,8 @@
             "size": {
               "width": 3024,
               "height": 4548
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/drive-king/guides.webp",
@@ -570,7 +575,8 @@
             "size": {
               "width": 3024,
               "height": 4758
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/drive-king/faq.webp",
@@ -578,7 +584,8 @@
             "size": {
               "width": 3024,
               "height": 5200
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/drive-king/contact.webp",
@@ -586,7 +593,8 @@
             "size": {
               "width": 3024,
               "height": 4406
-            }
+            },
+            "fullPage": true
           }
         ],
         "url": "https://drive-king.co.uk",
@@ -883,7 +891,8 @@
             "size": {
               "width": 3011,
               "height": 2485
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/oralieve/free-shipping-notice.webp",
@@ -974,28 +983,32 @@
             "size": {
               "width": 3592,
               "height": 3978
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/afb/AU.webp",
             "size": {
               "width": 3592,
               "height": 3034
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/afb/RAC.webp",
             "size": {
               "width": 3592,
               "height": 3914
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/afb/RYI.webp",
             "size": {
               "width": 3592,
               "height": 3438
-            }
+            },
+            "fullPage": true
           }
         ],
         "url": "https://www.audi.co.uk/uk/web/en/call-me-back.html",
@@ -1076,14 +1089,16 @@
             "size": {
               "width": 3600,
               "height": 5364
-            }
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/spa/PX.webp",
             "size": {
               "width": 3600,
               "height": 2394
-            }
+            },
+            "fullPage": true
           }
         ],
         "theme": {
