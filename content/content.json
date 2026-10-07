@@ -318,7 +318,7 @@
         "title": "ZGS Carpentry",
         "slug": "zgs-carpentry",
         "startDate": "2026",
-        "description": "ZGS Carpentry is a marketing website I designed and built from scratch for ZGS Carpentry, a Caddington-based carpenter, joiner and tiler run by Zak Sanders, covering Hertfordshire and Bedfordshire. The site breaks the trade down into thirteen individual, SEO-friendly service pages, from bespoke staircases and fitted wardrobes to tiling, plastering and garden turfing, and features an interactive 3D showcase of carpentry tools, a hammer, handsaw and pencil modelled in Three.js that visitors can grab and spin. A stylised, blueprint-style coverage map places Caddington at the hub with spokes out to every town covered, each linking through to its own local area page. A category-filtered gallery of photos and video showcases completed jobs, backed by an FAQ, honest service breakdowns and a quote form that emails enquiries straight to Zak via Resend. Built with Next.js (App Router), React 19, TypeScript and Tailwind CSS v4, the site is statically generated and deployed on Vercel with rich LocalBusiness JSON-LD, dynamically generated Open Graph images, a sitemap and per-page metadata for strong local search visibility.",
+        "description": "ZGS Carpentry is a marketing website I designed and built from scratch for ZGS Carpentry, a Caddington-based carpenter, joiner and tiler run by Zak Sanders, covering Hertfordshire and Bedfordshire. The site breaks the trade down into thirteen individual, SEO-friendly service pages, from bespoke staircases and fitted wardrobes to tiling, plastering and garden turfing, and features an interactive 3D showcase of carpentry tools, a hammer, handsaw and pencil modelled in Three.js that visitors can grab and spin. A coverage map styled as a carved timber relief board, with the River Lea as a resin inlay, pins Caddington as the home base and every town covered with its distance from it, each linking through to its own local area page. A category-filtered gallery of photos and video showcases completed jobs, backed by an FAQ, honest service breakdowns and a quote form that emails enquiries straight to Zak via Resend. Built with Next.js (App Router), React 19, TypeScript and Tailwind CSS v4, the site is statically generated and deployed on Vercel with rich LocalBusiness JSON-LD, dynamically generated Open Graph images, a sitemap and per-page metadata for strong local search visibility.",
         "theme": {
           "text": "light",
           "border": "light",
@@ -330,49 +330,73 @@
             "url": "/static/images/projects/zgs-carpentry/home.webp",
             "alt": "ZGS Carpentry home page with the 'Graft you can trust' hero",
             "size": {
-              "width": 3200,
-              "height": 1800
-            }
+              "width": 1941,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/zgs-carpentry/services.webp",
             "alt": "ZGS Carpentry services page covering all thirteen trades",
             "size": {
-              "width": 3200,
-              "height": 1800
-            }
+              "width": 3024,
+              "height": 6794
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/zgs-carpentry/gallery.webp",
             "alt": "ZGS Carpentry gallery of completed carpentry, joinery and tiling work",
             "size": {
-              "width": 3200,
-              "height": 1800
-            }
-          },
-          {
-            "url": "/static/images/projects/zgs-carpentry/areas.webp",
-            "alt": "ZGS Carpentry blueprint-style coverage map of the towns served across Hertfordshire and Bedfordshire",
-            "size": {
-              "width": 3200,
-              "height": 1800
-            }
+              "width": 2090,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/zgs-carpentry/about.webp",
             "alt": "About ZGS Carpentry and its owner Zak Sanders",
             "size": {
-              "width": 3200,
-              "height": 1800
-            }
+              "width": 3024,
+              "height": 4324
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/areas.webp",
+            "alt": "ZGS Carpentry coverage map, a timber relief board of the towns served across Hertfordshire and Bedfordshire",
+            "size": {
+              "width": 3024,
+              "height": 2964
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/faq.webp",
+            "alt": "ZGS Carpentry frequently asked questions",
+            "size": {
+              "width": 3024,
+              "height": 3802
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/contact.webp",
+            "alt": "Contact ZGS Carpentry by phone, WhatsApp or email, with working hours",
+            "size": {
+              "width": 3024,
+              "height": 2900
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/zgs-carpentry/quote.webp",
             "alt": "ZGS Carpentry free, no-obligation quote request form",
             "size": {
-              "width": 3200,
-              "height": 1800
-            }
+              "width": 3024,
+              "height": 3270
+            },
+            "fullPage": true
           }
         ],
         "url": "https://zgs-carpentry.co.uk",
@@ -517,14 +541,6 @@
         "thumbnail": "mdi:steering",
         "images": [
           {
-            "url": "/static/images/projects/drive-king/poster.webp",
-            "alt": "Drive King driving school promotional poster",
-            "size": {
-              "width": 3024,
-              "height": 1928
-            }
-          },
-          {
             "url": "/static/images/projects/drive-king/home.webp",
             "alt": "Drive King driving school home page",
             "size": {
@@ -650,32 +666,85 @@
         "thumbnail": "mdi:paw",
         "images": [
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_homepage.webp",
+            "url": "/static/images/projects/smiley-pets/home.webp",
+            "alt": "Smiley Pets home page with the dog walking and pet sitting hero, happy pets film strip and client reviews",
             "size": {
-              "width": 3024,
-              "height": 1660
-            }
+              "width": 2361,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_film-strip.webp",
+            "url": "/static/images/projects/smiley-pets/about.webp",
+            "alt": "About Smiley Pets and its founder Liz Bracey, with the mission and values behind the business",
             "size": {
               "width": 3024,
-              "height": 1418
-            }
+              "height": 6312
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_gallery.webp",
+            "url": "/static/images/projects/smiley-pets/dog-walking.webp",
+            "alt": "Smiley Pets dog walking page covering solo walks, walk options and prices",
             "size": {
-              "width": 3024,
-              "height": 1658
-            }
+              "width": 2090,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_contact.webp",
+            "url": "/static/images/projects/smiley-pets/areas.webp",
+            "alt": "Biggleswade and the mid-Bedfordshire villages Smiley Pets covers",
             "size": {
               "width": 3024,
-              "height": 1656
-            }
+              "height": 4314
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/pricing.webp",
+            "alt": "Smiley Pets 2026 price list for dog walking and pet sitting",
+            "size": {
+              "width": 3024,
+              "height": 4546
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/gallery.webp",
+            "alt": "Smiley Pets gallery of the dogs, cats and other pets in their care",
+            "size": {
+              "width": 1251,
+              "height": 8192
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/faq.webp",
+            "alt": "Smiley Pets frequently asked questions",
+            "size": {
+              "width": 3024,
+              "height": 5144
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/blog.webp",
+            "alt": "Smiley Pets blog of pet care advice and guides",
+            "size": {
+              "width": 3024,
+              "height": 5322
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/smiley-pets/contact.webp",
+            "alt": "Smiley Pets contact page with WhatsApp, opening hours and a message form",
+            "size": {
+              "width": 3024,
+              "height": 4460
+            },
+            "fullPage": true
           }
         ],
         "url": "https://smileypets.co.uk",
@@ -715,18 +784,58 @@
         "thumbnail": "mdi:glass-cocktail",
         "images": [
           {
-            "url": "/static/images/projects/sip-happens/sip-happens_homepage.webp",
+            "url": "/static/images/projects/sip-happens/home.webp",
+            "alt": "Sip Happens home page with the latest espresso martini reviews and an interactive globe of the bars reviewed",
             "size": {
-              "width": 3024,
-              "height": 1656
-            }
+              "width": 2853,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/sip-happens/sip-happens_globe.webp",
+            "url": "/static/images/projects/sip-happens/reviews.webp",
+            "alt": "Sip Happens reviews page listing every espresso martini review",
             "size": {
               "width": 3024,
-              "height": 1658
-            }
+              "height": 3172
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/sip-happens/review-starbucks-reserve-nyc.webp",
+            "alt": "Sip Happens review of a flight of six espresso martinis at Starbucks Reserve NYC",
+            "size": {
+              "width": 2492,
+              "height": 8192
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/sip-happens/blog.webp",
+            "alt": "Sip Happens blog on espresso martini culture",
+            "size": {
+              "width": 3024,
+              "height": 2442
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/sip-happens/about.webp",
+            "alt": "About Sip Happens, with its mission and espresso martini rating scale",
+            "size": {
+              "width": 3024,
+              "height": 5504
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/sip-happens/contact.webp",
+            "alt": "Sip Happens contact form for bar recommendations and questions",
+            "size": {
+              "width": 3024,
+              "height": 3328
+            },
+            "fullPage": true
           }
         ],
         "url": "https://sip-happens.co.uk",

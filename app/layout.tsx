@@ -22,7 +22,7 @@ import type { Metadata, Viewport } from 'next';
 
 import content from '../content/content.json';
 import { siteUrl, personName, siteDescription as description } from 'utils/seo';
-import { ContactInfo, Social } from '@/types';
+import { ContactInfo, Project, Social } from '@/types';
 
 import type { PaletteData } from '@/components/CommandPalette/CommandPalette';
 import type { WorldContent } from '@/components/World/types';
@@ -59,7 +59,9 @@ const worldContent: WorldContent = {
     icon: p.thumbnail,
     // Full-page captures first: they make the best "live" screens
     images: [...p.images]
-      .map((image) => ({
+      // Typed as the declared image shape: the type inferred from the JSON doesn't always
+      // carry the optional `fullPage`
+      .map((image: Project['images'][number]) => ({
         url: image.url,
         tall: image.fullPage === true,
         width: image.size.width,
