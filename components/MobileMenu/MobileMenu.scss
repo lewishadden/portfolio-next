@@ -1,11 +1,11 @@
 /* =============================================================
-   Mobile menu: a warp jump. A starfield shader (MenuWarp) streaks
-   past as it opens and drifts behind the links, which swing up out
-   of the depth one by one. It sits under the header (z-index 49),
-   so the bar and its close button stay on top. No backdrop blur and
-   no clip-path reveal: re-blurring a live WebGL page every frame
-   is what made the old menu glitch on Android. It is opaque, and
-   fades.
+   Mobile menu. It sits under the header (z-index 49), so the bar
+   and its close button stay on top. With the header a HUD (3D
+   effects on) it's a hologram panel like the bar (MenuHolo, and
+   .mobile-menu--hud below); otherwise its links swing up out of the
+   depth over a gradient. No backdrop blur and no clip-path reveal:
+   re-blurring a live WebGL page every frame is what made an earlier
+   menu glitch on Android. It is opaque, and fades.
    ============================================================= */
 
 .mobile-menu {
@@ -14,7 +14,7 @@
   z-index: 49;
   overflow: hidden;
 
-  /* Without the warp (3D effects off, no WebGL): the nebula as gradients */
+  /* 3D effects off: a nebula of gradients */
   background:
     radial-gradient(600px 400px at 90% 0%, var(--glow-violet), transparent 70%),
     radial-gradient(500px 400px at 0% 100%, var(--glow-cyan), transparent 70%), var(--bg-primary);
@@ -32,7 +32,7 @@
     transition: opacity 0.25s ease;
   }
 
-  &__warp {
+  &__holo {
     position: absolute;
     inset: 0;
     display: none;
@@ -53,6 +53,12 @@
     padding: 100px var(--gutter) 40px;
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+
+  /* The hologram's title and the ranges are the HUD's alone */
+  &__title,
+  &__range {
+    display: none;
   }
 
   /* The links swing up out of the depth, one by one */
@@ -217,8 +223,188 @@
   }
 }
 
+/* ---------- The header is a HUD (3D effects on): so is the menu ----------
+   A hologram panel round the links (MenuHolo draws it on the canvas
+   behind them). Opening powers it on and the links flicker on one by one
+   (hud-flicker-in, from Header.scss), as the bar's did; the current page
+   wears the bar's target lock. Closing switches it off: the panel
+   collapses to a line, then to nothing, with the hologram in step */
+.mobile-menu--hud {
+  /* Under the hologram, and in its place if it can't start */
+  background:
+    radial-gradient(420px 320px at 50% -10%, var(--hud-glow), transparent 70%), var(--bg-primary);
+
+  /* Opaque while the panel switches off, then gone */
+  transition:
+    opacity 0.12s ease 0.24s,
+    visibility 0s linear 0.36s;
+
+  .mobile-menu__panel {
+    position: relative;
+    padding: 2.6rem 1.15rem 0.85rem;
+    transform-origin: 50% 50%;
+  }
+
+  /* The hologram collapses the panel itself (MenuHolo), in step with its frame */
+  &:not([data-open]):not(:has(> .mobile-menu__holo[data-live])) .mobile-menu__panel {
+    animation: menu-holo-shut 0.3s cubic-bezier(0.55, 0, 1, 0.45) both;
+  }
+
+  .mobile-menu__title {
+    position: absolute;
+    top: 1.05rem;
+    left: 1.15rem;
+    display: block;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--hud-text);
+    text-shadow:
+      0 0 8px var(--hud-glow),
+      0 0 3px var(--hud-halo);
+  }
+
+  .mobile-menu__links {
+    gap: 0;
+    perspective: none;
+  }
+
+  .mobile-menu__item,
+  &[data-open] .mobile-menu__item {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  &[data-open] :is(.mobile-menu__title, .mobile-menu__item, .mobile-menu__foot) {
+    animation: hud-flicker-in 0.6s steps(1, end) both;
+    animation-delay: calc(560ms + var(--i, -1.5) * 65ms);
+  }
+
+  .mobile-menu__link {
+    gap: 0.9rem;
+    padding: 0.8rem 0.4rem;
+    overflow: visible;
+    border-bottom-color: color-mix(in srgb, var(--hud-text) 16%, transparent);
+    color: var(--hud-text);
+    text-shadow:
+      0 0 8px var(--hud-glow),
+      0 0 3px var(--hud-halo);
+
+    &::after,
+    svg {
+      display: none;
+    }
+
+    &:hover,
+    &:focus-visible {
+      color: var(--hud-text-strong);
+    }
+
+    &:hover .mobile-menu__label,
+    &:focus-visible .mobile-menu__label {
+      animation: hud-glitch 0.32s steps(2) infinite;
+    }
+
+    &.is-active {
+      color: var(--hud-text-strong);
+    }
+  }
+
+  .mobile-menu__item:last-child .mobile-menu__link {
+    border-bottom-color: transparent;
+  }
+
+  .mobile-menu__index {
+    color: inherit;
+    opacity: 0.55;
+  }
+
+  .mobile-menu__label {
+    font-size: clamp(1.1rem, 5.2vw, 1.45rem);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .mobile-menu__link.is-active .mobile-menu__label {
+    background: none;
+    color: inherit;
+  }
+
+  .mobile-menu__craft,
+  .mobile-menu__link.is-active .mobile-menu__craft {
+    color: inherit;
+    opacity: 0.6;
+
+    &::before {
+      content: none;
+    }
+  }
+
+  .mobile-menu__range {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0.7;
+  }
+
+  .mobile-menu__link.is-active .mobile-menu__range {
+    opacity: 1;
+  }
+
+  .mobile-menu__foot {
+    padding: 0 1.15rem;
+    color: var(--hud-text);
+    text-shadow: 0 0 8px var(--hud-glow);
+  }
+
+  &[data-open] .mobile-menu__foot {
+    --i: 7;
+
+    transition: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition:
+      opacity 0.2s ease,
+      visibility 0s linear 0.2s;
+
+    &:not([data-open]) .mobile-menu__panel,
+    &[data-open] :is(.mobile-menu__title, .mobile-menu__item, .mobile-menu__foot),
+    .mobile-menu__link:hover .mobile-menu__label,
+    .mobile-menu__link:focus-visible .mobile-menu__label {
+      animation: none;
+    }
+  }
+}
+
 @keyframes menu-sheen {
   to {
     transform: translateX(110%);
+  }
+}
+
+/* Switching off like an old screen: down to a line, then the line to
+   nothing. Without the hologram; with it, MenuHolo does the same (squashOf) */
+@keyframes menu-holo-shut {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+
+  65% {
+    opacity: 1;
+    transform: scale(1, 0.012);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0, 0.012);
   }
 }

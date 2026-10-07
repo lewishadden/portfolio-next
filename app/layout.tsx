@@ -61,7 +61,7 @@ const worldContent: WorldContent = {
     images: [...p.images]
       .map((image) => ({
         url: image.url,
-        tall: image.size.height / image.size.width > 1.5,
+        tall: image.fullPage === true,
         width: image.size.width,
       }))
       .sort((a, b) => Number(b.tall) - Number(a.tall))

@@ -97,6 +97,12 @@
   --text-secondary: #a6abcc;
   --text-muted: #7479a0;
 
+  /* The header as a cockpit HUD (HeaderHud) */
+  --hud-text: #8eeefc;
+  --hud-text-strong: #e8fdff;
+  --hud-glow: rgba(34, 211, 238, 0.6);
+  --hud-halo: rgba(2, 4, 14, 0.85);
+
   --accent-primary: #a78bfa;
   --accent-secondary: #22d3ee;
   --accent-tertiary: #f472b6;
@@ -147,6 +153,11 @@
   --text-primary: #0b0d1f;
   --text-secondary: #43476b;
   --text-muted: #62668a;
+
+  --hud-text: #0b6178;
+  --hud-text-strong: #062a36;
+  --hud-glow: rgba(14, 116, 144, 0.22);
+  --hud-halo: rgba(255, 255, 255, 0.9);
 
   --accent-primary: #6d28d9;
   --accent-secondary: #0e7490;

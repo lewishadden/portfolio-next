@@ -237,10 +237,11 @@ export default function WorldCanvas({
       camera={{ fov: baseFov, near: 0.1, far: 2000, position: [0, 0, 60] }}
       frameloop={!warm ? 'never' : reducedMotion ? 'demand' : 'always'}
       shadows={shadows ? 'percentage' : false}
-      // The canvas sits behind the page: listen on the document, react only over open space
+      // The canvas sits behind the page: listen on the document, react only
+      // over open space. No eventPrefix: it would replace worldEvents' compute,
+      // which makes that check (and maps the pointer from client coordinates)
       events={worldEvents}
       eventSource={document.body}
-      eventPrefix="client"
       onCreated={({ gl }) => {
         // Reading every shader's info log on first use is a synchronous round
         // trip to the GPU process per shader; keep it for development only

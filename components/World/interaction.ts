@@ -55,9 +55,18 @@ export function worldEvents(store: RootStore): EventManager<HTMLElement> {
   const base = pointerEvents(store);
   return {
     ...base,
-    compute(event, state, previous) {
+    // The canvas fills the viewport, so the pointer's client position is its
+    // place on the canvas. Done here rather than with the Canvas's
+    // `eventPrefix`, which swaps in a compute of its own: that skipped the
+    // check for page content, so the world reacted under it all (clicks in
+    // the project modal opened the screen behind it again)
+    compute(event, state) {
       blocked = !isOpenSpace(event.target);
-      base.compute?.(event, state, previous);
+      state.pointer.set(
+        (event.clientX / state.size.width) * 2 - 1,
+        -(event.clientY / state.size.height) * 2 + 1
+      );
+      state.raycaster.setFromCamera(state.pointer, state.camera);
     },
     filter(items, state) {
       if (blocked) return [];

@@ -9,6 +9,9 @@ test.describe('mobile menu', () => {
     await openHydrated(page, '/about');
     const menu = page.locator('#mobile-menu');
     await expect(menu).toBeHidden();
+    // With 3D effects off it isn't the hologram
+    await expect(menu).not.toHaveClass(/mobile-menu--hud/);
+    await expect(page.locator('.mobile-menu__holo')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     const close = page.getByRole('button', { name: 'Close navigation menu' });
@@ -32,15 +35,25 @@ test.describe('mobile menu', () => {
   test.describe('with 3D effects on', () => {
     test.use({ world: 'on' });
 
-    test('warps in over a starfield', { tag: '@webgl' }, async ({ page }) => {
+    test('is a hologram, like the header HUD', { tag: '@webgl' }, async ({ page }) => {
       await openHydrated(page, '/about');
       await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 120_000 });
-      const warp = page.locator('.mobile-menu__warp');
+      await expect(page.locator('header.header')).toHaveClass(/header--hud/);
+      const menu = page.locator('#mobile-menu');
+      await expect(menu).toHaveClass(/mobile-menu--hud/);
+      const holo = page.locator('.mobile-menu__holo');
       // No WebGL context until the menu first opens
-      await expect(warp).not.toHaveAttribute('data-live');
+      await expect(holo).not.toHaveAttribute('data-live');
       await page.getByRole('button', { name: 'Open navigation menu' }).click();
-      await expect(warp).toHaveAttribute('data-live', '');
-      await expect(warp).toBeVisible();
+      await expect(holo).toHaveAttribute('data-live', '');
+      await expect(holo).toBeVisible();
+      await expect(menu.getByRole('link', { name: 'About' })).toHaveAttribute(
+        'aria-current',
+        'page'
+      );
+      await menu.getByRole('link', { name: 'Skills' }).click();
+      await expect(page).toHaveURL(/\/skills$/);
+      await expect(menu).toBeHidden();
     });
   });
 });

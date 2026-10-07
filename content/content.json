@@ -327,7 +327,7 @@
         "thumbnail": "mdi:hand-saw",
         "images": [
           {
-            "url": "/static/images/projects/zgs-carpentry/home.avif",
+            "url": "/static/images/projects/zgs-carpentry/home.webp",
             "alt": "ZGS Carpentry home page with the 'Graft you can trust' hero",
             "size": {
               "width": 3200,
@@ -335,7 +335,7 @@
             }
           },
           {
-            "url": "/static/images/projects/zgs-carpentry/services.avif",
+            "url": "/static/images/projects/zgs-carpentry/services.webp",
             "alt": "ZGS Carpentry services page covering all thirteen trades",
             "size": {
               "width": 3200,
@@ -343,7 +343,7 @@
             }
           },
           {
-            "url": "/static/images/projects/zgs-carpentry/gallery.avif",
+            "url": "/static/images/projects/zgs-carpentry/gallery.webp",
             "alt": "ZGS Carpentry gallery of completed carpentry, joinery and tiling work",
             "size": {
               "width": 3200,
@@ -351,7 +351,7 @@
             }
           },
           {
-            "url": "/static/images/projects/zgs-carpentry/areas.avif",
+            "url": "/static/images/projects/zgs-carpentry/areas.webp",
             "alt": "ZGS Carpentry blueprint-style coverage map of the towns served across Hertfordshire and Bedfordshire",
             "size": {
               "width": 3200,
@@ -359,7 +359,7 @@
             }
           },
           {
-            "url": "/static/images/projects/zgs-carpentry/about.avif",
+            "url": "/static/images/projects/zgs-carpentry/about.webp",
             "alt": "About ZGS Carpentry and its owner Zak Sanders",
             "size": {
               "width": 3200,
@@ -367,7 +367,7 @@
             }
           },
           {
-            "url": "/static/images/projects/zgs-carpentry/quote.avif",
+            "url": "/static/images/projects/zgs-carpentry/quote.webp",
             "alt": "ZGS Carpentry free, no-obligation quote request form",
             "size": {
               "width": 3200,
@@ -420,7 +420,7 @@
         "thumbnail": "ph:sidebar",
         "images": [
           {
-            "url": "/static/images/projects/sidenote/01-summarise.avif",
+            "url": "/static/images/projects/sidenote/01-summarise.webp",
             "alt": "Sidenote summarising a Wikipedia article in the browser side panel",
             "size": {
               "width": 1280,
@@ -428,7 +428,7 @@
             }
           },
           {
-            "url": "/static/images/projects/sidenote/02-chat-with-citations.avif",
+            "url": "/static/images/projects/sidenote/02-chat-with-citations.webp",
             "alt": "Sidenote answering a question with numbered citations linking to the source passage",
             "size": {
               "width": 1280,
@@ -436,7 +436,7 @@
             }
           },
           {
-            "url": "/static/images/projects/sidenote/03-explain-simply.avif",
+            "url": "/static/images/projects/sidenote/03-explain-simply.webp",
             "alt": "Sidenote rewriting a passage in plain language at a chosen reading level",
             "size": {
               "width": 1280,
@@ -444,7 +444,7 @@
             }
           },
           {
-            "url": "/static/images/projects/sidenote/04-glossary.avif",
+            "url": "/static/images/projects/sidenote/04-glossary.webp",
             "alt": "Sidenote's automatically generated glossary of key terms from a document",
             "size": {
               "width": 1280,
@@ -452,7 +452,7 @@
             }
           },
           {
-            "url": "/static/images/projects/sidenote/05-pin-and-go.avif",
+            "url": "/static/images/projects/sidenote/05-pin-and-go.webp",
             "alt": "The Sidenote extension pinned to the Chrome toolbar with passwordless sign-in",
             "size": {
               "width": 1280,
@@ -517,7 +517,7 @@
         "thumbnail": "mdi:steering",
         "images": [
           {
-            "url": "/static/images/projects/drive-king/poster.avif",
+            "url": "/static/images/projects/drive-king/poster.webp",
             "alt": "Drive King driving school promotional poster",
             "size": {
               "width": 3024,
@@ -525,68 +525,76 @@
             }
           },
           {
-            "url": "/static/images/projects/drive-king/home.avif",
+            "url": "/static/images/projects/drive-king/home.webp",
             "alt": "Drive King driving school home page",
             "size": {
-              "width": 3024,
-              "height": 8206
-            }
+              "width": 3019,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/drive-king/about.avif",
+            "url": "/static/images/projects/drive-king/about.webp",
             "alt": "About Janine Hayes, the Drive King driving instructor",
             "size": {
               "width": 3024,
               "height": 6592
-            }
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/drive-king/hall-of-fame.avif",
+            "url": "/static/images/projects/drive-king/hall-of-fame.webp",
             "alt": "Drive King Hall of Fame showcasing students who passed their driving test",
             "size": {
-              "width": 3024,
-              "height": 11066
-            }
+              "width": 2239,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/drive-king/areas.avif",
+            "url": "/static/images/projects/drive-king/areas.webp",
             "alt": "Interactive map of the Bedfordshire and Hertfordshire areas Drive King covers",
             "size": {
               "width": 3024,
               "height": 5558
-            }
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/drive-king/pricing.avif",
+            "url": "/static/images/projects/drive-king/pricing.webp",
             "alt": "Drive King driving lesson packages and pricing",
             "size": {
               "width": 3024,
               "height": 4548
-            }
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/drive-king/guides.avif",
+            "url": "/static/images/projects/drive-king/guides.webp",
             "alt": "Drive King learner driver guides",
             "size": {
               "width": 3024,
               "height": 4758
-            }
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/drive-king/faq.avif",
+            "url": "/static/images/projects/drive-king/faq.webp",
             "alt": "Drive King frequently asked questions",
             "size": {
               "width": 3024,
               "height": 5200
-            }
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/drive-king/contact.avif",
+            "url": "/static/images/projects/drive-king/contact.webp",
             "alt": "Drive King contact form",
             "size": {
               "width": 3024,
               "height": 4406
-            }
+            },
+            "fullPage": true
           }
         ],
         "url": "https://drive-king.co.uk",
@@ -642,28 +650,28 @@
         "thumbnail": "mdi:paw",
         "images": [
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_homepage.avif",
+            "url": "/static/images/projects/smiley-pets/smiley-pets_homepage.webp",
             "size": {
               "width": 3024,
               "height": 1660
             }
           },
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_film-strip.avif",
+            "url": "/static/images/projects/smiley-pets/smiley-pets_film-strip.webp",
             "size": {
               "width": 3024,
               "height": 1418
             }
           },
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_gallery.avif",
+            "url": "/static/images/projects/smiley-pets/smiley-pets_gallery.webp",
             "size": {
               "width": 3024,
               "height": 1658
             }
           },
           {
-            "url": "/static/images/projects/smiley-pets/smiley-pets_contact.avif",
+            "url": "/static/images/projects/smiley-pets/smiley-pets_contact.webp",
             "size": {
               "width": 3024,
               "height": 1656
@@ -707,14 +715,14 @@
         "thumbnail": "mdi:glass-cocktail",
         "images": [
           {
-            "url": "/static/images/projects/sip-happens/sip-happens_homepage.avif",
+            "url": "/static/images/projects/sip-happens/sip-happens_homepage.webp",
             "size": {
               "width": 3024,
               "height": 1656
             }
           },
           {
-            "url": "/static/images/projects/sip-happens/sip-happens_globe.avif",
+            "url": "/static/images/projects/sip-happens/sip-happens_globe.webp",
             "size": {
               "width": 3024,
               "height": 1658
@@ -758,14 +766,14 @@
         "thumbnail": "tdesign:money",
         "images": [
           {
-            "url": "/static/images/projects/run/home-page.avif",
+            "url": "/static/images/projects/run/home-page.webp",
             "size": {
               "width": 3584,
               "height": 1956
             }
           },
           {
-            "url": "/static/images/projects/run/hero.avif",
+            "url": "/static/images/projects/run/hero.webp",
             "size": {
               "width": 620,
               "height": 394
@@ -779,7 +787,7 @@
             }
           },
           {
-            "url": "/static/images/projects/run/login-screen.avif",
+            "url": "/static/images/projects/run/login-screen.webp",
             "size": {
               "width": 3024,
               "height": 1638
@@ -819,7 +827,7 @@
         "thumbnail": "mdi:gavel",
         "images": [
           {
-            "url": "/static/images/projects/sanctions/login-screen.avif",
+            "url": "/static/images/projects/sanctions/login-screen.webp",
             "size": {
               "width": 3024,
               "height": 1646
@@ -879,14 +887,15 @@
         "thumbnail": "fa-solid:tooth",
         "images": [
           {
-            "url": "/static/images/projects/oralieve/patient-samples-form.avif",
+            "url": "/static/images/projects/oralieve/patient-samples-form.webp",
             "size": {
-              "width": 3024,
-              "height": 3882
-            }
+              "width": 3011,
+              "height": 2485
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/oralieve/free-shipping-notice.avif",
+            "url": "/static/images/projects/oralieve/free-shipping-notice.webp",
             "size": {
               "width": 662,
               "height": 872
@@ -970,32 +979,36 @@
         "thumbnail": "simple-icons:googleforms",
         "images": [
           {
-            "url": "/static/images/projects/afb/BATD.avif",
+            "url": "/static/images/projects/afb/BATD.webp",
             "size": {
               "width": 3592,
               "height": 3978
-            }
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/afb/AU.avif",
+            "url": "/static/images/projects/afb/AU.webp",
             "size": {
               "width": 3592,
               "height": 3034
-            }
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/afb/RAC.avif",
+            "url": "/static/images/projects/afb/RAC.webp",
             "size": {
               "width": 3592,
               "height": 3914
-            }
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/afb/RYI.avif",
+            "url": "/static/images/projects/afb/RYI.webp",
             "size": {
               "width": 3592,
               "height": 3438
-            }
+            },
+            "fullPage": true
           }
         ],
         "url": "https://www.audi.co.uk/uk/web/en/call-me-back.html",
@@ -1027,21 +1040,21 @@
         "thumbnail": "emojione-monotone:cookie",
         "images": [
           {
-            "url": "/static/images/projects/cookies/popup-small.avif",
+            "url": "/static/images/projects/cookies/popup-small.webp",
             "size": {
               "width": 1198,
               "height": 906
             }
           },
           {
-            "url": "/static/images/projects/cookies/popup-banner.avif",
+            "url": "/static/images/projects/cookies/popup-banner.webp",
             "size": {
               "width": 2294,
               "height": 1430
             }
           },
           {
-            "url": "/static/images/projects/cookies/side-nav.avif",
+            "url": "/static/images/projects/cookies/side-nav.webp",
             "size": {
               "width": 2784,
               "height": 2014
@@ -1072,18 +1085,20 @@
         "thumbnail": "cbi:audi",
         "images": [
           {
-            "url": "/static/images/projects/spa/OSB.avif",
+            "url": "/static/images/projects/spa/OSB.webp",
             "size": {
               "width": 3600,
               "height": 5364
-            }
+            },
+            "fullPage": true
           },
           {
-            "url": "/static/images/projects/spa/PX.avif",
+            "url": "/static/images/projects/spa/PX.webp",
             "size": {
               "width": 3600,
               "height": 2394
-            }
+            },
+            "fullPage": true
           }
         ],
         "theme": {
@@ -1143,14 +1158,14 @@
         "thumbnail": "solar:chart-bold",
         "images": [
           {
-            "url": "/static/images/projects/audex/homepage.avif",
+            "url": "/static/images/projects/audex/homepage.webp",
             "size": {
               "width": 3600,
               "height": 1950
             }
           },
           {
-            "url": "/static/images/projects/audex/about.avif",
+            "url": "/static/images/projects/audex/about.webp",
             "size": {
               "width": 3594,
               "height": 2012

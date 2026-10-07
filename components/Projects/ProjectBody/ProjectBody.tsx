@@ -22,8 +22,8 @@ const swipeThreshold = 44;
 
 export const pad = (n: number) => String(n).padStart(2, '0');
 const isLogo = (size: ProjectImage['size']) => size.width / size.height > 2.2;
-/** Full-page captures: shown at full width in a scrollable browser frame */
-export const isFullPage = (size: ProjectImage['size']) => size.height / size.width > 1.5;
+/** Full-page captures (`fullPage` in content.json): shown at full width in a scrollable browser frame */
+export const isFullPage = (image: ProjectImage) => image.fullPage === true;
 
 const slideVariants = {
   enter: (dir: number) => ({ opacity: 0, x: `${dir * 7}%`, scale: 1.04, filter: 'blur(12px)' }),
@@ -213,7 +213,7 @@ function Gallery({
   const multiple = count > 1;
   const image = images[index];
   const logo = isLogo(image.size);
-  const fullPage = isFullPage(image.size);
+  const fullPage = isFullPage(image);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const altFor = (img: ProjectImage, i: number) =>
     img.alt || `${title} screenshot ${i + 1} of ${count}`;
