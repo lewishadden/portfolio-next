@@ -12,6 +12,7 @@ import {
   SRGBColorSpace,
   Texture,
   Vector2,
+  Vector3,
 } from 'three';
 
 import { decodeImage } from '../imageDecoder';
@@ -24,7 +25,7 @@ import { palettes, setUniform } from '../utils';
 import { queueUpload } from '../warmup';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 
-import type { WebGLRenderer } from 'three';
+import type { Camera, Object3D, PerspectiveCamera, WebGLRenderer } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
@@ -32,16 +33,25 @@ import type { WorldPalette, WorldTheme } from '../utils';
 /** How much bigger the screen in front is: the camera's framing box (stations.ts) is sized to it */
 const focusScale = 1.4;
 const hoverScale = 1.1;
-/** Width / height of a screen */
-const screenAspect = 2.08 / 1.3;
+/** A screen's size in world units, before scaling */
+const screenSize = { width: 2.08, height: 1.3 };
+const screenAspect = screenSize.width / screenSize.height;
 /** Seconds each shot stays up on a live screen, and the crossfade between them */
 const holdTime = 4.5;
 const fadeTime = 0.9;
-/** Screenshot widths: every screen's working copy, and the sharp one for the screen in front */
+/** Width of every screen's working copy of its shots */
 const shotWidth = 640;
-const frontWidth = 1200;
-/** How long a screen sits in front, settled, before its sharp copy loads */
+/**
+ * The widths the image endpoint serves (`deviceSizes` in next.config.mjs):
+ * a shot is fetched at the next one up and scaled to the size it needs
+ */
+const imageWidths = [640, 750, 828, 1080, 1200, 1920, 2048, 3840];
+/** Widest a sharp copy gets: a full-page capture at this width is ~60MB on the GPU */
+const maxSharpWidth = 2048;
+/** How long a screen sits in front, settled, before its sharp copies load */
 const sharpenAfter = 0.3;
+/** Longest a crossfade waits for the next shot's sharp copy before using its working copy */
+const sharpWait = 3;
 /** Where white page content lands, per theme: a lit display that stays under the bloom threshold */
 const screenWhite: Record<WorldTheme, number> = { dark: 0.57, light: 0.8 };
 
@@ -133,7 +143,8 @@ const buildMaterials = (p: WorldPalette) => ({
   }),
 });
 
-function createScreenMaterial(edge: string, tint: string, white: number) {
+/** A screen's material; `themeScreen` gives it its edge light and white level */
+function createScreenMaterial(tint: string) {
   return new ShaderMaterial({
     uniforms: {
       uMap: { value: null },
@@ -145,12 +156,12 @@ function createScreenMaterial(edge: string, tint: string, white: number) {
       uHover: { value: 0 },
       uTime: { value: 0 },
       uReveal: { value: 0 },
-      uEdge: { value: new Color(edge) },
+      uEdge: { value: new Color() },
       uTint: { value: new Color(tint) },
       uAspect: { value: 1.6 },
       uDim: { value: 0 },
       uFocus: { value: 0 },
-      uWhite: { value: white },
+      uWhite: { value: screenWhite.dark },
     },
     vertexShader: screenVertex,
     fragmentShader: screenFragment,
@@ -160,9 +171,17 @@ function createScreenMaterial(edge: string, tint: string, white: number) {
   });
 }
 
-/** Optimised (and cached) through the Next.js image endpoint */
-const optimisedImage = (src: string, width: number) =>
-  `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=75`;
+/** The parts of a screen that follow the theme: its edge light, and where white page content lands */
+function themeScreen(material: ShaderMaterial, edge: string, theme: WorldTheme) {
+  setUniform(material, 'uEdge', edge);
+  setUniform(material, 'uWhite', screenWhite[theme]);
+}
+
+/** Optimised (and cached) through the Next.js image endpoint, at the next width it serves */
+function optimisedImage(src: string, width: number) {
+  const served = imageWidths.find((w) => w >= width) ?? imageWidths[imageWidths.length - 1];
+  return `/_next/image?url=${encodeURIComponent(src)}&w=${served}&q=75`;
+}
 
 type Shot = WorldContent['projects'][number]['images'][number];
 
@@ -211,18 +230,38 @@ interface ScreenState {
   fadeStart: number;
   nextSwitch: number;
   hover: number;
-  /** A sharp copy of the shot that is up, while the screen is in front */
-  sharp: Texture | null;
-  sharpIndex: number;
-  sharpLoading: boolean;
+  /**
+   * While the screen is in front, sharp copies of the shot that is up and
+   * the next one, `sharpWidth` wide (0 when it isn't in front)
+   */
+  sharp: Map<number, Texture>;
+  sharpLoading: Set<number>;
+  sharpWidth: number;
   /** When the screen settled in front of the parked camera (0 while it is not there) */
   settledAt: number;
 }
 
+const screenPosition = new Vector3();
+
+/**
+ * How wide the screen in front is on the canvas, in pixels: its sharp
+ * copies are made that wide, so they are neither soft nor bigger than needed
+ * (0 if the working copy is already enough)
+ */
+function sharpWidthFor(screen: Object3D | undefined, camera: Camera, canvasHeight: number) {
+  if (!screen) return 0;
+  const distance = camera.position.distanceTo(screen.getWorldPosition(screenPosition));
+  const fov = MathUtils.degToRad((camera as PerspectiveCamera).fov);
+  const visible = 2 * distance * Math.tan(fov / 2);
+  const width = ((screenSize.width * focusScale) / visible) * canvasHeight;
+  return width > shotWidth ? Math.min(Math.ceil(width), maxSharpWidth) : 0;
+}
+
 /**
  * Each screen's shots: the first loads up front, the rest the first time the
- * screen goes live. The screen in front also gets a sharp copy of its shot,
- * since it fills half the viewport, dropped again once the camera moves on.
+ * screen goes live. The screen in front fills half the viewport, so it also
+ * gets sharp copies of the shot that is up and the next one (so crossfades
+ * stay sharp too), dropped again once the camera moves on.
  */
 class ScreenShots {
   private disposed = false;
@@ -247,7 +286,7 @@ class ScreenShots {
           return;
         }
         state.textures.set(index, texture);
-        if (index === state.index) {
+        if (index === state.index && !state.sharp.has(index)) {
           setUniform(this.materials[i], 'uMap', texture);
           setUniform(this.materials[i], 'uHasMap', 1);
         }
@@ -255,49 +294,91 @@ class ScreenShots {
       .catch(() => state.loading.delete(index));
   }
 
-  /** Swaps in a sharp copy of the shot that is up, once it has loaded */
-  sharpen(i: number) {
+  /** The best copy of a shot there is: the sharp one, else the working copy */
+  copy(i: number, index: number) {
     const state = this.states[i];
-    const { index } = state;
+    return state.sharp.get(index) ?? state.textures.get(index);
+  }
+
+  /** Whether a shot's sharp copy is in, or it needs none (its source is no wider than the working copy) */
+  sharpReady(i: number, index: number) {
     const image = this.screens[i].images[index];
-    if (!image || state.sharpIndex === index || state.sharpLoading || state.next >= 0) return;
-    state.sharpLoading = true;
-    loadShot(this.gl, image, frontWidth)
+    return this.states[i].sharp.has(index) || !image || image.width <= shotWidth;
+  }
+
+  /**
+   * In front: sharp copies, `width` wide, of the shots in `wanted` (the one
+   * up and the next), each swapped in as it loads; any others are dropped
+   */
+  sharpen(i: number, width: number, wanted: number[]) {
+    const state = this.states[i];
+    // Made for a smaller view (the window has grown since): start again
+    if (state.sharpWidth && width > state.sharpWidth * 1.15) this.soften(i);
+    if (!state.sharpWidth) state.sharpWidth = width;
+    for (const [index, texture] of state.sharp) {
+      if (!wanted.includes(index)) this.drop(i, index, texture);
+    }
+    for (const index of wanted) this.loadSharp(i, index);
+  }
+
+  private loadSharp(i: number, index: number) {
+    const state = this.states[i];
+    const width = state.sharpWidth;
+    const image = this.screens[i].images[index];
+    if (!image || image.width <= shotWidth) return;
+    if (state.sharp.has(index) || state.sharpLoading.has(index)) return;
+    state.sharpLoading.add(index);
+    loadShot(this.gl, image, width)
       .then((texture) => {
-        state.sharpLoading = false;
-        if (this.disposed) {
+        state.sharpLoading.delete(index);
+        // Disposed, or the screen has left the front (or been resized) since
+        if (this.disposed || state.sharpWidth !== width) {
           texture.dispose();
           return;
         }
-        state.sharp?.dispose();
-        state.sharp = texture;
-        state.sharpIndex = index;
-        if (state.index === index && state.next < 0) setUniform(this.materials[i], 'uMap', texture);
+        state.sharp.set(index, texture);
+        const material = this.materials[i];
+        if (state.index === index) {
+          setUniform(material, 'uMap', texture);
+          setUniform(material, 'uHasMap', 1);
+        }
+        if (state.next === index) setUniform(material, 'uMapB', texture);
       })
-      .catch(() => {
-        state.sharpLoading = false;
-      });
+      .catch(() => state.sharpLoading.delete(index));
   }
 
-  /** Back to the working copy once the screen has left the front */
+  /** Drops a sharp copy, putting the working copy back wherever it is showing */
+  private drop(i: number, index: number, texture: Texture) {
+    const state = this.states[i];
+    const material = this.materials[i];
+    const working = state.textures.get(index) ?? null;
+    if (material.uniforms.uMap.value === texture) setUniform(material, 'uMap', working);
+    if (material.uniforms.uMapB.value === texture) setUniform(material, 'uMapB', working);
+    texture.dispose();
+    state.sharp.delete(index);
+  }
+
+  /** Back to the working copies once the screen has left the front */
   soften(i: number) {
     const state = this.states[i];
-    const { sharp } = state;
-    if (!sharp) return;
-    const material = this.materials[i];
-    const working = state.textures.get(state.sharpIndex) ?? null;
-    if (material.uniforms.uMap.value === sharp) setUniform(material, 'uMap', working);
-    if (material.uniforms.uMapB.value === sharp) setUniform(material, 'uMapB', working);
-    sharp.dispose();
-    state.sharp = null;
-    state.sharpIndex = -1;
+    state.sharpWidth = 0;
+    for (const [index, texture] of state.sharp) this.drop(i, index, texture);
   }
 
   dispose() {
     this.disposed = true;
+    // The states outlive this, so leave nothing disposed in them: a new set of
+    // shots for the same screens starts from scratch
     this.states.forEach((state) => {
       state.textures.forEach((texture) => texture.dispose());
-      state.sharp?.dispose();
+      state.sharp.forEach((texture) => texture.dispose());
+      state.textures.clear();
+      state.loading.clear();
+      state.sharp.clear();
+      state.sharpLoading.clear();
+      state.sharpWidth = 0;
+      state.index = 0;
+      state.next = -1;
     });
     this.materials.forEach((material) => material.dispose());
   }
@@ -316,7 +397,9 @@ function openProject(slug: string) {
 /**
  * Runs one screen: scrolls full-page captures, and while the screen is live
  * (focused or hovered) crossfades through the project's other shots,
- * loading each the first time it is needed.
+ * loading each the first time it is needed. In front (`sharpWidth` > 0) it
+ * keeps sharp copies of the shot that is up and the next one, and waits a
+ * little for the next one's before fading to it.
  */
 function liveScreen(
   material: ShaderMaterial,
@@ -326,15 +409,23 @@ function liveScreen(
   t: number,
   dt: number,
   live: boolean,
-  shots: ScreenShots
+  shots: ScreenShots,
+  sharpWidth: number
 ) {
   state.hover = approach(state.hover, live ? 1 : 0, 6, dt);
   setUniform(material, 'uHover', state.hover);
-  const current = state.textures.get(state.index);
+  if (sharpWidth > 0) {
+    shots.sharpen(
+      i,
+      sharpWidth,
+      count > 1 ? [state.index, (state.index + 1) % count] : [state.index]
+    );
+  }
+  const current = shots.copy(i, state.index);
   if (current) scrollWindow(material.uniforms.uWindow.value, windowHeight(current), t, i * 1.7);
 
   if (state.next >= 0) {
-    const incoming = state.textures.get(state.next);
+    const incoming = shots.copy(i, state.next);
     if (!incoming) return;
     scrollWindow(material.uniforms.uWindowB.value, windowHeight(incoming), t, i * 1.7);
     const mix = Math.min((t - state.fadeStart) / fadeTime, 1);
@@ -356,10 +447,13 @@ function liveScreen(
   }
   const upcoming = (state.index + 1) % count;
   shots.load(i, upcoming);
-  if (t >= state.nextSwitch && state.textures.has(upcoming)) {
+  const ready =
+    state.textures.has(upcoming) &&
+    (!sharpWidth || shots.sharpReady(i, upcoming) || t >= state.nextSwitch + sharpWait);
+  if (t >= state.nextSwitch && ready) {
     state.next = upcoming;
     state.fadeStart = t;
-    setUniform(material, 'uMapB', state.textures.get(upcoming));
+    setUniform(material, 'uMapB', shots.copy(i, upcoming));
   }
 }
 
@@ -407,25 +501,25 @@ export function ProjectsStation({
         fadeStart: 0,
         nextSwitch: 0,
         hover: 0,
-        sharp: null,
-        sharpIndex: -1,
-        sharpLoading: false,
+        sharp: new Map(),
+        sharpLoading: new Set(),
+        sharpWidth: 0,
         settledAt: 0,
       })),
     [screens]
   );
 
+  // Built once and recoloured on a theme change, so their shots stay loaded
+  // (rebuilding them left every screen blank)
   const screenMaterials = useMemo(
-    () =>
-      screens.map((_, i) =>
-        createScreenMaterial(
-          i % 2 ? palette.cyan : palette.violet,
-          i % 2 ? '#0e7490' : '#6d28d9',
-          screenWhite[theme]
-        )
-      ),
-    [screens, palette.cyan, palette.violet, theme]
+    () => screens.map((_, i) => createScreenMaterial(i % 2 ? '#0e7490' : '#6d28d9')),
+    [screens]
   );
+  useEffect(() => {
+    screenMaterials.forEach((material, i) =>
+      themeScreen(material, i % 2 ? palette.cyan : palette.violet, theme)
+    );
+  }, [screenMaterials, palette.cyan, palette.violet, theme]);
 
   const shots = useMemo(
     () => new ScreenShots(gl, screens, states, screenMaterials),
@@ -460,14 +554,25 @@ export function ProjectsStation({
     // yard: the first screen only comes forward (and lights up) on scroll
     const ride = front >= 0 ? 1 - (opened >= 0 ? 0 : projectIntro()) : 0;
     const live = front >= 0 && ride > 0.9 ? Math.round(front) : -1;
-    // Settled in front with the camera parked: the moment to sharpen its shot
+    // Settled in front with the camera parked: the moment to sharpen its
+    // shots, to the size it is on the canvas
     const parked =
       live >= 0 && ride > 0.99 && Math.abs(front - live) < 0.02 && !worldStore.flight.active;
+    const frontWidth = parked
+      ? sharpWidthFor(helixRef.current?.children[live], camera, gl.domElement.height)
+      : 0;
 
     setUniform(materials.base, 'uTime', t);
     screenMaterials.forEach((material, i) => {
       const state = states[i];
       setUniform(material, 'uTime', t + i);
+      if (parked && i === live) {
+        if (!state.settledAt) state.settledAt = t;
+      } else {
+        state.settledAt = 0;
+        if (i !== live) shots.soften(i);
+      }
+      const sharp = state.settledAt > 0 && t - state.settledAt > sharpenAfter;
       liveScreen(
         material,
         state,
@@ -476,15 +581,9 @@ export function ProjectsStation({
         t,
         dt,
         i === live || i === hoveredRef.current,
-        shots
+        shots,
+        sharp ? frontWidth : 0
       );
-      if (parked && i === live) {
-        if (!state.settledAt) state.settledAt = t;
-        if (t - state.settledAt > sharpenAfter) shots.sharpen(i);
-      } else {
-        state.settledAt = 0;
-        if (i !== live) shots.soften(i);
-      }
       const reveal = material.uniforms.uReveal.value as number;
       if (reveal < 1.1) setUniform(material, 'uReveal', snap ? 1.1 : reveal + dt * 0.8);
       const dim = front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) * ride : 0;
@@ -550,7 +649,7 @@ export function ProjectsStation({
             >
               <mesh
                 material={screenMaterials[i]}
-                scale={[2.08, 1.3, 1]}
+                scale={[screenSize.width, screenSize.height, 1]}
                 onPointerOver={(e) => {
                   e.stopPropagation();
                   if (hoveredRef.current === i) return;
