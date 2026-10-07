@@ -56,6 +56,7 @@ const worldContent: WorldContent = {
   projects: content.projects.items.map((p) => ({
     title: p.title,
     slug: p.slug,
+    icon: p.thumbnail,
     // Full-page captures first: they make the best "live" screens
     images: [...p.images]
       .map((image) => ({

@@ -7,6 +7,8 @@ export interface WorldContent {
   projects: {
     title: string;
     slug: string;
+    /** Iconify name of the project's icon: its screen's art when it has no screenshots */
+    icon: string;
     /**
      * Up to four screenshots; `tall` marks full-page captures, which scroll on
      * screen, and `width` is the source's width in pixels
