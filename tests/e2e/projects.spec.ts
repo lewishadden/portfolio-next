@@ -153,6 +153,58 @@ test.describe('the helix ride', () => {
       await restsOn(1);
     }
   );
+
+  test(
+    'reacts to the pointer in open space only, so clicks in the modal stay in it',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/projects');
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 120_000 });
+      await page
+        .locator('.brand-mark-live--3d')
+        .waitFor({ state: 'attached', timeout: 60_000 })
+        .catch(() => {});
+
+      // A plain click on the index rides to that project: its screen in front, centred
+      await page.locator('.projects a[href="/projects/zgs-carpentry"]').first().click();
+      await expect(page.locator('.proj-hud__title')).toHaveText('ZGS Carpentry', {
+        timeout: 40_000,
+      });
+      const root = page.locator('html');
+      const { width, height } = page.viewportSize()!;
+      const centre = { x: width / 2, y: height / 2 };
+
+      // Over open space the screen in front takes the pointer (the world only
+      // raycasts when the pointer moves, so keep nudging it while the camera settles)
+      let nudge = 0;
+      await expect
+        .poll(
+          async () => {
+            nudge = 1 - nudge;
+            await page.mouse.move(centre.x + nudge, centre.y);
+            return root.getAttribute('data-world-hover');
+          },
+          { timeout: 40_000, intervals: [500] }
+        )
+        .not.toBeNull();
+
+      await page.getByRole('link', { name: 'View details for ZGS Carpentry' }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      await expect(page).toHaveURL(/\/projects\/zgs-carpentry$/);
+
+      // Over the dialog it doesn't, even with the screen right behind it
+      await page.mouse.move(centre.x + 1, centre.y + 1);
+      await expect(root).not.toHaveAttribute('data-world-hover');
+      // Clicks there stay in the dialog (they used to open the project again,
+      // stacking history entries that each needed a click on close)
+      for (let i = 0; i < 3; i++) await page.mouse.click(centre.x, centre.y + i * 20);
+
+      await page.getByRole('button', { name: 'Close project details' }).click();
+      await expect(dialog).toBeHidden();
+      await expect(page).toHaveURL(/\/projects$/);
+    }
+  );
 });
 
 test.describe('project pages', () => {
