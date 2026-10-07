@@ -5,12 +5,7 @@
   right: 0;
   z-index: 50;
   padding: 14px var(--gutter);
-  transition: transform 0.6s var(--ease-out);
   pointer-events: none;
-
-  &--hidden {
-    transform: translateY(-130%);
-  }
 
   &__bar {
     position: relative;
@@ -204,6 +199,160 @@
       top: 21px;
       transform: rotate(-45deg);
     }
+  }
+}
+
+/* ---------- 3D effects on: the bar is a cockpit HUD ----------
+   The hologram itself is a canvas behind the bar's content (HeaderHud),
+   which also sways the whole bar with the camera. Here the bar drops its
+   glass pill (the hologram's own fill takes over once the page is under
+   it) and its links and buttons take the HUD's look */
+.header--hud {
+  /* The bar is a 3D scene: the hologram (HeaderHud) sits 24px behind the
+     links, scaled up to match so it lines up exactly at rest, and a tilt
+     shows the depth. The sway replaces this transform every frame */
+  .header__bar,
+  &.header--scrolled .header__bar,
+  &.header--open .header__bar {
+    border-color: transparent;
+    background: none;
+    box-shadow: none;
+    transform: perspective(900px);
+    transform-style: preserve-3d;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    will-change: transform;
+  }
+
+  .header-hud {
+    transform: translateZ(-24px) scale(calc(924 / 900));
+  }
+
+  /* Powering on: the logo, links and buttons flicker on one by one */
+  &[data-hud-boot] :is(.header__logo, .header__link, .header__actions > *) {
+    animation: hud-flicker-in 0.6s steps(1, end) both;
+    animation-delay: calc(450ms + var(--hud-i, 0) * 55ms);
+  }
+
+  .header__links {
+    border-color: transparent;
+    background: none;
+  }
+
+  .header__indicator {
+    display: none;
+  }
+
+  .header__link {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--hud-text);
+    text-shadow:
+      0 0 8px var(--hud-glow),
+      0 0 3px var(--hud-halo);
+
+    &:hover {
+      color: var(--hud-text-strong);
+      animation: hud-glitch 0.32s steps(2) infinite;
+    }
+
+    &.is-active {
+      color: var(--hud-text-strong);
+    }
+  }
+
+  .header__palette,
+  .header__burger,
+  .world-toggle,
+  .theme-toggle {
+    border-color: transparent;
+    background: transparent;
+    color: var(--hud-text);
+    filter: drop-shadow(0 0 6px var(--hud-glow));
+
+    &:hover:not(:disabled) {
+      border-color: transparent;
+      box-shadow: none;
+      color: var(--hud-text-strong);
+    }
+  }
+
+  .header__burger span {
+    background: currentcolor;
+  }
+
+  /* The theme toggle's sun and moon have their own colours off the HUD */
+  .theme-toggle__icon {
+    color: inherit;
+  }
+
+  .header__cta {
+    border-color: transparent;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--hud-text);
+    text-shadow:
+      0 0 8px var(--hud-glow),
+      0 0 3px var(--hud-halo);
+
+    &:hover {
+      background: transparent;
+      box-shadow: none;
+      color: var(--hud-text-strong);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .header__link:hover {
+      animation: none;
+    }
+  }
+}
+
+@keyframes hud-flicker-in {
+  0% {
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 0.8;
+  }
+
+  30% {
+    opacity: 0.1;
+  }
+
+  45% {
+    opacity: 1;
+  }
+
+  55% {
+    opacity: 0.35;
+  }
+
+  70%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Pointing at a link knocks its text out of register, like a flickering projection */
+@keyframes hud-glitch {
+  0% {
+    text-shadow:
+      -2px 0 rgba(236, 72, 153, 0.75),
+      2px 0 var(--hud-glow);
+  }
+
+  100% {
+    text-shadow:
+      2px 0 rgba(236, 72, 153, 0.75),
+      -2px 0 var(--hud-glow);
   }
 }
 
