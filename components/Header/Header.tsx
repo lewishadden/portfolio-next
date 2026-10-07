@@ -221,6 +221,7 @@ export const Header = ({
         open={mobileOpen}
         navItems={navItems}
         icon={header.mobile.icon}
+        hud={hud && hudLive}
         onClose={closeMenu}
       />
     </>
