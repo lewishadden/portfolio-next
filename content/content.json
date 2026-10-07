@@ -330,49 +330,73 @@
             "url": "/static/images/projects/zgs-carpentry/home.webp",
             "alt": "ZGS Carpentry home page with the 'Graft you can trust' hero",
             "size": {
-              "width": 3200,
-              "height": 1800
-            }
+              "width": 1941,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/zgs-carpentry/services.webp",
             "alt": "ZGS Carpentry services page covering all thirteen trades",
             "size": {
-              "width": 3200,
-              "height": 1800
-            }
+              "width": 3024,
+              "height": 6794
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/zgs-carpentry/gallery.webp",
             "alt": "ZGS Carpentry gallery of completed carpentry, joinery and tiling work",
             "size": {
-              "width": 3200,
-              "height": 1800
-            }
-          },
-          {
-            "url": "/static/images/projects/zgs-carpentry/areas.webp",
-            "alt": "ZGS Carpentry blueprint-style coverage map of the towns served across Hertfordshire and Bedfordshire",
-            "size": {
-              "width": 3200,
-              "height": 1800
-            }
+              "width": 2090,
+              "height": 8192
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/zgs-carpentry/about.webp",
             "alt": "About ZGS Carpentry and its owner Zak Sanders",
             "size": {
-              "width": 3200,
-              "height": 1800
-            }
+              "width": 3024,
+              "height": 4324
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/areas.webp",
+            "alt": "ZGS Carpentry coverage map, a timber relief board of the towns served across Hertfordshire and Bedfordshire",
+            "size": {
+              "width": 3024,
+              "height": 2964
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/faq.webp",
+            "alt": "ZGS Carpentry frequently asked questions",
+            "size": {
+              "width": 3024,
+              "height": 3802
+            },
+            "fullPage": true
+          },
+          {
+            "url": "/static/images/projects/zgs-carpentry/contact.webp",
+            "alt": "Contact ZGS Carpentry by phone, WhatsApp or email, with working hours",
+            "size": {
+              "width": 3024,
+              "height": 2900
+            },
+            "fullPage": true
           },
           {
             "url": "/static/images/projects/zgs-carpentry/quote.webp",
             "alt": "ZGS Carpentry free, no-obligation quote request form",
             "size": {
-              "width": 3200,
-              "height": 1800
-            }
+              "width": 3024,
+              "height": 3270
+            },
+            "fullPage": true
           }
         ],
         "url": "https://zgs-carpentry.co.uk",
