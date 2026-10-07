@@ -207,7 +207,7 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 npm run test:e2e   # against a running
 ## Important Notes
 
 - The site requires a Node.js server at runtime (e.g., `next start`, Vercel, or DigitalOcean App Platform) to serve pages and the API route
-- Images use the built-in Next.js `<Image>` component with server-side optimization
+- Images use the built-in Next.js `<Image>` component with server-side optimization. Project screenshots are WebP (quality 90, or lossless when that is no bigger), never AVIF: since August 2026 Vercel's optimiser, and Next.js from 16.3.3 when self-hosted, serve AVIF sources as-is at any requested width (their mitigation for a libheif remote-code-execution bug), so every AVIF screenshot was a full-size download. Keep them within 8192px on each side (Vercel's limit for optimising a source) and keep each image's `size` in `content.json` equal to the file's real dimensions
 - The contact form email is handled by `app/api/sendmail/route.ts`. It shares its validation rules and limits with the form (`utils/contactValidation.ts`), caps the body size, silently drops bots (honeypot field + minimum fill time), and rate limits per IP via the in-memory `utils/rateLimit.ts` (per server instance — swap in a shared store if the site is ever scaled out)
 - SMTP configuration is provided via environment variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL`, `SMTP_PASS`
 - The `Contact` component is code-split via `LazyContact.tsx` (dynamic import, SSR kept on for crawlers)
