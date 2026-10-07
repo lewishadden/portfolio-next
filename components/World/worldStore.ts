@@ -56,8 +56,53 @@ export const worldStore = {
   launchRequested: false,
   /** Camera position, heading (radians about Y, 0 = -Z) and unit forward vector, every frame */
   camera: { x: 0, y: 0, z: 60, heading: 0, fx: 0, fy: 0, fz: -1 },
-  /** The flight in progress, if any: destination station, progress 0..1 and its path (x, y, z triples) */
-  flight: { active: false, to: '', progress: 0, path: new Float32Array(0) },
+  /**
+   * The flight in progress, if any: destination station, progress 0..1 and
+   * its path (x, y, z triples). `turn` is which way the camera swings as it
+   * leaves: 0 straight ahead, +1 an about-turn to the left, -1 to the right.
+   * `approached` turns true on the final approach (when the new page shows)
+   */
+  flight: {
+    active: false,
+    to: '',
+    progress: 0,
+    path: new Float32Array(0),
+    turn: 0,
+    approached: false,
+  },
+  /**
+   * The station a hovered or focused link leads to ('' for none): the radar
+   * plots the route there (`previewPath`, x, y, z triples, planned by
+   * CameraRig), its beacon flares and the header half-locks onto the link
+   */
+  preview: '',
+  previewPath: new Float32Array(0),
+  /**
+   * A jolt for the camera, 0..1, decaying on its own (CameraRig): the
+   * rocket's launch, a bump against a hull in free roam
+   */
+  shake: 0,
+  /**
+   * Home, /about and /contact: which of the page's sections
+   * ([data-world-section]) is at the reading line, as a fractional index
+   * (-1 above the first, and off those pages), and how many there are. The
+   * camera moves round the station with it rather than leaving it behind
+   */
+  sectionFocus: -1,
+  sectionCount: 0,
+  /**
+   * /skills: the skill a tile on the page is hovered or focused for ('' for
+   * none) and the category whose tiles are being read ('' for none). Its
+   * badge flares; that category's constellation lights up
+   */
+  skillHover: '',
+  skillCategory: '',
+  /**
+   * The page's heading block on screen (`.page-head__copy`, else the hero
+   * copy), -1..1 from the centre with y up; all 0 when there is none. Things
+   * that would sit behind it (skill badges) fade out of its way
+   */
+  copy: { left: 0, right: 0, top: 0, bottom: 0 },
   /**
    * How loudly the header HUD hums, 0..1 (HeaderHud writes it while it is
    * on screen, louder as it swings; components/Sound plays it)
@@ -114,6 +159,23 @@ export function onFlight(listener: FlightListener) {
 
 export function emitFlight(event: FlightEvent, to: string) {
   flightListeners.forEach((listener) => listener(event, to));
+}
+
+const previewListeners = new Set<() => void>();
+
+/** Subscribe to the previewed station changing (a link hovered or focused, or let go) */
+export function onPreview(listener: () => void) {
+  previewListeners.add(listener);
+  return () => {
+    previewListeners.delete(listener);
+  };
+}
+
+/** Previews the course to a station ('' to stop): see worldStore.preview */
+export function setPreview(station: string) {
+  if (worldStore.preview === station) return;
+  worldStore.preview = station;
+  previewListeners.forEach((listener) => listener());
 }
 
 const dockListeners = new Set<() => void>();
@@ -199,7 +261,19 @@ export type Cue =
   | 'hud-hover'
   | 'hud-click'
   | 'hud-lock'
-  | 'hud-boot';
+  | 'hud-boot'
+  /** Something in 3D was clicked: the ping ring where it landed */
+  | 'ping'
+  /** A character or craft does its trick (barrel roll, helmet spin, satellite roll…) */
+  | 'trick'
+  /** Free roam: the ship bumped a hull */
+  | 'bump'
+  /** A station powers up as the camera arrives */
+  | 'power'
+  /** The command palette opened */
+  | 'palette'
+  /** The theme switched */
+  | 'theme';
 
 const cueListeners = new Set<(cue: Cue) => void>();
 
@@ -256,6 +330,9 @@ export const worldFocusEvent = 'world:focus';
 export function focusOnPage(id: string) {
   window.dispatchEvent(new CustomEvent(worldFocusEvent, { detail: id }));
 }
+
+/** Dispatched when free roam knocks into a hull (detail: strength, 0..1); the HUD flashes */
+export const worldBumpEvent = 'world:bump';
 
 /** Dispatched to navigate from inside the canvas (World handles it with the router) */
 export const worldNavigateEvent = 'world:navigate';

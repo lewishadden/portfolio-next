@@ -1,6 +1,8 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { Icon } from '@iconify/react';
+import { usePathname } from 'next/navigation';
 
 import { launchWorldMode, useWorldMode, worldMode } from 'components/World/worldMode';
 
@@ -9,20 +11,35 @@ import { useWorldPreference } from '@/hooks/useWorldPreference';
 
 import './RoamButton.scss';
 
+/** How far down the home page the button stays a full pill (px) */
+const pillFor = 120;
+
+const subscribeScroll = (callback: () => void) => {
+  window.addEventListener('scroll', callback, { passive: true });
+  return () => window.removeEventListener('scroll', callback);
+};
+const nearTop = () => window.scrollY < pillFor;
+const serverNearTop = () => true;
+
 /**
  * Free roam, front and centre: a floating button that hands the camera to
  * the visitor (switching the 3D world on first if needed) and, on desktop,
- * becomes the way back while they fly. Hidden where WebGL is unavailable,
- * during the guided tour, and in free flight on touch screens, where the
- * flight pad needs the corner.
+ * becomes the way back while they fly. A full pill only at the top of the
+ * home page; everywhere else it would cover the page, so it is just its
+ * icon, the label sliding out on hover or focus. Hidden where WebGL is
+ * unavailable, during the guided tour, and in free flight on touch screens,
+ * where the flight pad needs the corner.
  */
 export function RoamButton() {
   const { supported, setEnabled } = useWorldPreference();
   const { mode } = useWorldMode();
   const touch = useMediaQuery('(pointer: coarse)');
+  const pathname = usePathname();
+  const top = useSyncExternalStore(subscribeScroll, nearTop, serverNearTop);
   const exploring = mode === 'explore';
   if (!supported || mode === 'tour' || (exploring && touch)) return null;
 
+  const compact = !exploring && !(pathname === '/' && top);
   const toggle = () => {
     if (exploring) worldMode.exit();
     else launchWorldMode('explore', () => setEnabled(true));
@@ -31,7 +48,7 @@ export function RoamButton() {
   return (
     <button
       type="button"
-      className={exploring ? 'roam-fab roam-fab--on' : 'roam-fab'}
+      className={`roam-fab${exploring ? ' roam-fab--on' : ''}${compact ? ' roam-fab--compact' : ''}`}
       onClick={toggle}
     >
       <span className="roam-fab__icon" aria-hidden="true">

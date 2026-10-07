@@ -265,9 +265,12 @@ test.describe('full-page screenshots', () => {
     const gallery = page.getByRole('region', { name: 'Drive King screenshots' });
     await gallery.getByRole('button', { name: 'Next screenshot' }).click();
 
-    const viewport = gallery.getByRole('region', { name: /Full-page screenshot/ });
+    // The slide it moved to: while they cross over, the one it left (a full
+    // page too) is still there
+    const slide = gallery.getByRole('group', { name: /^2 of / });
+    const viewport = slide.getByRole('region', { name: /Full-page screenshot/ });
     await expect(viewport).toBeVisible();
-    await expect(gallery.locator('.page-shot__url')).toHaveText(/drive-king\.co\.uk/);
+    await expect(slide.locator('.page-shot__url')).toHaveText(/drive-king\.co\.uk/);
     // Wide, not a thin portrait strip
     const box = await viewport.boundingBox();
     expect(box && box.width > box.height).toBe(true);

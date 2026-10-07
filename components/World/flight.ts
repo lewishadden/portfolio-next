@@ -12,10 +12,14 @@ import type { Curve } from 'three';
 
    Ahead (the destination is roughly the way the camera faces): a cubic
    Bézier that rises as it leaves, arcs over anything in the way and
-   settles onto the destination's viewing pose. The rotation is planned,
-   not aimed at points from wherever the camera happens to be (that
-   swings wildly as it passes them): the starting view blends into the
-   destination's, leaning a little into the direction of travel.
+   settles onto the destination's viewing pose. The camera turns onto the
+   destination station as it pulls away and keeps it locked in the middle
+   of the view (following its bearing, eased frame to frame) while the
+   station grows ahead, then settles into the viewing pose for the final
+   approach. Only the destination is ever aimed at, never a point on or
+   near the path (that swings wildly as the camera passes it), and the
+   path comes in along the destination's viewing axis, so its bearing
+   turns smoothly back onto the pose as the camera arrives.
 
    About-turn (the destination is behind): one long sweeping arc. The
    path bows out to one side from the start, passes the station on that
@@ -32,10 +36,7 @@ import type { Curve } from 'three';
 
 const samples = 64;
 const up = new Vector3(0, 1, 0);
-const xAxis = new Vector3(1, 0, 0);
-const origin = new Vector3();
 const scratch = new Vector3();
-const forward = new Vector3();
 const lookMatrix = new Matrix4();
 const turn = new Quaternion();
 const euler = new Euler(0, 0, 0, 'YXZ');
@@ -53,6 +54,15 @@ const roundReach = 34;
 const bearingFollow = 9;
 /** Steepest the camera pitches to keep the station in view */
 const maxPitch = 0.3;
+/** Ahead: seconds spent turning onto the destination as the camera pulls away (at most `lockShare` of the flight) */
+const lockTime = 0.85;
+const lockShare = 0.42;
+/** Ahead: how quickly (per second) the view follows the destination's bearing once locked on */
+const lockFollow = 7;
+/** Ahead: steepest the camera pitches to hold the destination (it climbs over stations in the way) */
+const lockPitch = 0.5;
+/** Ahead: share of the flight from which the locked view settles into the viewing pose */
+const settleFrom = 0.58;
 
 export interface Flight {
   curve: Curve<Vector3>;
@@ -69,9 +79,15 @@ export interface Flight {
   brake: number;
   departEnd: number;
   roundFrom: number;
-  /** About-turns: the station the camera keeps in view, and which way (+1 left, -1 right) it first turns */
+  /**
+   * The station the camera keeps in view (ahead: the destination's centre it
+   * locks onto; about-turns: the point it is framed on), and which way (+1
+   * left, -1 right) an about-turn first turns
+   */
   focus: Vector3;
   departTurn: number;
+  /** Ahead: share of the flight spent turning onto the destination */
+  lockEnd: number;
   length: number;
   duration: number;
   elapsed: number;
@@ -80,9 +96,7 @@ export interface Flight {
 /** Per-flight state `flightRotation` carries from frame to frame */
 export interface FlightView {
   started: boolean;
-  /** Direction of travel, smoothed so tight bends never whip the view */
-  ahead: Vector3;
-  /** About-turns: the starting view and the station's bearing (unwrapped yaw, eased) */
+  /** The starting view and the station's bearing (unwrapped yaw, eased) */
   fromYaw: number;
   fromPitch: number;
   bearingYaw: number;
@@ -91,7 +105,6 @@ export interface FlightView {
 
 export const createFlightView = (): FlightView => ({
   started: false,
-  ahead: new Vector3(),
   fromYaw: 0,
   fromPitch: 0,
   bearingYaw: 0,
@@ -281,7 +294,9 @@ export function planFlight(
   fromRotation: Quaternion,
   toPos: Vector3,
   toLook: Vector3,
-  velocity: Vector3
+  velocity: Vector3,
+  /** The destination station's centre, which ahead flights lock onto (else the framed point) */
+  lockOn: Vector3 = toLook
 ): Flight | null {
   const distance = fromPos.distanceTo(toPos);
   if (distance < 0.25) return null;
@@ -303,8 +318,9 @@ export function planFlight(
     brake: 1,
     departEnd: 0,
     roundFrom: 1,
-    focus: toLook.clone(),
+    focus: (about ? toLook : lockOn).clone(),
     departTurn: 1,
+    lockEnd: 0,
     length: 0,
     duration: 0,
     elapsed: 0,
@@ -323,6 +339,7 @@ export function planFlight(
     f.curve = planAhead(fromPos, fromLook, viewFrom, toPos, toLook, velocity, ahead);
     f.length = f.curve.getLength();
     f.duration = MathUtils.clamp(1.2 + f.length / 85, 1.1, 3.6);
+    f.lockEnd = Math.min(lockTime / f.duration, lockShare);
   }
   return f;
 }
@@ -334,24 +351,59 @@ function yawPitch(q: Quaternion) {
 }
 
 /** Unwrapped yaw and clamped pitch of a direction, picking the turn nearest `near` */
-function heading(direction: Vector3, near: number) {
+function heading(direction: Vector3, near: number, steepest = maxPitch) {
   const yaw = Math.atan2(-direction.x, -direction.z);
   const flat = Math.hypot(direction.x, direction.z);
   return {
     yaw: near + wrap(yaw - near),
-    pitch: MathUtils.clamp(Math.atan2(direction.y, flat), -maxPitch, maxPitch),
+    pitch: MathUtils.clamp(Math.atan2(direction.y, flat), -steepest, steepest),
   };
 }
 
 /**
+ * Starts following the focus's bearing from where the view is, or eases the
+ * followed bearing towards where the focus now lies (unwrapped frame to
+ * frame, so it never jumps a whole turn)
+ */
+function followBearing(
+  f: Flight,
+  view: FlightView,
+  position: Vector3,
+  rate: number,
+  steepest: number,
+  dt: number
+) {
+  scratch.subVectors(f.focus, position);
+  if (!view.started) {
+    view.started = true;
+    const from = yawPitch(f.rotationFrom);
+    view.fromYaw = from.yaw;
+    view.fromPitch = from.pitch;
+    const start = scratch.lengthSq() > 1 ? heading(scratch, from.yaw, steepest) : from;
+    view.bearingYaw = start.yaw;
+    view.bearingPitch = start.pitch;
+    return true;
+  }
+  if (scratch.lengthSq() > 1) {
+    const next = heading(scratch, view.bearingYaw, steepest);
+    const follow = 1 - Math.exp(-rate * dt);
+    view.bearingYaw += (next.yaw - view.bearingYaw) * follow;
+    view.bearingPitch += (next.pitch - view.bearingPitch) * follow;
+  }
+  return false;
+}
+
+/**
  * The camera's rotation `s` (0..1) of the way through a flight.
- * Ahead: the start view blended into `rotationTo`, leaning into the
- * direction of travel mid-flight when that is roughly ahead, or dipping the
- * nose a touch when the camera is drifting back.
+ * Ahead: the start view turns onto the destination as the camera pulls
+ * away (over `lockEnd`), follows its bearing (eased, unwrapped frame to
+ * frame) so it stays locked in the middle of the view as it grows, and
+ * from `settleFrom` settles into `rotationTo`, the viewing pose (which
+ * frames the same station, beside the page's copy on wide screens).
  * About-turn: the start view turns to face the station (the way
  * `departTurn` says when it is a half turn or so either way), then follows
- * its bearing (eased, unwrapped frame to frame) as the arc rounds it, and
- * settles into `rotationTo`, which looks at the same station.
+ * its bearing as the arc rounds it, and settles into `rotationTo`, which
+ * looks at the same station.
  */
 export function flightRotation(
   f: Flight,
@@ -363,25 +415,13 @@ export function flightRotation(
   out: Quaternion
 ) {
   if (f.about) {
-    scratch.subVectors(f.focus, position);
-    if (!view.started) {
-      view.started = true;
-      const from = yawPitch(f.rotationFrom);
-      view.fromYaw = from.yaw;
-      view.fromPitch = from.pitch;
-      const start = heading(scratch, from.yaw);
-      let away = start.yaw - from.yaw;
+    if (followBearing(f, view, position, bearingFollow, maxPitch, dt)) {
+      let away = view.bearingYaw - view.fromYaw;
       // Near enough a half turn either way: turn the planned way
       if (Math.abs(away) > 2.6 && Math.sign(away) !== f.departTurn) {
         away -= Math.sign(away) * Math.PI * 2;
       }
-      view.bearingYaw = from.yaw + away;
-      view.bearingPitch = start.pitch;
-    } else if (scratch.lengthSq() > 1) {
-      const next = heading(scratch, view.bearingYaw);
-      const follow = 1 - Math.exp(-bearingFollow * dt);
-      view.bearingYaw += (next.yaw - view.bearingYaw) * follow;
-      view.bearingPitch += (next.pitch - view.bearingPitch) * follow;
+      view.bearingYaw = view.fromYaw + away;
     }
 
     const end = yawPitch(rotationTo);
@@ -398,24 +438,11 @@ export function flightRotation(
     return out.slerp(rotationTo, smootherstep((s - 0.97) / 0.03));
   }
 
-  out.copy(f.rotationFrom).slerp(rotationTo, smootherstep((s - 0.08) / 0.8));
-
-  scratch.copy(f.curve.getTangentAt(flightEase(f, s)));
-  if (scratch.lengthSq() > 1e-8) {
-    scratch.normalize();
-    if (!view.started) view.ahead.copy(scratch);
-    else view.ahead.lerp(scratch, 1 - Math.exp(-5 * dt)).normalize();
-    view.started = true;
-  }
-
-  forward.set(0, 0, -1).applyQuaternion(out);
-  const along = forward.dot(view.ahead);
-  const swell = Math.sin(Math.PI * s) ** 2;
-  const lean = 0.35 * MathUtils.smoothstep(along, 0.1, 0.8) * swell;
-  if (lean > 1e-4) out.slerp(lookRotation(origin.set(0, 0, 0), view.ahead, turn), lean);
-  const dip = 0.2 * MathUtils.smoothstep(-along, 0.2, 0.8) * swell;
-  if (dip > 1e-4) out.multiply(turn.setFromAxisAngle(xAxis, -dip));
-  return out;
+  followBearing(f, view, position, lockFollow, lockPitch, dt);
+  turn.setFromEuler(euler.set(view.bearingPitch, view.bearingYaw, 0, 'YXZ'));
+  // Any bank the camera carried is in its starting rotation, which blends out
+  out.copy(f.rotationFrom).slerp(turn, smootherstep(s / f.lockEnd));
+  return out.slerp(rotationTo, smootherstep((s - settleFrom) / (1 - settleFrom)));
 }
 
 /** Rotation that looks from `eye` at `target` (camera convention: -Z forward) */

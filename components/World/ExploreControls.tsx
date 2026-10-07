@@ -6,10 +6,19 @@ import { Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
 import { canLockPointer, lockPointer } from './pointerLock';
 import { navigableStations, stationForPath } from './routes';
+import { applyShake } from './shake';
 import { setViewRange, useLite } from './stationHooks';
 import { baseFov, beaconHeight, stationPositions } from './stations';
 import { worldMode } from './worldMode';
-import { exploreInput, setAutopilot, setDock, setDocking, worldStore } from './worldStore';
+import {
+  emitCue,
+  exploreInput,
+  setAutopilot,
+  setDock,
+  setDocking,
+  worldBumpEvent,
+  worldStore,
+} from './worldStore';
 
 import type { Scene } from 'three';
 import type { StationKey } from './routes';
@@ -76,6 +85,11 @@ const stickDeadZone = 0.12;
 const stickYawRate = 1.9;
 const stickPitchRate = 1.2;
 const hullRadius = 5.5;
+/** Fastest a bump into a hull can be met without a jolt (units per second) */
+const gentle = 3;
+/** Steepest bank into a turn (radians), and how much each radian a second of turning banks */
+const maxBank = 0.3;
+const bankPerRate = 0.13;
 const worldRadius = 520;
 /** Fog in free roam: pushed out this far so the whole line of stations stays in sight */
 const exploreFog = { near: 70, far: 460, liteFar: 300 };
@@ -172,8 +186,24 @@ function publishWaypoints(cam: PerspectiveCamera) {
 interface LookState {
   yaw: number;
   pitch: number;
+  /** Bank into the turn (radians) */
+  roll: number;
   active: boolean;
   since: number;
+  /** Clock time of the last bump into a hull */
+  bumpedAt: number;
+  /** Reduced motion: no banking, no jolts */
+  calm: boolean;
+}
+
+/** A knock against a hull, `speed` units a second into it: a jolt, a flash of the HUD and a thud */
+function bump(speed: number, t: number, state: LookState) {
+  if (t - state.bumpedAt < 0.35) return;
+  state.bumpedAt = t;
+  const strength = MathUtils.clamp(speed / 30, 0.25, 1);
+  worldStore.shake = Math.max(worldStore.shake, strength);
+  emitCue('bump');
+  window.dispatchEvent(new CustomEvent(worldBumpEvent, { detail: strength }));
 }
 
 /**
@@ -229,7 +259,15 @@ function settle(key: StationKey, state: LookState, cam: PerspectiveCamera, dt: n
 }
 
 export function ExploreControls() {
-  const look = useRef<LookState>({ yaw: 0, pitch: 0, active: false, since: 0 });
+  const look = useRef<LookState>({
+    yaw: 0,
+    pitch: 0,
+    roll: 0,
+    active: false,
+    since: 0,
+    bumpedAt: -Infinity,
+    calm: false,
+  });
   const lite = useLite();
 
   // Keyboard: held keys set the axes; digits set course; Escape leaves
@@ -339,6 +377,7 @@ export function ExploreControls() {
 
   useFrame(({ camera, clock, scene }, delta) => {
     const state = look.current;
+    const yawBefore = state.yaw;
     const dt = Math.min(delta, 1 / 20);
     const exploring = worldMode.get().mode === 'explore';
     reachOut(scene, exploring, lite, dt);
@@ -359,9 +398,11 @@ export function ExploreControls() {
     if (!state.active) {
       state.active = true;
       state.since = clock.elapsedTime;
+      state.calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       euler.setFromQuaternion(cam.quaternion, 'YXZ');
       state.yaw = euler.y;
       state.pitch = euler.x;
+      state.roll = 0;
       velocity.set(0, 0, 0);
       exploreInput.steerX = 0;
       exploreInput.steerY = 0;
@@ -413,21 +454,32 @@ export function ExploreControls() {
       velocity.addScaledVector(wish, thrust * dt * 2.6);
       velocity.multiplyScalar(Math.exp(-2.6 * dt));
     }
-    cam.quaternion.setFromEuler(euler.set(state.pitch, state.yaw, 0, 'YXZ'));
+    // Bank into turns (and a little into sideways drift), levelling out
+    // while docking; none for reduced motion
+    const turnRate = (state.yaw - yawBefore) / Math.max(dt, 1e-4);
+    right.set(1, 0, 0).applyEuler(euler.set(0, state.yaw, 0, 'YXZ'));
+    const drift = velocity.dot(right);
+    const bank = state.calm || worldStore.docking ? 0 : turnRate * bankPerRate - drift * 0.006;
+    state.roll = MathUtils.damp(state.roll, MathUtils.clamp(bank, -maxBank, maxBank), 4, dt);
+    cam.quaternion.setFromEuler(euler.set(state.pitch, state.yaw, state.roll, 'YXZ'));
     cam.position.addScaledVector(velocity, dt);
 
-    // Hulls push back; the edge of the world gently turns you round
+    // Hulls push back (a hard knock jolts the view, flashes the HUD and
+    // thuds); the edge of the world gently turns you round
     let nearest = '';
     let nearestDistance = Infinity;
     for (const key of navigableStations) {
       station.fromArray(stationPositions[key]);
       const distance = cam.position.distanceTo(station);
       if (distance < hullRadius) {
-        const push = station
-          .sub(cam.position)
-          .normalize()
-          .multiplyScalar(-(hullRadius - distance));
-        cam.position.add(push);
+        const normal = station.sub(cam.position).normalize().negate();
+        cam.position.addScaledVector(normal, hullRadius - distance);
+        const into = -velocity.dot(normal);
+        if (into > 0) {
+          // Bounce off rather than grinding along the hull
+          velocity.addScaledVector(normal, into * 1.5);
+          if (into > gentle) bump(into, clock.elapsedTime, state);
+        }
       }
       if (distance < nearestDistance) {
         nearestDistance = distance;
@@ -447,6 +499,7 @@ export function ExploreControls() {
     worldStore.velocity = speed;
     cam.fov = MathUtils.damp(cam.fov, baseFov + Math.min(speed * 0.25, 18), 4, dt);
     cam.updateProjectionMatrix();
+    applyShake(cam, clock.elapsedTime, dt, state.calm);
     publishWaypoints(cam);
   });
 

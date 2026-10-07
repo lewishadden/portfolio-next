@@ -2,8 +2,7 @@
 
 import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
-import { easing } from 'maath';
-import { Box3, Group, Mesh, MeshStandardMaterial, Object3D, Vector3 } from 'three';
+import { Box3, Color, Group, Material, Mesh, MeshStandardMaterial, Object3D, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -101,9 +100,66 @@ const box = new Box3();
 const size = new Vector3();
 const center = new Vector3();
 
+/* ------------------------------------------------------------------
+   Materialising: a model scans in from the bottom up as it appears. A
+   bright line sweeps up through it; below the line it's there, above it
+   not yet. Every material of the model shares the reveal's uniforms
+   (heights in world space, measured from the model's bounds while it
+   plays). Past the top the line is gone and nothing is discarded, so the
+   same program serves before, during and after: nothing recompiles.
+   ------------------------------------------------------------------ */
+
+/** Seconds a model takes to scan in */
+const revealTime = 1.1;
+
+interface Reveal {
+  uReveal: { value: number };
+  uRevealBottom: { value: number };
+  uRevealHeight: { value: number };
+  uRevealColor: { value: Color };
+}
+
+const createReveal = (): Reveal => ({
+  uReveal: { value: 2 },
+  uRevealBottom: { value: 0 },
+  uRevealHeight: { value: 1 },
+  uRevealColor: { value: new Color('#67e8f9').multiplyScalar(3) },
+});
+
+function materialise(material: Material, reveal: Reveal) {
+  const previous = material.onBeforeCompile.bind(material);
+  const key = material.customProgramCacheKey();
+  material.onBeforeCompile = (shader, renderer) => {
+    previous(shader, renderer);
+    Object.assign(shader.uniforms, reveal);
+    shader.vertexShader = shader.vertexShader
+      .replace('void main() {', 'varying float vRevealY;\nvoid main() {')
+      .replace(
+        '#include <project_vertex>',
+        '#include <project_vertex>\nvRevealY = (modelMatrix * vec4(transformed, 1.0)).y;'
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        'void main() {',
+        'uniform float uReveal;\nuniform float uRevealBottom;\nuniform float uRevealHeight;\nuniform vec3 uRevealColor;\nvarying float vRevealY;\nvoid main() {'
+      )
+      .replace(
+        '#include <clipping_planes_fragment>',
+        '#include <clipping_planes_fragment>\nfloat revealEdge = (vRevealY - uRevealBottom) / uRevealHeight - uReveal;\nif (revealEdge > 0.0) discard;'
+      )
+      .replace(
+        '#include <opaque_fragment>',
+        '#include <opaque_fragment>\ngl_FragColor.rgb += uRevealColor * smoothstep(-0.07, 0.0, revealEdge);'
+      );
+  };
+  material.customProgramCacheKey = () => `${key}+reveal`;
+}
+
 /**
  * Clones the scene, centres it on the origin and scales it to `height` world
  * units. Tripo exports face -Z, so the result is turned to face the camera (+Z).
+ * Its materials are its own copies (they share programs and textures), so
+ * each model scans in on its own.
  */
 function normaliseScene(
   scene: Object3D,
@@ -121,6 +177,8 @@ function normaliseScene(
   clone.traverse((child) => {
     const mesh = child as Mesh;
     if (!mesh.isMesh) return;
+    if (Array.isArray(mesh.material)) mesh.material = mesh.material.map((m) => m.clone());
+    else mesh.material = mesh.material.clone();
     const material = mesh.material as MeshStandardMaterial;
     if (material && 'envMapIntensity' in material) {
       material.envMapIntensity = envIntensity;
@@ -128,10 +186,29 @@ function normaliseScene(
     }
   });
   prepare?.(clone);
+  const reveal = createReveal();
+  clone.traverse((child) => {
+    const mesh = child as Mesh;
+    if (!mesh.isMesh) return;
+    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material])
+      materialise(material, reveal);
+  });
   const holder = new Group();
   holder.add(clone);
   holder.rotation.y = Math.PI;
-  return holder;
+  return { holder, reveal };
+}
+
+const bounds = new Box3();
+
+/** Sweeps the scan line up through the model, measured as it stands (it may be moving) */
+function stepReveal(model: Object3D, reveal: Reveal, progress: number) {
+  bounds.setFromObject(model);
+  reveal.uRevealBottom.value = bounds.min.y;
+  reveal.uRevealHeight.value = Math.max(bounds.max.y - bounds.min.y, 1e-3);
+  // From just under the bottom to past the top, easing out
+  const eased = 1 - (1 - progress) ** 2;
+  reveal.uReveal.value = progress >= 1 ? 2 : -0.08 + eased * 1.2;
 }
 
 function GltfModel({
@@ -151,13 +228,13 @@ function GltfModel({
   const gl = useThree((s) => s.gl);
   // No Draco (would fetch a decoder from a CDN)
   const { scene } = useLoader(GLTFLoader, url, configureLoader(gl));
-  const model = useMemo(
+  const { holder: model, reveal } = useMemo(
     () => normaliseScene(scene, height, envIntensity, prepare),
     [scene, height, envIntensity, prepare]
   );
-  const wrapperRef = useRef<Group>(null);
-  // On-demand rendering (reduced motion) has no frames to animate with — appear at full size
-  const popIn = useThree((s) => s.frameloop !== 'demand');
+  const scan = useRef({ for: null as Group | null, progress: 0 });
+  // On-demand rendering (reduced motion) has no frames to animate with — appear whole
+  const scanIn = useThree((s) => s.frameloop !== 'demand');
   const { scene: world, camera } = useThree();
   const track = useWarmupTask();
   const [preparedFor, setPreparedFor] = useState<Group | null>(null);
@@ -177,19 +254,24 @@ function GltfModel({
     };
   }, [gl, world, camera, model, track]);
 
-  // Pop in with a soft spring once loaded
+  // Scan in once it's on show
   useFrame((_, delta) => {
-    const wrapper = wrapperRef.current;
-    if (wrapper && popIn) easing.damp3(wrapper.scale, 1, 0.35, Math.min(delta, 1 / 20));
+    const state = scan.current;
+    if (preparedFor !== model) return;
+    if (state.for !== model) {
+      state.for = model;
+      state.progress = scanIn ? 0 : 1;
+    } else if (state.progress >= 1) {
+      return;
+    } else {
+      state.progress = Math.min(1, state.progress + Math.min(delta, 1 / 20) / revealTime);
+    }
+    stepReveal(model, reveal, state.progress);
   });
 
   if (preparedFor !== model) return placeholder;
 
-  return (
-    <group ref={wrapperRef} scale={popIn ? 0.001 : 1}>
-      <primitive object={model} />
-    </group>
-  );
+  return <primitive object={model} />;
 }
 
 /** Streams a GLB with a holographic placeholder and fallback */

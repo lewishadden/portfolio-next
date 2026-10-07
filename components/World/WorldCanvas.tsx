@@ -12,11 +12,15 @@ import { CameraRig } from './CameraRig';
 import { Dust } from './Dust';
 import { Effects } from './Effects';
 import { ExploreControls } from './ExploreControls';
+import { GasClouds } from './GasClouds';
 import { setHullTheme } from './hull';
 import { worldEvents } from './interaction';
 import { Landmarks } from './Landmarks';
 import { Lighting } from './Lighting';
+import { MotionProbe } from './MotionProbe';
 import { Nebula } from './Nebula';
+import { Pings } from './Pings';
+import { PowerDriver } from './power';
 import { BrightStars, Starfield } from './Starfield';
 import { StatsProbe } from './StatsProbe';
 import { AboutStation } from './stations/AboutStation';
@@ -259,6 +263,8 @@ export default function WorldCanvas({
 
           <CameraRig station={station} reducedMotion={reducedMotion} />
           <ExploreControls />
+          <MotionProbe reducedMotion={reducedMotion} />
+          <PowerDriver />
 
           <Lighting theme={theme} station={station} shadows={shadows} />
 
@@ -268,6 +274,7 @@ export default function WorldCanvas({
           <Landmarks theme={theme} />
           <Asteroids count={lite ? 120 : 300} theme={theme} />
           <Dust count={lite ? 260 : 600} theme={theme} />
+          <GasClouds count={lite ? 22 : 44} theme={theme} tier={tier} />
 
           {has('home') && (
             <Precompiled>
@@ -316,6 +323,7 @@ export default function WorldCanvas({
           )}
 
           <Beacons theme={theme} current={station} />
+          <Pings theme={theme} />
           <StatsProbe station={station} />
           <Effects theme={theme} tier={tier} />
           {/* Last, so every sibling has mounted and queued its own warm-up first */}

@@ -24,6 +24,8 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
+import { navPower, useStationKey } from './power';
+
 import type { ReactNode } from 'react';
 import type { BufferGeometry } from 'three';
 import type { GroupProps } from './types';
@@ -303,7 +305,11 @@ function brightness(kind: NavLight['kind'], t: number) {
   return 0.8 + 0.2 * Math.sin(t * 1.3);
 }
 
-/** Blinking navigation lights, drawn as one instanced mesh */
+/**
+ * Blinking navigation lights, drawn as one instanced mesh. Inside a
+ * StationScope they follow the station's power: dark in standby, coming on
+ * one after another as it powers on
+ */
 export function NavLights({
   lights,
   size = 0.05,
@@ -312,13 +318,15 @@ export function NavLights({
   const meshRef = useRef<InstancedMesh>(null);
   const geometry = useMemo(() => new SphereGeometry(1, 10, 8), []);
   const material = useMemo(() => new MeshBasicMaterial({ toneMapped: false }), []);
+  const station = useStationKey();
 
   useFrame(({ clock }) => {
     const mesh = meshRef.current;
     if (!mesh) return;
     const t = clock.elapsedTime;
     lights.forEach((light, i) => {
-      const level = brightness(light.kind, t + (light.phase ?? i * 0.37));
+      const power = station ? navPower(station, i, t) : 1;
+      const level = brightness(light.kind, t + (light.phase ?? i * 0.37)) * power;
       dummy.position.fromArray(light.position);
       dummy.scale.copy(lightScale.setScalar(size * (0.6 + level * 0.6)));
       dummy.updateMatrix();

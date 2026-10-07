@@ -1,3 +1,14 @@
+/* Just the icon: the label folds away (RoamButton decides where) */
+@mixin compact {
+  gap: 0;
+  padding: 4px;
+
+  .roam-fab__label {
+    max-width: 0;
+    opacity: 0;
+  }
+}
+
 .roam-fab {
   position: fixed;
   right: clamp(16px, 3vw, 32px);
@@ -20,7 +31,9 @@
   transition:
     transform 0.4s var(--ease-spring),
     box-shadow var(--dur-med) ease,
-    border-color var(--dur-med) ease;
+    border-color var(--dur-med) ease,
+    padding 0.45s var(--ease-out),
+    gap 0.45s var(--ease-out);
 
   &:hover,
   &:focus-visible {
@@ -60,7 +73,13 @@
   &__label {
     display: grid;
     gap: 0.1rem;
+    max-width: 14rem;
+    overflow: hidden;
+    white-space: nowrap;
     text-align: left;
+    transition:
+      max-width 0.45s var(--ease-out),
+      opacity 0.3s ease;
 
     b {
       font-family: var(--font-display);
@@ -80,6 +99,18 @@
   &--on &__icon::after {
     animation: none;
     opacity: 0;
+  }
+
+  /* Out of the page's way: hovering or focusing it brings the label out
+     (a touch screen has no hover, and a tap would leave it stuck open) */
+  &--compact:not(:hover, :focus-visible) {
+    @include compact;
+  }
+
+  @media (hover: none) {
+    &--compact:not(:focus-visible) {
+      @include compact;
+    }
   }
 
   @media (max-width: 640px) {

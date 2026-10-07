@@ -53,6 +53,7 @@ uniform vec2 uSize;
 uniform float uMargin;
 uniform float uTime;
 uniform vec4 uHoverRect;
+uniform float uAim;
 uniform vec4 uLock;
 uniform float uLockOpen;
 uniform float uLockFlash;
@@ -128,6 +129,10 @@ float lines(vec2 p, float t) {
 
   // What you point at (or focus): lit
   light += smoothstep(1.0, -1.0, rectDist(p, vec4(uHoverRect.xy - 5.0, uHoverRect.zw + 10.0))) * 0.16 * step(0.0, uHoverRect.z);
+  // A link to another station: brackets half-close on it, aiming (the course is plotted)
+  float aimOpen = mix(16.0, 7.0, uAim);
+  vec4 aimBox = vec4(uHoverRect.xy - 5.0 - aimOpen, uHoverRect.zw + 10.0 + aimOpen * 2.0);
+  light += brackets(p, aimBox, 6.0) * uAim * 0.75 * step(0.0, uHoverRect.z);
 
   // The target lock on the current page: brackets (wider while travelling,
   // bright as they lock) and an underline, and a ping going out on arrival
@@ -246,6 +251,8 @@ interface Frame {
   fill: number;
   motion: number;
   hover: Box;
+  /** 0..1: how far the brackets have closed on a hovered link to another station */
+  aim: number;
   lock: Box;
   lockOpen: number;
   lockFlash: number;
@@ -298,6 +305,7 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
     'uMargin',
     'uTime',
     'uHoverRect',
+    'uAim',
     'uLock',
     'uLockOpen',
     'uLockFlash',
@@ -342,6 +350,7 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
       const palette = palettes[f.theme];
       gl.uniform1f(u.uTime, f.time);
       gl.uniform4fv(u.uHoverRect, f.hover);
+      gl.uniform1f(u.uAim, f.aim);
       gl.uniform4fv(u.uLock, f.lock);
       gl.uniform1f(u.uLockOpen, f.lockOpen);
       gl.uniform1f(u.uLockFlash, f.lockFlash);
@@ -709,6 +718,7 @@ export function HeaderHud({
     let frame = 0;
     let last = performance.now();
     let odd = false;
+    let aim = 0;
     const loop = (nowMs: number) => {
       frame = requestAnimationFrame(loop);
       if (failed) return;
@@ -746,6 +756,11 @@ export function HeaderHud({
           fill = target;
           dirty.current = true;
         }
+        const aimNow = worldStore.preview && hover >= 0 ? 1 : 0;
+        if (aim !== aimNow) {
+          aim = aimNow;
+          dirty.current = true;
+        }
         if (!dirty.current) return;
         dirty.current = false;
         hud.draw({
@@ -754,6 +769,7 @@ export function HeaderHud({
           fill,
           motion: 0,
           hover: hoverBox,
+          aim,
           lock: lock.at,
           lockOpen: 0,
           lockFlash: 0,
@@ -767,6 +783,11 @@ export function HeaderHud({
       }
 
       fill += (target - fill) * (1 - Math.exp(-6 * dt));
+      // Aiming at a hovered link to another station (the world previews the course)
+      const aimTarget = worldStore.preview && hover >= 0 && !lock.travelling ? 1 : 0;
+      const aimWas = aim;
+      aim += (aimTarget - aim) * (1 - Math.exp(-10 * dt));
+      if (Math.abs(aim - aimWas) > 0.002) dirty.current = true;
       stepSway(sway, dt, now);
       bar.style.transform = swayTransform(sway);
       const open = stepLock(lock, now);
@@ -787,6 +808,7 @@ export function HeaderHud({
         fill,
         motion: 1,
         hover: hoverBox,
+        aim,
         lock: lock.at,
         lockOpen: open + shut,
         lockFlash: flash,

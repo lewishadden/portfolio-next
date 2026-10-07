@@ -1,6 +1,6 @@
 'use client';
 
-import { prepareHull } from './hull';
+import { hullPreparer } from './hull';
 import { Model } from './Model';
 import { hullUrl } from './routes';
 import { useLite } from './stationHooks';
@@ -12,7 +12,8 @@ import type { WorldTheme } from './utils';
 /**
  * A station's hull: the image-to-3D craft that hosts the page (desktop or
  * lite build, see scripts/optimize-stations.mjs), with glowing windows and
- * shadows. Nothing shows until it has loaded and compiled.
+ * shadows, following the station's power. Nothing shows until it has
+ * loaded and compiled.
  */
 export function StationHull({
   station,
@@ -35,7 +36,7 @@ export function StationHull({
       theme={theme}
       envIntensity={1}
       placeholder={false}
-      prepare={prepareHull}
+      prepare={hullPreparer(station)}
       {...props}
     />
   );

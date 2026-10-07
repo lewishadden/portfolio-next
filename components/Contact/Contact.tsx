@@ -145,7 +145,7 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
         sub={tagline}
       />
 
-      <div className="contact__grid">
+      <div className="contact__grid" data-world-section="message">
         <aside className="contact__side">
           <Reveal className="contact__intro">
             <h2 className="contact__intro-title">{contactInfo.title}</h2>

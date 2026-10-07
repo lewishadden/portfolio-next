@@ -93,6 +93,15 @@ export function applyGlowTheme(material: ShaderMaterial, theme: WorldTheme) {
   }
 }
 
+/**
+ * Hands a station's glows its power (power.tsx): every material with a
+ * `uCharge` shares the station's charge uniform, so it dims to standby and
+ * surges as the station powers on
+ */
+export function chargeWith(material: ShaderMaterial, charge: { value: number }) {
+  if (material.uniforms.uCharge) material.uniforms.uCharge = charge;
+}
+
 /** Marks a material as an additive glow so applyGlowTheme swaps its blending */
 export function asGlow<T extends ShaderMaterial>(material: T) {
   material.userData.glow = true;
@@ -129,11 +138,12 @@ export function createRingMaterial({
         uSpeed: { value: speed },
         uOpacity: { value: opacity },
         uLight: { value: 0 },
+        uCharge: { value: 1 },
       },
       vertexShader: uvVertex,
       fragmentShader: /* glsl */ `
       varying vec2 vUv;
-      uniform float uTime, uIntensity, uDashes, uSpeed, uOpacity, uLight;
+      uniform float uTime, uIntensity, uDashes, uSpeed, uOpacity, uLight, uCharge;
       uniform vec3 uColorA, uColorB;
       void main() {
         float a = vUv.x;
@@ -141,8 +151,8 @@ export function createRingMaterial({
         // pow() of a negative base is NaN; sin() can overshoot -1 by a rounding error
         float pulse = pow(max(0.5 + 0.5 * sin((a - uTime * uSpeed) * 18.85), 0.0), 10.0);
         float dash = uDashes > 0.0 ? step(0.42, fract(a * uDashes - uTime * uSpeed * 3.0)) : 1.0;
-        float alpha = dash * uOpacity * (0.6 + pulse * 0.6);
-        float glow = mix(uIntensity, 1.0, uLight);
+        float alpha = dash * uOpacity * (0.6 + pulse * 0.6) * min(uCharge, 1.0);
+        float glow = mix(uIntensity, 1.0, uLight) * max(uCharge, 1.0);
         gl_FragColor = vec4(col * glow * (1.0 + pulse * 1.4 * (1.0 - uLight)), alpha);
       }
     `,
@@ -238,18 +248,19 @@ export function createBeamMaterial({
         uOpacity: { value: opacity },
         uSpeed: { value: speed },
         uLight: { value: 0 },
+        uCharge: { value: 1 },
       },
       vertexShader: uvVertex,
       fragmentShader: /* glsl */ `
       varying vec2 vUv;
       uniform vec3 uColor;
-      uniform float uTime, uIntensity, uOpacity, uSpeed, uLight;
+      uniform float uTime, uIntensity, uOpacity, uSpeed, uLight, uCharge;
       void main() {
         float flow = 0.55 + 0.45 * sin(vUv.y * 90.0 + uTime * uSpeed * 12.0);
         float edge = sin(vUv.x * 3.14159);
         float fade = smoothstep(0.0, 0.08, vUv.y) * smoothstep(1.0, 0.92, vUv.y);
-        float alpha = uOpacity * flow * edge * fade;
-        gl_FragColor = vec4(uColor * mix(uIntensity, 1.0, uLight), alpha);
+        float alpha = uOpacity * flow * edge * fade * min(uCharge, 1.0);
+        gl_FragColor = vec4(uColor * mix(uIntensity, 1.0, uLight) * max(uCharge, 1.0), alpha);
       }
     `,
       transparent: true,
@@ -262,7 +273,8 @@ export function createBeamMaterial({
 }
 
 /* ------------------------------------------------------------------
-   Halo — soft radial glow on a plane (billboard it in the component)
+   Halo — soft radial glow on a plane, drawn facing the camera (wrap its
+   mesh in drei's <Billboard>: seen edge-on it would be a flat disc)
    ------------------------------------------------------------------ */
 export function createHaloMaterial({
   color,
@@ -280,16 +292,20 @@ export function createHaloMaterial({
         uIntensity: { value: intensity },
         uOpacity: { value: opacity },
         uLight: { value: 0 },
+        uCharge: { value: 1 },
       },
       vertexShader: uvVertex,
       fragmentShader: /* glsl */ `
       varying vec2 vUv;
       uniform vec3 uColor;
-      uniform float uIntensity, uOpacity, uLight;
+      uniform float uIntensity, uOpacity, uLight, uCharge;
       void main() {
         float d = length(vUv - 0.5) * 2.0;
         float glow = pow(clamp(1.0 - d, 0.0, 1.0), 2.4);
-        gl_FragColor = vec4(uColor * mix(uIntensity, 1.0, uLight), glow * uOpacity * mix(1.0, 0.55, uLight));
+        gl_FragColor = vec4(
+          uColor * mix(uIntensity, 1.0, uLight) * max(uCharge, 1.0),
+          glow * uOpacity * mix(1.0, 0.55, uLight) * min(uCharge, 1.0)
+        );
       }
     `,
       transparent: true,

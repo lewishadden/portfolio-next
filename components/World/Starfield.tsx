@@ -2,30 +2,86 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { AdditiveBlending, Color, NormalBlending, Points, ShaderMaterial } from 'three';
+import { AdditiveBlending, Color, MathUtils, NormalBlending, ShaderMaterial } from 'three';
 
+import { cameraMotion } from './MotionProbe';
 import { palettes, seededRandom, setUniform } from './utils';
 import { worldStore } from './worldStore';
+
+import type { InstancedBufferGeometry } from 'three';
 
 import type { WorldTheme } from './utils';
 
 const center = [0, 0, -110];
 
+/** A unit quad (two triangles), drawn once per star or mote and stretched in the vertex shader */
+export const quadCorners = new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]);
+export const quadIndex = new Uint16Array([0, 1, 2, 0, 2, 3]);
+
+/**
+ * Lays a quad out in screen space: a round sprite of `radius` pixels at the
+ * head, stretched back along `dir` by `trail` pixels into a streak. The
+ * fragment shader gets its own position along and across it (`vLocal`).
+ */
+export const streakQuad = /* glsl */ `
+  varying vec2 vLocal;
+  varying float vRadius;
+  varying float vLength;
+  vec4 streak(vec4 clip, vec2 dir, float radius, float trail, vec2 halfSize) {
+    float along = position.x < 0.0 ? -(trail + radius) : radius;
+    float across = position.y * radius;
+    vec2 offset = dir * along + vec2(-dir.y, dir.x) * across;
+    clip.xy += offset / halfSize * clip.w;
+    vLocal = vec2(along, across);
+    vRadius = radius;
+    vLength = trail;
+    return clip;
+  }
+`;
+
+/** Distance from the streak's spine, 0 on it and 0.5 at its edge, like gl_PointCoord's */
+export const streakShape = /* glsl */ `
+  varying vec2 vLocal;
+  varying float vRadius;
+  varying float vLength;
+  float streakDistance() {
+    float beyond = vLocal.x - clamp(vLocal.x, -vLength, 0.0);
+    return 0.5 * length(vec2(beyond, vLocal.y)) / vRadius;
+  }
+  // Brightest at the head, fading down the tail
+  float streakFade() {
+    float tail = vLength > 0.0 ? clamp(-vLocal.x / vLength, 0.0, 1.0) : 0.0;
+    return (1.0 - 0.8 * tail) * mix(1.0, 0.45, smoothstep(0.0, 80.0, vLength));
+  }
+`;
+
 const vertexShader = /* glsl */ `
   uniform float uTime;
   uniform float uPixelRatio;
   uniform float uWarp;
+  uniform float uStreak;
+  uniform vec2 uFocus;
+  uniform vec2 uResolution;
+  attribute vec3 aCenter;
   attribute float aSize;
   attribute float aPhase;
   attribute vec3 aColor;
   varying vec3 vColor;
   varying float vTwinkle;
+  ${streakQuad}
   void main() {
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_Position = projectionMatrix * mv;
+    vec4 mv = modelViewMatrix * vec4(aCenter, 1.0);
+    vec4 clip = projectionMatrix * mv;
     vTwinkle = 0.55 + 0.45 * sin(uTime * (0.4 + aPhase * 1.6) + aPhase * 6.2831);
     vColor = aColor;
-    gl_PointSize = aSize * uPixelRatio * (1.0 + uWarp) * (340.0 / -mv.z);
+    float radius = 0.5 * aSize * uPixelRatio * (1.0 + 0.3 * uWarp) * (340.0 / -mv.z);
+    // At speed every star streams out from the point the camera is heading
+    // for, the further out the longer its streak
+    vec2 halfSize = 0.5 * uResolution;
+    vec2 away = (clip.xy / clip.w - uFocus) * halfSize;
+    float reach = length(away);
+    vec2 dir = reach > 0.001 ? away / reach : vec2(1.0, 0.0);
+    gl_Position = streak(clip, dir, radius, uStreak * reach * 0.16, halfSize);
   }
 `;
 
@@ -33,10 +89,10 @@ const fragmentShader = /* glsl */ `
   uniform float uOpacity;
   varying vec3 vColor;
   varying float vTwinkle;
+  ${streakShape}
   void main() {
-    float d = length(gl_PointCoord - 0.5);
-    float core = smoothstep(0.5, 0.0, d);
-    float alpha = (pow(core, 3.0) + core * 0.25) * vTwinkle * uOpacity;
+    float core = smoothstep(0.5, 0.0, streakDistance());
+    float alpha = (pow(core, 3.0) + core * 0.25) * vTwinkle * uOpacity * streakFade();
     if (alpha < 0.01) discard;
     gl_FragColor = vec4(vColor * 1.4, alpha);
   }
@@ -84,9 +140,18 @@ function applyStarTheme(material: ShaderMaterial, colors: Float32Array, theme: W
   }
 }
 
-/** Twinkling star shell enclosing every station; points swell as the camera warps */
+/** How far the stars streak, 0..1: only at speed, and only heading into the view */
+export const streakAmount = () =>
+  MathUtils.smoothstep(cameraMotion.speed, 30, 120) *
+  MathUtils.smoothstep(cameraMotion.ahead, 0.15, 0.6);
+
+/**
+ * Twinkling star shell enclosing every station. At speed the stars stream
+ * into streaks out from the point the camera is heading for (the jump to
+ * lightspeed); each is a small quad, round at rest
+ */
 export function Starfield({ count, theme }: { count: number; theme: WorldTheme }) {
-  const pointsRef = useRef<Points>(null);
+  const geometryRef = useRef<InstancedBufferGeometry>(null);
 
   const { positions, sizes, phases, colors } = useMemo(() => {
     const random = seededRandom(7);
@@ -115,6 +180,9 @@ export function Starfield({ count, theme }: { count: number; theme: WorldTheme }
           uTime: { value: 0 },
           uPixelRatio: { value: 1 },
           uWarp: { value: 0 },
+          uStreak: { value: 0 },
+          uFocus: { value: [0, 0] },
+          uResolution: { value: [1, 1] },
           uOpacity: { value: 1 },
         },
         vertexShader,
@@ -129,28 +197,42 @@ export function Starfield({ count, theme }: { count: number; theme: WorldTheme }
 
   useEffect(() => {
     applyStarTheme(material, colors, theme);
-    const attribute = pointsRef.current?.geometry.getAttribute('aColor');
+    const attribute = geometryRef.current?.getAttribute('aColor');
     if (attribute) attribute.needsUpdate = true;
   }, [material, colors, theme]);
 
   useEffect(() => () => material.dispose(), [material]);
 
-  useFrame(({ clock, viewport }) => {
+  useFrame(({ clock, gl, size, viewport }) => {
     setUniform(material, 'uTime', clock.elapsedTime);
     setUniform(material, 'uPixelRatio', viewport.dpr);
     setUniform(material, 'uWarp', Math.min(worldStore.velocity / 40, 1.4));
+    trackStreaks(material, size.width * gl.getPixelRatio(), size.height * gl.getPixelRatio());
   });
 
   return (
-    <points ref={pointsRef} material={material} frustumCulled={false}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
-        <bufferAttribute attach="attributes-aPhase" args={[phases, 1]} />
-        <bufferAttribute attach="attributes-aColor" args={[colors, 3]} />
-      </bufferGeometry>
-    </points>
+    <mesh material={material} frustumCulled={false}>
+      <instancedBufferGeometry ref={geometryRef} instanceCount={count}>
+        <bufferAttribute attach="attributes-position" args={[quadCorners, 3]} />
+        <bufferAttribute attach="index" args={[quadIndex, 1]} />
+        <instancedBufferAttribute attach="attributes-aCenter" args={[positions, 3]} />
+        <instancedBufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
+        <instancedBufferAttribute attach="attributes-aPhase" args={[phases, 1]} />
+        <instancedBufferAttribute attach="attributes-aColor" args={[colors, 3]} />
+      </instancedBufferGeometry>
+    </mesh>
   );
+}
+
+/** Streak length and where they stream from, and the drawing buffer's size in pixels */
+function trackStreaks(material: ShaderMaterial, width: number, height: number) {
+  setUniform(material, 'uStreak', streakAmount());
+  const focus = material.uniforms.uFocus.value as number[];
+  focus[0] = cameraMotion.focusX;
+  focus[1] = cameraMotion.focusY;
+  const resolution = material.uniforms.uResolution.value as number[];
+  resolution[0] = width;
+  resolution[1] = height;
 }
 
 /* ------------------------------------------------------------------

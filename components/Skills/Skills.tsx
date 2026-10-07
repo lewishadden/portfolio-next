@@ -114,7 +114,11 @@ const CategoryCard = ({
       scale={0.96}
       delay={(index % 2) * 0.12}
     >
-      <div className="skills__card glass spotlight" ref={ref}>
+      <div
+        className="skills__card glass spotlight"
+        ref={ref}
+        data-world-category={category.categoryKey}
+      >
         <header className="skills__card-head">
           <span className="skills__card-icon" aria-hidden="true">
             <Icon icon={category.icon} width={24} height={24} />

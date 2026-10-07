@@ -139,6 +139,8 @@ export const Header = ({
 
   return (
     <>
+      {/* The bar is see-through: once the page scrolls under it, this keeps it readable */}
+      <div className={`header-scrim${scrolled ? ' header-scrim--on' : ''}`} aria-hidden="true" />
       <header
         ref={headerRef}
         className={`header${scrolled ? ' header--scrolled' : ''}${mobileOpen ? ' header--open' : ''}${hud && hudLive ? ' header--hud' : ''}`}

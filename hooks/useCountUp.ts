@@ -1,7 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { useBooted } from '@/components/World/boot';
 
+const subscribeNothing = () => () => {};
+
+/**
+ * Counts up to `target` once the element scrolls into view. The server HTML
+ * (and so a visit without JavaScript, or a crawler) has the real number;
+ * once hydrated it starts from 0, still hidden by the page's entrance
+ */
 export function useCountUp<T extends HTMLElement = HTMLElement>(
   target: number,
   duration = 1600
@@ -11,6 +18,11 @@ export function useCountUp<T extends HTMLElement = HTMLElement>(
   const ref = useRef<T | null>(null);
   // Counts once the loading screen has lifted, so it is seen
   const booted = useBooted();
+  const hydrated = useSyncExternalStore(
+    subscribeNothing,
+    () => true,
+    () => false
+  );
 
   useEffect(() => {
     const el = ref.current;
@@ -39,5 +51,5 @@ export function useCountUp<T extends HTMLElement = HTMLElement>(
     return () => cancelAnimationFrame(raf);
   }, [started, target, duration]);
 
-  return [val, ref];
+  return [hydrated ? val : target, ref];
 }

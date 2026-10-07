@@ -1,4 +1,4 @@
-import { LazyContact } from 'components/Contact/LazyContact';
+import { Contact } from 'components/Contact/Contact';
 import { PageJsonLd } from 'components/Seo/PageJsonLd';
 
 import { getPageContent } from 'utils/serverUtils';
@@ -21,7 +21,7 @@ export default async function ContactPage() {
   return (
     <>
       <PageJsonLd path="/contact" name="Contact" description={description} type="ContactPage" />
-      <LazyContact contact={contact} />
+      <Contact contact={contact} />
     </>
   );
 }

@@ -429,6 +429,13 @@ function buildEnvironment(renderer: WebGLRenderer, sky: WebGLRenderTarget, theme
   return target;
 }
 
+/**
+ * The baked sky (an equirectangular half-float texture, longitude round x),
+ * shared as a uniform for anything that shows the sky through itself, bent
+ * (the home portal). Empty until the dome is mounted
+ */
+export const skyMap: { value: Texture | null } = { value: null };
+
 /** Procedural deep-sky dome that always sits around the camera (effectively at infinity) */
 export function Nebula({
   theme,
@@ -503,6 +510,8 @@ export function Nebula({
     };
   }, [gl, scene, target, theme, octaves, track]);
 
+  useEffect(() => shareSky(target.texture), [target]);
+
   useEffect(
     () => () => {
       material.dispose();
@@ -521,6 +530,13 @@ export function Nebula({
       <sphereGeometry args={[900, 48, 32]} />
     </mesh>
   );
+}
+
+function shareSky(texture: Texture) {
+  skyMap.value = texture;
+  return () => {
+    if (skyMap.value === texture) skyMap.value = null;
+  };
 }
 
 function applyEnvironment(scene: Scene, texture: Texture) {

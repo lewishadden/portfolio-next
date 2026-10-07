@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Billboard } from '@react-three/drei';
 import { easing } from 'maath';
 import {
   AdditiveBlending,
@@ -23,18 +24,24 @@ import {
   asGlow,
   createBeamMaterial,
   createFresnelMaterial,
+  createHaloMaterial,
   createRingMaterial,
 } from '../materials';
 import { Model } from '../Model';
 import { NavLights, Spin } from '../parts';
+import { StationScope } from '../power';
+import { createReaction, stepReaction, trickProgress, useReactionHandlers } from '../reaction';
 import { stationInRange, useThemedMaterials, useWide } from '../stationHooks';
 import { StationHull } from '../StationHull';
 import { stationModels, stationPositions } from '../stations';
 import { latLngToVector3, palettes, seededRandom, setUniform } from '../utils';
 import { setWorldHover, worldStore, worldTip } from '../worldStore';
 
+import { RocketSmoke } from './RocketSmoke';
+
 import type { ThreeEvent } from '@react-three/fiber';
 import type { NavLight } from '../parts';
+import type { Reaction } from '../reaction';
 import type { WorldPalette, WorldTheme } from '../utils';
 
 /** Where the dish array sits, and the point on it the data link leaves from */
@@ -157,7 +164,9 @@ const exhaustFragment = /* glsl */ `
   void main() {
     float d = length(gl_PointCoord - 0.5);
     float alpha = smoothstep(0.5, 0.0, d) * (1.0 - vLife);
-    gl_FragColor = vec4(mix(uHot, uCool, vLife) * 2.2, alpha);
+    // Shock diamonds: bright knots down the plume
+    float knots = 1.0 + 0.7 * pow(max(sin(vLife * 34.0), 0.0), 6.0) * (1.0 - vLife);
+    gl_FragColor = vec4(mix(uHot, uCool, vLife) * 2.2 * knots, alpha);
   }
 `;
 
@@ -209,6 +218,7 @@ const buildMaterials = (p: WorldPalette) => ({
       toneMapped: false,
     })
   ),
+  flare: createHaloMaterial({ color: '#fbbf24', intensity: 2.4, opacity: 0 }),
   exhaust: asGlow(
     new ShaderMaterial({
       uniforms: {
@@ -264,6 +274,9 @@ function buildArcs() {
 }
 
 const globeTip = { label: 'Peterborough, UK', sub: 'Drag to spin the globe' };
+const rocketTip = { label: 'Ready for launch', sub: 'Send a message to fire it, or click to rev' };
+/** Seconds the rocket's rev (a hop and a burst of exhaust) takes */
+const revTime = 1;
 
 /** Drag-to-spin state: offsets added to the globe's idle sway, plus momentum */
 interface Spin {
@@ -329,24 +342,84 @@ function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>) {
 const launchDuration = 5.5;
 const returnDuration = 1.6;
 
-function updateRocket(rocket: Group, baseY: number, t: number, dt: number) {
+/** The rocket's state between frames: when it last lit, and its engine's glow */
+interface Launch {
+  ignitedAt: number;
+  flash: number;
+}
+
+const nozzlePoint = new Vector3();
+const warm = new Color('#fff0d8');
+const glowColour = new Color();
+
+/**
+ * Flies the rocket: up and away after a launch (shaking the camera as it
+ * lights, the shake fading as it climbs), back in from below, then a gentle
+ * bob, hopping with a burst of exhaust when clicked. Returns how hard the
+ * engine burns, 0..1. `base` is where it sits: its sway never wanders off it
+ */
+function updateRocket(
+  rocket: Group,
+  base: { x: number; y: number },
+  launch: Launch,
+  rev: Reaction,
+  t: number,
+  dt: number
+) {
   const since = worldStore.launchAt < 0 ? Infinity : t - worldStore.launchAt;
   if (since < launchDuration) {
+    if (launch.ignitedAt !== worldStore.launchAt) {
+      launch.ignitedAt = worldStore.launchAt;
+      worldStore.shake = 1;
+    }
+    worldStore.shake = Math.max(worldStore.shake, 0.55 * (1 - since / launchDuration) ** 2);
     const lift = 0.9 * since * since;
-    rocket.position.y = baseY + lift;
-    rocket.position.x += (Math.random() - 0.5) * 0.02 * Math.min(since * 4, 1);
+    rocket.position.y = base.y + lift;
+    // Engine judder, round its own line rather than adding up
+    rocket.position.x = base.x + Math.sin(t * 53) * 0.012 * Math.min(since * 4, 1);
     rocket.rotation.z = Math.sin(t * 40) * 0.01;
     return Math.min(since * 3, 1);
   }
+  rocket.position.x = base.x;
   if (since < launchDuration + returnDuration) {
     // Re-enter from below
     const k = (since - launchDuration) / returnDuration;
-    rocket.position.y = baseY - 5 * (1 - k) * (1 - k);
+    rocket.position.y = base.y - 5 * (1 - k) * (1 - k);
     return 0;
   }
-  easing.damp(rocket.position, 'y', baseY + Math.sin(t * 1.1) * 0.12, 0.3, dt);
-  rocket.rotation.z = Math.sin(t * 0.7) * 0.05;
-  return 0;
+  const hop = trickProgress(rev, revTime);
+  const lifted = hop >= 0 ? Math.sin(hop * Math.PI) * 0.45 : 0;
+  easing.damp(rocket.position, 'y', base.y + Math.sin(t * 1.1) * 0.12 + lifted, 0.12, dt);
+  rocket.rotation.z =
+    Math.sin(t * 0.7) * 0.05 + (hop >= 0 ? Math.sin(hop * Math.PI * 6) * 0.02 : 0);
+  return hop >= 0 ? Math.sin(hop * Math.PI) * 0.85 : 0;
+}
+
+/**
+ * The engine's light: a flare at the nozzle (a bright burst as it lights,
+ * then flickering with the burn) that warms the globe's atmosphere, and the
+ * globe's own glow lifting while the pointer is over it
+ */
+function lightUp(
+  materials: ReturnType<typeof buildMaterials>,
+  launch: Launch,
+  thrust: number,
+  hovered: number,
+  cyan: string,
+  t: number,
+  dt: number
+) {
+  const since = worldStore.launchAt < 0 ? Infinity : t - worldStore.launchAt;
+  const burst = since < 0.6 ? 1 - since / 0.6 : 0;
+  const flicker = 0.85 + 0.15 * Math.sin(t * 61) * Math.sin(t * 23);
+  launch.flash = MathUtils.damp(launch.flash, Math.max(thrust * flicker, burst * 1.6), 14, dt);
+  setUniform(materials.flare, 'uOpacity', Math.min(launch.flash, 1.6) * 0.8);
+  // Lit by the engine while it is close, cooling as the rocket climbs away
+  const nearby = since < launchDuration ? Math.max(0, 1 - since / 3) : 0;
+  const warmth = Math.max(burst, nearby * thrust * 0.6);
+  setUniform(materials.atmosphere, 'uColor', glowColour.set(cyan).lerp(warm, warmth * 0.6));
+  setUniform(materials.atmosphere, 'uIntensity', 1.5 + warmth * 1.2 + hovered * 0.6);
+  setUniform(materials.aura, 'uIntensity', 1.1 + warmth * 0.8 + hovered * 0.5);
 }
 
 /**
@@ -370,8 +443,14 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   const rocketRef = useRef<Group>(null);
   const packetsRef = useRef<Points>(null);
   const transmit = useRef({ since: -Infinity, was: false, level: 0 });
+  const launch = useRef<Launch>({ ignitedAt: -1, flash: 0 });
+  const globeHover = useRef({ on: false, level: 0 });
+  const rev = useRef(createReaction());
+  const revHandlers = useReactionHandlers(rev, rocketTip, revTime);
+  const nozzle = useRef(new Vector3());
+  const burning = useRef(false);
   const wide = useWide();
-  const materials = useThemedMaterials(buildMaterials, theme);
+  const materials = useThemedMaterials(buildMaterials, theme, 'contact');
   const palette = palettes[theme];
 
   const { positions, seeds } = useMemo(() => {
@@ -479,99 +558,119 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
     });
 
     const rocket = rocketRef.current;
+    stepReaction(rev.current, t, dt);
+    let thrust = 0;
     if (rocket) {
-      const thrust = updateRocket(rocket, rocketBase.y, t, dt);
+      thrust = updateRocket(rocket, rocketBase, launch.current, rev.current, t, dt);
       setUniform(materials.exhaust, 'uActive', thrust);
+      // Smoke trails only a real launch, from the nozzle in the station's space
+      nozzle.current.copy(rocket.position).add(nozzlePoint.set(0, wide ? -1 : -0.72, 0));
+      burning.current = worldStore.launchAt >= 0 && t - worldStore.launchAt < launchDuration;
     }
+    const hover = globeHover.current;
+    hover.level = MathUtils.damp(hover.level, hover.on ? 1 : 0, 6, dt);
+    lightUp(materials, launch.current, thrust, hover.level, palette.cyan, t, dt);
   });
 
   return (
-    <group ref={groupRef} position={stationPositions.contact}>
-      <group ref={globeRef} position={[0, 0.5, 0]} rotation={[0.62, -Math.PI / 2, 0]}>
-        <mesh
-          onPointerDown={(e) => startSpin(spinRef.current, e)}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            setWorldHover(true, 'grab');
-            worldTip.set(globeTip);
-          }}
-          onPointerOut={() => {
-            setWorldHover(false);
-            if (worldTip.get() === globeTip) worldTip.set(null);
-          }}
-        >
-          <sphereGeometry args={[radius * 0.985, 64, 48]} />
-          <meshBasicMaterial color={theme === 'dark' ? '#070916' : '#dfe3f3'} />
-        </mesh>
-        <mesh material={materials.atmosphere} scale={1.005}>
-          <sphereGeometry args={[radius, 64, 48]} />
-        </mesh>
-        <mesh material={materials.aura} scale={1.22}>
-          <sphereGeometry args={[radius, 48, 32]} />
-        </mesh>
-        <points material={materials.dots}>
-          <bufferGeometry>
-            <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-            <bufferAttribute attach="attributes-aSeed" args={[seeds, 1]} />
-          </bufferGeometry>
-        </points>
-        {arcs.map((geometry, i) => (
-          <mesh key={i} geometry={geometry} material={materials.arc} />
-        ))}
-        <group position={beaconPosition} quaternion={beaconQuaternion}>
-          <mesh position={[0, 0.35, 0]}>
-            <cylinderGeometry args={[0.012, 0.03, 0.7, 8]} />
-            <meshBasicMaterial color={palette.pink} toneMapped={false} />
+    <StationScope station="contact">
+      <group ref={groupRef} position={stationPositions.contact}>
+        <group ref={globeRef} position={[0, 0.5, 0]} rotation={[0.62, -Math.PI / 2, 0]}>
+          <mesh
+            onPointerDown={(e) => startSpin(spinRef.current, e)}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              setWorldHover(true, 'grab');
+              worldTip.set(globeTip);
+              globeHover.current.on = true;
+            }}
+            onPointerOut={() => {
+              setWorldHover(false);
+              if (worldTip.get() === globeTip) worldTip.set(null);
+              globeHover.current.on = false;
+            }}
+          >
+            <sphereGeometry args={[radius * 0.985, 64, 48]} />
+            <meshBasicMaterial color={theme === 'dark' ? '#070916' : '#dfe3f3'} />
           </mesh>
-          <mesh position={[0, 0.72, 0]}>
-            <sphereGeometry args={[0.06, 16, 16]} />
-            <meshBasicMaterial color={palette.pink} toneMapped={false} />
+          <mesh material={materials.atmosphere} scale={1.005}>
+            <sphereGeometry args={[radius, 64, 48]} />
           </mesh>
-          <group ref={beaconRef}>
-            {[materials.beacon0, materials.beacon1, materials.beacon2].map((material, i) => (
-              <mesh key={i} rotation={[Math.PI / 2, 0, 0]} material={material}>
-                <torusGeometry args={[0.32, 0.01, 6, 64]} />
-              </mesh>
-            ))}
+          <mesh material={materials.aura} scale={1.22}>
+            <sphereGeometry args={[radius, 48, 32]} />
+          </mesh>
+          <points material={materials.dots}>
+            <bufferGeometry>
+              <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+              <bufferAttribute attach="attributes-aSeed" args={[seeds, 1]} />
+            </bufferGeometry>
+          </points>
+          {arcs.map((geometry, i) => (
+            <mesh key={i} geometry={geometry} material={materials.arc} />
+          ))}
+          <group position={beaconPosition} quaternion={beaconQuaternion}>
+            <mesh position={[0, 0.35, 0]}>
+              <cylinderGeometry args={[0.012, 0.03, 0.7, 8]} />
+              <meshBasicMaterial color={palette.pink} toneMapped={false} />
+            </mesh>
+            <mesh position={[0, 0.72, 0]}>
+              <sphereGeometry args={[0.06, 16, 16]} />
+              <meshBasicMaterial color={palette.pink} toneMapped={false} />
+            </mesh>
+            <group ref={beaconRef}>
+              {[materials.beacon0, materials.beacon1, materials.beacon2].map((material, i) => (
+                <mesh key={i} rotation={[Math.PI / 2, 0, 0]} material={material}>
+                  <torusGeometry args={[0.32, 0.01, 6, 64]} />
+                </mesh>
+              ))}
+            </group>
           </group>
         </group>
-      </group>
 
-      {/* The deep-space comms array, dish turned towards the globe */}
-      {/* It sweeps a little either side, as if tracking the signal */}
-      <Spin position={arrayPosition} sweep={0.3} speed={0.09}>
-        <group rotation={[0.08, -2.3, 0.05]}>
-          <StationHull station="contact" height={2.5} theme={theme} />
-        </group>
-        <NavLights lights={arrayLights} />
-      </Spin>
-      <mesh material={materials.link} position={link.position} quaternion={link.quaternion}>
-        <cylinderGeometry args={[0.025, 0.025, link.length, 8, 1, true]} />
-      </mesh>
-      <points ref={packetsRef} material={materials.packets} visible={false} frustumCulled={false}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[packetBuffers.positions, 3]} />
-          <bufferAttribute attach="attributes-aAlong" args={[packetBuffers.along, 1]} />
-        </bufferGeometry>
-      </points>
-
-      <group
-        ref={rocketRef}
-        position={[rocketBase.x, rocketBase.y, rocketBase.z]}
-        rotation={[0, 0, 0.12]}
-      >
-        <Model url={stationModels.contact!} height={wide ? 2.1 : 1.5} theme={theme} />
-        <points
-          material={materials.exhaust}
-          position={[0, wide ? -1 : -0.72, 0]}
-          frustumCulled={false}
-        >
+        {/* The deep-space comms array, dish turned towards the globe */}
+        {/* It sweeps a little either side, as if tracking the signal */}
+        <Spin position={arrayPosition} sweep={0.3} speed={0.09}>
+          <group rotation={[0.08, -2.3, 0.05]}>
+            <StationHull station="contact" height={2.5} theme={theme} />
+          </group>
+          <NavLights lights={arrayLights} />
+        </Spin>
+        <mesh material={materials.link} position={link.position} quaternion={link.quaternion}>
+          <cylinderGeometry args={[0.025, 0.025, link.length, 8, 1, true]} />
+        </mesh>
+        <points ref={packetsRef} material={materials.packets} visible={false} frustumCulled={false}>
           <bufferGeometry>
-            <bufferAttribute attach="attributes-position" args={[exhaustPositions, 3]} />
-            <bufferAttribute attach="attributes-aSeed" args={[exhaustSeeds, 1]} />
+            <bufferAttribute attach="attributes-position" args={[packetBuffers.positions, 3]} />
+            <bufferAttribute attach="attributes-aAlong" args={[packetBuffers.along, 1]} />
           </bufferGeometry>
         </points>
+
+        <group
+          ref={rocketRef}
+          position={[rocketBase.x, rocketBase.y, rocketBase.z]}
+          rotation={[0, 0, 0.12]}
+        >
+          <group {...revHandlers}>
+            <Model url={stationModels.contact!} height={wide ? 2.1 : 1.5} theme={theme} />
+          </group>
+          <points
+            material={materials.exhaust}
+            position={[0, wide ? -1 : -0.72, 0]}
+            frustumCulled={false}
+          >
+            <bufferGeometry>
+              <bufferAttribute attach="attributes-position" args={[exhaustPositions, 3]} />
+              <bufferAttribute attach="attributes-aSeed" args={[exhaustSeeds, 1]} />
+            </bufferGeometry>
+          </points>
+          <Billboard position={[0, wide ? -1.15 : -0.85, 0]}>
+            <mesh material={materials.flare} scale={wide ? 2.6 : 1.9}>
+              <planeGeometry />
+            </mesh>
+          </Billboard>
+        </group>
+        <RocketSmoke theme={theme} source={nozzle} burning={burning} />
       </group>
-    </group>
+    </StationScope>
   );
 }

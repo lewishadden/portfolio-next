@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { MathUtils } from 'three';
 
-import { setWorldHover, worldStore, worldTip } from './worldStore';
+import { spawnPing } from './Pings';
+import { emitCue, setWorldHover, worldStore, worldTip } from './worldStore';
 
 import type { RefObject } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
@@ -57,11 +58,18 @@ function hover(state: Reaction, on: boolean, tip: WorldTip) {
   else if (worldTip.get() === tip) worldTip.set(null);
 }
 
-function trick(state: Reaction) {
+/** Starts the trick (unless one is already playing) */
+export function trick(state: Reaction, duration = 1) {
+  if (state.now - state.trickAt < duration) return;
   state.trickAt = state.now;
+  emitCue('trick');
 }
 
-export function useReactionHandlers(state: RefObject<Reaction>, tip: WorldTip) {
+/**
+ * Pointer handlers for a character: hover leans it in (and shows `tip`), a
+ * click pings where it landed and plays its `duration`-second trick
+ */
+export function useReactionHandlers(state: RefObject<Reaction>, tip: WorldTip, duration = 1) {
   return useMemo(
     () => ({
       onPointerOver(e: ThreeEvent<PointerEvent>) {
@@ -73,9 +81,10 @@ export function useReactionHandlers(state: RefObject<Reaction>, tip: WorldTip) {
       },
       onClick(e: ThreeEvent<MouseEvent>) {
         e.stopPropagation();
-        trick(state.current);
+        spawnPing(e.point);
+        trick(state.current, duration);
       },
     }),
-    [state, tip]
+    [state, tip, duration]
   );
 }

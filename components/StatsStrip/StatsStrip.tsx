@@ -35,7 +35,7 @@ const StatCell = ({ value, suffix, label, index }: StatItem & { index: number })
 };
 
 export const StatsStrip = ({ stats }: { stats: StatItem[] }) => (
-  <section className="stats" aria-label="Key stats">
+  <section className="stats" aria-label="Key stats" data-world-section="stats">
     <RevealGroup className="stats__grid" stagger={0.1}>
       {stats.map((s, i) => (
         <StatCell key={`${s.label}-${i}`} {...s} index={i} />

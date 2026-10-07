@@ -1,17 +1,24 @@
 import { useSyncExternalStore } from 'react';
 
-import { onCue, worldStore } from 'components/World/worldStore';
+import { worldMode } from 'components/World/worldMode';
+import { onCue, onFlight, worldStore } from 'components/World/worldStore';
+import { buildSpace, listen, roam, stationVoices } from './spatial';
 
+import type { StationKey } from 'components/World/routes';
 import type { Cue } from 'components/World/worldStore';
+import type { Space } from './spatial';
 
 /* ------------------------------------------------------------------
-   Optional sound, off unless the visitor turns it on (header toggle or
-   the command palette). Everything is synthesised with Web Audio, so
-   there is nothing to download: a low drone with a breathing noise bed
-   for the ambience, a rush of filtered noise that follows the camera's
-   speed (flights, free roam), and short cues for what happens in the
-   world (worldStore `emitCue`): HUD blips, docking clamps, signals
-   found, the rocket and the comms array transmitting.
+   Optional sound, off unless the visitor turns it on (header toggle,
+   the command palette or the loading screen). Everything is synthesised
+   with Web Audio, so there is nothing to download: a quiet bed (a low
+   drone and a breath of cabin air) under every station's own voice,
+   heard from where the camera is (spatial.ts); a rush of filtered noise
+   that follows the camera's speed (flights, free roam); a swell as a
+   flight sets off and a chime in the destination's chord as it docks;
+   and short cues for what happens in the world (worldStore `emitCue`):
+   HUD blips, clicks and tricks, docking clamps, stations powering up,
+   signals found, the rocket and the comms array transmitting.
 
    Browsers only start audio from a click or key press, so the toggle
    starts it, and a returning visitor who left it on hears it from their
@@ -30,12 +37,17 @@ interface Engine {
   noise: AudioBuffer;
   /** The header HUD's hum, silent until it says so (worldStore.hudHum) */
   hum: GainNode;
+  /** The stations' voices and the listener riding the camera */
+  space: Space;
 }
 
 let engine: Engine | null = null;
 let wanted: boolean | undefined;
 let frame = 0;
+let lastFrame = 0;
 let armed = false;
+/** The context is starting up: cues wait for it rather than going unheard */
+let waking: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
 function readWanted() {
@@ -78,9 +90,10 @@ function build(): Engine {
   limiter.ratio.value = 6;
   master.connect(limiter).connect(ctx.destination);
 
-  // Drone: low fifths through a lowpass that slowly breathes
+  // The bed: low fifths on A through a lowpass that slowly breathes, under
+  // the stations' voices
   const drone = ctx.createGain();
-  drone.gain.value = 0.045;
+  drone.gain.value = 0.022;
   const warmth = ctx.createBiquadFilter();
   warmth.type = 'lowpass';
   warmth.frequency.value = 240;
@@ -111,7 +124,7 @@ function build(): Engine {
   bed.frequency.value = 480;
   bed.Q.value = 0.7;
   const bedLevel = ctx.createGain();
-  bedLevel.gain.value = 0.018;
+  bedLevel.gain.value = 0.013;
   loopNoise({ ctx, noise }, 0).connect(bed).connect(bedLevel).connect(master);
 
   // The rush of speed, silent at rest
@@ -144,32 +157,67 @@ function build(): Engine {
     osc.start();
   }
 
-  return { ctx, master, rush, rushFilter, noise, hum };
+  const space = buildSpace(ctx, master);
+  roam(space, ctx, worldMode.get().mode === 'explore');
+
+  return { ctx, master, rush, rushFilter, noise, hum, space };
 }
 
-/** Follows the camera's speed with the rush, every frame while sound is on */
-function follow() {
+/**
+ * Every animation frame while sound is on and the tab is visible: the rush
+ * follows the camera's speed, the hum the header HUD, and the listener the
+ * camera
+ */
+function follow(time: number) {
   frame = requestAnimationFrame(follow);
-  if (!engine) return;
+  if (!engine || engine.ctx.state !== 'running') return;
+  const dt = lastFrame ? Math.min((time - lastFrame) / 1000, 0.25) : 0;
+  lastFrame = time;
   const speed = Math.min(worldStore.velocity / fullRush, 1);
   const now = engine.ctx.currentTime;
   engine.rush.gain.setTargetAtTime(0.16 * speed ** 1.4, now, 0.15);
   engine.rushFilter.frequency.setTargetAtTime(220 + 1600 * speed, now, 0.2);
   engine.hum.gain.setTargetAtTime(0.012 * worldStore.hudHum, now, 0.3);
+  listen(engine.space, engine.ctx, dt);
 }
 
+function loop(on: boolean) {
+  cancelAnimationFrame(frame);
+  lastFrame = 0;
+  if (on) frame = requestAnimationFrame(follow);
+}
+
+function wake(ctx: AudioContext) {
+  const resumed = ctx
+    .resume()
+    .catch(() => undefined)
+    .then(() => {
+      if (waking === resumed) waking = null;
+    });
+  waking = resumed;
+}
+
+/**
+ * Starts (or restarts) the sound. From inside a click or key press, so the
+ * browser lets the context run: the loading screen's "launch with sound"
+ * calls it just before the screen lifts, and the warp in's swell waits for
+ * the context rather than being dropped
+ */
 function start() {
+  armed = true;
+  wire();
   engine ??= build();
-  const { ctx, master } = engine;
-  void ctx.resume();
+  const { ctx, master, space } = engine;
+  // Hear from wherever the camera is now, rather than gliding over from where it was
+  space.ear.primed = false;
+  wake(ctx);
   master.gain.cancelScheduledValues(ctx.currentTime);
   master.gain.setTargetAtTime(0.8, ctx.currentTime, 0.25);
-  cancelAnimationFrame(frame);
-  frame = requestAnimationFrame(follow);
+  loop(!document.hidden);
 }
 
 function stop() {
-  cancelAnimationFrame(frame);
+  loop(false);
   if (!engine) return;
   const { ctx, master } = engine;
   master.gain.setTargetAtTime(0, ctx.currentTime, 0.12);
@@ -180,6 +228,7 @@ function stop() {
 
 /* ---------------------------------- Cues ---------------------------------- */
 
+/** A note (gliding to `glideTo` if given), swelling in over `attack` seconds and dying away */
 function tone(
   e: Engine,
   at: number,
@@ -187,7 +236,9 @@ function tone(
   duration: number,
   level: number,
   type: OscillatorType = 'sine',
-  glideTo?: number
+  glideTo?: number,
+  attack = 0.012,
+  out: AudioNode = e.master
 ) {
   const osc = e.ctx.createOscillator();
   osc.type = type;
@@ -195,13 +246,14 @@ function tone(
   if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, at + duration);
   const gain = e.ctx.createGain();
   gain.gain.setValueAtTime(0.0001, at);
-  gain.gain.exponentialRampToValueAtTime(level, at + 0.012);
+  gain.gain.exponentialRampToValueAtTime(level, at + attack);
   gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
-  osc.connect(gain).connect(e.master);
+  osc.connect(gain).connect(out);
   osc.start(at);
   osc.stop(at + duration + 0.05);
 }
 
+/** A breath of filtered noise, its filter sweeping from `from` to `to` Hz */
 function burst(
   e: Engine,
   at: number,
@@ -227,7 +279,9 @@ function burst(
   source.stop(at + duration + 0.05);
 }
 
-const cues: Record<Cue, (e: Engine, at: number) => void> = {
+type Sound = (e: Engine, at: number) => void;
+
+const cues: Record<Cue, Sound> = {
   blip: (e, at) => tone(e, at, 1046, 0.09, 0.05, 'sine', 1318),
   select: (e, at) => {
     tone(e, at, 659, 0.12, 0.06, 'triangle');
@@ -280,11 +334,125 @@ const cues: Record<Cue, (e: Engine, at: number) => void> = {
     burst(e, at + 0.05, 0.55, 0.025, 'bandpass', 900, 5200, 0.2);
     tone(e, at + 0.62, 1568, 0.18, 0.025, 'triangle');
   },
+  // Something in 3D clicked: a sonar ping and its echo
+  ping: (e, at) => {
+    tone(e, at, 1760, 0.6, 0.035, 'sine', 1700);
+    tone(e, at + 0.17, 1760, 0.5, 0.01, 'sine', 1700);
+  },
+  // A barrel roll, a helmet spin: a whoosh round, a zip up and a sparkle
+  trick: (e, at) => {
+    burst(e, at, 0.6, 0.05, 'bandpass', 450, 2800, 0.2);
+    tone(e, at, 329.63, 0.45, 0.02, 'triangle', 987.77, 0.08);
+    tone(e, at + 0.38, 1318.5, 0.35, 0.014);
+    tone(e, at + 0.46, 1760, 0.45, 0.012);
+  },
+  // Free roam: a hull bumped, a dull thud through the frame
+  bump: (e, at) => {
+    tone(e, at, 82, 0.42, 0.3, 'sine', 34);
+    burst(e, at, 0.3, 0.16, 'lowpass', 420, 80, 0.004);
+    burst(e, at + 0.03, 0.14, 0.012, 'bandpass', 1300, 900);
+  },
+  // A station powering up as the camera arrives: a relay, then a hum
+  // spooling up two octaves with a whine above it, settling on A
+  power: (e, at) => {
+    tone(e, at, 62, 0.25, 0.07, 'sine', 48);
+    burst(e, at, 0.05, 0.02, 'highpass', 2600);
+    tone(e, at + 0.05, 55, 1.2, 0.04, 'triangle', 220, 0.9);
+    tone(e, at + 0.05, 55, 1.2, 0.008, 'sawtooth', 220, 0.9);
+    tone(e, at + 0.1, 440, 1.1, 0.006, 'sine', 1760, 0.85);
+    tone(e, at + 1.1, 220, 0.7, 0.02, 'triangle');
+  },
+  // The command palette opening: a hologram fizzing up
+  palette: (e, at) => {
+    tone(e, at, 659.25, 0.16, 0.028, 'sine', 880);
+    tone(e, at + 0.07, 1318.5, 0.32, 0.014, 'triangle');
+    burst(e, at, 0.18, 0.012, 'highpass', 2400, 5200, 0.07);
+  },
+  // The theme switching: a click, then up into the light or down into the
+  // dark (read once the switch has landed on the page)
+  theme: (e) => {
+    window.setTimeout(() => {
+      if (!readWanted() || e.ctx.state !== 'running') return;
+      const at = e.ctx.currentTime + 0.01;
+      const light = document.documentElement.dataset.theme === 'light';
+      burst(e, at, 0.03, 0.03, 'highpass', 3800);
+      (light ? [440, 659.25, 880] : [880, 659.25, 440]).forEach((frequency, i) =>
+        tone(e, at + 0.03 + i * 0.06, frequency, 0.4, 0.02, light ? 'triangle' : 'sine')
+      );
+    }, 40);
+  },
 };
 
+/** The fewest seconds between two of the same cue (a scrape along a hull bumps every frame) */
+const spacing: Partial<Record<Cue, number>> = { bump: 0.35, ping: 0.06, trick: 0.3 };
+const lastPlayed: Partial<Record<Cue, number>> = {};
+
+/** Plays a sound now, or once a context that is starting up is running */
+function schedule(sound: Sound) {
+  if (!engine || !readWanted()) return;
+  const run = () => {
+    if (engine && readWanted() && engine.ctx.state === 'running') {
+      sound(engine, engine.ctx.currentTime + 0.01);
+    }
+  };
+  if (engine.ctx.state === 'running') run();
+  else if (waking) void waking.then(run);
+}
+
 function play(cue: Cue) {
-  if (!engine || !readWanted() || engine.ctx.state !== 'running') return;
-  cues[cue](engine, engine.ctx.currentTime + 0.01);
+  const now = performance.now() / 1000;
+  if (now - (lastPlayed[cue] ?? -Infinity) < (spacing[cue] ?? 0)) return;
+  lastPlayed[cue] = now;
+  schedule(cues[cue]);
+}
+
+/* --------------------------------- Flights --------------------------------- */
+
+/** A flight sets off: a rising whoosh of filtered noise over a low drop, the drive spooling up */
+const swell: Sound = (e, at) => {
+  burst(e, at, 1.7, 0.075, 'bandpass', 160, 2600, 0.85);
+  tone(e, at, 92, 1.3, 0.1, 'sine', 38, 0.06);
+  tone(e, at + 0.3, 880, 1.1, 0.006, 'sine', 1760, 0.6);
+};
+
+/**
+ * Docked: soft clamps, then the station's own chord two octaves up as a
+ * chime, played from the station
+ */
+function arrival(key: StationKey): Sound {
+  return (e, at) => {
+    burst(e, at, 0.08, 0.03, 'bandpass', 1100, 650, 0.004);
+    tone(e, at, 110, 0.28, 0.06, 'sine', 62);
+    const { notes, detune } = stationVoices[key];
+    const from = e.space.voices[key].panner;
+    notes.forEach((frequency, i) =>
+      tone(
+        e,
+        at + 0.1 + i * 0.07,
+        frequency * 4 * 2 ** (detune[i] / 1200),
+        1.2,
+        0.016,
+        'triangle',
+        undefined,
+        0.012,
+        from
+      )
+    );
+  };
+}
+
+let lastSwell = -Infinity;
+
+function flightSound(event: 'start' | 'approach' | 'end', to: string) {
+  if (event === 'start') {
+    // A change of course mid-flight sets off again: one swell is enough
+    const now = performance.now() / 1000;
+    if (now - lastSwell < 0.4) return;
+    lastSwell = now;
+    schedule(swell);
+  } else if (event === 'end' && to in stationVoices) {
+    schedule(arrival(to as StationKey));
+  }
 }
 
 /* ------------------------------ Turning it on ------------------------------ */
@@ -309,18 +477,23 @@ function setSound(on: boolean) {
 let wired = false;
 
 /**
- * Hooks the engine up to the world's cues and the tab's visibility, and
- * arms a returning visitor's sound to start on their first interaction.
- * Runs once, from the toggle.
+ * Hooks the engine up to the world's cues, flights and mode and the tab's
+ * visibility, and arms a returning visitor's sound to start on their first
+ * interaction. Runs once, from the toggle (or whatever starts the sound).
  */
 function wire() {
   if (wired) return;
   wired = true;
   onCue(play);
+  onFlight(flightSound);
+  worldMode.subscribe(() => {
+    if (engine) roam(engine.space, engine.ctx, worldMode.get().mode === 'explore');
+  });
   document.addEventListener('visibilitychange', () => {
     if (!engine || !readWanted()) return;
+    loop(!document.hidden);
     if (document.hidden) void engine.ctx.suspend();
-    else void engine.ctx.resume();
+    else wake(engine.ctx);
   });
   if (readWanted() && !armed) {
     armed = true;

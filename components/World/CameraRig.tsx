@@ -14,7 +14,8 @@ import {
   smootherstep,
 } from './flight';
 import { isBooted } from './boot';
-import { baseFov, stationCamera, stationPositions } from './stations';
+import { applyShake } from './shake';
+import { baseFov, stationCamera, stationKeys, stationPositions } from './stations';
 import { worldMode } from './worldMode';
 import { emitFlight, worldStore } from './worldStore';
 
@@ -32,6 +33,9 @@ const forward = new Vector3();
 const toPoint = new Vector3();
 const rotationTo = new Quaternion();
 const bank = new Quaternion();
+const lockOn = new Vector3();
+const previewEye = new Vector3();
+const previewLook = new Vector3();
 const yAxis = new Vector3(0, 1, 0);
 const zAxis = new Vector3(0, 0, 1);
 const introOffset = new Vector3(-14, 10, 58);
@@ -53,6 +57,8 @@ interface RigState {
   roll: number;
   velocity: Vector3;
   arrivedAt: number;
+  /** The station the route preview was last planned to ('' for none) */
+  preview: string;
 }
 
 /**
@@ -81,6 +87,7 @@ export function CameraRig({
     roll: 0,
     velocity: new Vector3(),
     arrivedAt: 0,
+    preview: '',
   });
 
   useFrame(({ camera, clock, size }, delta) => {
@@ -184,7 +191,9 @@ export function CameraRig({
     const fov = baseFov + (reducedMotion ? 0 : Math.min(speed * 0.3, 24));
     easing.damp(cam, 'fov', fov, 0.3, dt);
     cam.updateProjectionMatrix();
+    applyShake(cam, t, dt, reducedMotion);
     record(cam);
+    if (mode === 'page') planPreview(rig, cam, size.width, size.height);
   });
 
   return null;
@@ -192,8 +201,10 @@ export function CameraRig({
 
 function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey) {
   // Plan from wherever the camera is and however it is turned: mid-flight,
-  // banked, or wherever the visitor left it in explore mode
-  const flight = planFlight(cam.position, cam.quaternion, target, look, rig.velocity);
+  // banked, or wherever the visitor left it in explore mode. Ahead, it
+  // locks onto the station itself on the way
+  lockOn.fromArray(stationPositions[station]);
+  const flight = planFlight(cam.position, cam.quaternion, target, look, rig.velocity, lockOn);
   rig.flight = flight;
   rig.approached = false;
   if (!flight) return;
@@ -208,6 +219,8 @@ function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey)
   worldStore.flight.to = station;
   worldStore.flight.progress = 0;
   worldStore.flight.path = path;
+  worldStore.flight.turn = flight.about ? flight.departTurn : 0;
+  worldStore.flight.approached = false;
   emitFlight('start', station);
 }
 
@@ -247,6 +260,7 @@ function fly(rig: RigState, cam: PerspectiveCamera, station: StationKey, dt: num
   const approach = flight.about ? flight.roundFrom : 0.6;
   if (!rig.approached && s >= approach) {
     rig.approached = true;
+    worldStore.flight.approached = true;
     emitFlight('approach', station);
   }
   if (s >= 1) {
@@ -254,6 +268,35 @@ function fly(rig: RigState, cam: PerspectiveCamera, station: StationKey, dt: num
     rig.arrivedAt = t;
     endFlight(rig, station, true);
   }
+}
+
+/**
+ * Plots the route to the station a hovered or focused link leads to, for
+ * the radar's preview: planned the way the flight would be, from where the
+ * camera is to the top of that page. Re-planned only when the link changes
+ */
+function planPreview(rig: RigState, cam: PerspectiveCamera, width: number, height: number) {
+  const key = worldStore.preview as StationKey;
+  if (key === rig.preview) return;
+  rig.preview = key;
+  worldStore.previewPath = new Float32Array(0);
+  if (!key || !stationKeys.includes(key) || rig.flight) return;
+  stationCamera(key, 0, 0, width, height, previewEye, previewLook);
+  origin.fromArray(stationPositions[key]);
+  previewEye.add(origin);
+  previewLook.add(origin);
+  const plan = planFlight(
+    cam.position,
+    cam.quaternion,
+    previewEye,
+    previewLook,
+    rig.velocity,
+    origin
+  );
+  if (!plan) return;
+  const path = new Float32Array(26 * 3);
+  for (let i = 0; i <= 25; i++) toPoint.copy(plan.curve.getPointAt(i / 25)).toArray(path, i * 3);
+  worldStore.previewPath = path;
 }
 
 /** Publishes the camera's position and heading for the radar */

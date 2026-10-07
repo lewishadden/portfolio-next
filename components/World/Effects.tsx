@@ -2,24 +2,35 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { ChromaticAberration, EffectComposer, Vignette } from '@react-three/postprocessing';
-import { ChromaticAberrationEffect, SelectiveBloomEffect } from 'postprocessing';
-import { Vector2 } from 'three';
+import { EffectComposer } from '@react-three/postprocessing';
+import {
+  EffectPass,
+  SMAAEffect,
+  SMAAPreset,
+  SelectiveBloomEffect,
+  VignetteEffect,
+} from 'postprocessing';
 
 import { bloomMaskLayer, bloomMasks, bloomMasksShown, bloomMasksVersion } from './bloomMask';
+import {
+  GrainEffect,
+  HighlightRolloffEffect,
+  OpticsEffect,
+  tuneGrade,
+  updateOptics,
+} from './optics';
 import { palettes } from './utils';
 import { precompileComposer, useWarmupTask } from './warmup';
-import { worldStore } from './worldStore';
 
 import type { EffectComposer as EffectComposerImpl } from 'postprocessing';
 import type { QualityTier } from './quality';
 import type { WorldTheme } from './utils';
 
-function updateAberration(effect: ChromaticAberrationEffect | null, velocity: number) {
-  if (!effect) return;
-  const amount = Math.min(velocity / 40, 1.2) * 0.0035;
-  effect.offset.set(amount, amount * 0.6);
-}
+/** The tone curve's knee and the grain, per theme: daylight's bright sky stays put under a higher knee */
+const grades: Record<WorldTheme, { knee: number; grain: number }> = {
+  dark: { knee: 0.88, grain: 0.028 },
+  light: { knee: 0.96, grain: 0.014 },
+};
 
 /** Bloom's working resolution, as a share of the screen: resizes its buffers, nothing else */
 function setBloomScale(effect: SelectiveBloomEffect, scale: number) {
@@ -54,17 +65,25 @@ function composerReady(ref: { current: EffectComposerImpl | null }) {
 }
 
 /**
- * Post-processing. The same passes run on every quality tier (bloom,
- * velocity-driven chromatic aberration, vignette), so a tier change never
- * rebuilds the composer, recompiles a shader, or shifts the exposure: a
- * tier that dropped bloom used to read as the whole world flickering
- * between bright and dim. The tiers differ in cost only: the pixel ratio
- * (WorldCanvas), bloom's internal resolution (a quarter on low, set
- * through the effect so nothing is recreated) and aberration held at
- * zero below high. Bloom leaves out whatever a bloom mask covers (the
- * project screens, so their pages show at their own brightness): an
- * inverted selective bloom, whose depth pass only draws the masks and only
- * runs while there are some.
+ * Post-processing, in three passes, the same on every quality tier, so a
+ * tier change never rebuilds the composer, recompiles a shader or shifts
+ * the exposure (a tier that dropped bloom used to read as the whole world
+ * flickering between bright and dim):
+ *
+ * 1. Bloom. It leaves out whatever a bloom mask covers (the project
+ *    screens, so their pages show at their own brightness): an inverted
+ *    selective bloom, whose depth pass only draws the masks and only runs
+ *    while there are some.
+ * 2. The optics (optics.ts: the streak blur and fringes at speed, the sun's
+ *    shafts), on the bloomed, still unclipped frame; then the tone curve
+ *    (highlights roll off and burn towards white instead of clipping) and
+ *    the vignette.
+ * 3. SMAA on the finished image (the renderer itself is not antialiased:
+ *    thin rings, trusses and orbit lines shimmered without it), then grain.
+ *
+ * The tiers differ in cost only: the pixel ratio (WorldCanvas), bloom's
+ * internal resolution (a quarter on low, set through the effect so nothing
+ * is recreated), and fringes and sun shafts held at zero below high.
  */
 export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier }) {
   const palette = palettes[theme];
@@ -73,31 +92,49 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
   const scene = useThree((s) => s.scene);
   const track = useWarmupTask();
   const composerRef = useRef<EffectComposerImpl>(null);
-  const aberrationRef = useRef<ChromaticAberrationEffect>(null);
-  const offset = useMemo(() => new Vector2(0, 0), []);
-  const aberration = tier === 'high';
+  const top = tier === 'high';
 
-  useFrame(() => updateAberration(aberrationRef.current, aberration ? worldStore.velocity : 0));
-
-  const bloom = useMemo(() => {
-    const effect = new SelectiveBloomEffect(scene, camera, {
+  const chain = useMemo(() => {
+    const bloom = new SelectiveBloomEffect(scene, camera, {
       mipmapBlur: true,
       intensity: palette.bloom,
       luminanceThreshold: palette.bloomThreshold,
       luminanceSmoothing: 0.25,
       radius: 0.75,
     });
-    effect.inverted = true;
-    effect.selection.layer = bloomMaskLayer;
-    return effect;
-  }, [scene, camera, palette.bloom, palette.bloomThreshold]);
-  useEffect(() => () => bloom.dispose(), [bloom]);
-  const masking = useMemo(() => ({ bloom, version: -1 }), [bloom]);
-  useFrame(() => followMasks(masking));
+    bloom.inverted = true;
+    bloom.selection.layer = bloomMaskLayer;
+    const optics = new OpticsEffect();
+    const rolloff = new HighlightRolloffEffect({ knee: grades.dark.knee });
+    const vignette = new VignetteEffect({ darkness: palette.vignette, offset: 0.28 });
+    const smaa = new SMAAEffect({ preset: SMAAPreset.MEDIUM });
+    const grain = new GrainEffect({ amount: grades.dark.grain });
+    return {
+      bloom,
+      optics,
+      rolloff,
+      grain,
+      passes: [
+        new EffectPass(camera, bloom),
+        new EffectPass(camera, optics, rolloff, vignette),
+        new EffectPass(camera, smaa, grain),
+      ],
+    };
+  }, [scene, camera, palette.bloom, palette.bloomThreshold, palette.vignette]);
+  // Disposing a pass disposes its effects
+  useEffect(() => () => chain.passes.forEach((pass) => pass.dispose()), [chain]);
+
+  useEffect(() => tuneGrade(chain.rolloff, chain.grain, grades[theme]), [chain, theme]);
+
+  const masking = useMemo(() => ({ bloom: chain.bloom, version: -1 }), [chain]);
+  useFrame(() => {
+    followMasks(masking);
+    updateOptics(chain.optics, camera, { fringes: top, shafts: top && theme === 'dark' });
+  });
 
   useEffect(() => {
-    setBloomScale(bloom, tier === 'low' ? 0.25 : 0.5);
-  }, [bloom, tier]);
+    setBloomScale(chain.bloom, tier === 'low' ? 0.25 : 0.5);
+  }, [chain, tier]);
 
   // Precompile the passes whenever the pass list is (re)built: on mount and
   // on a theme change (new bloom threshold)
@@ -105,18 +142,13 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
     track(
       composerReady(composerRef).then((composer) => precompileComposer(gl, composer, camera, scene))
     );
-  }, [palette.bloomThreshold, gl, camera, scene, track]);
+  }, [chain, gl, camera, scene, track]);
 
   return (
     <EffectComposer ref={composerRef} multisampling={0}>
-      <primitive object={bloom} />
-      <ChromaticAberration
-        ref={aberrationRef}
-        offset={offset}
-        radialModulation
-        modulationOffset={0.25}
-      />
-      <Vignette darkness={palette.vignette} offset={0.28} />
+      {chain.passes.map((pass, i) => (
+        <primitive key={`${theme}-${i}`} object={pass} />
+      ))}
     </EffectComposer>
   );
 }

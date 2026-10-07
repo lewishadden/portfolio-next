@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Icon } from '@iconify/react';
 import { useLenis } from 'lenis/react';
 
 import { BrandMark } from 'components/BrandMark/BrandMark';
+import { useSound } from 'components/Sound/sound';
 import {
   bootState,
   bootSteps,
@@ -15,13 +17,16 @@ import {
 
 import './BootScreen.scss';
 
-/** Longest the screen waits for the world before lifting anyway (ms) */
+/** Longest the screen waits for the world, from the page's start, before lifting anyway (ms) */
 const giveUp = 20_000;
-/** When the skip button appears (ms) */
-const skipAfter = 3_500;
 /** Pause on a full bar before lifting, and how long the lift takes (BootScreen.scss) (ms) */
 const fullHold = 280;
 const liftTime = 1_000;
+
+// True once hydrated: what only works with the app shows from then on
+const subscribeNothing = () => () => {};
+const onClient = () => true;
+const onServer = () => false;
 
 /**
  * The loading screen on a full page load while the 3D world gets ready (see
@@ -29,12 +34,21 @@ const liftTime = 1_000;
  * run; the bar follows what is really loading, creeping on between reports
  * so it never looks stuck. When the world is ready the bar fills, the stars
  * streak past and the screen dissolves into the camera's warp in.
+ *
+ * It never traps anyone: the skip button is in the server HTML (shown after a
+ * few seconds by CSS) and ThemeScript makes it work, and gives up, even if
+ * the app never starts. Once it has, "Launch with sound" turns sound on with
+ * a click, so the audio can start in time with the warp in.
  */
 export function BootScreen() {
   const phase = useBootPhase();
   const rootRef = useRef<HTMLDivElement>(null);
-  const [canSkip, setCanSkip] = useState(false);
   const lenis = useLenis();
+  const hydrated = useSyncExternalStore(subscribeNothing, onClient, onServer);
+  const { on: sound, setSound } = useSound();
+  // Offered unless sound was already on; once chosen here, it stays to show it's on
+  const [choseSound, setChoseSound] = useState(false);
+  const offerSound = hydrated && (!sound || choseSound);
 
   // No world this visit (ThemeScript didn't raise the screen): start at once
   useEffect(() => {
@@ -103,14 +117,13 @@ export function BootScreen() {
       }
     };
     frame = requestAnimationFrame(tick);
-    const skip = window.setTimeout(() => setCanSkip(true), skipAfter);
-    const fallback = window.setTimeout(finishBoot, giveUp);
+    // From the page's start, not hydration: a slow start doesn't add to the wait
+    const fallback = window.setTimeout(finishBoot, Math.max(0, giveUp - performance.now()));
     const stop = onBoot(() => {
       if (bootState().done) cancelAnimationFrame(frame);
     });
     return () => {
       cancelAnimationFrame(frame);
-      window.clearTimeout(skip);
       window.clearTimeout(fallback);
       stop();
     };
@@ -153,9 +166,34 @@ export function BootScreen() {
             0%
           </span>
         </p>
+
+        {offerSound && (
+          <button
+            type="button"
+            className={`boot__sound${sound ? ' boot__sound--on' : ''}`}
+            aria-pressed={sound}
+            onClick={() => {
+              setChoseSound(true);
+              setSound(!sound);
+            }}
+          >
+            <Icon
+              icon={sound ? 'ph:speaker-high-bold' : 'ph:speaker-simple-x-bold'}
+              width={16}
+              height={16}
+              aria-hidden="true"
+            />
+            <span>Launch with sound</span>
+            <span className="boot__sound-state" aria-hidden="true">
+              {sound ? 'On' : 'Off'}
+            </span>
+          </button>
+        )}
       </div>
 
-      {canSkip && phase === 'loading' && (
+      {/* In the server HTML, appearing after a few seconds (BootScreen.scss);
+          ThemeScript handles the click until the app is running */}
+      {phase === 'loading' && (
         <button type="button" className="boot__skip" onClick={finishBoot}>
           Skip to the page
         </button>
