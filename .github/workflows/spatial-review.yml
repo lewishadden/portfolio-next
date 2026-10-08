@@ -1,0 +1,55 @@
+name: Spatial flight diagnostics
+on:
+  pull_request:
+concurrency:
+  group: spatial-diagnostics-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  flight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Instrument CI copy
+        run: |
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          path=Path('components/World/ExploreControls.tsx')
+          s=path.read_text()
+          debug='''
+          const flightEvents: unknown[] = [];
+          let flightFrames = 0;
+          let flightFrame: unknown = null;
+          function flightDebugState() {
+            return { mode: worldMode.get(), inspection: inspection.get(), heldCamera: inspectionOwnsCamera(), owner: hasWorldInputOwner(), input: { ...exploreInput }, velocity: worldStore.velocity, autopilot: worldStore.autopilot, docking: worldStore.docking, active: document.activeElement?.outerHTML.slice(0, 400), dialogs: [...document.querySelectorAll('[role="dialog"], [data-world-input-owner]')].map(el => el.outerHTML.slice(0, 300)), frames: flightFrames, frame: flightFrame };
+          }
+          function flightDebug(event: string, detail: unknown = null) {
+            flightEvents.push({ at: performance.now(), event, detail, ...flightDebugState() });
+            if (flightEvents.length > 40) flightEvents.shift();
+          }
+          if (typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__flightDebug = () => ({ ...flightDebugState(), events: flightEvents });
+          '''
+          s=s.replace('const keys = new Map',debug+'\nconst keys = new Map',1)
+          s=s.replace("    const down = (e: KeyboardEvent) => {", "    const down = (e: KeyboardEvent) => {\n      flightDebug('keydown', {code:e.code, prevented:e.defaultPrevented, target:(e.target as Element)?.outerHTML?.slice(0,300)});",1)
+          s=s.replace('        if (!inspectionOwnsCamera()) apply();', "        if (!inspectionOwnsCamera()) apply();\n        flightDebug('key-applied', [...held]);",1)
+          s=s.replace('    const blur = () => {', "    const blur = () => {\n      flightDebug('blur', {held:[...held], stack:new Error().stack});",1)
+          s=s.replace('    const resume = () => {', "    const resume = () => {\n      flightDebug('resume', [...held]);",1)
+          s=s.replace('    const state = look.current;', '    flightFrames++;\n    flightFrame = {at:performance.now(), delta, camera:camera.position.toArray()};\n    const state = look.current;',1)
+          path.write_text(s)
+          path=Path('tests/e2e/input-comfort.spec.ts')
+          s=path.read_text().replace("      await page.addInitScript", "      test.setTimeout(300_000);\n      await page.addInitScript",1)
+          s=s.replace('      const restored = await readPosition();', "      const debug = async (label: string) => console.log('FLIGHT_DEBUG',label,JSON.stringify(await page.evaluate(() => (window as unknown as {__flightDebug: () => unknown}).__flightDebug())));\n      await debug('before-key');\n      const restored = await readPosition();",1)
+          s=s.replace("      await page.keyboard.down('KeyS');", "      await page.keyboard.down('KeyS');\n      await debug('after-key');",1)
+          s=s.replace('        const moving = await readPosition();', "        await debug('first-movement');\n        const moving = await readPosition();",1)
+          s=s.replace('        await expect.poll(readPosition).not.toEqual(moving);', "        await expect.poll(async () => { await debug('sustained'); return readPosition(); }).not.toEqual(moving);",1)
+          s=s.replace("        await page.keyboard.up('KeyS');", "        await debug('finally');\n        await page.keyboard.up('KeyS');",1)
+          path.write_text(s)
+          PYTHON
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test tests/e2e/input-comfort.spec.ts --project=chromium-webgl --retries=0 --reporter=line
