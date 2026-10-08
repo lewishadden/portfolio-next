@@ -1,6 +1,16 @@
 import { expect, openHydrated, test } from './fixtures';
 
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
+
+/** Opacity as seen on screen: the element's own times every ancestor's */
+const effectiveOpacity = (locator: Locator) =>
+  locator.evaluate((el) => {
+    let opacity = 1;
+    for (let node: Element | null = el; node; node = node.parentElement) {
+      opacity *= Number(getComputedStyle(node).opacity);
+    }
+    return opacity;
+  });
 
 /**
  * Without storage the saved "3D off" can't be read, so the world would start:
@@ -62,4 +72,16 @@ test.describe('with storage blocked', () => {
       expect(errors).toEqual([]);
     });
   }
+});
+
+test('a page reached from the header shows its copy', async ({ page }) => {
+  await openHydrated(page, '/');
+  await page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'About' })
+    .click();
+  await expect(page).toHaveURL(/\/about$/);
+  const heading = page.locator('#main-content h1');
+  await expect(heading).toBeAttached();
+  await expect.poll(() => effectiveOpacity(heading), { timeout: 3_000 }).toBeGreaterThan(0.95);
 });
