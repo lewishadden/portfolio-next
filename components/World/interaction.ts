@@ -45,6 +45,10 @@ export function isOpenSpace(target: EventTarget | null) {
   // A locked pointer is steering, and its position is stale
   if (document.pointerLockElement) return false;
   if (!(target instanceof Element)) return true;
+  // Spatial reading surfaces also appear during tours and free flight. Their
+  // paragraphs, empty padding and form fields must not raycast through to a
+  // different artifact behind the console.
+  if (target.closest('[data-world-input-owner], [role="dialog"], dialog[open]')) return false;
   if (worldMode.get().mode !== 'page') return !target.closest('a, button, input, .glass');
   return !target.closest(content);
 }

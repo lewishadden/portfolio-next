@@ -1,5 +1,6 @@
 import { Skills } from 'components/Skills/Skills';
 import { PageJsonLd } from 'components/Seo/PageJsonLd';
+import { buildInspectionCatalog } from 'components/World/inspectionContent';
 
 import { getPageContent } from 'utils/serverUtils';
 import { pageMetadata } from 'utils/seo';
@@ -21,7 +22,7 @@ export default async function SkillsPage() {
   return (
     <>
       <PageJsonLd path="/skills" name="Skills" description={description} />
-      <Skills skills={skills} />
+      <Skills skills={skills} evidence={buildInspectionCatalog(pageData).skills} />
     </>
   );
 }

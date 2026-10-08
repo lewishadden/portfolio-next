@@ -269,7 +269,8 @@ html[data-world-mode='explore'] {
 
   /* Holding the tour (TourOverlay) freezes the countdown too */
   &:hover &__fill--run,
-  &:has(:focus-visible) &__fill--run {
+  &:has(:focus-visible) &__fill--run,
+  &[data-held='true'] &__fill--run {
     animation-play-state: paused;
   }
 

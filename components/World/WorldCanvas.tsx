@@ -14,6 +14,9 @@ import { Effects } from './Effects';
 import { ExploreControls } from './ExploreControls';
 import { GasClouds } from './GasClouds';
 import { setHullTheme } from './hull';
+import { inspection, inspectionOwnsCamera, useInspection } from './inspection';
+import { InspectionRig } from './InspectionRig';
+import { hasWorldInputOwner } from './inputOwnership';
 import { worldEvents } from './interaction';
 import { Landmarks } from './Landmarks';
 import { Lighting } from './Lighting';
@@ -36,6 +39,7 @@ import { navigableStations } from './routes';
 import { LiteContext } from './stationHooks';
 import { baseFov } from './stations';
 import { palettes } from './utils';
+import { useTravelPreference } from './travelPreference';
 import {
   Precompiled,
   WarmupGate,
@@ -43,8 +47,8 @@ import {
   createWarmupTracker,
   useWarmupIdle,
 } from './warmup';
-import { tourStops, useWorldMode } from './worldMode';
-import { worldStore } from './worldStore';
+import { tourStops, useWorldMode, worldMode } from './worldMode';
+import { exploreInput, onAutopilot, onDocking, worldStore } from './worldStore';
 
 import type { Dispatch, SetStateAction } from 'react';
 import type { QualityTier } from './quality';
@@ -66,20 +70,54 @@ function DemandDriver({
   focusProject: number;
 }) {
   const invalidate = useThree((s) => s.invalidate);
+  const travel = useTravelPreference();
 
   useEffect(() => {
     invalidate();
     const repaint = () => invalidate();
     window.addEventListener('scroll', repaint, { passive: true });
     window.addEventListener('resize', repaint);
+    window.addEventListener('keydown', repaint);
+    window.addEventListener('keyup', repaint);
+    window.addEventListener('pointermove', repaint, { passive: true });
+    window.addEventListener('pointerdown', repaint, { passive: true });
+    window.addEventListener('pointerup', repaint, { passive: true });
+    const subscriptions = [
+      worldMode.subscribe(repaint),
+      inspection.subscribe(repaint),
+      onAutopilot(repaint),
+      onDocking(repaint),
+    ];
     // Models stream in after the first paint
     const timers = [400, 1200, 3000].map((ms) => setTimeout(repaint, ms));
     return () => {
       window.removeEventListener('scroll', repaint);
       window.removeEventListener('resize', repaint);
+      window.removeEventListener('keydown', repaint);
+      window.removeEventListener('keyup', repaint);
+      window.removeEventListener('pointermove', repaint);
+      window.removeEventListener('pointerdown', repaint);
+      window.removeEventListener('pointerup', repaint);
+      subscriptions.forEach((unsubscribe) => unsubscribe());
       timers.forEach(clearTimeout);
     };
-  }, [invalidate, station, theme, focusProject]);
+  }, [invalidate, station, theme, focusProject, travel]);
+
+  useFrame(() => {
+    if (worldMode.get().mode !== 'explore' || inspectionOwnsCamera() || hasWorldInputOwner())
+      return;
+    // Demand rendering must keep integrating deliberate input and braking.
+    // Once still, the next input event wakes it; reduced motion adds no idle flight.
+    if (
+      worldStore.autopilot ||
+      worldStore.docking ||
+      worldStore.velocity > 0.01 ||
+      Object.values(exploreInput).some(
+        (value) => typeof value === 'number' && Math.abs(value) > 0.001
+      )
+    )
+      invalidate();
+  });
 
   return null;
 }
@@ -153,14 +191,18 @@ export default function WorldCanvas({
 }: WorldCanvasProps) {
   // The tour flies its own route; explore mode can reach every station
   const { mode, tourStop } = useWorldMode();
+  const selected = useInspection();
   const station = mode === 'tour' ? tourStops[tourStop] : pageStation;
 
   // Stations mount the first time they are visited and stay mounted so flights
   // back to them are seamless; unvisited stations cost nothing. The tour
   // warms the next stop while it lingers at this one.
   const [visited, setVisited] = useState<StationKey[]>([station]);
-  const wanted =
-    mode === 'tour' ? [station, tourStops[(tourStop + 1) % tourStops.length]] : [station];
+  const wanted = [
+    station,
+    ...(mode === 'tour' ? [tourStops[(tourStop + 1) % tourStops.length]] : []),
+    ...(selected ? [selected.station] : []),
+  ];
   const missing = wanted.filter((key) => !visited.includes(key));
   if (missing.length) setVisited([...visited, ...missing]);
 
@@ -263,6 +305,7 @@ export default function WorldCanvas({
 
           <CameraRig station={station} reducedMotion={reducedMotion} />
           <ExploreControls />
+          <InspectionRig catalog={content.inspection} theme={theme} reducedMotion={reducedMotion} />
           <MotionProbe reducedMotion={reducedMotion} />
           <PowerDriver />
 
@@ -302,6 +345,7 @@ export default function WorldCanvas({
                 theme={theme}
                 skills={content.skills}
                 categories={content.categories}
+                catalog={content.inspection}
               />
             </Precompiled>
           )}

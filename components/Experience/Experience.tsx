@@ -9,6 +9,8 @@ import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { useBooted } from 'components/World/boot';
 import { worldStore } from 'components/World/worldStore';
+import { InspectButton } from 'components/World/InspectButton';
+import { getRoleId } from 'components/World/inspectionTypes';
 import { illustrations } from 'components/World/StationFallback';
 import { Reveal } from 'components/Motion/Reveal';
 
@@ -149,6 +151,19 @@ const TimelineItem = ({
               </m.li>
             ))}
           </m.ul>
+
+          <m.div className="xp__inspect" variants={partVariants}>
+            <InspectButton
+              selection={{
+                kind: 'role',
+                id: getRoleId(item.company, item.title),
+                station: 'experience',
+              }}
+              label={`Read mission log: ${item.title} at ${item.company}`}
+            >
+              Read mission log
+            </InspectButton>
+          </m.div>
 
           {item.technologies.length > 0 && (
             <m.div className="xp__also" variants={partVariants}>

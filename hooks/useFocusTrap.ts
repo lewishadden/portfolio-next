@@ -8,8 +8,20 @@ const focusableSelectors = [
   'input:not([disabled]):not([tabindex="-1"])',
   'textarea:not([disabled]):not([tabindex="-1"])',
   'select:not([disabled]):not([tabindex="-1"])',
+  'summary:not([tabindex="-1"])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
+
+const activeTraps: HTMLElement[] = [];
+const inactiveSelector = '[inert], [hidden], [aria-hidden="true"]';
+
+/** Only the most recently opened interface may handle modal keyboard input. */
+export function isTopFocusTrap(container: Element | null) {
+  const top = activeTraps.findLast(
+    (element) => element.isConnected && !element.closest(inactiveSelector)
+  );
+  return !!container && top === container;
+}
 
 /**
  * Traps keyboard focus within a container element when active.
@@ -23,17 +35,22 @@ export function useFocusTrap<T extends HTMLElement>(active: boolean) {
     if (!containerRef.current) return [];
     return Array.from(
       containerRef.current.querySelectorAll<HTMLElement>(focusableSelectors)
-    ).filter((el) => !el.hasAttribute('aria-hidden') && el.offsetParent !== null);
+    ).filter(
+      (el) =>
+        !el.closest(inactiveSelector) && !el.hasAttribute('disabled') && el.offsetParent !== null
+    );
   }, []);
 
   useEffect(() => {
-    if (!active) return;
+    const container = containerRef.current;
+    if (!active || !container) return;
+    activeTraps.push(container);
 
     // Store the previously focused element to restore later
     previousFocusRef.current = document.activeElement as HTMLElement;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
+      if (e.key !== 'Tab' || e.defaultPrevented || !isTopFocusTrap(container)) return;
 
       const focusable = getFocusableElements();
       if (focusable.length === 0) {
@@ -63,9 +80,23 @@ export function useFocusTrap<T extends HTMLElement>(active: boolean) {
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      // React may already have detached this container before passive cleanup.
+      const wasTop = activeTraps.at(-1) === container;
+      const index = activeTraps.lastIndexOf(container);
+      if (index >= 0) activeTraps.splice(index, 1);
       // Hand focus back to whatever opened the trap, without scrolling to it —
-      // the page should stay exactly where the visitor left it
-      previousFocusRef.current?.focus({ preventScroll: true });
+      // removing an underlying dialog must not take focus from the top one.
+      const previous = previousFocusRef.current;
+      const next = activeTraps.findLast(
+        (element) => element.isConnected && !element.closest(inactiveSelector)
+      );
+      if (
+        wasTop &&
+        previous?.isConnected &&
+        !previous.closest(inactiveSelector) &&
+        (!next || next.contains(previous))
+      )
+        previous.focus({ preventScroll: true });
     };
   }, [active, getFocusableElements]);
 

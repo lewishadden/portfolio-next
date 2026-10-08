@@ -98,7 +98,9 @@ function readFound(): readonly string[] {
   if (found) return found;
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey) ?? '[]');
-    found = Array.isArray(stored) ? stored.filter((id) => signals.some((s) => s.id === id)) : [];
+    found = Array.isArray(stored)
+      ? [...new Set(stored.filter((id) => signals.some((s) => s.id === id)))]
+      : [];
   } catch {
     found = [];
   }
@@ -126,6 +128,20 @@ export function dismissFound() {
   if (!latest) return;
   latest = '';
   notify();
+}
+
+/** Opens a previously found transmission without revealing an undiscovered signal. */
+export function reopenFound(id: Signal['id']) {
+  if (!isFound(id)) return false;
+  latest = id;
+  notify();
+  return true;
+}
+
+export const signalLogEvent = 'world:signal-log';
+
+export function openSignalLog() {
+  window.dispatchEvent(new Event(signalLogEvent));
 }
 
 /** The detector: distance to the nearest signal not yet found (Infinity for none) */
