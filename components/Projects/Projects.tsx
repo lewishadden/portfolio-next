@@ -13,6 +13,7 @@ import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
 import { worldStore } from 'components/World/worldStore';
 import { InspectButton } from 'components/World/InspectButton';
+import { inspection, isInspecting } from 'components/World/inspection';
 
 import { projectPath, projectSlugFromPath } from '@/utils/projectPaths';
 
@@ -206,6 +207,13 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   const tourRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const indexRef = useRef<HTMLElement>(null);
+  const inspectionHold = useRef<{
+    y: number;
+    focus: number;
+    intro: number;
+    tail: number;
+    path: string;
+  } | null>(null);
   const [active, setActive] = useState(0);
   const lenis = useLenis();
 
@@ -250,8 +258,13 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     if (!tour) return;
     let lane = runway();
     let frame = 0;
+    let restoreFrame = 0;
+    let initialized = false;
     const update = () => {
       frame = 0;
+      // The current HUD owns the inspection opener. Scroll locking, browser
+      // history, or a pending glide must not replace it while reading.
+      if ((initialized && isInspecting()) || inspectionHold.current) return;
       if (selected >= 0) {
         worldStore.projectFocus = selected;
         worldStore.projectIntro = 0;
@@ -287,19 +300,70 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       lane = runway();
       schedule();
     });
+    const holdInspection = () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      cancelAnimationFrame(restoreFrame);
+      if (isInspecting()) {
+        inspectionHold.current ??= {
+          y: window.scrollY,
+          focus: worldStore.projectFocus,
+          intro: worldStore.projectIntro,
+          tail: worldStore.projectTail,
+          path: window.location.pathname,
+        };
+        // Stop an in-flight index/snap scroll at its current position. Resuming
+        // Lenis after closing must not resume an old target behind the dialog.
+        lenis?.scrollTo(inspectionHold.current.y, { immediate: true, force: true });
+        return;
+      }
+      const held = inspectionHold.current;
+      if (!held) return;
+      const restore = () => {
+        if (window.location.pathname !== held.path) {
+          inspectionHold.current = null;
+          return false;
+        }
+        if (lenis) lenis.scrollTo(held.y, { immediate: true, force: true });
+        else window.scrollTo({ top: held.y, behavior: 'instant' });
+        worldStore.projectFocus = held.focus;
+        worldStore.projectIntro = held.intro;
+        worldStore.projectTail = held.tail;
+        stageRef.current?.toggleAttribute('data-waiting', held.intro > 0.12);
+        return true;
+      };
+      if (!restore()) return;
+      // Browser scroll restoration and the inspector's overflow cleanup finish
+      // after popstate. Keep the opener mounted through those two frames.
+      restoreFrame = requestAnimationFrame(() => {
+        if (!restore()) return;
+        restoreFrame = requestAnimationFrame(() => {
+          if (!restore()) return;
+          lane = runway();
+          inspectionHold.current = null;
+        });
+      });
+    };
+    const unsubscribe = inspection.subscribe(holdInspection);
+    // A direct inspection link still needs a valid underlying page pose.
     update();
+    initialized = true;
+    holdInspection();
     resize.observe(tour);
     resize.observe(document.body);
     window.addEventListener('scroll', schedule, { passive: true });
     return () => {
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(restoreFrame);
+      unsubscribe();
+      inspectionHold.current = null;
       resize.disconnect();
       window.removeEventListener('scroll', schedule);
       worldStore.projectFocus = -1;
       worldStore.projectIntro = 0;
       worldStore.projectTail = 0;
     };
-  }, [items.length, runway, selected]);
+  }, [items.length, lenis, runway, selected]);
 
   const goTo = useCallback(
     (index: number) => {
@@ -324,6 +388,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     let timer = 0;
     let pressed = false;
     const settle = () => {
+      if (isInspecting() || inspectionHold.current) return;
       const lane = runway();
       if (pressed || lane.step < 10) return;
       // Still gliding (slow frames can space scroll events out): wait for rest
@@ -344,6 +409,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     };
     function rest() {
       window.clearTimeout(timer);
+      if (isInspecting() || inspectionHold.current) return;
       timer = window.setTimeout(settle, snapAfter);
     }
     // Dragging the scrollbar (or a finger still down) is not at rest
@@ -355,11 +421,13 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       rest();
     };
     lenis.on('scroll', rest);
+    const unsubscribe = inspection.subscribe(() => window.clearTimeout(timer));
     window.addEventListener('pointerdown', press);
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
     return () => {
       window.clearTimeout(timer);
+      unsubscribe();
       lenis.off('scroll', rest);
       window.removeEventListener('pointerdown', press);
       window.removeEventListener('pointerup', release);

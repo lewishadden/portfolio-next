@@ -34,13 +34,22 @@ test('the sector chart works with the world switched off', async ({ page }) => {
 
 test('inspection participates in Back and Forward and returns keyboard focus', async ({ page }) => {
   await openHydrated(page, '/projects');
+  const projectIndex = page.getByRole('navigation', { name: 'Projects', exact: true });
+  const firstProject = projectIndex.getByRole('link', { name: 'ZGS Carpentry', exact: true });
+  await firstProject.click();
+  await expect(firstProject).toHaveAttribute('aria-current', 'true');
+  await expect(page.locator('.projects__stage')).not.toHaveAttribute('data-waiting');
   const trigger = page.getByRole('button', { name: 'Inspect project ZGS Carpentry', exact: true });
+  await expect(trigger).toBeInViewport({ ratio: 1 });
+  const scrollY = await page.evaluate(() => window.scrollY);
   await trigger.click();
   const inspector = page.getByRole('dialog', { name: 'ZGS Carpentry', exact: true });
   await expect(inspector).toBeVisible();
   await page.goBack();
   await expect(inspector).toBeHidden();
   await expect(trigger).toBeFocused();
+  await expect(firstProject).toHaveAttribute('aria-current', 'true');
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(scrollY, 0);
   await page.goForward();
   await expect(inspector).toBeVisible();
   await page.keyboard.press('Escape');

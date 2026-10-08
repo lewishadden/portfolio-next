@@ -42,7 +42,7 @@ All input layers use document.querySelector('[data-world-input-owner]') and focu
 - [x] 3. Station/page entry points: in-world clicks inspect entities, keyboard-visible matching actions, named project selector, skill evidence UI, object-anchored prompts. Files stations/\*.tsx, Projects, Skills, Experience, About/Home/Contact and WorldTooltip as needed. Test accessible entity opening, no-WebGL parity.
 - [x] 4. Navigation/discovery: interactive sector chart, utilities, Hold/Resume/Previous and resumable tour, persistent discovery log. Files WorldUtilities/SectorChart, TourOverlay, worldMode, SignalsHud/signalStore. Test keyboard chart travel, tour controls, reopen discovered messages.
 - [x] 5. Input/comfort: focused controls own keys; pointer-lock denial fallback; no invisible tabbable waypoints; calm travel preference. ExploreControls, ExploreHud, pointerLock, Waypoints, travelPreference. Test docking key conflict, unavailable lock, focus and preference persistence. Core task applies continuous demand invalidation during explicit reduced-motion exploration.
-- [ ] 6. Integrate and verify: meaningful regression tests first where runnable; npm verify/build/e2e in available environment or CI. Independent review, fix findings, publish commits, ready PR with evidence.
+- Validation and delivery: meaningful regression tests first where runnable; npm verify/build/e2e in available environment or CI. Independent review, fix findings, publish commits, ready PR with evidence.
 
 ## Execution ledger
 
