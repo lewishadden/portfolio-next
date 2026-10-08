@@ -1,6 +1,6 @@
 /* =============================================================
    Skills — tilted ticker bands, then a bento of glass category
-   cards filled with proficiency tiles.
+   cards linked to project and role evidence.
    ============================================================= */
 .skills {
   /* ---------- Header readout ---------- */
@@ -196,65 +196,14 @@
     }
   }
 
-  /* The gauge shows the average on wider cards; the text takes over on phones */
-  &__avg {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    font-family: var(--font-mono);
-    font-size: var(--fs-tiny);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-  }
-
-  /* ---------- Average gauge ---------- */
-  &__gauge {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: 3.5rem;
-    height: 3.5rem;
-
-    svg {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      transform: rotate(-90deg);
-      fill: none;
-      stroke-width: 3;
-    }
-  }
-
-  &__gauge-track {
-    stroke: var(--border-color);
-  }
-
-  &__gauge-arc {
-    stroke-linecap: round;
-    filter: drop-shadow(0 0 4px var(--glow-cyan));
-  }
-
-  &__gauge-stop {
-    &--start {
-      stop-color: var(--gradient-start);
-    }
-
-    &--end {
-      stop-color: var(--gradient-end);
-    }
-  }
-
-  &__gauge-value {
-    font-family: var(--font-display);
+  &__proof {
     font-size: var(--fs-xs);
-    font-weight: var(--fw-bold);
-    letter-spacing: -0.02em;
-    color: var(--text-primary);
+    color: var(--text-secondary);
+  }
+
+  &__evidence-intro {
+    margin: 0 0 1.25rem;
+    color: var(--text-secondary);
   }
 
   /* ---------- Skill tiles ---------- */
@@ -276,11 +225,14 @@
     position: relative;
     display: grid;
     grid-template:
-      'icon level' auto
+      'icon arrow' auto
       'name name' 1fr
-      'meter meter' auto / auto minmax(0, 1fr);
+      'evidence evidence' auto / auto minmax(0, 1fr);
     gap: 0.65rem 0.5rem;
+    width: 100%;
     height: 100%;
+    text-align: left;
+    cursor: pointer;
     padding: 0.8rem 0.8rem 0.85rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -324,12 +276,8 @@
         transform: scale(1.14) rotate(-8deg);
       }
 
-      .skills__tile-level {
+      .skills__tile-arrow {
         color: var(--accent-secondary);
-      }
-
-      .skills__meter-fill {
-        filter: brightness(1.25);
       }
     }
   }
@@ -346,21 +294,18 @@
     transition: transform 0.5s var(--ease-spring);
   }
 
-  &__tile-level {
-    grid-area: level;
+  &__tile-arrow {
+    grid-area: arrow;
     justify-self: end;
-    align-self: start;
+    color: var(--text-secondary);
+  }
+
+  &__tile-evidence {
+    grid-area: evidence;
     font-family: var(--font-mono);
     font-size: var(--fs-tiny);
-    font-weight: var(--fw-medium);
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
-    transition: color var(--dur-fast) ease;
-
-    small {
-      font-size: 0.85em;
-      opacity: 0.7;
-    }
+    color: var(--text-secondary);
+    line-height: 1.5;
   }
 
   &__tile-name {
@@ -373,24 +318,7 @@
     overflow-wrap: anywhere;
   }
 
-  &__meter {
-    grid-area: meter;
-    display: block;
-    height: 3px;
-    border-radius: var(--radius-pill);
-    background: color-mix(in oklab, var(--text-primary) 10%, transparent);
-    overflow: hidden;
-  }
 
-  &__meter-fill {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: var(--gradient-brand);
-    box-shadow: 0 0 10px var(--glow-cyan);
-    transform-origin: left center;
-    transition: filter var(--dur-fast) ease;
-  }
 }
 
 @media (max-width: 1000px) {
@@ -409,28 +337,16 @@
     height: 2.75rem;
   }
 
-  .skills__gauge {
-    display: none;
-  }
-
-  .skills__avg {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-  }
-
   .skills__tiles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
   }
 
-  /* Compact tiles: icon on the left, name over the meter */
+  /* Compact tiles retain the evidence below each technology. */
   .skills__tile {
     grid-template:
-      'icon name name' 1fr
-      'icon meter level' auto / auto minmax(0, 1fr) auto;
+      'icon name arrow' 1fr
+      'evidence evidence evidence' auto / auto minmax(0, 1fr) auto;
     gap: 0.35rem 0.6rem;
     align-items: center;
     padding: 0.65rem 0.7rem;
@@ -450,12 +366,8 @@
     font-size: var(--fs-xs);
   }
 
-  .skills__tile-level {
-    align-self: center;
-    font-size: 0.625rem;
-  }
-
   .skills__bands {
     --band-tilt: -2.4deg;
   }
 }
+

@@ -4,11 +4,21 @@ import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+
+import { inspection, inspectionOwnsCamera, isInspecting } from './inspection';
+import {
+  hasWorldInputOwner,
+  isInteractiveTarget,
+  onWorldInputOwnerChange,
+  worldKeyOwned,
+} from './inputOwnership';
 import { canLockPointer, lockPointer } from './pointerLock';
 import { navigableStations, stationForPath } from './routes';
 import { applyShake } from './shake';
 import { setViewRange, useLite } from './stationHooks';
 import { baseFov, beaconHeight, stationPositions } from './stations';
+import { getTravelPreference } from './travelPreference';
 import { worldMode } from './worldMode';
 import {
   emitCue,
@@ -121,15 +131,26 @@ function stickTurn(offset: number) {
 
 /** HUD controls: the mouse is reaching for them, not steering */
 const overControls = (target: EventTarget | null) =>
-  target instanceof Element &&
-  !!target.closest(
-    'button, a, input, .explore-hud__top, .explore-hud__dock, .explore-hud__lift, .explore-hud__waypoints'
-  );
+  isInteractiveTarget(target) ||
+  (target instanceof Element &&
+    !!target.closest(
+      '.explore-hud__top, .explore-hud__dock, .explore-hud__lift, .explore-hud__waypoints'
+    ));
 
-function typing(target: EventTarget | null) {
-  return (
-    target instanceof HTMLElement && !!target.closest('input, textarea, select, [contenteditable]')
-  );
+function clearFlightInput() {
+  Object.assign(exploreInput, {
+    forward: 0,
+    strafe: 0,
+    lift: 0,
+    turn: 0,
+    boost: false,
+    lookX: 0,
+    lookY: 0,
+    steerX: 0,
+    steerY: 0,
+    stickX: 0,
+    stickY: 0,
+  });
 }
 
 /** Toggles the autopilot to the station a digit key names */
@@ -269,6 +290,7 @@ export function ExploreControls() {
     calm: false,
   });
   const lite = useLite();
+  const reduced = useReducedMotion();
 
   // Keyboard: held keys set the axes; digits set course; Escape leaves
   useEffect(() => {
@@ -286,7 +308,17 @@ export function ExploreControls() {
       }
     };
     const down = (e: KeyboardEvent) => {
-      if (worldMode.get().mode !== 'explore' || typing(e.target)) return;
+      if (worldMode.get().mode !== 'explore') return;
+      if (isInspecting() || inspectionOwnsCamera()) {
+        blur();
+        return;
+      }
+      if (worldKeyOwned(e)) {
+        // Focus/dialog changes already released flight. Do not overwrite a
+        // focused Rise/Sink button's own intentional keyboard input.
+        if (held.size || exploreInput.boost) blur();
+        return;
+      }
       // With the pointer locked the browser takes the first Esc to free the
       // mouse; one that reaches the page leaves free roam
       if (e.key === 'Escape') {
@@ -294,6 +326,11 @@ export function ExploreControls() {
         return;
       }
       if (e.key === 'Shift') exploreInput.boost = true;
+      if (e.code === 'KeyE' && !e.repeat) {
+        e.preventDefault();
+        window.dispatchEvent(new Event('world:inspect-reticle'));
+        return;
+      }
       const course = digit.exec(e.code);
       if (course && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
@@ -312,36 +349,62 @@ export function ExploreControls() {
     };
     const blur = () => {
       held.clear();
-      exploreInput.boost = false;
-      apply();
+      clearFlightInput();
+      velocity.set(0, 0, 0);
+      worldStore.velocity = 0;
     };
+    const focus = (e: FocusEvent) => {
+      if (isInteractiveTarget(e.target)) blur();
+    };
+    const offOwner = onWorldInputOwnerChange(blur);
+    const offInspection = inspection.subscribe(blur);
+    const offMode = worldMode.subscribe(blur);
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', upKey);
     window.addEventListener('blur', blur);
+    document.addEventListener('focusin', focus);
     return () => {
+      offOwner();
+      offInspection();
+      offMode();
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', upKey);
       window.removeEventListener('blur', blur);
+      document.removeEventListener('focusin', focus);
+      blur();
     };
   }, []);
 
   // The mouse looks (locked) or steers by where it rests. Touch is the
   // thumbsticks' (ExploreHud), which steer through the same input
   useEffect(() => {
-    const lockable = canLockPointer();
     let travel = 0;
     const centre = () => {
       exploreInput.steerX = 0;
       exploreInput.steerY = 0;
     };
     const down = (e: PointerEvent) => {
-      if (worldMode.get().mode !== 'explore' || e.pointerType !== 'mouse') return;
+      if (
+        worldMode.get().mode !== 'explore' ||
+        e.pointerType !== 'mouse' ||
+        e.defaultPrevented ||
+        inspectionOwnsCamera() ||
+        hasWorldInputOwner()
+      )
+        return;
       // A click on open space takes the mouse back
-      if (lockable && e.button === 0 && !overControls(e.target)) lockPointer();
+      if (e.button === 0 && !overControls(e.target)) {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        if (canLockPointer()) lockPointer();
+      }
     };
     const move = (e: PointerEvent) => {
       if (worldMode.get().mode !== 'explore' || e.pointerType !== 'mouse') return;
-      if (lockable) {
+      if (inspectionOwnsCamera() || hasWorldInputOwner()) {
+        centre();
+        return;
+      }
+      if (canLockPointer()) {
         // Free, the mouse is for the HUD; locked, every movement turns the view
         if (!document.pointerLockElement) return;
         exploreInput.lookX += e.movementX * lookSpeed;
@@ -377,28 +440,34 @@ export function ExploreControls() {
 
   useFrame(({ camera, clock, scene }, delta) => {
     const state = look.current;
-    const yawBefore = state.yaw;
     const dt = Math.min(delta, 1 / 20);
     const exploring = worldMode.get().mode === 'explore';
     reachOut(scene, exploring, lite, dt);
     if (!exploring) {
-      if (state.active) {
-        state.active = false;
-        velocity.set(0, 0, 0);
-        setDock('');
-        setAutopilot('');
-        setDocking('');
-      }
+      state.active = false;
+      velocity.set(0, 0, 0);
+      setDock('');
+      setAutopilot('');
+      setDocking('');
+      return;
+    }
+    // The inspector owns both its approach and its return. Dialogs also hold
+    // flight still; taking control again reads the actual restored pose.
+    if (inspectionOwnsCamera() || hasWorldInputOwner()) {
+      state.active = false;
+      clearFlightInput();
+      velocity.set(0, 0, 0);
+      worldStore.velocity = 0;
       return;
     }
     const cam = camera as PerspectiveCamera;
+    state.calm = reduced || getTravelPreference() === 'calm';
 
     // Take over from wherever the camera was pointing. The mouse is wherever
     // the visitor clicked to start, so steering waits until it next moves
     if (!state.active) {
       state.active = true;
       state.since = clock.elapsedTime;
-      state.calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       euler.setFromQuaternion(cam.quaternion, 'YXZ');
       state.yaw = euler.y;
       state.pitch = euler.x;
@@ -409,6 +478,7 @@ export function ExploreControls() {
       exploreInput.lookX = 0;
       exploreInput.lookY = 0;
     }
+    const yawBefore = state.yaw;
 
     // Any hand on the controls takes over from the autopilot
     const manual =
@@ -460,7 +530,9 @@ export function ExploreControls() {
     right.set(1, 0, 0).applyEuler(euler.set(0, state.yaw, 0, 'YXZ'));
     const drift = velocity.dot(right);
     const bank = state.calm || worldStore.docking ? 0 : turnRate * bankPerRate - drift * 0.006;
-    state.roll = MathUtils.damp(state.roll, MathUtils.clamp(bank, -maxBank, maxBank), 4, dt);
+    state.roll = state.calm
+      ? 0
+      : MathUtils.damp(state.roll, MathUtils.clamp(bank, -maxBank, maxBank), 4, dt);
     cam.quaternion.setFromEuler(euler.set(state.pitch, state.yaw, state.roll, 'YXZ'));
     cam.position.addScaledVector(velocity, dt);
 
@@ -497,7 +569,9 @@ export function ExploreControls() {
 
     const speed = velocity.length();
     worldStore.velocity = speed;
-    cam.fov = MathUtils.damp(cam.fov, baseFov + Math.min(speed * 0.25, 18), 4, dt);
+    cam.fov = state.calm
+      ? baseFov
+      : MathUtils.damp(cam.fov, baseFov + Math.min(speed * 0.25, 18), 4, dt);
     cam.updateProjectionMatrix();
     applyShake(cam, clock.elapsedTime, dt, state.calm);
     publishWaypoints(cam);

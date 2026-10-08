@@ -1,5 +1,9 @@
 import { useSyncExternalStore } from 'react';
 
+let rejected = false;
+let pending = false;
+const availabilityListeners = new Set<() => void>();
+
 /* ------------------------------------------------------------------
    Free roam steers like a flight sim: the pointer is locked, so the
    cursor never drifts off the middle of the screen and every movement
@@ -12,6 +16,7 @@ import { useSyncExternalStore } from 'react';
 export function canLockPointer() {
   return (
     typeof document !== 'undefined' &&
+    !rejected &&
     'requestPointerLock' in document.documentElement &&
     window.matchMedia('(pointer: fine)').matches
   );
@@ -19,12 +24,30 @@ export function canLockPointer() {
 
 /** Needs a user gesture (a click or key press); quietly does nothing otherwise */
 export function lockPointer() {
-  if (!canLockPointer() || document.pointerLockElement) return;
+  if (!canLockPointer() || document.pointerLockElement || pending) return;
+  pending = true;
+  const cleanup = () => {
+    pending = false;
+    document.removeEventListener('pointerlockerror', fail);
+    document.removeEventListener('pointerlockchange', changed);
+  };
+  const fail = () => {
+    cleanup();
+    // A denied API is unavailable for this visit. Open-space mouse steering
+    // takes over, and later HUD clicks never repeat the failed request.
+    rejected = true;
+    availabilityListeners.forEach((listener) => listener());
+  };
+  const changed = () => {
+    if (document.pointerLockElement) cleanup();
+  };
+  document.addEventListener('pointerlockerror', fail);
+  document.addEventListener('pointerlockchange', changed);
   try {
     const request = document.body.requestPointerLock() as unknown as Promise<void> | undefined;
-    request?.catch?.(() => undefined);
+    request?.catch?.(fail);
   } catch {
-    // Not allowed here (no gesture, a sandboxed frame): the mouse stays free
+    fail();
   }
 }
 
@@ -39,7 +62,23 @@ const subscribe = (listener: () => void) => {
 const locked = () => !!document.pointerLockElement;
 const serverLocked = () => false;
 
+const subscribeAvailability = (listener: () => void) => {
+  availabilityListeners.add(listener);
+  const media = window.matchMedia('(pointer: fine)');
+  media.addEventListener('change', listener);
+  return () => {
+    availabilityListeners.delete(listener);
+    media.removeEventListener('change', listener);
+  };
+};
+
+/** Includes request failures, so hints and steering agree about availability. */
+export function useCanLockPointer() {
+  return useSyncExternalStore(subscribeAvailability, canLockPointer, serverLocked);
+}
+
 /** Whether the pointer is locked right now */
 export function usePointerLocked() {
   return useSyncExternalStore(subscribe, locked, serverLocked);
 }
+

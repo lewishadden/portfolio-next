@@ -12,6 +12,7 @@ import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
 import { worldStore } from 'components/World/worldStore';
+import { InspectButton } from 'components/World/InspectButton';
 
 import { projectPath, projectSlugFromPath } from '@/utils/projectPaths';
 
@@ -153,6 +154,13 @@ function ProjectHud({
       <p className="proj-hud__desc">{snippet(description)}</p>
 
       <div className="proj-hud__actions">
+        <InspectButton
+          selection={{ kind: 'project', id: slug, station: 'projects' }}
+          className="btn btn--ghost proj-hud__btn"
+          label={`Inspect project ${name}`}
+        >
+          Inspect project
+        </InspectButton>
         {/* A real link (crawlable, opens in a new tab) that opens the modal on a plain click */}
         <Link
           href={projectPath(slug)}
@@ -197,8 +205,22 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
   const { label, items } = projects;
   const tourRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const indexRef = useRef<HTMLElement>(null);
   const [active, setActive] = useState(0);
   const lenis = useLenis();
+
+  useEffect(() => {
+    const index = indexRef.current;
+    const current = index?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!index || !current) return;
+    const bounds = index.getBoundingClientRect();
+    const item = current.getBoundingClientRect();
+    index.scrollTo({
+      left: index.scrollLeft + item.left - bounds.left - (bounds.width - item.width) / 2,
+      top: index.scrollTop + item.top - bounds.top - (bounds.height - item.height) / 2,
+      behavior: 'auto',
+    });
+  }, [active]);
 
   // The open project lives in the URL: opening one pushes /projects/<slug>
   // without a navigation (the page stays mounted underneath), so the address
@@ -385,7 +407,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         style={{ '--steps': items.length } as CSSProperties}
       >
         <div ref={stageRef} className="projects__stage">
-          <nav className="projects__index" aria-label="Projects">
+          <nav ref={indexRef} className="projects__index" aria-label="Projects" data-lenis-prevent>
             <ol>
               {items.map((project, i) => (
                 <li key={project.slug}>
@@ -393,6 +415,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
                     href={projectPath(project.slug)}
                     prefetch={false}
                     className="projects__index-link"
+                    title={project.title.trim()}
                     aria-current={i === active ? 'true' : undefined}
                     onClick={(e) => {
                       if (!plainClick(e)) return;
@@ -401,7 +424,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
                     }}
                   >
                     <span aria-hidden="true">{pad(i + 1)}</span>
-                    <span className="sr-only">{project.title.trim()}</span>
+                    <span className="projects__index-title">{project.title.trim()}</span>
                   </Link>
                 </li>
               ))}
@@ -451,3 +474,4 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
 };
 
 export default Projects;
+

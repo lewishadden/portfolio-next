@@ -14,11 +14,14 @@ import './ContactForm.scss';
 
 interface ContactFormProps {
   contact: ContactProps;
+  /** Prefix field IDs when the same form is also mounted on the semantic route. */
+  idPrefix?: string;
   onSuccess: () => void;
   onFail: (response: Response) => void;
 }
 
-const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
+const ContactForm = ({ contact, onSuccess, onFail, idPrefix = '' }: ContactFormProps) => {
+  const fieldId = (name: string) => `${idPrefix}${name}`;
   const { submitting, send } = contact;
 
   const [loading, setLoading] = useState(false);
@@ -83,7 +86,7 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
       else onFail(response);
     } catch {
       setLoading(false);
-      onFail(new Response(null, { status: 0, statusText: 'Network Error' }));
+      onFail(Response.error());
     } finally {
       setTransmitting(false);
     }
@@ -125,11 +128,11 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
             </div>
             {/* Honeypot: hidden from people and assistive tech, irresistible to bots */}
             <div className="contact-form__trap" aria-hidden="true">
-              <label htmlFor="formCompany">Company</label>
+              <label htmlFor={fieldId('formCompany')}>Company</label>
               <input
                 ref={honeypotRef}
                 type="text"
-                id="formCompany"
+                id={fieldId('formCompany')}
                 name={honeypotField}
                 tabIndex={-1}
                 autoComplete="off"
@@ -138,12 +141,12 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
             </div>
             <div className="contact-form__row">
               <div className="contact-form__field">
-                <label htmlFor="formFirstName" className="contact-form__label">
+                <label htmlFor={fieldId('formFirstName')} className="contact-form__label">
                   First name <span aria-hidden="true">*</span>
                 </label>
                 <input
                   type="text"
-                  id="formFirstName"
+                  id={fieldId('formFirstName')}
                   className={`contact-form__input${showError('firstName') ? ' contact-form__input--invalid' : ''}`}
                   placeholder="Ada"
                   name="firstName"
@@ -153,21 +156,21 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
                   autoComplete="given-name"
                   aria-required="true"
                   aria-invalid={!!showError('firstName')}
-                  aria-describedby={showError('firstName') ? 'formFirstName-error' : undefined}
+                  aria-describedby={showError('firstName') ? fieldId('formFirstName-error') : undefined}
                 />
                 {showError('firstName') && (
-                  <span id="formFirstName-error" className="contact-form__error" role="alert">
+                  <span id={fieldId('formFirstName-error')} className="contact-form__error" role="alert">
                     {errors.firstName}
                   </span>
                 )}
               </div>
               <div className="contact-form__field">
-                <label htmlFor="formLastName" className="contact-form__label">
+                <label htmlFor={fieldId('formLastName')} className="contact-form__label">
                   Last name <span aria-hidden="true">*</span>
                 </label>
                 <input
                   type="text"
-                  id="formLastName"
+                  id={fieldId('formLastName')}
                   className={`contact-form__input${showError('lastName') ? ' contact-form__input--invalid' : ''}`}
                   placeholder="Lovelace"
                   name="lastName"
@@ -177,10 +180,10 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
                   autoComplete="family-name"
                   aria-required="true"
                   aria-invalid={!!showError('lastName')}
-                  aria-describedby={showError('lastName') ? 'formLastName-error' : undefined}
+                  aria-describedby={showError('lastName') ? fieldId('formLastName-error') : undefined}
                 />
                 {showError('lastName') && (
-                  <span id="formLastName-error" className="contact-form__error" role="alert">
+                  <span id={fieldId('formLastName-error')} className="contact-form__error" role="alert">
                     {errors.lastName}
                   </span>
                 )}
@@ -188,12 +191,12 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
             </div>
 
             <div className="contact-form__field">
-              <label htmlFor="formEmail" className="contact-form__label">
+              <label htmlFor={fieldId('formEmail')} className="contact-form__label">
                 Email address <span aria-hidden="true">*</span>
               </label>
               <input
                 type="email"
-                id="formEmail"
+                id={fieldId('formEmail')}
                 className={`contact-form__input${showError('email') ? ' contact-form__input--invalid' : ''}`}
                 placeholder="you@company.com"
                 name="email"
@@ -203,21 +206,21 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
                 autoComplete="email"
                 aria-required="true"
                 aria-invalid={!!showError('email')}
-                aria-describedby={showError('email') ? 'formEmail-error' : undefined}
+                aria-describedby={showError('email') ? fieldId('formEmail-error') : undefined}
               />
               {showError('email') && (
-                <span id="formEmail-error" className="contact-form__error" role="alert">
+                <span id={fieldId('formEmail-error')} className="contact-form__error" role="alert">
                   {errors.email}
                 </span>
               )}
             </div>
 
             <div className="contact-form__field">
-              <label htmlFor="formMessage" className="contact-form__label">
+              <label htmlFor={fieldId('formMessage')} className="contact-form__label">
                 Message <span aria-hidden="true">*</span>
               </label>
               <textarea
-                id="formMessage"
+                id={fieldId('formMessage')}
                 className={`contact-form__input contact-form__textarea${showError('message') ? ' contact-form__input--invalid' : ''}`}
                 rows={5}
                 placeholder="Tell me about the project, the team and the timeline…"
@@ -228,18 +231,18 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
                 maxLength={maxMessageLength}
                 aria-required="true"
                 aria-invalid={!!showError('message')}
-                aria-describedby={`formMessage-counter${showError('message') ? ' formMessage-error' : ''}`}
+                aria-describedby={`${fieldId('formMessage-counter')}${showError('message') ? ` ${fieldId('formMessage-error')}` : ''}`}
               />
               <div className="contact-form__field-footer">
                 {showError('message') ? (
-                  <span id="formMessage-error" className="contact-form__error" role="alert">
+                  <span id={fieldId('formMessage-error')} className="contact-form__error" role="alert">
                     {errors.message}
                   </span>
                 ) : (
                   <span />
                 )}
                 <span
-                  id="formMessage-counter"
+                  id={fieldId('formMessage-counter')}
                   className={`contact-form__counter${values.message.length > maxMessageLength * 0.9 ? ' contact-form__counter--warn' : ''}`}
                   aria-live="polite"
                 >
@@ -269,3 +272,4 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
 };
 
 export default ContactForm;
+

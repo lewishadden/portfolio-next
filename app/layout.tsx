@@ -1,7 +1,3 @@
-import './globals.scss';
-import './theme-variables.scss';
-import './page.scss';
-
 import localFont from 'next/font/local';
 
 import { ClientProviders } from '@/components/ClientProviders/ClientProviders';
@@ -17,15 +13,19 @@ import { StatsOverlay } from '@/components/StatsOverlay/StatsOverlay';
 import { RoamButton } from '@/components/RoamButton/RoamButton';
 import { BootScreen } from '@/components/BootScreen/BootScreen';
 import { ScrollProgress } from '@/components/ScrollProgress/ScrollProgress';
-
-import type { Metadata, Viewport } from 'next';
-
+import { buildInspectionCatalog } from '@/components/World/inspectionContent';
+import { getRoleId } from '@/components/World/inspectionTypes';
 import content from '../content/content.json';
 import { siteUrl, personName, siteDescription as description } from 'utils/seo';
-import { ContactInfo, Project, Social } from '@/types';
 
+import type { Metadata, Viewport } from 'next';
+import type { ContactInfo, Project, Social } from '@/types';
 import type { PaletteData } from '@/components/CommandPalette/CommandPalette';
 import type { WorldContent } from '@/components/World/types';
+
+import './globals.scss';
+import './theme-variables.scss';
+import './page.scss';
 
 // Self-hosted (app/_fonts, see its README) rather than next/font/google: builds
 // then never depend on Google Fonts, whose responses can break Turbopack's font
@@ -53,6 +53,7 @@ const geistMono = localFont({
 
 // Serialisable slice of content.json the 3D world needs (project screens, skill badges)
 const worldContent: WorldContent = {
+  inspection: buildInspectionCatalog(content),
   projects: content.projects.items.map((p) => ({
     title: p.title,
     slug: p.slug,
@@ -71,7 +72,7 @@ const worldContent: WorldContent = {
   })),
   skills: content.skills.icons.map((s) => ({ name: s.name, icon: s.class, category: s.category })),
   categories: content.skills.categories.map((c) => c.categoryKey),
-  roles: content.experience.items.map(({ title, company }) => ({ title, company })),
+  roles: content.experience.items.map(({ title, company }) => ({ id: getRoleId(company, title), title, company })),
   tour: content.tour.stops,
   cv: { url: content.about.cta.primary.url, name: content.about.cv.download },
 };
@@ -270,3 +271,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+

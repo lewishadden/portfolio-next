@@ -27,10 +27,14 @@ import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
 import { setUniform } from '../utils';
-import { focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
+import { setWorldHover, worldStore, worldTip } from '../worldStore';
+import { inspectEntity, inspection, isInspecting } from '../inspection';
+import { SkillEvidenceCluster } from './SkillEvidenceCluster';
 
 import type { Camera, LineSegments, Object3D, Sprite, SpriteMaterial } from 'three';
 import type { NavLight } from '../parts';
+import type { InspectionCatalog } from '../inspectionTypes';
+import type { WorldTip } from '../worldStore';
 import type { WorldPalette, WorldTheme } from '../utils';
 
 type SkillIcon = { name: string; icon: string; category: string };
@@ -253,7 +257,8 @@ function stepOrbit(
   const [line, spinner] = orbitGroup.children as [Object3D, Object3D];
   if (!spinner) return;
   const reading = worldStore.skillCategory;
-  const named = hovered ?? worldStore.skillHover;
+  const selected = inspection.get();
+  const named = selected?.kind === 'skill' ? selected.id : hovered ?? worldStore.skillHover;
   let lit = reading === category ? 1 : 0;
   for (const child of spinner.children) {
     if (!(child as Sprite).isSprite) continue;
@@ -264,13 +269,14 @@ function stepOrbit(
     const size = MathUtils.damp(badge.scale.x, pointed ? 0.7 : 0.44, 10, dt);
     badge.scale.set(size, size, 1);
     const material = badge.material as SpriteMaterial;
-    const dim = reading && reading !== category && !pointed ? 0.35 : 1;
-    material.opacity = MathUtils.damp(material.opacity, dim * clearOfCopy(badge, camera), 8, dt);
+    const inspectingSkill = selected?.kind === 'skill';
+    const dim = inspectingSkill ? (pointed ? 1 : 0.2) : reading && reading !== category && !pointed ? 0.35 : 1;
+    material.opacity = MathUtils.damp(material.opacity, dim * (inspectingSkill ? 1 : clearOfCopy(badge, camera)), 8, dt);
   }
   const constellation = spinner.children.find((child) => (child as LineSegments).isLineSegments);
   if (constellation) {
     const material = (constellation as LineSegments).material as LineBasicMaterial;
-    const target = lit * (0.55 + 0.15 * Math.sin(t * 3));
+    const target = selected?.kind === 'skill' ? 0 : lit * (0.55 + 0.15 * Math.sin(t * 3));
     material.opacity = MathUtils.damp(material.opacity, target, 6, dt);
     constellation.visible = material.opacity > 0.01;
   }
@@ -290,10 +296,12 @@ export function SkillsStation({
   theme,
   skills,
   categories,
+  catalog,
 }: {
   theme: WorldTheme;
   skills: SkillIcon[];
   categories: string[];
+  catalog?: InspectionCatalog;
 }) {
   const groupRef = useRef<Group>(null);
   const planetRef = useRef<Group>(null);
@@ -360,14 +368,14 @@ export function SkillsStation({
   );
 
   // One stable tooltip per skill (the tooltip store compares by identity)
-  const tips = useMemo(
+  const tips = useMemo<Map<string, WorldTip>>(
     () =>
       new Map(
         skills.map((skill) => [
           skill.name,
           {
             label: skill.name,
-            sub: `${skill.category[0].toUpperCase()}${skill.category.slice(1)} · click to find it`,
+            sub: `${skill.category[0].toUpperCase()}${skill.category.slice(1)} · inspect evidence`,
           },
         ])
       ),
@@ -403,7 +411,7 @@ export function SkillsStation({
     orbitsRef.current?.children.forEach((orbitGroup, k) => {
       const spinner = orbitGroup.children[1];
       if (!spinner) return;
-      spinner.rotation.y = t * (0.05 + k * 0.018) * (k % 2 ? -1 : 1) + worldStore.scroll * 0.8;
+      if (!isInspecting()) spinner.rotation.y = t * (0.05 + k * 0.018) * (k % 2 ? -1 : 1) + worldStore.scroll * 0.8;
       stepOrbit(orbitGroup, orbits[k].category, hoveredRef.current, camera, t, dt);
     });
   });
@@ -442,6 +450,7 @@ export function SkillsStation({
           </group>
         </group>
 
+        {catalog && <SkillEvidenceCluster catalog={catalog} orbitsRef={orbitsRef} theme={theme} />}
         <group ref={orbitsRef}>
           {orbits.map((orbit, k) => (
             <group key={orbit.category} rotation={[orbit.tilt[0], 0, orbit.tilt[1]]}>
@@ -460,6 +469,7 @@ export function SkillsStation({
                     <sprite
                       key={orbit.members[i].name}
                       name={orbit.members[i].name}
+                      userData={{ inspection: { kind: 'skill', id: orbit.members[i].name, station: 'skills' } }}
                       position={[Math.cos(angle) * orbit.radius, 0, Math.sin(angle) * orbit.radius]}
                       scale={0.44}
                       onPointerOver={(e) => {
@@ -469,7 +479,9 @@ export function SkillsStation({
                         if (hoveredRef.current) setWorldHover(false);
                         hoveredRef.current = name;
                         setWorldHover(true);
-                        worldTip.set(tips.get(name) ?? null);
+                        const tip = tips.get(name);
+                        if (tip) tip.anchor = e.point.toArray();
+                        worldTip.set(tip ?? null);
                       }}
                       onPointerOut={() => {
                         const name = orbit.members[i].name;
@@ -481,7 +493,7 @@ export function SkillsStation({
                       onClick={(e) => {
                         e.stopPropagation();
                         spawnPing(e.point);
-                        focusOnPage(`skill:${orbit.members[i].name}`);
+                        inspectEntity({ kind: 'skill', id: orbit.members[i].name, station: 'skills', anchor: e.point.toArray() });
                       }}
                     >
                       <spriteMaterial
@@ -501,3 +513,4 @@ export function SkillsStation({
     </StationScope>
   );
 }
+

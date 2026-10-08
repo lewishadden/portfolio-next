@@ -1,0 +1,42 @@
+name: Spatial review diagnostics
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Format and diagnose styles
+        run: |
+          npm run prettier:write
+          npm run lint:fix
+        continue-on-error: true
+      - name: Export formatting and public formatter for local review
+        if: always()
+        run: |
+          node --input-type=module <<'JS'
+          import { execFileSync } from 'node:child_process';
+          const changed = execFileSync('git', ['diff', '--name-only', '-z']).toString().split('\0').filter(Boolean);
+          const formatter = ['standalone.mjs', 'plugins/typescript.mjs', 'plugins/estree.mjs', 'plugins/babel.mjs', 'plugins/postcss.mjs', 'plugins/markdown.mjs', 'plugins/yaml.mjs'].map(p => 'node_modules/prettier/' + p);
+          const archive = execFileSync('tar', ['-czf', '-', ...changed, ...formatter], { maxBuffer: 10000000 }).toString('base64');
+          console.log('SPATIAL_EXPORT_BEGIN');
+          for (let i = 0; i < archive.length; i += 4000) console.log(archive.slice(i, i + 4000));
+          console.log('SPATIAL_EXPORT_END');
+          JS
+      - name: Typecheck
+        if: always()
+        run: npm run typecheck
+      - name: Build
+        if: always()
+        run: npm run build

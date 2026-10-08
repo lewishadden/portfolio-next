@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
 import { Icon } from '@iconify/react';
 
 import {
   allFound,
   dismissFound,
+  openSignalLog,
   signalCount,
   signals,
   useDetector,
@@ -15,9 +15,6 @@ import {
 
 import type { SignalAction } from './signalStore';
 import type { WorldContent } from './types';
-
-/** How long a find's card stays up (the mouse may be locked, so it closes itself) */
-const cardTime = 16_000;
 
 /** Free roam's tally of signals found, for the HUD's top bar */
 export function SignalCount() {
@@ -56,13 +53,13 @@ export function SignalDetector() {
   );
 }
 
-function ActionButton({
+export function SignalActionButton({
   action,
   cv,
   onPage,
 }: {
   action: SignalAction;
-  cv: WorldContent['cv'];
+  cv?: WorldContent['cv'];
   onPage: (path: string) => void;
 }) {
   const icon = action.kind === 'cv' ? 'ph:file-arrow-down-bold' : 'ph:arrow-up-right-bold';
@@ -76,8 +73,9 @@ function ActionButton({
   }
   const link =
     action.kind === 'cv'
-      ? { href: cv.url, download: cv.name }
+      ? cv && { href: cv.url, download: cv.name }
       : { href: action.href, target: '_blank', rel: 'noopener noreferrer' };
+  if (!link) return null;
   return (
     <a className="btn btn--primary" {...link}>
       <span>{action.label}</span>
@@ -99,17 +97,11 @@ export function SignalCard({
   const found = useFoundSignals().length;
   const signal = signals.find((s) => s.id === latest);
 
-  useEffect(() => {
-    if (!latest) return;
-    const id = window.setTimeout(dismissFound, cardTime);
-    return () => window.clearTimeout(id);
-  }, [latest]);
-
   if (!signal) return null;
   const complete = found === signalCount;
   return (
-    <div className="explore-hud__signal glass" role="status">
-      <p className="explore-hud__signal-eyebrow">
+    <div className="explore-hud__signal glass" role="region" aria-label="Discovered signal">
+      <p className="explore-hud__signal-eyebrow" role="status">
         <Icon icon="ph:broadcast-bold" width={14} height={14} aria-hidden="true" />
         Signal found · {found}/{signalCount}
       </p>
@@ -121,10 +113,13 @@ export function SignalCard({
         </p>
       )}
       <div className="explore-hud__signal-actions">
-        {signal.action && <ActionButton action={signal.action} cv={cv} onPage={onPage} />}
+        {signal.action && <SignalActionButton action={signal.action} cv={cv} onPage={onPage} />}
         {complete && allFound.action && signal.action?.kind !== 'page' && (
-          <ActionButton action={allFound.action} cv={cv} onPage={onPage} />
+          <SignalActionButton action={allFound.action} cv={cv} onPage={onPage} />
         )}
+        <button type="button" className="btn btn--ghost" onClick={openSignalLog}>
+          Ship log
+        </button>
         <button type="button" className="explore-hud__exit" onClick={dismissFound}>
           Close
         </button>
@@ -132,3 +127,4 @@ export function SignalCard({
     </div>
   );
 }
+
