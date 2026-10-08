@@ -109,8 +109,9 @@ test.describe('flight input ownership', () => {
       await expect(inspector).toBeHidden();
       await expect(hud).toBeVisible();
       expect(new URL(page.url()).searchParams.has('inspect')).toBe(false);
-      // Let the saved camera pose settle, then establish continued flight
-      // from one held key without additional pointer events waking the canvas.
+      // Reverse into open space: the saved Home view faces the hull, so forward
+      // flight can legitimately stop at a collision during slow software draws.
+      // One held key must sustain flight without more pointer events waking it.
       await page.evaluate(
         () =>
           new Promise<void>((resolve) =>
@@ -118,18 +119,19 @@ test.describe('flight input ownership', () => {
           )
       );
       await hud.focus();
-      const restored = await marker.evaluate((element) => element.style.transform);
-      await page.keyboard.down('KeyW');
+      const readPosition = () =>
+        marker.evaluate((element) => ({
+          transform: element.style.transform,
+          distance: element.querySelector('[data-km]')?.textContent,
+        }));
+      const restored = await readPosition();
+      await page.keyboard.down('KeyS');
       try {
-        await expect
-          .poll(() => marker.evaluate((element) => element.style.transform))
-          .not.toBe(restored);
-        const moving = await marker.evaluate((element) => element.style.transform);
-        await expect
-          .poll(() => marker.evaluate((element) => element.style.transform))
-          .not.toBe(moving);
+        await expect.poll(readPosition).not.toEqual(restored);
+        const moving = await readPosition();
+        await expect.poll(readPosition).not.toEqual(moving);
       } finally {
-        await page.keyboard.up('KeyW');
+        await page.keyboard.up('KeyS');
       }
       await hud.getByRole('button', { name: /^Exit/ }).click();
     }

@@ -300,6 +300,7 @@ export function ExploreControls() {
       exploreInput.strafe = 0;
       exploreInput.lift = 0;
       exploreInput.turn = 0;
+      exploreInput.boost = held.has('ShiftLeft') || held.has('ShiftRight');
       for (const code of held) {
         const axis = keys.get(code);
         if (axis && axis !== 'boost' && axis !== 'lookX' && axis !== 'lookY') {
@@ -309,7 +310,7 @@ export function ExploreControls() {
     };
     const down = (e: KeyboardEvent) => {
       if (worldMode.get().mode !== 'explore') return;
-      if (isInspecting() || inspectionOwnsCamera()) {
+      if (isInspecting()) {
         blur();
         return;
       }
@@ -319,13 +320,22 @@ export function ExploreControls() {
         if (held.size || exploreInput.boost) blur();
         return;
       }
+      // The dialog can close before its return pose has reached the canvas.
+      // Keep newly held flight keys until that handoff, without moving the
+      // camera or accepting shortcuts through a still-open interface.
+      if (keys.has(e.code) || e.key === 'Shift') {
+        if (keys.has(e.code)) e.preventDefault();
+        held.add(e.code);
+        if (!inspectionOwnsCamera()) apply();
+        return;
+      }
+      if (inspectionOwnsCamera()) return;
       // With the pointer locked the browser takes the first Esc to free the
       // mouse; one that reaches the page leaves free roam
       if (e.key === 'Escape') {
         worldMode.exit();
         return;
       }
-      if (e.key === 'Shift') exploreInput.boost = true;
       if (e.code === 'KeyE' && !e.repeat) {
         e.preventDefault();
         window.dispatchEvent(new Event('world:inspect-reticle'));
@@ -337,15 +347,9 @@ export function ExploreControls() {
         setCourse(Number(course[1]));
         return;
       }
-      if (keys.has(e.code)) {
-        e.preventDefault();
-        held.add(e.code);
-        apply();
-      }
     };
     const upKey = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') exploreInput.boost = false;
-      if (held.delete(e.code)) apply();
+      if (held.delete(e.code) && !inspectionOwnsCamera()) apply();
     };
     const blur = () => {
       held.clear();
@@ -356,8 +360,12 @@ export function ExploreControls() {
     const focus = (e: FocusEvent) => {
       if (isInteractiveTarget(e.target)) blur();
     };
-    const offOwner = onWorldInputOwnerChange(blur);
-    const offInspection = inspection.subscribe(blur);
+    const resume = () => {
+      if (isInspecting() || hasWorldInputOwner()) blur();
+      else if (!inspectionOwnsCamera()) apply();
+    };
+    const offOwner = onWorldInputOwnerChange(resume);
+    const offInspection = inspection.subscribe(resume);
     const offMode = worldMode.subscribe(blur);
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', upKey);
