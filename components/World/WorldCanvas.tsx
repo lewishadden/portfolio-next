@@ -84,49 +84,64 @@ function DemandDriver({
   return null;
 }
 
+/** PerformanceMonitor judges the frame rate over `judgeSamples` samples of `sampleMs` each */
+const sampleMs = 400;
+const judgeSamples = 10;
+/** How long after loading work or a flight its verdicts are ignored: a whole judging window, with room for slow frames */
+const settleMs = sampleMs * judgeSamples * 1.25;
+/** After this many falls straight after a rise, the tier stops rising: the device sits on the edge */
+const maxReversals = 3;
+
 /**
- * Adapts the quality tier to the device, but only samples the frame rate
- * while nothing is warming up and the camera isn't flying between stations
- * (scroll-follow is much slower than a flight and doesn't count). Otherwise
- * one-off loading work reads as a slow device and drops the tier for good.
+ * Adapts the quality tier to the device. The monitor stays mounted for the
+ * canvas's life, so its history survives navigations, but its verdicts only
+ * count once nothing has warmed up and the camera hasn't flown between
+ * stations (scroll-follow is much slower and doesn't count) for a whole
+ * judging window. Otherwise one-off loading work reads as a slow device and
+ * drops the tier for good. Nor do they count while the canvas renders on
+ * demand: sparse frames aren't a frame rate. A device always above the upper
+ * bound keeps inclining at the ceiling, which is no change at all; one that
+ * falls back after every rise stops rising rather than flapping between tiers
+ * (each change resizes the canvas and the composer, a visible hitch).
  */
 function QualityGovernor({
+  tier,
   ceiling,
   setTier,
 }: {
+  tier: QualityTier;
   ceiling: QualityTier;
   setTier: Dispatch<SetStateAction<QualityTier>>;
 }) {
   const idle = useWarmupIdle();
-  const [flying, setFlying] = useState(false);
-  const watch = useRef({ flying: false, calmSince: 0 });
+  const frameloop = useThree((s) => s.frameloop);
+  const watch = useRef({ busyUntil: 0, rose: false, reversals: 0 });
 
-  useFrame(({ clock }) => {
-    const state = watch.current;
-    const t = clock.elapsedTime;
-    if (worldStore.velocity > 12) {
-      state.calmSince = t;
-      if (!state.flying) {
-        state.flying = true;
-        setFlying(true);
-      }
-    } else if (state.flying && t - state.calmSince > 1) {
-      state.flying = false;
-      setFlying(false);
-    }
+  useFrame(() => {
+    if (!idle || worldStore.velocity > 12) watch.current.busyUntil = performance.now() + settleMs;
   });
 
-  if (!idle || flying) return null;
+  const judging = () => frameloop === 'always' && performance.now() >= watch.current.busyUntil;
+
   return (
     <PerformanceMonitor
-      onDecline={() => setTier(lowerTier)}
-      onIncline={() => setTier((current) => raiseTier(current, ceiling))}
+      onDecline={() => {
+        if (!judging() || tier === 'low') return;
+        const state = watch.current;
+        if (state.rose) state.reversals++;
+        state.rose = false;
+        setTier(lowerTier(tier));
+      }}
+      onIncline={() => {
+        const state = watch.current;
+        if (!judging() || tier === ceiling || state.reversals >= maxReversals) return;
+        state.rose = true;
+        setTier(raiseTier(tier, ceiling));
+      }}
       // Judge over four seconds, and only step for a clear and sustained change
-      ms={400}
-      iterations={10}
+      ms={sampleMs}
+      iterations={judgeSamples}
       bounds={(refreshRate) => (refreshRate > 90 ? [48, 84] : [42, 56])}
-      flipflops={3}
-      onFallback={() => setTier('low')}
     />
   );
 }
@@ -256,7 +271,7 @@ export default function WorldCanvas({
         <LiteContext.Provider value={lite}>
           <color attach="background" args={[palette.background]} />
           <fog attach="fog" args={[palette.background, palette.fog[0], palette.fog[1]]} />
-          <QualityGovernor ceiling={ceiling} setTier={setTier} />
+          <QualityGovernor tier={tier} ceiling={ceiling} setTier={setTier} />
           {reducedMotion && (
             <DemandDriver station={station} theme={theme} focusProject={focusProject} />
           )}
