@@ -576,7 +576,13 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   return (
     <StationScope station="contact">
       <group ref={groupRef} position={stationPositions.contact}>
-        <StationConsole station="contact" title="Comms terminal" subtitle="Open a channel to Peterborough" position={[2.9, -1.9, 0.8]} theme={theme} />
+        <StationConsole
+          station="contact"
+          title="Comms terminal"
+          subtitle="Open a channel to Peterborough"
+          position={[2.9, -1.9, 0.8]}
+          theme={theme}
+        />
         <group ref={globeRef} position={[0, 0.5, 0]} rotation={[0.62, -Math.PI / 2, 0]}>
           <mesh
             onPointerDown={(e) => startSpin(spinRef.current, e)}

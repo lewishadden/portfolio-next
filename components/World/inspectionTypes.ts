@@ -3,7 +3,10 @@ import type { Contact, Recommendation } from '@/types';
 
 /** Stable across timeline reordering; dates and array positions are not identities. */
 export const getRoleId = (company: string, title: string) =>
-  `${company}-${title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  `${company}-${title}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 
 export interface InspectionSelection {
   kind: 'project' | 'skill' | 'role' | 'station';

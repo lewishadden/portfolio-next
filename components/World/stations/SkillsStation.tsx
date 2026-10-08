@@ -258,7 +258,7 @@ function stepOrbit(
   if (!spinner) return;
   const reading = worldStore.skillCategory;
   const selected = inspection.get();
-  const named = selected?.kind === 'skill' ? selected.id : hovered ?? worldStore.skillHover;
+  const named = selected?.kind === 'skill' ? selected.id : (hovered ?? worldStore.skillHover);
   let lit = reading === category ? 1 : 0;
   for (const child of spinner.children) {
     if (!(child as Sprite).isSprite) continue;
@@ -270,8 +270,19 @@ function stepOrbit(
     badge.scale.set(size, size, 1);
     const material = badge.material as SpriteMaterial;
     const inspectingSkill = selected?.kind === 'skill';
-    const dim = inspectingSkill ? (pointed ? 1 : 0.2) : reading && reading !== category && !pointed ? 0.35 : 1;
-    material.opacity = MathUtils.damp(material.opacity, dim * (inspectingSkill ? 1 : clearOfCopy(badge, camera)), 8, dt);
+    const dim = inspectingSkill
+      ? pointed
+        ? 1
+        : 0.2
+      : reading && reading !== category && !pointed
+        ? 0.35
+        : 1;
+    material.opacity = MathUtils.damp(
+      material.opacity,
+      dim * (inspectingSkill ? 1 : clearOfCopy(badge, camera)),
+      8,
+      dt
+    );
   }
   const constellation = spinner.children.find((child) => (child as LineSegments).isLineSegments);
   if (constellation) {
@@ -411,7 +422,8 @@ export function SkillsStation({
     orbitsRef.current?.children.forEach((orbitGroup, k) => {
       const spinner = orbitGroup.children[1];
       if (!spinner) return;
-      if (!isInspecting()) spinner.rotation.y = t * (0.05 + k * 0.018) * (k % 2 ? -1 : 1) + worldStore.scroll * 0.8;
+      if (!isInspecting())
+        spinner.rotation.y = t * (0.05 + k * 0.018) * (k % 2 ? -1 : 1) + worldStore.scroll * 0.8;
       stepOrbit(orbitGroup, orbits[k].category, hoveredRef.current, camera, t, dt);
     });
   });
@@ -469,7 +481,9 @@ export function SkillsStation({
                     <sprite
                       key={orbit.members[i].name}
                       name={orbit.members[i].name}
-                      userData={{ inspection: { kind: 'skill', id: orbit.members[i].name, station: 'skills' } }}
+                      userData={{
+                        inspection: { kind: 'skill', id: orbit.members[i].name, station: 'skills' },
+                      }}
                       position={[Math.cos(angle) * orbit.radius, 0, Math.sin(angle) * orbit.radius]}
                       scale={0.44}
                       onPointerOver={(e) => {
@@ -493,7 +507,12 @@ export function SkillsStation({
                       onClick={(e) => {
                         e.stopPropagation();
                         spawnPing(e.point);
-                        inspectEntity({ kind: 'skill', id: orbit.members[i].name, station: 'skills', anchor: e.point.toArray() });
+                        inspectEntity({
+                          kind: 'skill',
+                          id: orbit.members[i].name,
+                          station: 'skills',
+                          anchor: e.point.toArray(),
+                        });
                       }}
                     >
                       <spriteMaterial
@@ -513,4 +532,3 @@ export function SkillsStation({
     </StationScope>
   );
 }
-

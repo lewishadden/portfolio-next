@@ -81,4 +81,3 @@ export function useCanLockPointer() {
 export function usePointerLocked() {
   return useSyncExternalStore(subscribe, locked, serverLocked);
 }
-

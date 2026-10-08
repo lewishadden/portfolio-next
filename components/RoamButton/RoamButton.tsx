@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { Icon } from '@iconify/react';
 import { usePathname } from 'next/navigation';
 
+import { useInspection } from 'components/World/inspection';
 import { launchWorldMode, useWorldMode, worldMode } from 'components/World/worldMode';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -31,13 +32,14 @@ const serverNearTop = () => true;
  * where the flight pad needs the corner.
  */
 export function RoamButton() {
+  const inspecting = useInspection() !== null;
   const { supported, setEnabled } = useWorldPreference();
   const { mode } = useWorldMode();
   const touch = useMediaQuery('(pointer: coarse)');
   const pathname = usePathname();
   const top = useSyncExternalStore(subscribeScroll, nearTop, serverNearTop);
   const exploring = mode === 'explore';
-  if (!supported || mode === 'tour' || (exploring && touch)) return null;
+  if (!supported || inspecting || mode === 'tour' || (exploring && touch)) return null;
 
   const compact = !exploring && !(pathname === '/' && top);
   const toggle = () => {

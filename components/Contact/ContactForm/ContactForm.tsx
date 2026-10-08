@@ -156,10 +156,16 @@ const ContactForm = ({ contact, onSuccess, onFail, idPrefix = '' }: ContactFormP
                   autoComplete="given-name"
                   aria-required="true"
                   aria-invalid={!!showError('firstName')}
-                  aria-describedby={showError('firstName') ? fieldId('formFirstName-error') : undefined}
+                  aria-describedby={
+                    showError('firstName') ? fieldId('formFirstName-error') : undefined
+                  }
                 />
                 {showError('firstName') && (
-                  <span id={fieldId('formFirstName-error')} className="contact-form__error" role="alert">
+                  <span
+                    id={fieldId('formFirstName-error')}
+                    className="contact-form__error"
+                    role="alert"
+                  >
                     {errors.firstName}
                   </span>
                 )}
@@ -180,10 +186,16 @@ const ContactForm = ({ contact, onSuccess, onFail, idPrefix = '' }: ContactFormP
                   autoComplete="family-name"
                   aria-required="true"
                   aria-invalid={!!showError('lastName')}
-                  aria-describedby={showError('lastName') ? fieldId('formLastName-error') : undefined}
+                  aria-describedby={
+                    showError('lastName') ? fieldId('formLastName-error') : undefined
+                  }
                 />
                 {showError('lastName') && (
-                  <span id={fieldId('formLastName-error')} className="contact-form__error" role="alert">
+                  <span
+                    id={fieldId('formLastName-error')}
+                    className="contact-form__error"
+                    role="alert"
+                  >
                     {errors.lastName}
                   </span>
                 )}
@@ -235,7 +247,11 @@ const ContactForm = ({ contact, onSuccess, onFail, idPrefix = '' }: ContactFormP
               />
               <div className="contact-form__field-footer">
                 {showError('message') ? (
-                  <span id={fieldId('formMessage-error')} className="contact-form__error" role="alert">
+                  <span
+                    id={fieldId('formMessage-error')}
+                    className="contact-form__error"
+                    role="alert"
+                  >
                     {errors.message}
                   </span>
                 ) : (
@@ -272,4 +288,3 @@ const ContactForm = ({ contact, onSuccess, onFail, idPrefix = '' }: ContactFormP
 };
 
 export default ContactForm;
-

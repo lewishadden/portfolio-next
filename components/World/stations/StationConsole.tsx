@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { CanvasTexture, SRGBColorSpace } from 'three';
 
 import { inspectEntity } from '../inspection';
@@ -27,6 +27,7 @@ export function StationConsole({
 }) {
   const selection = { kind: 'station' as const, id: station, station };
   const tip = useMemo<WorldTip>(() => ({ label: title, sub: subtitle }), [title, subtitle]);
+  const shownTip = useRef<WorldTip | null>(null);
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 768;
@@ -61,28 +62,40 @@ export function StationConsole({
     <group position={position} rotation={[-0.08, 0, 0]}>
       <mesh position={[0, -0.75, -0.28]}>
         <boxGeometry args={[0.14, 1.25, 0.18]} />
-        <meshStandardMaterial color={theme === 'light' ? '#8795ad' : '#343d57'} metalness={0.65} roughness={0.35} />
+        <meshStandardMaterial
+          color={theme === 'light' ? '#8795ad' : '#343d57'}
+          metalness={0.65}
+          roughness={0.35}
+        />
       </mesh>
       <mesh position={[0, -1.36, -0.28]}>
         <boxGeometry args={[1.6, 0.12, 0.7]} />
-        <meshStandardMaterial color={theme === 'light' ? '#8795ad' : '#343d57'} metalness={0.65} roughness={0.35} />
+        <meshStandardMaterial
+          color={theme === 'light' ? '#8795ad' : '#343d57'}
+          metalness={0.65}
+          roughness={0.35}
+        />
       </mesh>
       <mesh>
         <boxGeometry args={[3.3, 1.5, 0.18]} />
-        <meshStandardMaterial color={theme === 'light' ? '#697890' : '#29324b'} metalness={0.65} roughness={0.3} />
+        <meshStandardMaterial
+          color={theme === 'light' ? '#697890' : '#29324b'}
+          metalness={0.65}
+          roughness={0.3}
+        />
       </mesh>
       <mesh
         position={[0, 0, 0.1]}
         userData={{ inspection: selection }}
         onPointerOver={(event) => {
           event.stopPropagation();
-          tip.anchor = event.point.toArray();
+          shownTip.current = { ...tip, anchor: event.point.toArray() };
           setWorldHover(true);
-          worldTip.set(tip);
+          worldTip.set(shownTip.current);
         }}
         onPointerOut={() => {
           setWorldHover(false);
-          if (worldTip.get() === tip) worldTip.set(null);
+          if (worldTip.get() === shownTip.current) worldTip.set(null);
         }}
         onClick={(event) => {
           event.stopPropagation();

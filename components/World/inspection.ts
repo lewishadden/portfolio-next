@@ -2,6 +2,8 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 
+import { isTopFocusTrap } from '@/hooks/useFocusTrap';
+
 import { unlockPointer } from './pointerLock';
 import { stationKeys } from './routes';
 import { exploreInput, worldStore, worldTip } from './worldStore';
@@ -159,6 +161,7 @@ export function useInspectionHistory(catalog: InspectionCatalog, pathname: strin
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || !isInspecting() || event.defaultPrevented) return;
+      if (!isTopFocusTrap(document.querySelector('[data-inspection-panel]'))) return;
       // A palette or another dialog opened above the inspector owns its first
       // Escape. Do not close the underlying selection through that interface.
       const otherOwner = [

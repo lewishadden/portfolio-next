@@ -26,4 +26,3 @@ export interface WorldContent {
   /** The CV, which one of free roam's hidden signals carries */
   cv: { url: string; name: string };
 }
-

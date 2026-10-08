@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 
+import { useInspection } from './inspection';
+import { hasWorldInputOwner } from './inputOwnership';
 import { stationNames, stationPaths } from './routes';
 import { tourStops, useWorldMode, worldMode } from './worldMode';
 import { navigateTo, onFlight } from './worldStore';
@@ -20,6 +22,7 @@ const arrivalFallback = 5000;
  * station's page, Escape (or Exit) ends it and returns to the page.
  */
 export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
+  const inspecting = useInspection() !== null;
   const { mode, tourStop, tourHeld, tourSession } = useWorldMode();
   const touring = mode === 'tour';
   const station = tourStops[tourStop];
@@ -47,7 +50,7 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
       return (
         worldMode.get().tourHeld ||
         document.hidden ||
-        !!document.querySelector('[data-world-input-owner]') ||
+        hasWorldInputOwner() ||
         panel.matches(':hover') ||
         (focused !== panel && panel.contains(focused) && !!focused?.matches(':focus-visible'))
       );
@@ -115,7 +118,7 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
     const previousFocus = document.activeElement;
     panelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !document.querySelector('[data-world-input-owner]')) worldMode.exit();
+      if (e.key === 'Escape' && !e.defaultPrevented && !hasWorldInputOwner()) worldMode.exit();
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -142,6 +145,8 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
       role="region"
       aria-label="Guided tour"
       aria-live="polite"
+      aria-hidden={inspecting || undefined}
+      inert={inspecting}
       tabIndex={-1}
     >
       <p className="tour__step">
@@ -190,4 +195,3 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
     </div>
   );
 }
-

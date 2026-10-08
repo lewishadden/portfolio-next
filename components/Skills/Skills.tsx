@@ -19,9 +19,15 @@ import './Skills.scss';
 const SkillTile = ({ skill, evidence }: { skill: SkillIcon; evidence?: InspectionSkill }) => {
   const projectCount = evidence?.projects.length ?? 0;
   const roleCount = evidence?.roles.length ?? 0;
-  const summary = projectCount || roleCount
-    ? [projectCount ? `${projectCount} project${projectCount === 1 ? '' : 's'}` : '', roleCount ? `${roleCount} role${roleCount === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')
-    : 'Explore skill';
+  const summary =
+    projectCount || roleCount
+      ? [
+          projectCount ? `${projectCount} project${projectCount === 1 ? '' : 's'}` : '',
+          roleCount ? `${roleCount} role${roleCount === 1 ? '' : 's'}` : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : 'Explore skill';
   return (
     <RevealItem as="li" className="skills__tile-cell" y={24}>
       <button
@@ -35,7 +41,13 @@ const SkillTile = ({ skill, evidence }: { skill: SkillIcon; evidence?: Inspectio
         <span className="skills__tile-icon" aria-hidden="true">
           <Icon icon={skill.class} width={26} height={26} />
         </span>
-        <Icon className="skills__tile-arrow" icon="ph:arrow-up-right-bold" width={14} height={14} aria-hidden="true" />
+        <Icon
+          className="skills__tile-arrow"
+          icon="ph:arrow-up-right-bold"
+          width={14}
+          height={14}
+          aria-hidden="true"
+        />
         <span className="skills__tile-name">{skill.name}</span>
         <span className="skills__tile-evidence">{summary}</span>
       </button>
@@ -58,7 +70,11 @@ const CategoryCard = ({
 }) => {
   const ref = usePointerGlow<HTMLDivElement>({ tilt: 2 });
   const headingId = `skills-${category.categoryKey}`;
-  const projectCount = new Set(evidence.filter((item) => skills.some((skill) => skill.name === item.id)).flatMap((item) => item.projects)).size;
+  const projectCount = new Set(
+    evidence
+      .filter((item) => skills.some((skill) => skill.name === item.id))
+      .flatMap((item) => item.projects)
+  ).size;
 
   return (
     <Reveal
@@ -93,7 +109,11 @@ const CategoryCard = ({
 
         <RevealGroup as="ul" className="skills__tiles" stagger={0.035} delay={0.15}>
           {skills.map((skill) => (
-            <SkillTile key={skill.name} skill={skill} evidence={evidence.find((item) => item.id === skill.name)} />
+            <SkillTile
+              key={skill.name}
+              skill={skill}
+              evidence={evidence.find((item) => item.id === skill.name)}
+            />
           ))}
         </RevealGroup>
       </div>
@@ -101,7 +121,13 @@ const CategoryCard = ({
   );
 };
 
-export const Skills = ({ skills, evidence = [] }: { skills: SkillsProps; evidence?: InspectionSkill[] }) => {
+export const Skills = ({
+  skills,
+  evidence = [],
+}: {
+  skills: SkillsProps;
+  evidence?: InspectionSkill[];
+}) => {
   const { label, tagline, marquee, categories, icons } = skills;
 
   const groups = categories.map((category) => ({
@@ -153,7 +179,9 @@ export const Skills = ({ skills, evidence = [] }: { skills: SkillsProps; evidenc
         </div>
       </Reveal>
 
-      <p className="skills__evidence-intro">Select a technology to explore the projects and roles that demonstrate it.</p>
+      <p className="skills__evidence-intro">
+        Select a technology to explore the projects and roles that demonstrate it.
+      </p>
       <div className="skills__grid">
         {groups.map((group, i) => (
           <CategoryCard
@@ -187,4 +215,3 @@ export const Skills = ({ skills, evidence = [] }: { skills: SkillsProps; evidenc
 };
 
 export default Skills;
-

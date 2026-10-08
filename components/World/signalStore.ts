@@ -184,4 +184,3 @@ export function useDetector() {
     () => 0
   );
 }
-

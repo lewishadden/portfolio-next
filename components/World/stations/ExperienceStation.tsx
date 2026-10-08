@@ -191,9 +191,10 @@ export function ExperienceStation({
 
     // The pod of the role being read on the page lights; elsewhere (the
     // tour, free roam) whichever pods the camera passes
-    const reading = selected?.kind === 'role'
-      ? roles.findIndex((role) => getRoleId(role.company, role.title) === selected.id)
-      : worldStore.roleFocus;
+    const reading =
+      selected?.kind === 'role'
+        ? roles.findIndex((role) => getRoleId(role.company, role.title) === selected.id)
+        : worldStore.roleFocus;
     const pingY = ping?.visible ? ping.position.y : Infinity;
     nodesRef.current?.children.forEach((node, i) => {
       const activation =
@@ -246,7 +247,15 @@ export function ExperienceStation({
         <group ref={nodesRef}>
           {nodeYs.map((y, i) => (
             <group key={getRoleId(roles[i].company, roles[i].title)} position={[0, y, 0]}>
-              <mesh userData={{ inspection: { kind: 'role', id: getRoleId(roles[i].company, roles[i].title), station: 'experience' } }}>
+              <mesh
+                userData={{
+                  inspection: {
+                    kind: 'role',
+                    id: getRoleId(roles[i].company, roles[i].title),
+                    station: 'experience',
+                  },
+                }}
+              >
                 <sphereGeometry args={[0.24, 32, 16]} />
                 <meshStandardMaterial
                   color={palette.cyan}
@@ -268,20 +277,32 @@ export function ExperienceStation({
               {/* Never drawn: a comfortable target for the pointer */}
               <mesh
                 visible={false}
-                userData={{ inspection: { kind: 'role', id: getRoleId(roles[i].company, roles[i].title), station: 'experience' } }}
+                userData={{
+                  inspection: {
+                    kind: 'role',
+                    id: getRoleId(roles[i].company, roles[i].title),
+                    station: 'experience',
+                  },
+                }}
                 onPointerOver={(e) => hoverNode(e, tips[i], true, hovered, i)}
                 onPointerOut={(e) => hoverNode(e, tips[i], false, hovered, i)}
                 onClick={(e) => {
                   e.stopPropagation();
                   spawnPing(e.point);
-                  inspectEntity({ kind: 'role', id: getRoleId(roles[i].company, roles[i].title), station: 'experience', anchor: e.point.toArray() });
+                  inspectEntity({
+                    kind: 'role',
+                    id: getRoleId(roles[i].company, roles[i].title),
+                    station: 'experience',
+                    anchor: e.point.toArray(),
+                  });
                 }}
               >
                 <sphereGeometry args={[0.8, 12, 8]} />
               </mesh>
-              {selected?.kind === 'role' && selected.id === getRoleId(roles[i].company, roles[i].title) && (
-                <RoleMissionPatch company={roles[i].company} number={count - i} theme={theme} />
-              )}
+              {selected?.kind === 'role' &&
+                selected.id === getRoleId(roles[i].company, roles[i].title) && (
+                  <RoleMissionPatch company={roles[i].company} number={count - i} theme={theme} />
+                )}
             </group>
           ))}
         </group>
@@ -300,4 +321,3 @@ export function ExperienceStation({
     </StationScope>
   );
 }
-

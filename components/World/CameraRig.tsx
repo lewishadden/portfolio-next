@@ -102,6 +102,13 @@ export function CameraRig({
     const t = clock.elapsedTime;
     const calm = reducedMotion || getTravelPreference() === 'calm';
 
+    // A successful transmission belongs to the station even while its
+    // terminal holds the camera still for reading.
+    if (worldStore.launchRequested) {
+      worldStore.launchRequested = false;
+      worldStore.launchAt = t;
+    }
+
     // Inspection is orthogonal to page/tour/explore. Keep the flight plan,
     // scroll position and tour orbit clock frozen until the saved pose is back.
     if (inspectionOwnsCamera()) {
@@ -111,11 +118,6 @@ export function CameraRig({
     if (rig.inspectionAt !== null) {
       rig.arrivedAt += t - rig.inspectionAt;
       rig.inspectionAt = null;
-    }
-
-    if (worldStore.launchRequested) {
-      worldStore.launchRequested = false;
-      worldStore.launchAt = t;
     }
 
     if (mode === 'explore') {

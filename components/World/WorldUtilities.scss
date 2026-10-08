@@ -60,7 +60,9 @@ html.world-console-open {
     border-radius: 18px;
     background: var(--surface-strong);
     color: var(--text-secondary);
-    box-shadow: 0 8px 0 color-mix(in oklab, var(--border-strong) 60%, var(--bg-primary)), 0 30px 80px color-mix(in oklab, var(--bg-primary) 70%, transparent);
+    box-shadow:
+      0 8px 0 color-mix(in oklab, var(--border-strong) 60%, var(--bg-primary)),
+      0 30px 80px color-mix(in oklab, var(--bg-primary) 70%, transparent);
     outline: none;
 
     button:focus-visible,

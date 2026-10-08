@@ -26,7 +26,9 @@
   border: 1px solid var(--border-strong);
   border-top: 2px solid var(--accent-secondary);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card), 6px 6px 0 -2px var(--bg-tertiary);
+  box-shadow:
+    var(--shadow-card),
+    6px 6px 0 -2px var(--bg-tertiary);
   font-family: var(--font-sans);
   font-size: 1rem;
   line-height: 1.6;
@@ -378,14 +380,17 @@
     }
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 899px) {
     // A frontal terminal fits the visual viewport, including an open keyboard.
     top: auto;
     right: 12px;
     bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--inspection-keyboard-offset, 0px));
     left: 12px;
     width: auto;
-    max-height: calc(var(--inspection-viewport-height, 100dvh) - var(--inspection-top-gap, 100px));
+    max-height: min(
+      68dvh,
+      calc(var(--inspection-viewport-height, 100dvh) - var(--inspection-top-gap, 100px))
+    );
     box-shadow: var(--shadow-card);
 
     &__header,

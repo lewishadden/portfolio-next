@@ -72,7 +72,11 @@ const worldContent: WorldContent = {
   })),
   skills: content.skills.icons.map((s) => ({ name: s.name, icon: s.class, category: s.category })),
   categories: content.skills.categories.map((c) => c.categoryKey),
-  roles: content.experience.items.map(({ title, company }) => ({ id: getRoleId(company, title), title, company })),
+  roles: content.experience.items.map(({ title, company }) => ({
+    id: getRoleId(company, title),
+    title,
+    company,
+  })),
   tour: content.tour.stops,
   cv: { url: content.about.cta.primary.url, name: content.about.cv.download },
 };
@@ -271,4 +275,3 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
-

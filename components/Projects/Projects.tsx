@@ -474,4 +474,3 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
 };
 
 export default Projects;
-

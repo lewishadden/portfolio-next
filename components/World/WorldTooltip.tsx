@@ -25,7 +25,8 @@ export function WorldTooltip() {
     };
     const move = (e: PointerEvent) => place(e.clientX, e.clientY);
     const project = (event: Event) => {
-      const { x, y, visible } = (event as CustomEvent<{ x: number; y: number; visible: boolean }>).detail;
+      const { x, y, visible } = (event as CustomEvent<{ x: number; y: number; visible: boolean }>)
+        .detail;
       place(x, y, visible);
     };
     if (tip.anchor) {
@@ -38,8 +39,23 @@ export function WorldTooltip() {
 
   if (!tip || selection) return null;
   return (
-    <div ref={ref} className="world-tip glass" aria-hidden="true" style={{ maxWidth: 'min(24rem, calc(100vw - 24px))' }}>
-      {tip.anchor && <i style={{ position: 'absolute', right: '100%', top: '1rem', width: 20, borderTop: '1px solid var(--accent-secondary)' }} />}
+    <div
+      ref={ref}
+      className="world-tip glass"
+      aria-hidden="true"
+      style={{ maxWidth: 'min(24rem, calc(100vw - 24px))' }}
+    >
+      {tip.anchor && (
+        <i
+          style={{
+            position: 'absolute',
+            right: '100%',
+            top: '1rem',
+            width: 20,
+            borderTop: '1px solid var(--accent-secondary)',
+          }}
+        />
+      )}
       <b>{tip.label}</b>
       {tip.sub && <span>{tip.sub}</span>}
     </div>

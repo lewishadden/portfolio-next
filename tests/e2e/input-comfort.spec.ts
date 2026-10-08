@@ -28,6 +28,7 @@ test.describe('flight input ownership', () => {
 
       // Movement must continue under demand rendering after a rejected lock.
       const marker = hud.locator('[data-station="projects"]');
+      await expect(marker).toHaveAttribute('style', /translate3d/);
       const before = await marker.evaluate((element) => element.style.transform);
       await page.evaluate(() => {
         window.dispatchEvent(
@@ -42,6 +43,10 @@ test.describe('flight input ownership', () => {
       await expect
         .poll(() => marker.evaluate((element) => element.style.transform))
         .not.toBe(before);
+      const turning = await marker.evaluate((element) => element.style.transform);
+      await expect
+        .poll(() => marker.evaluate((element) => element.style.transform))
+        .not.toBe(turning);
 
       await page.evaluate(() => {
         window.dispatchEvent(
@@ -77,7 +82,10 @@ test.describe('flight input ownership', () => {
       await page.keyboard.press('ControlOrMeta+k');
       const palette = page.getByRole('dialog', { name: 'Command palette' });
       await expect(palette).toBeVisible();
-      await palette.getByRole('combobox', { name: 'Command' }).fill('3');
+      const command = palette.getByRole('combobox', { name: 'Command' });
+      await expect(command).toBeFocused();
+      await page.keyboard.press('Digit3');
+      await expect(command).toHaveValue('3');
       await expect(marker).toHaveAttribute('aria-pressed', 'false');
       await page.keyboard.press('Escape');
       await expect(palette).toBeHidden();
@@ -88,6 +96,40 @@ test.describe('flight input ownership', () => {
       for (const button of await unavailable.all()) {
         await expect(button).toBeDisabled();
         await expect(button).toHaveAttribute('tabindex', '-1');
+      }
+      await hud.getByRole('button', { name: /^Exit/ }).click();
+
+      await page.getByRole('button', { name: 'Open orientation display' }).click();
+      const inspector = page.getByRole('dialog', { name: 'Gateway orientation', exact: true });
+      await expect(inspector).toBeVisible();
+      await expect(page.locator('.roam-fab')).toHaveCount(0);
+      await page.keyboard.press('ControlOrMeta+k');
+      await palette.getByRole('combobox', { name: 'Command' }).fill('free flight');
+      await page.keyboard.press('Enter');
+      await expect(inspector).toBeHidden();
+      await expect(hud).toBeVisible();
+      expect(new URL(page.url()).searchParams.has('inspect')).toBe(false);
+      // Let the saved camera pose settle, then establish continued flight
+      // from one held key without additional pointer events waking the canvas.
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+          )
+      );
+      await hud.focus();
+      const restored = await marker.evaluate((element) => element.style.transform);
+      await page.keyboard.down('KeyW');
+      try {
+        await expect
+          .poll(() => marker.evaluate((element) => element.style.transform))
+          .not.toBe(restored);
+        const moving = await marker.evaluate((element) => element.style.transform);
+        await expect
+          .poll(() => marker.evaluate((element) => element.style.transform))
+          .not.toBe(moving);
+      } finally {
+        await page.keyboard.up('KeyW');
       }
       await hud.getByRole('button', { name: /^Exit/ }).click();
     }

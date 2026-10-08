@@ -734,8 +734,7 @@ export function ProjectsStation({
   const hoveredRef = useRef(-1);
   const screenshotTime = useRef(0);
   const tips = useMemo<WorldTip[]>(
-    () =>
-      screens.map((screen) => ({ label: screen.title.trim(), sub: 'Inspect project' })),
+    () => screens.map((screen) => ({ label: screen.title.trim(), sub: 'Inspect project' })),
     [screens]
   );
   const states = useMemo<ScreenState[]>(
@@ -804,13 +803,18 @@ export function ProjectsStation({
     const scrolled = worldStore.projectFocus;
     const selected = inspection.get();
     if (!selected) screenshotTime.current = t;
-    const inspected = selected?.kind === 'project' ? screens.findIndex((screen) => screen.slug === selected.id) : -1;
+    const inspected =
+      selected?.kind === 'project'
+        ? screens.findIndex((screen) => screen.slug === selected.id)
+        : -1;
     const front =
-      inspected >= 0 ? inspected : opened >= 0
-        ? opened
-        : scrolled >= 0
-          ? Math.min(settleFocus(scrolled), screens.length - 1)
-          : -1;
+      inspected >= 0
+        ? inspected
+        : opened >= 0
+          ? opened
+          : scrolled >= 0
+            ? Math.min(settleFocus(scrolled), screens.length - 1)
+            : -1;
     // At the top of the projects page the camera holds back on the whole
     // yard: the first screen only comes forward (and lights up) on scroll
     const ride = front >= 0 ? 1 - (opened >= 0 || inspected >= 0 ? 0 : projectIntro()) : 0;
@@ -909,7 +913,9 @@ export function ProjectsStation({
               >
                 <mesh
                   material={screenMaterials[i]}
-                  userData={{ inspection: { kind: 'project', id: screen.slug, station: 'projects' } }}
+                  userData={{
+                    inspection: { kind: 'project', id: screen.slug, station: 'projects' },
+                  }}
                   scale={[screenSize.width, screenSize.height, 1]}
                   onPointerOver={(e) => {
                     e.stopPropagation();
@@ -929,7 +935,12 @@ export function ProjectsStation({
                   onClick={(e) => {
                     e.stopPropagation();
                     spawnPing(e.point);
-                    inspectEntity({ kind: 'project', id: screen.slug, station: 'projects', anchor: e.point.toArray() });
+                    inspectEntity({
+                      kind: 'project',
+                      id: screen.slug,
+                      station: 'projects',
+                      anchor: e.point.toArray(),
+                    });
                   }}
                 >
                   <planeGeometry />
@@ -950,4 +961,3 @@ export function ProjectsStation({
     </StationScope>
   );
 }
-

@@ -9,7 +9,15 @@ import { companyInitials } from 'components/Experience/timeline';
 import type { WorldTheme } from '../utils';
 
 /** The selected tether pod unfolds its own mission insignia beside the log. */
-export function RoleMissionPatch({ company, number, theme }: { company: string; number: number; theme: WorldTheme }) {
+export function RoleMissionPatch({
+  company,
+  number,
+  theme,
+}: {
+  company: string;
+  number: number;
+  theme: WorldTheme;
+}) {
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 384;
@@ -18,7 +26,7 @@ export function RoleMissionPatch({ company, number, theme }: { company: string; 
     if (context) {
       context.beginPath();
       for (let i = 0; i < 6; i += 1) {
-        const angle = Math.PI / 3 * i - Math.PI / 2;
+        const angle = (Math.PI / 3) * i - Math.PI / 2;
         const x = 192 + Math.cos(angle) * 174;
         const y = 192 + Math.sin(angle) * 174;
         if (i === 0) context.moveTo(x, y);
@@ -51,7 +59,11 @@ export function RoleMissionPatch({ company, number, theme }: { company: string; 
     <Billboard position={[1.3, 0.1, 0.2]}>
       <mesh position={[-0.6, 0, -0.06]}>
         <boxGeometry args={[1.3, 0.06, 0.08]} />
-        <meshStandardMaterial color={theme === 'light' ? '#8795ad' : '#343d57'} metalness={0.6} roughness={0.4} />
+        <meshStandardMaterial
+          color={theme === 'light' ? '#8795ad' : '#343d57'}
+          metalness={0.6}
+          roughness={0.4}
+        />
       </mesh>
       <mesh>
         <planeGeometry args={[1.4, 1.4]} />

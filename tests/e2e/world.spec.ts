@@ -109,10 +109,19 @@ test.describe('tour and explore modes', () => {
     // Hidden signals: none found yet
     await expect(hud.getByText('0 of 5 hidden signals found')).toBeAttached();
 
-    // Every station is marked; its number key sets the autopilot for it
+    // All stations have markers, but a nearby station hands over to its
+    // docking action and leaves the accessibility tree and keyboard order.
     const stations = hud.getByRole('list', { name: 'Stations' });
-    await expect(stations.getByRole('button')).toHaveCount(6);
+    await expect(stations.locator('button[data-station]')).toHaveCount(6);
+    const nearby = stations.locator('button[data-station="about"]');
+    await expect(nearby).toBeDisabled();
+    await expect(nearby).toHaveAttribute('aria-hidden', 'true');
+    await expect(nearby).toHaveAttribute('tabindex', '-1');
+    await expect(stations.getByRole('button', { name: /^Autopilot to About/ })).toHaveCount(0);
+
+    // Distant, available markers remain operable through their number keys.
     const projects = stations.getByRole('button', { name: /^Autopilot to Projects/ });
+    await expect(projects).toBeEnabled();
     await expect(projects).toHaveAttribute('aria-pressed', 'false');
     await page.keyboard.press('Digit3');
     await expect(projects).toHaveAttribute('aria-pressed', 'true');

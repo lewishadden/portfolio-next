@@ -36,16 +36,16 @@ export const projectStories: Record<
     contribution:
       'I designed and built the Chrome extension and backend, combining document summaries, chat, explanations and citation retrieval.',
     result:
-      'Readers can choose three summary depths and follow numbered answers back to highlighted source passages, with a free tier available.',
+      'Readers can choose three summary depths and follow numbered citations back to highlighted source passages, with a free tier available.',
     demonstration: 'citations',
     steps: [
       {
         title: 'Read a document',
-        text: 'Open an article, PDF, research paper or uploaded document in the browser side panel.',
+        text: 'Read an article, PDF, research paper or uploaded document with the assistant in the browser side panel.',
       },
       {
         title: 'Retrieve supporting text',
-        text: 'Voyage AI embeddings support citation retrieval, with document storage in Supabase Postgres and pgvector.',
+        text: 'The backend pairs Supabase (Postgres with pgvector) with Voyage AI embeddings for citation retrieval.',
       },
       {
         title: 'Read a cited answer',
@@ -125,11 +125,11 @@ export const projectStories: Record<
   },
   'adp-run': {
     problem:
-      'ADP RUN needs new payroll and HR features with a customisable experience that works on mobile devices.',
+      'ADP RUN required customisable platform enhancements with a responsive experience for mobile users.',
     contribution:
       'I develop features with React, Tailwind CSS and feature flags, and write unit and end-to-end tests.',
     result:
-      'Ongoing platform enhancements pair responsive interfaces with Jest, React Testing Library and Cypress coverage.',
+      'Platform enhancements pair responsive interfaces with Jest, React Testing Library and Cypress coverage.',
     steps: [
       {
         title: 'Build the interface',
@@ -208,13 +208,12 @@ export const projectStories: Record<
       },
       {
         title: 'Develop locally',
-        text: 'Docker and local Azure emulators support offline development without unwanted actions in a hosted environment.',
+        text: 'Docker and local Azure emulators support offline development and reduce the risk of unwanted actions in a hosted environment.',
       },
     ],
   },
   'audi-form-builder': {
-    problem:
-      'Audi content editors needed to create custom website forms without writing new code.',
+    problem: 'Audi content editors needed to create custom website forms without writing new code.',
     contribution:
       'I designed and implemented the form-building solution while leading the development team.',
     result:
@@ -258,8 +257,7 @@ export const projectStories: Record<
     ],
   },
   'audi-digital-transformation': {
-    problem:
-      'Audi UK was modernising its legacy technology stack and overhauling its website.',
+    problem: 'Audi UK was modernising its legacy technology stack and overhauling its website.',
     contribution:
       'I led front-end development of web applications and SPAs, contributed to the new infrastructure and moved into full-stack work.',
     result:

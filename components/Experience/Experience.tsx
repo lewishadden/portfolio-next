@@ -154,7 +154,11 @@ const TimelineItem = ({
 
           <m.div className="xp__inspect" variants={partVariants}>
             <InspectButton
-              selection={{ kind: 'role', id: getRoleId(item.company, item.title), station: 'experience' }}
+              selection={{
+                kind: 'role',
+                id: getRoleId(item.company, item.title),
+                station: 'experience',
+              }}
               label={`Read mission log: ${item.title} at ${item.company}`}
             >
               Read mission log
@@ -315,4 +319,3 @@ export const Experience = ({ experience }: { experience: ExperienceProps }) => {
 };
 
 export default Experience;
-

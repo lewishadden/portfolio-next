@@ -24,7 +24,7 @@ const aliases: Record<string, string> = {
   'cypress io': 'cypress',
   'devops pipelines': 'ci/cd pipelines',
   'github workflows': 'github actions',
-  'vite': 'vitejs',
+  vite: 'vitejs',
   'anthropic claude': 'claude',
   'split tunnelling (vpn)': 'split tunnel vpn',
   html: 'html5',
@@ -32,8 +32,12 @@ const aliases: Record<string, string> = {
 
 const normalizeTechnology = (name: string) => aliases[name.toLowerCase()] ?? name.toLowerCase();
 const technologyMatches = (technology: string, skill: string) => {
-  const names = technology === 'Jest + Enzyme' ? ['Jest', 'Enzyme'] :
-    technology === 'SCSS / CSS3' ? ['SCSS', 'CSS3'] : [technology];
+  const names =
+    technology === 'Jest + Enzyme'
+      ? ['Jest', 'Enzyme']
+      : technology === 'SCSS / CSS3'
+        ? ['SCSS', 'CSS3']
+        : [technology];
   return names.some((name) => normalizeTechnology(name) === normalizeTechnology(skill));
 };
 
@@ -77,9 +81,19 @@ export function buildInspectionCatalog(content: ResumeData): InspectionCatalog {
     skills: content.skills.icons.map((skill) => ({
       id: skill.name,
       name: skill.name,
-      category: content.skills.categories.find(({ categoryKey }) => categoryKey === skill.category)?.title ?? skill.category,
-      projects: projects.filter((project) => project.technologies.some((technology) => technologyMatches(technology, skill.name))).map(({ id }) => id),
-      roles: roles.filter((role) => role.technologies.some((technology) => technologyMatches(technology, skill.name))).map(({ id }) => id),
+      category:
+        content.skills.categories.find(({ categoryKey }) => categoryKey === skill.category)
+          ?.title ?? skill.category,
+      projects: projects
+        .filter((project) =>
+          project.technologies.some((technology) => technologyMatches(technology, skill.name))
+        )
+        .map(({ id }) => id),
+      roles: roles
+        .filter((role) =>
+          role.technologies.some((technology) => technologyMatches(technology, skill.name))
+        )
+        .map(({ id }) => id),
     })),
     contact: content.contact,
     destinations: content.home.explore.map(({ href, title, text }) => ({ href, title, text })),

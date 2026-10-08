@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 
+import { closeInspection, isInspecting } from './inspection';
 import { lockPointer, unlockPointer } from './pointerLock';
 import { navigableStations } from './routes';
 import { emitCue } from './worldStore';
@@ -41,7 +42,12 @@ const listeners = new Set<() => void>();
 
 function set(next: Partial<WorldModeState>) {
   const previous = state;
-  if (previous.mode === 'tour' && next.mode && next.mode !== 'tour' && next.tourResume === undefined) {
+  if (
+    previous.mode === 'tour' &&
+    next.mode &&
+    next.mode !== 'tour' &&
+    next.tourResume === undefined
+  ) {
     next = { tourResume: previous.tourStop, ...next };
   }
   state = { ...state, ...next };
@@ -93,11 +99,8 @@ const worldReady = () =>
  * Starts the tour or explore mode, first turning the 3D world on (and
  * waiting for it to appear) if the visitor had switched it off.
  */
-export function launchWorldMode(
-  mode: 'tour' | 'explore',
-  enableWorld: () => void,
-  resume = false
-) {
+export function launchWorldMode(mode: 'tour' | 'explore', enableWorld: () => void, resume = false) {
+  if (isInspecting()) closeInspection({ replace: true });
   const start =
     mode === 'tour'
       ? resume
@@ -119,4 +122,3 @@ export function launchWorldMode(
     } else if (Date.now() - began > 9000) window.clearInterval(timer);
   }, 150);
 }
-

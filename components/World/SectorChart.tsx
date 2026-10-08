@@ -22,7 +22,8 @@ const stationBriefs: Record<StationKey, string> = {
   home: 'Orient yourself at the gateway, meet Lewis and choose your next destination.',
   about: 'Open the crew dossier for background, working approach and recommendations.',
   experience: 'Read the mission logs: roles, teams and the work delivered along the way.',
-  projects: 'Explore the fabrication yard. Inspect project briefs, screenshots and technical stories.',
+  projects:
+    'Explore the fabrication yard. Inspect project briefs, screenshots and technical stories.',
   skills: 'Visit the research outpost to connect skills with the projects and roles that use them.',
   contact: 'Open a channel at the comms array and send Lewis a message.',
   lost: 'An uncharted signal beyond the main route.',
@@ -45,8 +46,14 @@ const beacons = navigableStations.map((key) => ({
   base: project(stationPositions[key][0], -30, stationPositions[key][2]),
 }));
 const gridLines = [
-  ...Array.from({ length: 5 }, (_, i) => [project(-80 + i * 40, -30, -260), project(-80 + i * 40, -30, 35)]),
-  ...Array.from({ length: 8 }, (_, i) => [project(-80, -30, -250 + i * 40), project(80, -30, -250 + i * 40)]),
+  ...Array.from({ length: 5 }, (_, i) => [
+    project(-80 + i * 40, -30, -260),
+    project(-80 + i * 40, -30, 35),
+  ]),
+  ...Array.from({ length: 8 }, (_, i) => [
+    project(-80, -30, -250 + i * 40),
+    project(80, -30, -250 + i * 40),
+  ]),
 ];
 
 let visited: readonly string[] = [];
@@ -86,9 +93,13 @@ export function useStationVisits() {
     visited = [...new Set([...saved, ...visited])];
     recordVisit(stationForPath(pathname));
   }, [pathname]);
-  useEffect(() => onFlight((event, station) => {
-    if (event === 'end') recordVisit(station);
-  }), []);
+  useEffect(
+    () =>
+      onFlight((event, station) => {
+        if (event === 'end') recordVisit(station);
+      }),
+    []
+  );
 }
 
 export function SectorChart({
@@ -103,7 +114,11 @@ export function SectorChart({
   const { enabled, supported } = useWorldPreference();
   const worldActive = enabled && supported;
   const [selected, setSelected] = useState<StationKey>(current === 'lost' ? 'home' : current);
-  const visitedStations = useSyncExternalStore(subscribeVisits, () => visited, () => noVisits);
+  const visitedStations = useSyncExternalStore(
+    subscribeVisits,
+    () => visited,
+    () => noVisits
+  );
   const markerRef = useRef<SVGCircleElement>(null);
   const routeRef = useRef<SVGPathElement>(null);
 
@@ -139,7 +154,12 @@ export function SectorChart({
       <p className="sector-chart__hint" id="sector-chart-hint">
         Choose a beacon to plot a course. All six stations are also available as page links.
       </p>
-      <div className="sector-chart__plot" role="group" aria-label="Station beacons" aria-describedby="sector-chart-hint">
+      <div
+        className="sector-chart__plot"
+        role="group"
+        aria-label="Station beacons"
+        aria-describedby="sector-chart-hint"
+      >
         <svg viewBox="0 0 1000 540" preserveAspectRatio="none" aria-hidden="true">
           <g className="sector-chart__grid">
             {gridLines.map(([a, b], i) => (
@@ -169,14 +189,29 @@ export function SectorChart({
             onBlur={() => setPreview(selected)}
           >
             <span className="sector-chart__number">{String(index + 1).padStart(2, '0')}</span>
-            <span className="sector-chart__name" aria-hidden="true">{stationNames[key].page}</span>
-            {visitedStations.includes(key) && <span className="sector-chart__visited" aria-hidden="true">✓</span>}
+            <span className="sector-chart__name" aria-hidden="true">
+              {stationNames[key].page}
+            </span>
+            {visitedStations.includes(key) && (
+              <span className="sector-chart__visited" aria-hidden="true">
+                ✓
+              </span>
+            )}
           </button>
         ))}
       </div>
-      <p className="sector-chart__legend">◎ Current position · ✓ Visited · Station height shown by each tether</p>
+      <p className="sector-chart__legend">
+        ◎ Current position · ✓ Visited · Station height shown by each tether
+      </p>
       <div className="sector-chart__brief" aria-live="polite" aria-atomic="true">
-        <p className="sector-chart__eyebrow">{names.craft} · {current === selected ? 'Current page' : visitedStations.includes(selected) ? 'Visited' : 'Unvisited'}</p>
+        <p className="sector-chart__eyebrow">
+          {names.craft} ·{' '}
+          {current === selected
+            ? 'Current page'
+            : visitedStations.includes(selected)
+              ? 'Visited'
+              : 'Unvisited'}
+        </p>
         <h3>{names.page}</h3>
         <p>{stationBriefs[selected]}</p>
       </div>
@@ -191,7 +226,8 @@ export function SectorChart({
       <nav className="sector-chart__links" aria-label="Station pages">
         {navigableStations.map((key, index) => (
           <a key={key} href={stationPaths[key]} aria-current={current === key ? 'page' : undefined}>
-            <span aria-hidden="true">{String(index + 1).padStart(2, '0')} </span>{stationNames[key].page}
+            <span aria-hidden="true">{String(index + 1).padStart(2, '0')} </span>
+            {stationNames[key].page}
           </a>
         ))}
       </nav>

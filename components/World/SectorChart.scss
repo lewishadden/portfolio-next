@@ -13,8 +13,16 @@
     overflow: hidden;
     border: 1px solid var(--border-strong);
     border-radius: 12px;
-    background: radial-gradient(ellipse at 50% 50%, color-mix(in oklab, var(--accent-secondary) 9%, transparent), transparent 75%), var(--bg-primary);
-    box-shadow: inset 0 0 34px color-mix(in oklab, var(--accent-primary) 12%, transparent), 0 5px 0 var(--border-color);
+    background:
+      radial-gradient(
+        ellipse at 50% 50%,
+        color-mix(in oklab, var(--accent-secondary) 9%, transparent),
+        transparent 75%
+      ),
+      var(--bg-primary);
+    box-shadow:
+      inset 0 0 34px color-mix(in oklab, var(--accent-primary) 12%, transparent),
+      0 5px 0 var(--border-color);
 
     svg {
       position: absolute;
