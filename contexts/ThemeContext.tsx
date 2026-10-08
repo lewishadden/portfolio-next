@@ -12,6 +12,8 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const themeListeners = new Set<() => void>();
+/** In-memory copy of the choice, so it applies even when storage is blocked */
+let override: Theme | undefined;
 
 function notifyThemeChange() {
   themeListeners.forEach((listener) => listener());
@@ -20,7 +22,9 @@ function notifyThemeChange() {
 function subscribeTheme(callback: () => void) {
   themeListeners.add(callback);
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === 'theme') callback();
+    if (e.key !== 'theme') return;
+    override = undefined; // another tab changed it: storage is the truth again
+    callback();
   };
   window.addEventListener('storage', handleStorage);
   return () => {
@@ -29,8 +33,19 @@ function subscribeTheme(callback: () => void) {
   };
 }
 
+function readSaved(): Theme | null {
+  try {
+    const saved = localStorage.getItem('theme');
+    return saved === 'light' || saved === 'dark' ? saved : null;
+  } catch {
+    // Storage blocked (privacy settings): fall back to the system preference
+    return null;
+  }
+}
+
 function getThemeSnapshot(): Theme {
-  const saved = localStorage.getItem('theme') as Theme | null;
+  if (override) return override;
+  const saved = readSaved();
   if (saved) return saved;
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
@@ -59,7 +74,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
-    localStorage.setItem('theme', newTheme);
+    override = newTheme;
+    try {
+      localStorage.setItem('theme', newTheme);
+    } catch {
+      // Storage blocked: the choice still applies until reload
+    }
     notifyThemeChange();
   };
 
