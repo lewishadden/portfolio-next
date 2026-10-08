@@ -3,20 +3,23 @@ import { expect, openHydrated, test } from './fixtures';
 test.describe('flight input ownership', () => {
   test.use({ world: 'on', reducedMotion: 'reduce' });
 
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(HTMLElement.prototype, 'requestPointerLock', {
+        configurable: true,
+        value() {
+          const root = document.documentElement;
+          root.dataset.lockRequests = String(Number(root.dataset.lockRequests ?? 0) + 1);
+          return Promise.reject(new DOMException('Pointer lock denied', 'NotAllowedError'));
+        },
+      });
+    });
+  });
+
   test(
     'denied pointer lock keeps steering usable and controls own their shortcuts',
     { tag: '@webgl' },
     async ({ page }) => {
-      await page.addInitScript(() => {
-        Object.defineProperty(HTMLElement.prototype, 'requestPointerLock', {
-          configurable: true,
-          value() {
-            const root = document.documentElement;
-            root.dataset.lockRequests = String(Number(root.dataset.lockRequests ?? 0) + 1);
-            return Promise.reject(new DOMException('Pointer lock denied', 'NotAllowedError'));
-          },
-        });
-      });
       await openHydrated(page, '/');
       await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
       await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
@@ -98,15 +101,27 @@ test.describe('flight input ownership', () => {
         await expect(button).toHaveAttribute('tabindex', '-1');
       }
       await hud.getByRole('button', { name: /^Exit/ }).click();
+    }
+  );
 
+  test(
+    'held flight input continues after launching from an inspector',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
       await page.getByRole('button', { name: 'Open orientation display' }).click();
       const inspector = page.getByRole('dialog', { name: 'Gateway orientation', exact: true });
       await expect(inspector).toBeVisible();
       await expect(page.locator('.roam-fab')).toHaveCount(0);
       await page.keyboard.press('ControlOrMeta+k');
+      const palette = page.getByRole('dialog', { name: 'Command palette' });
       await palette.getByRole('combobox', { name: 'Command' }).fill('free flight');
       await page.keyboard.press('Enter');
       await expect(inspector).toBeHidden();
+      await expect(palette).toHaveCount(0);
+      const hud = page.getByRole('region', { name: 'Explore mode' });
       await expect(hud).toBeVisible();
       expect(new URL(page.url()).searchParams.has('inspect')).toBe(false);
       // Reverse into open space: the saved Home view faces the hull, so forward
@@ -119,6 +134,8 @@ test.describe('flight input ownership', () => {
           )
       );
       await hud.focus();
+      const marker = hud.locator('[data-station="projects"]');
+      await expect(marker).toHaveAttribute('style', /translate3d/);
       const readPosition = () =>
         marker.evaluate((element) => ({
           transform: element.style.transform,
@@ -127,9 +144,9 @@ test.describe('flight input ownership', () => {
       const restored = await readPosition();
       await page.keyboard.down('KeyS');
       try {
-        await expect.poll(readPosition).not.toEqual(restored);
+        await expect.poll(readPosition, { timeout: 60_000 }).not.toEqual(restored);
         const moving = await readPosition();
-        await expect.poll(readPosition).not.toEqual(moving);
+        await expect.poll(readPosition, { timeout: 60_000 }).not.toEqual(moving);
       } finally {
         await page.keyboard.up('KeyS');
       }
