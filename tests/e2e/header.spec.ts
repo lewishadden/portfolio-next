@@ -60,11 +60,28 @@ test.describe('the loading screen lifting into the header', () => {
       await expect(skip).toBeVisible({ timeout: 10_000 });
       const logo = page.locator('.header__logo-mark');
       if (motion === 'full') {
-        await skip.click();
+        // Watched from inside the page: software WebGL can keep the main
+        // thread busy past the whole one-second lift
+        const seen = await skip.evaluate((button) => {
+          const boot = document.querySelector('.boot')!;
+          const logoMark = document.querySelector('.header__logo-mark')!;
+          return new Promise<{ docking: boolean; hidden: boolean }>((resolve) => {
+            const watch = new MutationObserver(() => {
+              if (!boot.classList.contains('boot--docking')) return;
+              watch.disconnect();
+              resolve({
+                docking: true,
+                hidden: getComputedStyle(logoMark).visibility === 'hidden',
+              });
+            });
+            watch.observe(boot, { attributes: true, attributeFilter: ['class'] });
+            (button as HTMLButtonElement).click();
+          });
+        });
         // The big mark flies into the logo slot; the header's own waits for it
-        await expect(page.locator('.boot')).toHaveClass(/boot--docking/);
-        await expect(logo).toBeHidden();
-        await expect(root).not.toHaveAttribute('data-boot', { timeout: 5_000 });
+        expect(seen).toEqual({ docking: true, hidden: true });
+        // A second's lift, but software WebGL's shader compiles can hold the timer up
+        await expect(root).not.toHaveAttribute('data-boot', { timeout: 30_000 });
         await expect(logo).toBeVisible();
       } else {
         // No lift to watch: the screen goes at once
