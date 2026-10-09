@@ -171,8 +171,13 @@ const companions: Partial<Record<StationKey, Companion[]>> = {
     { swing: 0.42, back: 1.75, rise: 2.2, look: [0, 0.3, 0], room: 1.5 },
     { swing: 0.13, back: 5.5, rise: 5.8, look: [-6, -2, -46], room: 0.4 },
   ],
-  // Its story runs down the right-hand column, so the station waits for the recommendations
-  about: [{ swing: 0.5, back: 1.9, rise: 1.6, look: [0, 0.3, 0], room: 2.4 }],
+  about: [
+    // The bio (About.tsx's grid): swung round so the habitat, 15 units behind
+    // the helmet, comes out from behind the copy, and further right and up,
+    // clear of the bio's column before it reaches the reading line
+    { swing: 0.5, back: 2.1, rise: 1.4, look: [0, -0.8, 0], room: 4.9 },
+    { swing: 0.5, back: 1.9, rise: 1.6, look: [0, 0.3, 0], room: 2.4 },
+  ],
   contact: [{ swing: 0.38, back: 1.65, rise: 1.6, look: [0.8, 0.6, -1], room: 1.4 }],
 };
 
@@ -211,7 +216,10 @@ export function stationCamera(
       pos.set(0, eyeY, distance + screens * 1.8);
       break;
     case 'about':
-      look.set(0, -screens * 5.2 * zoom, 0);
+      // At page speed (a viewport height of drop per viewport height
+      // scrolled, at the station's distance), so the station leaves with the
+      // page head: slower, it hung over the bio as the bio came up under it
+      look.set(0, -screens * 2 * distance * tanHalfFov * zoom, 0);
       pos.set(0, eyeY, distance);
       break;
     case 'experience': {
