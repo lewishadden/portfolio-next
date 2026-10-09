@@ -989,10 +989,14 @@ function useHullTimings(groupRef: RefObject<Group | null>, hubRef: RefObject<Gro
     if (!timeHull) return;
     const start = performance.now();
     performance.mark('projects:mount');
+    // The GLB's first request: the loader's own starts as the station
+    // renders (before this effect), a hover or intent prefetch earlier still
+    let measured = false;
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries() as PerformanceResourceTiming[]) {
-        if (!entry.name.includes('/stations/') || !entry.name.endsWith('/projects.glb')) continue;
-        if (entry.startTime < start - 1) continue;
+        if (measured || !entry.name.includes('/stations/')) continue;
+        if (!entry.name.endsWith('/projects.glb') || entry.startTime < start - 10000) continue;
+        measured = true;
         performance.measure('projects:hull-fetch', {
           start: entry.startTime,
           end: entry.responseEnd,
