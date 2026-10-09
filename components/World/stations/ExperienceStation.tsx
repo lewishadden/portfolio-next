@@ -16,6 +16,7 @@ import {
   SRGBColorSpace,
 } from 'three';
 
+import { setProjectorEmitter } from '../HeadingProjector';
 import { createBeamMaterial, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
 import { Antenna, NavLights, SolarArray, Spin } from '../parts';
@@ -385,6 +386,13 @@ export function ExperienceStation({
       satellite.rotation.z =
         Math.sin(t * 0.5) * 0.15 + (roll >= 0 ? easeInOut(roll) * Math.PI * 2 : 0);
       satellite.scale.setScalar(1 + r.amount * 0.08);
+      // The page heading is projected from the satellite as the camera arrives
+      setProjectorEmitter(
+        'experience',
+        group.position.x + satellite.position.x,
+        group.position.y + satellite.position.y,
+        group.position.z + satellite.position.z
+      );
     }
 
     // The satellite's ping runs down the beam past every pod after its
