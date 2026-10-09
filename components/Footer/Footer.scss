@@ -383,6 +383,15 @@ html:has(.header--hud) {
     color: var(--text-secondary);
   }
 
+  /* The manifest's numbers, the docked range and a hovered row in the
+     HUD's own cyan: --accent-secondary is about 4.4:1 on this panel in
+     light theme (under 4.5:1 for this small text) */
+  .footer__nav-index,
+  .footer__nav-link:not(.is-active):hover,
+  .footer__nav-link.is-active .footer__nav-range {
+    color: var(--hud-text);
+  }
+
   .footer__social-link {
     border-radius: 3px;
   }
