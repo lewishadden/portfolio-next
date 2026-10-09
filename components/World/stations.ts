@@ -1,7 +1,10 @@
-import { MathUtils, Vector3 } from 'three';
+import { Euler, MathUtils, Vector3 } from 'three';
+
+import { motionLevel } from '@/utils/motion';
 
 import type { StationKey } from './routes';
 import { settleFocus } from './ride';
+import { orbitTilts } from './skillsOrbit';
 import { worldStore } from './worldStore';
 
 export { stationForPath, stationKeys, stationModels, stationPositions } from './routes';
@@ -222,6 +225,56 @@ function clearRoom(key: StationKey, pos: Vector3, look: Vector3, aspect: number)
 }
 
 /**
+ * /skills on wide layouts: the planet stays in shot (it only sinks this far
+ * over the whole page) while the eye moves round it to one pose per
+ * category, facing that category's orbit: this far (radians) above its
+ * plane, so the orbit opens out into an ellipse, and this much further back
+ * than the hero shot. The skills grid is one column there (min(48rem, 58vw)),
+ * so the constellation has the right of the screen.
+ */
+const skillsDescent = 1.6;
+const orbitView = 0.42;
+const orbitBack = 1.15;
+const orbitTilt = new Euler();
+const eyeFrom = new Vector3();
+const eyeTo = new Vector3();
+
+/** The eye's offset from the planet facing category `k`'s orbit (orbitTilts, as SkillsStation tilts it) */
+function orbitEye(k: number, distance: number, out: Vector3) {
+  const [x, z] = orbitTilts[k % orbitTilts.length];
+  return out
+    .set(0, Math.sin(orbitView), Math.cos(orbitView))
+    .applyEuler(orbitTilt.set(x, 0, z))
+    .multiplyScalar(distance * orbitBack);
+}
+
+/**
+ * Wide /skills: the eye's offset from the planet for the category at the
+ * reading line (worldStore.skillFocus): the hero shot above the first
+ * category, then each category's pose, moving to the next over the first
+ * 30% of it. Below full motion it cuts from pose to pose instead.
+ */
+function skillsEye(distance: number, eyeY: number, out: Vector3) {
+  const focus = worldStore.skillFocus;
+  const cut = motionLevel() !== 'full';
+  let weight: number;
+  if (focus < 0) {
+    eyeFrom.set(0, eyeY, distance);
+    orbitEye(0, distance, eyeTo);
+    weight = cut ? (focus >= -0.3 ? 1 : 0) : MathUtils.smootherstep(focus, -0.6, 0);
+  } else {
+    const k = Math.floor(focus);
+    orbitEye(Math.max(k - 1, 0), distance, eyeFrom);
+    orbitEye(k, distance, eyeTo);
+    const into = focus - k;
+    weight = k === 0 ? 1 : cut ? (into >= 0.15 ? 1 : 0) : MathUtils.smootherstep(into, 0, 0.3);
+  }
+  // Round the planet rather than through it: blend the direction and the distance apart
+  const length = MathUtils.lerp(eyeFrom.length(), eyeTo.length(), weight);
+  return out.lerpVectors(eyeFrom, eyeTo, weight).setLength(length);
+}
+
+/**
  * Camera pose inside a station, in station-local space.
  * `progress` is page scroll 0..1, `screens` is viewport-heights scrolled,
  * `width` / `height` the canvas size in CSS pixels. Writes into `pos` / `look`.
@@ -237,6 +290,7 @@ export function stationCamera(
 ) {
   const { zoom, lift } = stationFraming(key, width, height, framing);
   const { height: eyeY, distance } = shots[key];
+  const wide = isWideViewport(width, height);
 
   // `look` is the framed point; `pos` starts as the eye's offset from it.
   // Scroll-follow speeds scale with the zoom so the station still leaves the
@@ -293,6 +347,13 @@ export function stationCamera(
       break;
     }
     case 'skills': {
+      if (wide) {
+        // Beside the one-column grid: the planet stays in shot, the eye
+        // turns to face the orbit of the category being read
+        look.set(0, -progress * skillsDescent, 0);
+        skillsEye(distance, eyeY, pos);
+        break;
+      }
       const angle = progress * 0.9;
       look.set(0, -screens * 3.2 * zoom, 0);
       pos.set(Math.sin(angle) * distance, eyeY, Math.cos(angle) * distance);
@@ -312,7 +373,6 @@ export function stationCamera(
 
   // Long pages on wide layouts: into the companion poses as they are read
   // (not while the contact page holds the globe for a launch)
-  const wide = isWideViewport(width, height);
   const poses = wide ? companions[key] : undefined;
   const showcase =
     key === 'contact' && (worldStore.transmitting || performance.now() < worldStore.showcaseUntil);
