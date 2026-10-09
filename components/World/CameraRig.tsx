@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { easing } from 'maath';
 import { MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
@@ -73,6 +73,9 @@ interface RigState {
   ride: Ride;
   /** The camera cut (motion held back) to a new pose it should announce as an arrival */
   arriving: boolean;
+  /** A dipped cut (D10): until when (performance.now(), ms) the camera holds before it cuts, 0 for none */
+  cutAt: number;
+  cutTimers: number[];
   /** Where the settled camera is heading and looking, never faster than `followSpeed` */
   follow: Vector3;
   followLook: Vector3;
@@ -94,6 +97,36 @@ interface Ride {
   duration: number;
   /** The hop crosses a screen or more: it sounded on the way and locks on arrival */
   long: boolean;
+}
+
+/**
+ * A cut below full motion (D10): the canvas fades out (html[data-world-cut]
+ * = 'out', World.scss), the view holds for `cutHold` ms while it does, then
+ * cuts and fades back in ('in', cleared after `cutIn` ms). Drawn on demand
+ * at `still`, so frames are asked for when the hold ends and once it is in
+ */
+const cutHold = 160;
+const cutIn = 300;
+
+function beginCut(rig: RigState, invalidate: () => void) {
+  rig.cutTimers.forEach((timer) => window.clearTimeout(timer));
+  rig.cutAt = performance.now() + cutHold;
+  document.documentElement.dataset.worldCut = 'out';
+  rig.cutTimers = [
+    window.setTimeout(invalidate, cutHold + 10),
+    window.setTimeout(invalidate, cutHold + cutIn + 20),
+  ];
+}
+
+function endCut(rig: RigState) {
+  rig.cutAt = 0;
+  const root = document.documentElement;
+  root.dataset.worldCut = 'in';
+  rig.cutTimers.push(
+    window.setTimeout(() => {
+      if (root.dataset.worldCut === 'in') delete root.dataset.worldCut;
+    }, cutIn)
+  );
 }
 
 /**
@@ -140,9 +173,20 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     preview: '',
     ride: { value: -1, hopping: false, from: 0, to: 0, start: 0, duration: 0, long: false },
     arriving: false,
+    cutAt: 0,
+    cutTimers: [],
     follow: new Vector3(),
     followLook: new Vector3(),
   });
+
+  // A cut under way when the world goes (switched off, a remount) leaves nothing behind
+  useEffect(() => {
+    const rig = state.current;
+    return () => {
+      rig.cutTimers.forEach((timer) => window.clearTimeout(timer));
+      delete document.documentElement.dataset.worldCut;
+    };
+  }, []);
 
   useFrame(({ camera, clock, size, frameloop, invalidate }, delta) => {
     const cam = camera as PerspectiveCamera;
@@ -236,14 +280,19 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       startFlight(rig, cam, station);
     } else if (retarget) {
       // Motion held back: the camera cuts where it would fly, and arrives
-      // the way a flight does once it has (no 'start': nothing powers down)
+      // the way a flight does once it has (no 'start': nothing powers down).
+      // A new station dips the canvas out first, and back in after the cut
       rig.arriving = true;
+      if (rig.station !== station) beginCut(rig, invalidate);
     }
     rig.station = station;
     rig.mode = mode;
 
     previous.copy(cam.position);
-    if (snap) {
+    if (rig.cutAt && (!snap || performance.now() >= rig.cutAt)) endCut(rig);
+    if (snap && rig.cutAt) {
+      // Dipped out: hold the old view until the canvas has faded
+    } else if (snap) {
       const moved =
         previous.distanceToSquared(target) > 1e-6 || lookCurrent.distanceToSquared(look) > 1e-6;
       cam.position.copy(target);
