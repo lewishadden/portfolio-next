@@ -44,6 +44,13 @@ function screenOrigin(): Box | null {
   return right - left >= 48 && bottom - top >= 30 ? { left, top, right, bottom } : null;
 }
 
+/** Puts the page's title back, if the dialog's is still the one shown */
+function restoreTitle(titled: { current: { previous: string; shown: string } | null }) {
+  const title = titled.current;
+  titled.current = null;
+  if (title && document.title === title.shown) document.title = title.previous;
+}
+
 /** The transform (origin top left) that lays an element whose box is `from` over `to` */
 function flipTransform(from: DOMRect, to: Box) {
   const scaleX = (to.right - to.left) / Math.max(from.width, 1);
@@ -86,6 +93,7 @@ export function ProjectDetailsModal({
   project,
   number,
   fromScreen = false,
+  documentTitle,
   onClose,
 }: {
   project: Project;
@@ -93,6 +101,8 @@ export function ProjectDetailsModal({
   number: number;
   /** The project's 3D screen is the one in front: the gallery flies out of it */
   fromScreen?: boolean;
+  /** The document's title while it is open (the project page's: "Drive King | Projects | …") */
+  documentTitle?: string;
   onClose: () => void;
 }) {
   const { title, images, url, startDate, thumbnail } = project;
@@ -153,6 +163,20 @@ export function ProjectDetailsModal({
       () => safeToRemove?.()
     );
   }, [isPresent, flip, safeToRemove]);
+
+  // The tab says which project is open, as the project's own page would;
+  // the page's title comes back as it closes (unless something has changed
+  // it since, such as a navigation)
+  const titled = useRef<{ previous: string; shown: string } | null>(null);
+  useEffect(() => {
+    if (!documentTitle) return;
+    titled.current = { previous: document.title, shown: documentTitle };
+    document.title = documentTitle;
+    return () => restoreTitle(titled);
+  }, [documentTitle]);
+  useEffect(() => {
+    if (!isPresent) restoreTitle(titled);
+  }, [isPresent]);
 
   // On a phone the dialog is a full-screen sheet: the world behind it stops
   // drawing while it is open

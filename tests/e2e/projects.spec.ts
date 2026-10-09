@@ -29,6 +29,19 @@ test.describe('project modal', () => {
     await expect(card).toBeFocused();
   });
 
+  test('names the open project in the tab, as its page does', async ({ page }) => {
+    await openHydrated(page, '/projects');
+    const listTitle = await page.title();
+    await pick(page, 'Drive King');
+    await page.getByRole('link', { name: 'View details for Drive King' }).click();
+    await expect(page.getByRole('dialog', { name: 'Drive King' })).toBeVisible();
+    await expect(page).toHaveTitle('Drive King | Projects | Lewis Hadden');
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page).toHaveTitle(listTitle);
+  });
+
   test('the Back button closes it and Forward reopens it', async ({ page }) => {
     await openHydrated(page, '/projects');
     await pick(page, 'Sidenote');

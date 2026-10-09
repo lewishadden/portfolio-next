@@ -15,7 +15,7 @@ import { projectRideEvent, settleFocus } from 'components/World/ride';
 import { worldStore } from 'components/World/worldStore';
 
 import { motionLevel } from '@/utils/motion';
-import { projectPath, projectSlugFromPath } from '@/utils/projectPaths';
+import { projectPath, projectSlugFromPath, projectTitle } from '@/utils/projectPaths';
 
 import ProjectArt from './ProjectArt/ProjectArt';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
@@ -225,7 +225,14 @@ const snapEase = (t: number) => 1 - Math.pow(1 - t, 3);
  * the 3D world the ride is the same, but the stage shows each project's own
  * screenshot where the 3D screen would be, and nothing waits.
  */
-export const Projects = ({ projects }: { projects: ProjectsProps }) => {
+export const Projects = ({
+  projects,
+  siteName,
+}: {
+  projects: ProjectsProps;
+  /** The site's name, for the document title while a project's modal is open */
+  siteName: string;
+}) => {
   const { label, items } = projects;
   const tourRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -549,6 +556,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
             project={selectedProject}
             number={selected + 1}
             fromScreen={selected === active}
+            documentTitle={`${projectTitle(selectedProject.title)} | ${siteName}`}
             onClose={close}
           />
         )}
