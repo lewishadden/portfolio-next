@@ -49,9 +49,16 @@ export const streakShape = /* glsl */ `
     return 0.5 * length(vec2(beyond, vLocal.y)) / vRadius;
   }
   // Brightest at the head, fading down the tail
-  float streakFade() {
+  float streakTail() {
     float tail = vLength > 0.0 ? clamp(-vLocal.x / vLength, 0.0, 1.0) : 0.0;
-    return (1.0 - 0.8 * tail) * mix(1.0, 0.45, smoothstep(0.0, 80.0, vLength));
+    return 1.0 - 0.8 * tail;
+  }
+  // Long streaks dim: added up, they would glare (ink on a light sky doesn't)
+  float streakLong() {
+    return mix(1.0, 0.45, smoothstep(0.0, 80.0, vLength));
+  }
+  float streakFade() {
+    return streakTail() * streakLong();
   }
 `;
 
@@ -87,14 +94,16 @@ const vertexShader = /* glsl */ `
 
 const fragmentShader = /* glsl */ `
   uniform float uOpacity;
+  uniform float uLight;
   varying vec3 vColor;
   varying float vTwinkle;
   ${streakShape}
   void main() {
     float core = smoothstep(0.5, 0.0, streakDistance());
-    float alpha = (pow(core, 3.0) + core * 0.25) * vTwinkle * uOpacity * streakFade();
+    float fade = streakTail() * mix(streakLong(), 1.0, uLight);
+    float alpha = (pow(core, 3.0) + core * 0.25) * vTwinkle * uOpacity * fade;
     if (alpha < 0.01) discard;
-    gl_FragColor = vec4(vColor * 1.4, alpha);
+    gl_FragColor = vec4(vColor * mix(1.4, 1.0, uLight), alpha);
   }
 `;
 
@@ -122,18 +131,35 @@ function pickSpectral(r: number) {
   return spectral[spectral.length - 1][0];
 }
 
+/** Ink for the light sky: deep indigo, some deep cyan */
+const inks = [new Color('#312e81'), new Color('#0e7490')];
+
+/**
+ * The light sky's stars and dust are ink: a little stronger at rest than
+ * they used to be (0.55, they were all but lost on the pale sky), and
+ * darker still at speed, so lightspeed reads there too (`streak`, 0..1)
+ */
+export const inkOpacity = (streak: number) => MathUtils.lerp(0.55, 0.95, streak);
+
+/**
+ * The dark sky's stars glow (added); the light sky's are ink, drawn over
+ * it, whose long streaks keep their strength (`uLight`)
+ */
 function applyStarTheme(material: ShaderMaterial, colors: Float32Array, theme: WorldTheme) {
   const palette = palettes[theme];
-  material.blending = palette.additive ? AdditiveBlending : NormalBlending;
-  material.needsUpdate = true;
-  setUniform(material, 'uOpacity', palette.starOpacity);
-  const tints = palette.stars.map((c) => new Color(c));
+  const blending = palette.additive ? AdditiveBlending : NormalBlending;
+  if (material.blending !== blending) {
+    material.blending = blending;
+    material.needsUpdate = true;
+  }
+  setUniform(material, 'uLight', theme === 'light' ? 1 : 0);
+  setUniform(material, 'uOpacity', theme === 'light' ? inkOpacity(0) : palette.starOpacity);
   const tint = new Color();
   const random = seededRandom(11);
   for (let i = 0; i < colors.length / 3; i++) {
     const r = random();
     if (theme === 'dark') tint.set(pickSpectral(r));
-    else tint.copy(r < 0.7 ? tints[0] : r < 0.86 ? tints[1] : tints[2]);
+    else tint.copy(r < 0.7 ? inks[0] : inks[1]);
     colors[i * 3] = tint.r;
     colors[i * 3 + 1] = tint.g;
     colors[i * 3 + 2] = tint.b;
@@ -184,6 +210,7 @@ export function Starfield({ count, theme }: { count: number; theme: WorldTheme }
           uFocus: { value: [0, 0] },
           uResolution: { value: [1, 1] },
           uOpacity: { value: 1 },
+          uLight: { value: 0 },
         },
         vertexShader,
         fragmentShader,
@@ -207,7 +234,12 @@ export function Starfield({ count, theme }: { count: number; theme: WorldTheme }
     setUniform(material, 'uTime', clock.elapsedTime);
     setUniform(material, 'uPixelRatio', viewport.dpr);
     setUniform(material, 'uWarp', Math.min(worldStore.velocity / 40, 1.4));
-    trackStreaks(material, size.width * gl.getPixelRatio(), size.height * gl.getPixelRatio());
+    const streak = trackStreaks(
+      material,
+      size.width * gl.getPixelRatio(),
+      size.height * gl.getPixelRatio()
+    );
+    if (theme === 'light') setUniform(material, 'uOpacity', inkOpacity(streak));
   });
 
   return (
@@ -224,15 +256,20 @@ export function Starfield({ count, theme }: { count: number; theme: WorldTheme }
   );
 }
 
-/** Streak length and where they stream from, and the drawing buffer's size in pixels */
+/**
+ * Streak length and where they stream from, and the drawing buffer's size
+ * in pixels; returns how far they streak (0..1)
+ */
 function trackStreaks(material: ShaderMaterial, width: number, height: number) {
-  setUniform(material, 'uStreak', streakAmount());
+  const streak = streakAmount();
+  setUniform(material, 'uStreak', streak);
   const focus = material.uniforms.uFocus.value as number[];
   focus[0] = cameraMotion.focusX;
   focus[1] = cameraMotion.focusY;
   const resolution = material.uniforms.uResolution.value as number[];
   resolution[0] = width;
   resolution[1] = height;
+  return streak;
 }
 
 /* ------------------------------------------------------------------
