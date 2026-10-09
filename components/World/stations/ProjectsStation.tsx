@@ -46,7 +46,8 @@ import { queueUpload } from '../warmup';
 import { prefetch } from '../routes';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 
-import type { BufferGeometry, Mesh, WebGLRenderer } from 'three';
+import type { RefObject } from 'react';
+import type { BufferGeometry, Mesh, Object3D, WebGLRenderer } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
@@ -797,6 +798,95 @@ function screenMaskGeometry() {
   return new ShapeGeometry(shape, 4);
 }
 
+/**
+ * Sharp copies (their prefetches included) wait for the hub's hull to show,
+ * or this long (seconds of the station's frames) if it never does: they
+ * shared the connection with the hull's download and held it up for seconds
+ */
+const sharpHold = 6;
+
+/** Whether the hub's hull is in the scene yet (Model adds it once loaded, compiled and uploaded) */
+function hullIn(hub: Group | null) {
+  let mesh = false;
+  hub?.traverse((child) => {
+    mesh ||= (child as Mesh).isMesh === true;
+  });
+  return mesh;
+}
+
+/** Development builds time the hub's hull (useHullTimings) */
+const timeHull = process.env.NODE_ENV !== 'production';
+/** Seconds the hull takes to scan in once shown (Model's revealTime) */
+const hullRevealTime = 1.1;
+
+/**
+ * Development only: performance marks and measures for the hub's hull, from
+ * the station mounting to its hull scanned in, logged once it has:
+ * `projects:mount`, `projects:hull-fetch` (the GLB's request, from the
+ * resource timing), `projects:station-ready` (compiled, Precompiled shows
+ * it), `projects:hull-shown` (loaded, compiled and its textures up: Model
+ * puts it in the scene) and `projects:hull-revealed` (scanned in). It
+ * appeared 8 to 19 seconds late now and then; these say which step waits
+ */
+function useHullTimings(groupRef: RefObject<Group | null>, hubRef: RefObject<Group | null>) {
+  const progress = useRef({ ready: false, shownAt: -1, revealed: false });
+
+  useEffect(() => {
+    if (!timeHull) return;
+    const start = performance.now();
+    performance.mark('projects:mount');
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as PerformanceResourceTiming[]) {
+        if (!entry.name.includes('/stations/') || !entry.name.endsWith('/projects.glb')) continue;
+        if (entry.startTime < start - 1) continue;
+        performance.measure('projects:hull-fetch', {
+          start: entry.startTime,
+          end: entry.responseEnd,
+        });
+      }
+    });
+    observer.observe({ type: 'resource', buffered: true });
+    return () => observer.disconnect();
+  }, []);
+
+  useFrame(({ clock }) => {
+    if (!timeHull) return;
+    const state = progress.current;
+    if (state.revealed) return;
+    if (!state.ready) {
+      let shown = true;
+      for (let node = groupRef.current as Object3D | null; node; node = node.parent)
+        shown &&= node.visible;
+      if (groupRef.current && shown) {
+        state.ready = true;
+        performance.mark('projects:station-ready');
+      }
+    }
+    if (state.shownAt < 0) {
+      if (hullIn(hubRef.current)) {
+        state.shownAt = clock.elapsedTime;
+        performance.mark('projects:hull-shown');
+      }
+    } else if (clock.elapsedTime - state.shownAt >= hullRevealTime) {
+      state.revealed = true;
+      performance.mark('projects:hull-revealed');
+      const at = (name: string) => {
+        const entry = performance.getEntriesByName(name).at(-1);
+        return entry ? Math.round(entry.startTime + entry.duration) : null;
+      };
+      const mount = at('projects:mount') ?? 0;
+      const fetch = performance.getEntriesByName('projects:hull-fetch').at(-1);
+      console.info('[World] projects hull (ms after the station mounted)', {
+        fetchStart: fetch ? Math.round(fetch.startTime - mount) : null,
+        fetchEnd: fetch ? Math.round(fetch.startTime + fetch.duration - mount) : null,
+        stationReady: (at('projects:station-ready') ?? mount) - mount,
+        hullShown: (at('projects:hull-shown') ?? mount) - mount,
+        hullRevealed: (at('projects:hull-revealed') ?? mount) - mount,
+      });
+    }
+  });
+}
+
 /** Keeps a screen's page out of bloom, so it shows at its own brightness */
 function ScreenMask({ geometry }: { geometry: BufferGeometry }) {
   const ref = useRef<Mesh>(null);
@@ -900,7 +990,10 @@ export function ProjectsStation({
   }, [icons, screens, gl, states, screenMaterials]);
 
   const settled = useRef(false);
+  /** When the station's frames began (clock seconds, -1 before), and whether its hull has shown */
+  const hull = useRef({ since: -1, shown: false });
   const opened = focus >= 0 && focus < screens.length ? focus : -1;
+  useHullTimings(groupRef, hubRef);
 
   useFrame(({ camera, clock, size }, delta) => {
     const group = groupRef.current;
@@ -925,8 +1018,12 @@ export function ProjectsStation({
     const live = front >= 0 && ride > 0.9 ? Math.round(front) : -1;
     // On the page (or a project's), sharp copies load ahead of the camera,
     // nearest the project in front first, so none is ever soft once it gets
-    // there (flying in, they download and decode but wait to upload)
-    const sharpening = scrolled >= 0 || opened >= 0;
+    // there (flying in, they download and decode but wait to upload). They
+    // start once the hub's hull is in, so they don't slow its download
+    const wait = hull.current;
+    if (wait.since < 0) wait.since = t;
+    wait.shown ||= hullIn(hubRef.current);
+    const sharpening = (scrolled >= 0 || opened >= 0) && (wait.shown || t - wait.since > sharpHold);
     const sharpWidth = sharpening
       ? frontScreenWidth(size.width, size.height, gl.domElement.height)
       : 0;
