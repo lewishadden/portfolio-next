@@ -236,6 +236,7 @@ export const Projects = ({
   const { label, items } = projects;
   const tourRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const indexRef = useRef<HTMLOListElement>(null);
   const [active, setActive] = useState(0);
   const lenis = useLenis();
 
@@ -473,6 +474,19 @@ export const Projects = ({
     else window.history.replaceState(null, '', '/projects');
   }, []);
 
+  // Narrow layouts show the index as one row that scrolls sideways: keep
+  // the project in front in view
+  useEffect(() => {
+    const list = indexRef.current;
+    const item = list?.children[active] as HTMLElement | undefined;
+    if (!list || !item || list.scrollWidth <= list.clientWidth) return;
+    const left = item.offsetLeft - (list.clientWidth - item.offsetWidth) / 2;
+    list.scrollTo({
+      left: Math.max(0, left),
+      behavior: motionLevel() === 'full' ? 'smooth' : 'auto',
+    });
+  }, [active]);
+
   const current = items[Math.min(active, items.length - 1)];
   const selectedProject = selected >= 0 ? items[selected] : null;
 
@@ -503,7 +517,7 @@ export const Projects = ({
       >
         <div ref={stageRef} className="projects__stage">
           <nav className="projects__index" aria-label="Projects">
-            <ol>
+            <ol ref={indexRef}>
               {items.map((project, i) => (
                 <li key={project.slug}>
                   <Link

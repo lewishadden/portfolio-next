@@ -297,10 +297,27 @@
     order: 2;
   }
 
+  /* One row that scrolls sideways (Projects keeps the current project in
+     view): wrapped, the touch-sized links took three rows and ran off the
+     bottom of the stage */
   .projects__index ol {
+    position: relative;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.1rem 0.5rem;
+    gap: 0.5rem;
+    /* Room for the links' focus rings, which the scroller would clip */
+    margin: -6px;
+    padding: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .projects__index li {
+    flex: none;
   }
 
   .projects__index-link {
@@ -371,19 +388,22 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
       'hud hud'
-      'index .';
+      'index index';
     gap: 0.4rem clamp(1rem, 3vw, 2rem);
     align-items: stretch;
     padding-bottom: 0.5rem;
   }
 
+  /* Clear of the floating buttons in the bottom right corner */
   .projects__index {
     grid-area: index;
     order: 0;
+    max-width: calc(100% - 5rem);
   }
 
   .proj-hud {
     grid-area: hud;
+    min-height: 0;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     grid-template-rows: auto auto minmax(0, 1fr);
     grid-template-areas:
@@ -391,7 +411,8 @@
       'screen tech tech'
       'screen desc desc';
     gap: 0.4rem clamp(0.75rem, 2vw, 1.25rem);
-    height: 100%;
+    height: auto;
+    max-height: none;
   }
 
   .proj-hud__title {
