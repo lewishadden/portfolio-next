@@ -1,6 +1,6 @@
 'use client';
 
-import { Component, useCallback, useEffect, useRef, useState } from 'react';
+import { Component, useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -17,11 +17,11 @@ import { readyBoot, reportBoot, useBooted } from './boot';
 import { rememberLoaded } from './bootMemory';
 import { ExploreHud } from './ExploreHud';
 import { NavRadar } from './NavRadar';
-import { usePageReading, useRoutePreview, useSkillHover, useTilt } from './pageInputs';
+import { usePageReading, useRoutePreview, useTargetHover, useTilt } from './pageInputs';
 import { TourOverlay } from './TourOverlay';
 import { WorldTooltip } from './WorldTooltip';
 import { liteQuery, prefetchStationModel, stationForPath } from './routes';
-import { useWorldMode, worldMode } from './worldMode';
+import { arrivedAt, navigateFromMode, useWorldMode, worldMode } from './worldMode';
 import { setDocking, worldNavigateEvent, worldStore } from './worldStore';
 
 import type { ReactNode } from 'react';
@@ -129,7 +129,7 @@ export function World({ content }: { content: WorldContent }) {
   useWorldFocus();
   useRoutePreview(active && ready);
   usePageReading(active, routeKey);
-  useSkillHover(active && ready);
+  useTargetHover(active && ready, routeKey);
   useTilt(active && ready, motion !== 'full');
 
   // Navigation requested from inside the canvas (screens, docking): the page
@@ -155,9 +155,13 @@ export function World({ content }: { content: WorldContent }) {
   const slug = projectSlugFromPath(pathname);
   const focusProject = slug ? content.projects.findIndex((p) => p.slug === slug) : -1;
 
-  // html[data-world] switches the 2D station renders on (see .station-fallback)
+  // html[data-world] switches the 2D station renders on (see .station-fallback).
+  // ThemeScript sets html[data-world-expected] before first paint; switched
+  // on later, the world is expected from then on too
   useEffect(() => {
-    document.documentElement.dataset.world = active ? 'on' : 'off';
+    const root = document.documentElement;
+    root.dataset.world = active ? 'on' : 'off';
+    if (active) root.dataset.worldExpected = '';
   }, [active]);
 
   // Touring or exploring hides the page (html[data-world-mode]) and takes it
@@ -187,20 +191,12 @@ export function World({ content }: { content: WorldContent }) {
   }, [active]);
 
   // Docking plays a short sequence (clamps close, the camera settles), then
-  // opens the station's page; the camera is handed back once it has loaded,
-  // so the flight in is one continuous move
-  const pendingDock = useRef<string | null>(null);
+  // opens the station's page; the camera is handed back once it has loaded
+  // (navigateFromMode / arrivedAt), so the flight in is one continuous move
   const onDockRequest = useCallback(
     (path: string) => {
       if (worldStore.docking) return;
-      const open = () => {
-        if (path === pathname) {
-          worldMode.exit();
-          return;
-        }
-        pendingDock.current = path;
-        router.push(path);
-      };
+      const open = () => navigateFromMode(path);
       if (motion !== 'full' || worldMode.get().mode !== 'explore') {
         open();
         return;
@@ -211,13 +207,11 @@ export function World({ content }: { content: WorldContent }) {
         if (worldStore.docking === path) open();
       }, dockTime);
     },
-    [pathname, motion, router]
+    [motion]
   );
+  // A tour or free roam that asked for this page hands the camera back now it is here
   useEffect(() => {
-    if (pendingDock.current === pathname) {
-      pendingDock.current = null;
-      worldMode.exit();
-    }
+    arrivedAt(pathname);
   }, [pathname]);
 
   // First mount waits for an idle moment so three.js never competes with first paint

@@ -281,6 +281,8 @@ function burst(
 
 type Sound = (e: Engine, at: number) => void;
 
+const silent: Sound = () => undefined;
+
 const cues: Record<Cue, Sound> = {
   blip: (e, at) => tone(e, at, 1046, 0.09, 0.05, 'sine', 1318),
   select: (e, at) => {
@@ -381,6 +383,14 @@ const cues: Record<Cue, Sound> = {
       );
     }, 40);
   },
+  // Not voiced yet: the cues exist so the world can emit them
+  tick: silent,
+  pod: silent,
+  sonar: silent,
+  scan: silent,
+  arrive: silent,
+  edge: silent,
+  hail: silent,
 };
 
 /** The fewest seconds between two of the same cue (a scrape along a hull bumps every frame) */

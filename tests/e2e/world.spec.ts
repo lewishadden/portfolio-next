@@ -22,6 +22,24 @@ test.describe('without WebGL', () => {
   });
 });
 
+test.describe('before the app starts', () => {
+  test.use({ world: 'on' });
+
+  test('the page knows the world will run', async ({ page }) => {
+    // No script chunk loads: only ThemeScript, inline in <head>, runs
+    await page.route('**/_next/static/chunks/**/*.js', (route) => route.abort());
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-world-expected', '');
+  });
+});
+
+test('the world is not expected once the visitor has switched it off', async ({ page }) => {
+  await page.route('**/_next/static/chunks/**/*.js', (route) => route.abort());
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-world', 'off');
+  await expect(page.locator('html')).not.toHaveAttribute('data-world-expected');
+});
+
 test('no loading screen holds the page when the world is off', async ({ page }) => {
   await openHydrated(page, '/');
   await expect(page.locator('html')).not.toHaveAttribute('data-boot');

@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 
 import { lockPointer, unlockPointer } from './pointerLock';
 import { navigableStations } from './routes';
-import { emitCue } from './worldStore';
+import { emitCue, navigateTo } from './worldStore';
 
 import type { StationKey } from './routes';
 
@@ -26,6 +26,8 @@ export const tourStops: readonly StationKey[] = navigableStations;
 
 const initial: WorldModeState = { mode: 'page', tourStop: 0 };
 let state = initial;
+/** The page a tour or free roam is opening, until it has arrived ('' for none) */
+let pending = '';
 const listeners = new Set<() => void>();
 
 function set(next: Partial<WorldModeState>) {
@@ -52,10 +54,36 @@ export const worldMode = {
       : set({ mode: 'page', tourStop: 0 }),
   startExplore: () => set({ mode: 'explore' }),
   exit: () => {
+    pending = '';
     unlockPointer();
     set({ mode: 'page', tourStop: 0 });
   },
 };
+
+/**
+ * Opens a page from the world. Following the page, it navigates the way a
+ * link does (World's navigate handler snapshots the page being left, so it
+ * flies off with the camera). From the tour or free roam it navigates and
+ * stays in that mode until the page has arrived (`arrivedAt`), so the camera
+ * flies there as one move; the current page just hands the camera back.
+ */
+export function navigateFromMode(path: string) {
+  if (state.mode === 'page') {
+    navigateTo(path);
+    return;
+  }
+  if (path === window.location.pathname) {
+    worldMode.exit();
+    return;
+  }
+  pending = path;
+  navigateTo(path);
+}
+
+/** World calls this on every route change: the page a mode was opening is here, so it hands back */
+export function arrivedAt(pathname: string) {
+  if (pending && pending === pathname) worldMode.exit();
+}
 
 export function useWorldMode() {
   return useSyncExternalStore(worldMode.subscribe, worldMode.get, () => initial);

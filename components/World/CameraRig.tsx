@@ -223,6 +223,7 @@ function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey)
   worldStore.flight.path = path;
   worldStore.flight.turn = flight.about ? flight.departTurn : 0;
   worldStore.flight.approached = false;
+  worldStore.flight.duration = flight.duration;
   emitFlight('start', station);
 }
 
@@ -231,6 +232,7 @@ function endFlight(rig: RigState, station: StationKey, arrived: boolean) {
   worldStore.flight.active = false;
   worldStore.flight.progress = arrived ? 1 : worldStore.flight.progress;
   if (arrived) emitFlight('end', station);
+  worldStore.flight.duration = 0;
 }
 
 /**

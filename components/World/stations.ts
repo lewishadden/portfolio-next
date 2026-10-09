@@ -1,10 +1,12 @@
 import { MathUtils, Vector3 } from 'three';
 
 import type { StationKey } from './routes';
+import { settleFocus } from './ride';
 import { worldStore } from './worldStore';
 
 export { stationForPath, stationKeys, stationModels, stationPositions } from './routes';
 export type { StationKey } from './routes';
+export { settleFocus } from './ride';
 
 /** Height of each station's beacon (and the HUD's waypoint for it) above its centre */
 const beaconHeights: Partial<Record<StationKey, number>> = { experience: 6, skills: 5 };
@@ -34,17 +36,6 @@ export function projectIntro() {
   if (worldStore.projectAside) return 0;
   if (worldStore.projectFocus < 0) return 1;
   return MathUtils.smoothstep(worldStore.projectIntro, 0, 1);
-}
-
-/**
- * The projects page runs through its projects as a fractional index; this
- * settles it on each one: the middle 60% of the way from one screen to the
- * next carries the move, the rest holds still on the nearer screen
- */
-export function settleFocus(focus: number) {
-  const whole = Math.floor(focus);
-  const x = MathUtils.clamp((focus - whole - 0.2) / 0.6, 0, 1);
-  return whole + x * x * x * (x * (x * 6 - 15) + 10);
 }
 
 /** Wide layouts push the station's hero object to the right of the copy */

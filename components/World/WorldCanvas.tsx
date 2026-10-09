@@ -9,10 +9,15 @@ import { Beacons } from './Beacons';
 import { bootState, readyBoot, reportBoot } from './boot';
 import { downloads } from './downloads';
 import { CameraRig } from './CameraRig';
+import { Cockpit } from './Cockpit';
+import { CourseLine } from './CourseLine';
+import { DockingBeam } from './DockingBeam';
 import { Dust } from './Dust';
+import { EdgeShimmer } from './EdgeShimmer';
 import { Effects } from './Effects';
 import { ExploreControls } from './ExploreControls';
 import { GasClouds } from './GasClouds';
+import { HeadingProjector } from './HeadingProjector';
 import { setHullTheme } from './hull';
 import { worldEvents } from './interaction';
 import { Landmarks } from './Landmarks';
@@ -30,11 +35,14 @@ import { HomeStation } from './stations/HomeStation';
 import { LostStation } from './stations/LostStation';
 import { ProjectsStation } from './stations/ProjectsStation';
 import { Signals } from './Signals';
+import { Sparks } from './Sparks';
 import { SkillsStation } from './stations/SkillsStation';
 import { lowerTier, raiseTier, tierSettings } from './quality';
 import { navigableStations } from './routes';
 import { LiteContext } from './stationHooks';
 import { baseFov } from './stations';
+import { TipProbe } from './TipProbe';
+import { Traffic } from './Traffic';
 import { palettes } from './utils';
 import {
   Precompiled,
@@ -291,8 +299,11 @@ export default function WorldCanvas({
           )}
 
           <CameraRig station={station} motion={motion} />
+          <TipProbe />
           <ExploreControls />
           <MotionProbe motion={motion} />
+          <Cockpit theme={theme} />
+          <Sparks theme={theme} />
           <PowerDriver />
 
           <Lighting theme={theme} station={station} shadows={shadows} />
@@ -304,6 +315,7 @@ export default function WorldCanvas({
           <Asteroids count={lite ? 120 : 300} theme={theme} />
           <Dust count={lite ? 260 : 600} theme={theme} />
           <GasClouds count={lite ? 22 : 44} theme={theme} tier={tier} />
+          <Traffic count={lite ? 3 : 8} theme={theme} tier={tier} />
 
           {has('home') && (
             <Precompiled>
@@ -352,6 +364,10 @@ export default function WorldCanvas({
           )}
 
           <Beacons theme={theme} current={station} />
+          <CourseLine theme={theme} />
+          <HeadingProjector theme={theme} station={station} />
+          <DockingBeam theme={theme} />
+          <EdgeShimmer theme={theme} />
           <Pings theme={theme} />
           <StatsProbe station={station} />
           <Effects theme={theme} tier={tier} />

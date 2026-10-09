@@ -28,6 +28,13 @@ export const stationPositions: Record<StationKey, [number, number, number]> = {
   lost: [96, 44, 34],
 };
 
+/** Distance between two stations, centre to centre, in whole world units (the HUD's "km") */
+export function rangeBetween(a: StationKey, b: StationKey) {
+  const [ax, ay, az] = stationPositions[a];
+  const [bx, by, bz] = stationPositions[b];
+  return Math.round(Math.hypot(bx - ax, by - ay, bz - az));
+}
+
 /** The page each station belongs to ('lost' is the 404 and has no page of its own) */
 export const stationPaths: Record<StationKey, string> = {
   home: '/',

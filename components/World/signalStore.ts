@@ -128,8 +128,15 @@ export function dismissFound() {
   notify();
 }
 
-/** The detector: distance to the nearest signal not yet found (Infinity for none) */
-export function reportNearest(distance: number) {
+/** Where the nearest unfound signal is while one is in detector range */
+let nearest: readonly [number, number, number] | null = null;
+
+/**
+ * The detector: distance to the nearest signal not yet found (Infinity for
+ * none), and where it is (for the sonar to sound from)
+ */
+export function reportNearest(distance: number, at?: readonly [number, number, number]) {
+  nearest = distance < detectorRange && at ? at : null;
   const next =
     distance < detectorRange
       ? Math.max(1, Math.ceil((1 - distance / detectorRange) * detectorBars))
@@ -137,6 +144,11 @@ export function reportNearest(distance: number) {
   if (next === bars) return;
   bars = next;
   notify();
+}
+
+/** Where the nearest unfound signal is, or null when none is in detector range */
+export function nearestAt() {
+  return nearest;
 }
 
 const subscribe = (listener: () => void) => {

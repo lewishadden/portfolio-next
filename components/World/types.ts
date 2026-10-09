@@ -11,14 +11,21 @@ export interface WorldContent {
     icon: string;
     /**
      * Up to four screenshots; `tall` marks full-page captures, which scroll on
-     * screen, and `width` is the source's width in pixels
+     * screen, `width` is the source's width in pixels and `index` its
+     * position in the project's images in content.json (the gallery's order)
      */
-    images: { url: string; tall: boolean; width: number }[];
+    images: { url: string; tall: boolean; width: number; index: number }[];
   }[];
-  skills: { name: string; icon: string; category: string }[];
+  /** `level` is how well it is known, 0..100 */
+  skills: { name: string; icon: string; category: string; level: number }[];
   categories: string[];
-  /** Roles from the top of the timeline down (one tether pod each) */
-  roles: { title: string; company: string }[];
+  /**
+   * Roles from the top of the timeline down (one tether pod each), with the
+   * company's monogram and the mission number its card's patch wears
+   */
+  roles: { title: string; company: string; initials: string; mission: number }[];
+  /** The About page's portrait */
+  about: { portrait: string };
   /** Guided tour captions, one per stop */
   tour: { station: string; title: string; text: string }[];
   /** The CV, which one of free roam's hidden signals carries */

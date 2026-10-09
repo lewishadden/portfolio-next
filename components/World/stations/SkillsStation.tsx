@@ -26,6 +26,7 @@ import { StationScope } from '../power';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
+import { orbitTilts } from '../skillsOrbit';
 import { setUniform } from '../utils';
 import { focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
 
@@ -277,13 +278,6 @@ function stepOrbit(
   const orbitLine = (line as LineSegments).material as LineBasicMaterial;
   orbitLine.opacity = MathUtils.damp(orbitLine.opacity, orbitLine.userData.base * (1 + lit), 6, dt);
 }
-
-const orbitTilts: [number, number][] = [
-  [0.2, 0.1],
-  [-0.25, 0.4],
-  [0.4, -0.3],
-  [-0.12, -0.55],
-];
 
 /** `/skills` — a gas giant with the toolkit orbiting as a constellation of badges */
 export function SkillsStation({

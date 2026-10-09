@@ -59,14 +59,19 @@ export function ThemeScript() {
         if (worldOff) {
           root.setAttribute('data-world', 'off');
         }
-        // The 3D world will load: raise the loading screen (components/BootScreen)
-        // until it is ready. Not for crawlers, Save-Data or browsers without WebGL,
-        // nor when it loaded within the last ${bootMemory / 60000} minutes (it's all cached)
+        // The 3D world will run (not switched off, WebGL, no Save-Data): pages
+        // keep room for it from first paint (html[data-world-expected])
         var saveData = navigator.connection && navigator.connection.saveData;
+        var expected = !worldOff && !saveData && typeof WebGLRenderingContext !== 'undefined';
+        if (expected) {
+          root.setAttribute('data-world-expected', '');
+        }
+        // It loads now: raise the loading screen (components/BootScreen) until
+        // it is ready. Not for crawlers, nor when it loaded within the last
+        // ${bootMemory / 60000} minutes (it's all cached)
         var loadedAt = Number(localStorage.getItem('${bootMemoryKey}')) || 0;
         var recent = Date.now() - loadedAt < ${bootMemory};
-        if (!worldOff && !saveData && !recent && typeof WebGLRenderingContext !== 'undefined' &&
-            !/bot|crawl|spider|slurp/i.test(navigator.userAgent)) {
+        if (expected && !recent && !/bot|crawl|spider|slurp/i.test(navigator.userAgent)) {
           root.setAttribute('data-boot', 'loading');
         }
       } catch (e) {}
