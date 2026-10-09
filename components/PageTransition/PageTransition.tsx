@@ -123,14 +123,34 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
     }
     // On approach the flight still says how it came: round in an
     // about-turn, or straight ahead
-    const stop = onFlight((event, to) => {
-      if (to !== next || event === 'start') return;
+    const arrive = () => {
       const { active, turn } = worldStore.flight;
       show(active && turn ? swingIn(Math.sign(turn)) : rushIn);
+    };
+    const stop = onFlight((event, to) => {
+      if (to === next && event !== 'start') arrive();
     });
+    // The camera plans its flight on its next frame: none on its way here
+    // by the frame after, and it is already here (a page opened from the
+    // tour at the stop's own view sets off no flight), or one already on
+    // approach, and there is nothing to wait for (World's 'returning' looks
+    // the same way)
+    let frames = 0;
+    let frame = 0;
+    const look = () => {
+      if (++frames < 3) {
+        frame = requestAnimationFrame(look);
+        return;
+      }
+      const { active, to, approached } = worldStore.flight;
+      if (!active || to !== next) show();
+      else if (approached) arrive();
+    };
+    frame = requestAnimationFrame(look);
     const timer = window.setTimeout(() => show(), maxHold);
     return () => {
       stop();
+      cancelAnimationFrame(frame);
       window.clearTimeout(timer);
     };
   }, [routeKey, pathname, reduceMotion]);
