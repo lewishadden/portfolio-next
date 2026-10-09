@@ -4,12 +4,14 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { AdditiveBlending, Color, MathUtils, NormalBlending, ShaderMaterial } from 'three';
 
+import { motionLevel } from '@/utils/motion';
+
 import { cameraMotion } from './MotionProbe';
 import { palettes, seededRandom, setUniform } from './utils';
 import { worldMode } from './worldMode';
 import { worldStore } from './worldStore';
 
-import type { InstancedBufferGeometry } from 'three';
+import type { Clock, InstancedBufferGeometry } from 'three';
 
 import type { WorldTheme } from './utils';
 
@@ -167,6 +169,30 @@ function applyStarTheme(material: ShaderMaterial, colors: Float32Array, theme: W
     colors[i * 3 + 1] = tint.g;
     colors[i * 3 + 2] = tint.b;
   }
+}
+
+/** The most the sky's idle time moves on in one step (s): a slow frame doesn't lurch */
+const maxStep = 0.1;
+const sky = { t: 0, seen: 0 };
+
+/**
+ * The sky's idle time (s), what its ambient motion runs on in place of the
+ * clock: twinkling, drifting dust, tumbling rocks and the belt's turn, the
+ * shuttles. It moves on with the clock, at most 0.1s a step, and holds at
+ * the still level, where nothing moves on its own: the canvas draws on
+ * demand there and the clock counts the whole gap between frames, so a
+ * frame drawn for a scroll or a hover would otherwise jump all of it on at
+ * once. It never goes back when R3F restarts its clock (a change of
+ * frameloop). Every caller in a frame gets the same time
+ */
+export function skyTime(clock: Clock) {
+  const now = clock.elapsedTime;
+  if (now !== sky.seen) {
+    const step = now - sky.seen;
+    sky.seen = now;
+    if (step > 0 && motionLevel() !== 'still') sky.t += Math.min(step, maxStep);
+  }
+  return sky.t;
 }
 
 const travel = { value: 0, at: -1 };
