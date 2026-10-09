@@ -37,10 +37,11 @@ import { StationHull } from '../StationHull';
 import { orbitTilts } from '../skillsOrbit';
 import { palettes, setUniform } from '../utils';
 import { queueUpload, useWarmupTask } from '../warmup';
-import { focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
+import { focusOnPage, onShowcase, setWorldHover, worldStore, worldTip } from '../worldStore';
 
-import { useStillRepaint } from './stillFrames';
+import { repaintFor, useStillRepaint } from './stillFrames';
 
+import type { RefObject } from 'react';
 import type { IconifyJSON } from '@iconify/react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { Camera, InstancedMesh, LineSegments, Object3D, Texture } from 'three';
@@ -616,20 +617,28 @@ function placeBadges(
  * the hovered badge, stays bright (its level's arc brighter still) and its
  * constellation (a star polygon through its badges) lights up
  */
-function stepOrbit(orbitGroup: Object3D, lit: number, camera: Camera, t: number, dt: number) {
+function stepOrbit(
+  orbitGroup: Object3D,
+  lit: number,
+  flare: number,
+  camera: Camera,
+  t: number,
+  dt: number
+) {
   const [line, spinner] = orbitGroup.children as [Object3D, Object3D];
   const constellation = spinner?.children.find((child) => (child as LineSegments).isLineSegments);
   if (constellation) {
     const material = (constellation as LineSegments).material as LineBasicMaterial;
     const power = Math.min(stationPower.skills.charge.value, 1);
-    const target = lit * (0.55 + 0.15 * Math.sin(t * 3)) * power;
+    const target = Math.max(lit * (0.55 + 0.15 * Math.sin(t * 3)), flare) * power;
     material.opacity = MathUtils.damp(material.opacity, target, 6, dt);
     constellation.visible = material.opacity > 0.01;
   }
   const orbitLine = (line as LineSegments).material as ShaderMaterial;
   const { uOpacity, uLit } = orbitLine.uniforms;
-  uOpacity.value = MathUtils.damp(uOpacity.value, orbitLine.userData.base * (1 + lit), 6, dt);
-  uLit.value = MathUtils.damp(uLit.value, lit, 6, dt);
+  const bright = Math.max(lit, flare);
+  uOpacity.value = MathUtils.damp(uOpacity.value, orbitLine.userData.base * (1 + bright), 6, dt);
+  uLit.value = MathUtils.damp(uLit.value, bright, 6, dt);
   orbitGroup.getWorldQuaternion(orbitTurn).invert();
   viewDown.set(0, -1, 0).applyQuaternion(camera.quaternion).applyQuaternion(orbitTurn);
   centreArc(orbitLine, viewDown, dt);
@@ -671,6 +680,47 @@ function turnOrbit(
   spin.rates[k] = MathUtils.damp(spin.rates[k], held ? 0 : 1, 5, dt);
   if (!still) spin.phases[k] += speed * spin.rates[k] * dt;
   return spin.phases[k];
+}
+
+/** How bright a showcase's flare of every constellation is, `t` (clock time) after it began */
+function flareAt(show: { at: number }, t: number) {
+  const since = t - show.at;
+  if (since < 0 || since > 3) return 0;
+  return since < 0.2 ? since / 0.2 : Math.exp(-(since - 0.2) * 1.4);
+}
+
+const planetCentre = new Vector3();
+const towardsCamera = new Vector3();
+
+/**
+ * Asked to show off (a tour stop landing, or the visitor hailing it): every
+ * constellation flares and the planet pings. A tour's showcase waits for
+ * full motion; at `still` a hail is the ping alone
+ */
+function useShowcase(planet: RefObject<Group | null>, show: RefObject<{ at: number }>) {
+  const get = useThree((s) => s.get);
+  useEffect(
+    () =>
+      onShowcase((station, reason) => {
+        if (station !== 'skills') return;
+        const level = motionLevel();
+        if (reason === 'tour' && level !== 'full') return;
+        const { camera, clock, invalidate } = get();
+        const giant = planet.current;
+        if (giant) {
+          // On the planet's face, towards the camera
+          giant.getWorldPosition(planetCentre);
+          towardsCamera.subVectors(camera.position, planetCentre).setLength(1.9);
+          spawnPing(planetCentre.add(towardsCamera));
+        }
+        if (level === 'still') {
+          repaintFor(invalidate, 1000);
+          return;
+        }
+        show.current.at = clock.elapsedTime;
+      }),
+    [get, planet, show]
+  );
 }
 
 /** Builds the badge atlas once the icons are in, and uploads it (once) for the badges to sample */
@@ -778,6 +828,9 @@ export function SkillsStation({
   );
   const badgeState = useRef<BadgeState | null>(null);
   const spinRef = useRef<SpinState | null>(null);
+  /** When the last showcase began (clock time) */
+  const showRef = useRef({ at: -Infinity });
+  useShowcase(planetRef, showRef);
   const badgeAttributes = useMemo(() => {
     const attribute = () => {
       const buffer = new InstancedBufferAttribute(new Float32Array(badges.length), 1);
@@ -836,7 +889,7 @@ export function SkillsStation({
     [skills]
   );
 
-  useFrame(({ camera }, delta) => {
+  useFrame(({ camera, clock }, delta) => {
     if (!stationInRange(groupRef.current, camera, 'skills')) return;
     // At `still` nothing moves on its own, and what answers the page snaps
     const still = motionLevel() === 'still';
@@ -852,6 +905,7 @@ export function SkillsStation({
 
     const hovered = hoveredRef.current.badge;
     const named = hovered >= 0 ? badges[hovered].name : worldStore.skillHover;
+    const flare = flareAt(showRef.current, clock.elapsedTime);
     const spinners: Object3D[] = [];
     orbitsRef.current?.children.forEach((orbitGroup, k) => {
       const spinner = orbitGroup.children[1];
@@ -865,7 +919,7 @@ export function SkillsStation({
       spinner.updateMatrix();
       spinners[k] = spinner;
       const lit = worldStore.skillCategory === orbits[k].category || namedHere ? 1 : 0;
-      stepOrbit(orbitGroup, lit, camera, t, dt);
+      stepOrbit(orbitGroup, lit, flare, camera, t, dt);
     });
 
     const mesh = badgesRef.current;

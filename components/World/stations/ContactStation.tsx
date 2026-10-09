@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import { easing } from 'maath';
 import {
@@ -31,17 +31,25 @@ import {
 } from '../materials';
 import { Model } from '../Model';
 import { NavLights } from '../parts';
+import { spawnPing } from '../Pings';
 import { StationScope } from '../power';
-import { createReaction, stepReaction, trickProgress, useReactionHandlers } from '../reaction';
+import {
+  createReaction,
+  stepReaction,
+  trick,
+  trickProgress,
+  useReactionHandlers,
+} from '../reaction';
 import { stationInRange, useThemedMaterials, useWide } from '../stationHooks';
 import { StationHull } from '../StationHull';
 import { stationModels, stationPositions } from '../stations';
 import { latLngToVector3, palettes, seededRandom, setUniform } from '../utils';
-import { setWorldHover, worldStore, worldTip } from '../worldStore';
+import { emitCue, onShowcase, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import { RocketSmoke } from './RocketSmoke';
-import { useStillRepaint } from './stillFrames';
+import { repaintFor, useStillRepaint } from './stillFrames';
 
+import type { RefObject } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { NavLight } from '../parts';
 import type { Reaction } from '../reaction';
@@ -412,6 +420,8 @@ interface Comms {
   face: number;
   /** The pin's rings' own clock (they quicken while a message sends) */
   rings: number;
+  /** Clock time a showcase's transmission runs until */
+  showUntil: number;
   /** The station's own clock, which holds at `still` (nothing ambient moves) */
   ambient: number;
 }
@@ -440,6 +450,51 @@ function yawFacing(globe: Group, pin: Vector3, camera: Vector3, from: number) {
   pinFacing.applyQuaternion(untilt.setFromAxisAngle(xAxis, -globe.rotation.x));
   const yaw = Math.atan2(pinFacing.x, pinFacing.z) - Math.atan2(pin.x, pin.z);
   return from + turnBetween(from, yaw);
+}
+
+/** Seconds a showcase's transmission runs: the packets' arc to the pin */
+const showcaseTime = 2;
+const showPoint = new Vector3();
+
+/**
+ * Asked to show off (a tour stop landing, or the visitor hailing it): the
+ * pin pings, the comms array streams a transmission to it for a couple of
+ * seconds and the rocket revs (it never launches: that is the form's).
+ * The transmission is the station's own, so it never cuts short a real
+ * message sending; like one, it holds the camera on the globe. A tour's
+ * showcase waits for full motion; at `still` a hail is the ping alone
+ */
+function useShowcase(
+  globe: RefObject<Group | null>,
+  pin: Vector3,
+  comms: RefObject<Comms>,
+  rev: RefObject<Reaction>
+) {
+  const get = useThree((s) => s.get);
+  useEffect(
+    () =>
+      onShowcase((station, reason) => {
+        if (station !== 'contact') return;
+        const level = motionLevel();
+        if (reason === 'tour' && level !== 'full') return;
+        const { clock, invalidate } = get();
+        const sphere = globe.current;
+        if (sphere) spawnPing(sphere.localToWorld(showPoint.copy(pin)));
+        if (level === 'still') {
+          repaintFor(invalidate, 1000);
+          return;
+        }
+        comms.current.showUntil = clock.elapsedTime + showcaseTime;
+        worldStore.showcaseUntil = Math.max(
+          worldStore.showcaseUntil,
+          performance.now() + (showcaseTime + transmitHold) * 1000
+        );
+        const [x, y, z] = stationPositions.contact;
+        emitCue('transmit', { at: [x + dishFocus.x, y + dishFocus.y, z + dishFocus.z] });
+        trick(rev.current, revTime);
+      }),
+    [get, globe, pin, comms, rev]
+  );
 }
 
 const launchDuration = 5.5;
@@ -561,6 +616,7 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
     face: 0,
     rings: 0,
     ambient: 0,
+    showUntil: -Infinity,
   });
   const launch = useRef<Launch>({ ignitedAt: -1, flash: 0 });
   const globeHover = useRef({ on: false, level: 0 });
@@ -602,6 +658,7 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
     () => beaconPosition.clone().addScaledVector(beaconPosition.clone().normalize(), 0.72),
     [beaconPosition]
   );
+  useShowcase(globeRef, beaconTip, commsRef, rev);
   const packetBuffers = useMemo(
     () => ({
       positions: new Float32Array(packetCount * 3),
@@ -700,7 +757,8 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
     const sending = transmit.current;
     if (worldStore.transmitting && !sending.was) sending.since = t;
     sending.was = worldStore.transmitting;
-    const active = worldStore.transmitting || t - sending.since < transmitHold;
+    const active =
+      worldStore.transmitting || t < comms.showUntil || t - sending.since < transmitHold;
     sending.level = MathUtils.damp(sending.level, active ? 1 : 0, active ? 6 : 3, dt);
     // Up to 0.35 for a full message (the square root, so a few lines already show)
     const writing = Math.sqrt(worldStore.composing) * 0.35;
