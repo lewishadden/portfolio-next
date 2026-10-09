@@ -314,33 +314,127 @@ function createBadgeMaterial(dark: boolean) {
   });
 }
 
+/** An orbit's line: a circle, each point marked with how far round it is (0..1) */
 function orbitGeometry(radius: number) {
   const points: number[] = [];
+  const around: number[] = [];
   for (let i = 0; i <= 128; i++) {
     const a = (i / 128) * Math.PI * 2;
     points.push(Math.cos(a) * radius, 0, Math.sin(a) * radius);
+    around.push(i / 128);
   }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
+  geometry.setAttribute('aAround', new Float32BufferAttribute(around, 1));
+  return geometry;
+}
+
+/**
+ * A category's constellation: lines from each badge to the one two along
+ * (a star polygon through the badges, `[angle, radius]` each), in the
+ * badges' own frame so it turns with them
+ */
+function constellationGeometry(stars: [number, number][]) {
+  const points: number[] = [];
+  const at = ([angle, radius]: [number, number]) => [
+    Math.cos(angle) * radius,
+    0,
+    Math.sin(angle) * radius,
+  ];
+  const count = stars.length;
+  const step = count > 4 ? 2 : 1;
+  for (let i = 0; i < count; i++) points.push(...at(stars[i]), ...at(stars[(i + step) % count]));
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
   return geometry;
 }
 
 /**
- * A category's constellation: lines from each badge to the one two along
- * (a star polygon, round the same circle the badges sit on), in the
- * badges' own frame so it turns with them
+ * A skill's level (0..100) in its badge: stronger skills are bigger
+ * badges, and orbit higher (further out from the giant), weaker ones
+ * smaller and lower
  */
-function constellationGeometry(count: number, radius: number, offset: number) {
-  const points: number[] = [];
-  const at = (i: number) => {
-    const angle = (i / count) * Math.PI * 2 + offset;
-    return [Math.cos(angle) * radius, 0, Math.sin(angle) * radius];
-  };
-  const step = count > 4 ? 2 : 1;
-  for (let i = 0; i < count; i++) points.push(...at(i), ...at((i + step) % count));
-  const geometry = new BufferGeometry();
-  geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
-  return geometry;
+const levelScale = (level: number) =>
+  0.32 + 0.16 * Math.pow(MathUtils.clamp(level, 0, 100) / 100, 1.5);
+const levelLift = (level: number) => MathUtils.clamp((level - 80) / 100, -0.45, 0.2) * 0.8;
+/** How much a pointed badge swells */
+const swell = 1.6;
+
+/*
+ * The orbit lines carry each category's average level as a lit arc, as
+ * long a share of the circle as the level (87% of it for an 87 average),
+ * centred on the bottom of the view: seen square on, as the camera sees
+ * the category being read, the orbit reads as a gauge open at the top.
+ * The category being read lights its arc fully
+ */
+const orbitVertex = /* glsl */ `
+  attribute float aAround;
+  varying float vAround;
+  void main() {
+    vAround = aAround;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const orbitFragment = /* glsl */ `
+  uniform vec3 uColor;
+  uniform vec3 uArc;
+  uniform float uOpacity;
+  uniform float uLevel;
+  uniform float uCentre;
+  uniform float uLit;
+  uniform float uLight;
+  varying float vAround;
+  void main() {
+    // 0 at the arc's centre, 1 at the far side of the orbit
+    float off = abs(fract(vAround - uCentre + 0.5) - 0.5) * 2.0;
+    float arc = 1.0 - smoothstep(uLevel - 0.015, uLevel, off);
+    vec3 colour = mix(uColor, uArc * mix(1.6, 1.0, uLight), arc * mix(0.55, 1.0, uLit));
+    float alpha = uOpacity * (1.0 + arc * mix(0.3, 1.2, uLit));
+    gl_FragColor = vec4(colour, min(alpha, 1.0));
+  }
+`;
+
+function createOrbitMaterial(theme: WorldTheme, level: number) {
+  const dark = theme === 'dark';
+  const material = new ShaderMaterial({
+    uniforms: {
+      uColor: { value: new Color(dark ? '#8b5cf6' : '#6d28d9') },
+      uArc: { value: new Color(palettes[theme].cyan) },
+      uOpacity: { value: 0 },
+      uLevel: { value: level },
+      uCentre: { value: 0 },
+      uLit: { value: 0 },
+      uLight: { value: dark ? 0 : 1 },
+    },
+    vertexShader: orbitVertex,
+    fragmentShader: orbitFragment,
+    transparent: true,
+    depthWrite: false,
+  });
+  material.userData.base = dark ? 0.3 : 0.25;
+  return material;
+}
+
+const viewDown = new Vector3();
+const orbitTurn = new Quaternion();
+
+/**
+ * Eases an orbit's lit arc round to the bottom of the view (`down`, the
+ * camera's down in the orbit's own frame). Seen edge on, it holds
+ */
+function centreArc(material: ShaderMaterial, down: Vector3, dt: number) {
+  const across = Math.hypot(down.x, down.z);
+  const target = Math.atan2(down.z, down.x) / (Math.PI * 2);
+  const uniform = material.uniforms.uCentre;
+  if (!material.userData.centred) {
+    material.userData.centred = true;
+    uniform.value = target;
+    return;
+  }
+  const weight = MathUtils.smoothstep(across, 0.05, 0.3);
+  const turn = ((((target - uniform.value + 0.5) % 1) + 1) % 1) - 0.5;
+  uniform.value += turn * (1 - Math.exp(-2.5 * dt)) * weight;
 }
 
 /** A badge: its skill, its orbit (an index into the orbits) and where round it it sits */
@@ -351,6 +445,8 @@ interface Badge {
   orbit: number;
   angle: number;
   radius: number;
+  /** Its size at rest (from its level) */
+  size: number;
 }
 
 /** The badges' state between frames (a plain object: it changes every frame) */
@@ -471,7 +567,7 @@ function placeBadges(
     state.depth[i] = badgePoint.z;
     const pointed = badge.name === named;
     // The hovered badge swells
-    state.scale[i] = MathUtils.damp(state.scale[i], pointed ? 0.7 : 0.44, 10, dt);
+    state.scale[i] = MathUtils.damp(state.scale[i], badge.size * (pointed ? swell : 1), 10, dt);
     const dim = reading && reading !== badge.category && !pointed ? 0.35 : 1;
     const clear = clearOfCopy(badgeView.project(camera));
     state.alpha[i] = MathUtils.damp(state.alpha[i], dim * clear, 8, dt);
@@ -496,10 +592,10 @@ function placeBadges(
 
 /**
  * An orbit's line and constellation: the category being read, or holding
- * the hovered badge, stays bright and its constellation (a star polygon
- * through its badges) lights up
+ * the hovered badge, stays bright (its level's arc brighter still) and its
+ * constellation (a star polygon through its badges) lights up
  */
-function stepOrbit(orbitGroup: Object3D, lit: number, t: number, dt: number) {
+function stepOrbit(orbitGroup: Object3D, lit: number, camera: Camera, t: number, dt: number) {
   const [line, spinner] = orbitGroup.children as [Object3D, Object3D];
   const constellation = spinner?.children.find((child) => (child as LineSegments).isLineSegments);
   if (constellation) {
@@ -508,8 +604,13 @@ function stepOrbit(orbitGroup: Object3D, lit: number, t: number, dt: number) {
     material.opacity = MathUtils.damp(material.opacity, target, 6, dt);
     constellation.visible = material.opacity > 0.01;
   }
-  const orbitLine = (line as LineSegments).material as LineBasicMaterial;
-  orbitLine.opacity = MathUtils.damp(orbitLine.opacity, orbitLine.userData.base * (1 + lit), 6, dt);
+  const orbitLine = (line as LineSegments).material as ShaderMaterial;
+  const { uOpacity, uLit } = orbitLine.uniforms;
+  uOpacity.value = MathUtils.damp(uOpacity.value, orbitLine.userData.base * (1 + lit), 6, dt);
+  uLit.value = MathUtils.damp(uLit.value, lit, 6, dt);
+  orbitGroup.getWorldQuaternion(orbitTurn).invert();
+  viewDown.set(0, -1, 0).applyQuaternion(camera.quaternion).applyQuaternion(orbitTurn);
+  centreArc(orbitLine, viewDown, dt);
 }
 
 /** Builds the badge atlas once the icons are in, and uploads it (once) for the badges to sample */
@@ -565,12 +666,20 @@ export function SkillsStation({
       categories.map((category, k) => {
         const members = skills.filter((s) => s.category === category);
         const radius = 3.9 + k * 0.5;
+        // Round the orbit in turn, each lifted by its level
+        const stars = members.map((skill, i): [number, number] => [
+          (i / members.length) * Math.PI * 2 + k,
+          radius + levelLift(skill.level),
+        ]);
+        const level = members.reduce((sum, skill) => sum + skill.level, 0) / (members.length || 1);
         return {
           category,
           members,
           radius,
+          stars,
+          level: MathUtils.clamp(level / 100, 0, 1),
           geometry: orbitGeometry(radius),
-          constellation: constellationGeometry(Math.max(members.length, 1), radius, k),
+          constellation: constellationGeometry(stars.length ? stars : [[k, radius]]),
           tilt: orbitTilts[k % 4],
         };
       }),
@@ -594,8 +703,9 @@ export function SkillsStation({
           icon: skill.icon,
           category: skill.category,
           orbit: k,
-          angle: (i / orbit.members.length) * Math.PI * 2 + k,
-          radius: orbit.radius,
+          angle: orbit.stars[i][0],
+          radius: orbit.stars[i][1],
+          size: levelScale(skill.level),
         }))
       ),
     [orbits]
@@ -622,14 +732,8 @@ export function SkillsStation({
 
   const lines = useMemo(() => {
     const dark = theme === 'dark';
-    const orbit = new LineBasicMaterial({
-      color: dark ? '#8b5cf6' : '#6d28d9',
-      transparent: true,
-      opacity: dark ? 0.3 : 0.25,
-    });
-    orbit.userData.base = orbit.opacity;
     return {
-      orbits: orbits.map(() => orbit.clone()),
+      orbits: orbits.map((orbit) => createOrbitMaterial(theme, orbit.level)),
       constellations: orbits.map(
         () =>
           new LineBasicMaterial({
@@ -688,7 +792,7 @@ export function SkillsStation({
       spinners[k] = spinner;
       const namedHere = orbits[k].members.some((skill) => skill.name === named);
       const lit = worldStore.skillCategory === orbits[k].category || namedHere ? 1 : 0;
-      stepOrbit(orbitGroup, lit, t, dt);
+      stepOrbit(orbitGroup, lit, camera, t, dt);
     });
 
     const mesh = badgesRef.current;
