@@ -128,7 +128,9 @@ html[data-world='off'] {
     0 0 18px color-mix(in oklab, var(--bg-primary) 70%, transparent);
 }
 
-/* Sector map shown while the camera flies (and during tours / explore mode) */
+/* Sector map shown while the camera flies to a new page (and during tours /
+   explore mode). An opaque panel, no backdrop blur: its small type keeps its
+   contrast whatever flies behind it, and it costs no blur pass mid-flight */
 .nav-radar {
   position: fixed;
   bottom: 24px;
@@ -138,7 +140,10 @@ html[data-world='off'] {
   gap: 6px;
   padding: 10px 10px 8px;
   pointer-events: none;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-card);
   opacity: 0;
   transform: translateY(8px) scale(0.97);
   transition:
@@ -148,6 +153,25 @@ html[data-world='off'] {
   &--on {
     opacity: 1;
     transform: none;
+  }
+
+  /* Over the element that has keyboard focus (NavRadar): out of its way */
+  &--on.nav-radar--clear {
+    opacity: 0;
+    transition-duration: 0.2s;
+  }
+
+  /* The tour's card has the bottom of the screen: the map goes top left,
+     where the hidden header was. Small screens have no room for both */
+  [data-world-mode='tour'] & {
+    top: 24px;
+    right: auto;
+    bottom: auto;
+    left: 24px;
+
+    @media (max-width: 760px) {
+      display: none;
+    }
   }
 
   /* Free roam on touch: the move stick has its corner. Tablets lift the map

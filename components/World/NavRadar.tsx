@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 
+import { copyHeldFor } from '@/components/PageTransition/pageSnapshot';
 import { motionLevel } from '@/utils/motion';
 
 import { navigableStations, stationNames, stationPositions } from './routes';
@@ -12,13 +13,17 @@ import type { StationKey } from './routes';
 
 /* ------------------------------------------------------------------
    Sector map: the world in miniature, drawn in 3D and to scale while
-   the camera flies (and throughout tours and explore mode). One uniform
-   scale on every axis, so distances and heights are true; each station
-   stands on a stalk above a ground grid to show its height, the planned
-   route is the real flight curve, and the camera is an arrow pointing
-   the way it looks. The view sways a little so it reads as 3D. Hovering
-   or focusing a link to another station plots the course there first
-   (worldStore.preview), marching towards it, before anything is clicked.
+   the camera flies to a new page (until its final approach, when the
+   page's copy arrives), and throughout tours and explore mode. One
+   uniform scale on every axis, so distances and heights are true; each
+   station stands on a stalk above a ground grid to show its height, the
+   planned route is the real flight curve, and the camera is an arrow
+   pointing the way it looks. The view sways a little so it reads as 3D.
+   Hovering or focusing a link to another station plots the course there
+   first (worldStore.preview), marching towards it, before anything is
+   clicked. It never shows over the page's copy: not for the warp in
+   (whose page is already showing), and never over the element that has
+   keyboard focus.
    ------------------------------------------------------------------ */
 
 /** The course being previewed, when there is no flight: its station and path */
@@ -30,9 +35,11 @@ function previewed() {
 const width = 236;
 const height = 176;
 const pad = 20;
-/** How long the map lingers after a flight lands, and after a previewed course is let go */
-const linger = 1400;
+/** How long the map lingers once a flight reaches its approach (or a mode ends), and after a previewed course is let go */
+const linger = 300;
 const previewLinger = 350;
+/** Every how many frames the map checks it is clear of the focused element */
+const focusEvery = 4;
 /** Map view: turned so the line of stations runs corner to corner, looking down */
 const baseYaw = 0.62;
 const sway = 0.16;
@@ -318,8 +325,50 @@ function paint(
 }
 
 /**
- * A small 3D map of the world that appears while the camera is in flight
- * (and throughout tours and explore mode): every station at its true
+ * Whether the map is up for the camera's flight: on the way to a new page,
+ * until its final approach brings the page's copy in. Not for a flight the
+ * page's copy is already showing over (the warp in as the site loads, or as
+ * the world is switched back on), whose copy it would cover. A page coming
+ * back from the tour or free roam is hidden until the camera is home
+ * (html[data-world-mode='returning']), so that flight has it too. The tour
+ * and free roam have it throughout
+ */
+function flying() {
+  if (worldMode.get().mode !== 'page') return true;
+  const { active, approached, to } = worldStore.flight;
+  if (!active || approached) return false;
+  return copyHeldFor() === to || document.documentElement.dataset.worldMode !== 'page';
+}
+
+/**
+ * The element with keyboard focus, when it is a control the map could
+ * cover: not the page, the body, a whole region (the free roam HUD takes
+ * focus itself) or anything else that covers much of the screen
+ */
+function focusedRect() {
+  const el = document.activeElement;
+  if (!(el instanceof HTMLElement) || el === document.body) return null;
+  if (el.matches('main, [role="region"], [role="dialog"]')) return null;
+  const rect = el.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  if (rect.width * rect.height > 0.25 * window.innerWidth * window.innerHeight) return null;
+  return rect;
+}
+
+const coversFocus = (map: DOMRect) => {
+  const focused = focusedRect();
+  return (
+    !!focused &&
+    map.left < focused.right &&
+    focused.left < map.right &&
+    map.top < focused.bottom &&
+    focused.top < map.bottom
+  );
+};
+
+/**
+ * A small 3D map of the world that appears while the camera flies to a new
+ * page (and throughout tours and explore mode): every station at its true
  * position, the planned route, the destination and the camera itself.
  */
 export function NavRadar() {
@@ -337,15 +386,17 @@ export function NavRadar() {
     ctx.scale(ratio, ratio);
 
     let frame = 0;
+    let frames = 0;
     let lastActive = -Infinity;
     let lastPreview = -Infinity;
+    let covering = false;
     let colours = readColours();
     const font =
       getComputedStyle(document.documentElement).getPropertyValue('--font-geist-mono').trim() ||
       'ui-monospace, monospace';
 
     const tick = (now: number) => {
-      const active = worldStore.flight.active || worldMode.get().mode !== 'page';
+      const active = flying();
       if (active) lastActive = now;
       if (previewed()) lastPreview = now;
       const show = now - lastActive < linger || now - lastPreview < previewLinger;
@@ -356,7 +407,15 @@ export function NavRadar() {
       root.classList.toggle('nav-radar--on', show);
       if (!show) {
         frame = 0;
+        covering = false;
+        root.classList.remove('nav-radar--clear');
         return;
+      }
+      // Out of the way of whatever has keyboard focus (a link the preview is
+      // for, a tour control, a HUD button), checked every few frames
+      if (frames++ % focusEvery === 0) {
+        const next = coversFocus(root.getBoundingClientRect());
+        if (next !== covering) root.classList.toggle('nav-radar--clear', (covering = next));
       }
       paint(ctx, colours, font, now, motionLevel() !== 'full');
       frame = requestAnimationFrame(tick);
@@ -372,17 +431,23 @@ export function NavRadar() {
     const stopMode = worldMode.subscribe(start);
     // The preview's path is planned on the camera's next frame: look then
     const stopPreview = onPreview(() => requestAnimationFrame(() => requestAnimationFrame(start)));
+    // Focus moving onto something under the map moves it out of the way at once
+    const onFocus = () => {
+      if (frame) frames = 0;
+    };
+    document.addEventListener('focusin', onFocus);
     start();
     return () => {
       stopFlight();
       stopMode();
       stopPreview();
+      document.removeEventListener('focusin', onFocus);
       cancelAnimationFrame(frame);
     };
   }, []);
 
   return (
-    <div ref={rootRef} className="nav-radar glass" aria-hidden="true">
+    <div ref={rootRef} className="nav-radar" aria-hidden="true">
       <span className="nav-radar__title">Nav · sector map · to scale</span>
       <canvas ref={canvasRef} className="nav-radar__map" style={{ width, height }} />
     </div>
