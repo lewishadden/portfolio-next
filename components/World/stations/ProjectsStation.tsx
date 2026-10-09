@@ -26,6 +26,7 @@ import {
 import { bloomMaskLayer, maskBloom } from '../bloomMask';
 import { iconSvg, useIconCollections } from '../icons';
 import { decodeImage } from '../imageDecoder';
+import { projectShotEvent } from '../ride';
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { NavLights, Truss } from '../parts';
 import { spawnPing } from '../Pings';
@@ -496,6 +497,12 @@ function frameShot(rect: Vector4, texture: Texture, t: number, phase: number) {
 interface ScreenState {
   index: number;
   next: number;
+  /**
+   * The shot the project's open gallery is on (worldStore.projectShot), as
+   * an index into the screen's shots: the screen fades to it and holds it.
+   * -1 when no gallery of this project is open
+   */
+  pin: number;
   textures: Map<number, Texture>;
   loading: Set<number>;
   fadeStart: number;
@@ -537,7 +544,9 @@ class ScreenShots {
     private gl: WebGLRenderer,
     private screens: WorldContent['projects'],
     readonly states: ScreenState[],
-    private materials: ShaderMaterial[]
+    private materials: ShaderMaterial[],
+    /** Called as a shot lands, so a world rendering on demand draws it */
+    private onLanded: () => void
   ) {}
 
   /** False once disposed: loads still under way are then given up */
@@ -560,7 +569,9 @@ class ScreenShots {
         if (index === state.index && !state.sharp.has(index)) {
           setUniform(this.materials[i], 'uMap', texture);
           setUniform(this.materials[i], 'uHasMap', 1);
+          worldStore.screenShown[i] = image.index;
         }
+        this.onLanded();
       })
       .catch(() => state.loading.delete(index));
   }
@@ -655,6 +666,7 @@ class ScreenShots {
           setUniform(material, 'uHasMap', 1);
         }
         if (state.next === index) setUniform(material, 'uMapB', texture);
+        this.onLanded();
       })
       .catch(() => {
         state.sharpLoading.delete(index);
@@ -689,7 +701,8 @@ class ScreenShots {
    */
   dispose() {
     this.disposed = true;
-    this.states.forEach((state) => {
+    this.states.forEach((state, i) => {
+      worldStore.screenShown[i] = -1;
       state.textures.forEach((texture) => texture.dispose());
       state.sharp.forEach((texture) => texture.dispose());
       state.textures.clear();
@@ -723,12 +736,15 @@ function openProject(slug: string) {
  * (focused or hovered) crossfades through the project's other shots,
  * loading each the first time it is needed. With `waitForSharp` (the screen
  * in front, while sharp copies load) it waits a little for the next shot's
- * sharp copy before fading to it.
+ * sharp copy before fading to it. While the project's gallery is open
+ * (`state.pin`) it fades straight to the gallery's slide and holds it.
+ * Whatever it settles on is recorded in worldStore.screenShown, which a
+ * gallery opening starts from.
  */
 function liveScreen(
   material: ShaderMaterial,
   state: ScreenState,
-  count: number,
+  images: Shot[],
   i: number,
   t: number,
   dt: number,
@@ -760,10 +776,23 @@ function liveScreen(
       (material.uniforms.uRect.value as Vector4).copy(material.uniforms.uRectB.value);
       setUniform(material, 'uPlate', material.uniforms.uPlateB.value);
       setUniform(material, 'uMix', 0);
+      worldStore.screenShown[i] = images[state.index].index;
     }
     return;
   }
 
+  // The project's gallery is open: straight to its slide (once loaded), then hold
+  if (state.pin >= 0) {
+    if (state.pin === state.index) return;
+    shots.load(i, state.pin);
+    if (!state.textures.has(state.pin)) return;
+    state.next = state.pin;
+    state.fadeStart = t;
+    setUniform(material, 'uMapB', shots.copy(i, state.pin));
+    return;
+  }
+
+  const count = images.length;
   if (!live || count < 2) {
     state.nextSwitch = Math.max(state.nextSwitch, t + 1.2);
     return;
@@ -914,6 +943,7 @@ export function ProjectsStation({
   // On-demand rendering (reduced motion) snaps instead of easing
   const snap = useThree((s) => s.frameloop === 'demand');
   const gl = useThree((s) => s.gl);
+  const invalidate = useThree((s) => s.invalidate);
   const groupRef = useRef<Group>(null);
   const helixRef = useRef<Group>(null);
   const hubRef = useRef<Group>(null);
@@ -933,6 +963,7 @@ export function ProjectsStation({
       screens.map(() => ({
         index: 0,
         next: -1,
+        pin: -1,
         textures: new Map(),
         loading: new Set(),
         fadeStart: 0,
@@ -968,14 +999,22 @@ export function ProjectsStation({
   // development double mount) left every screen blank
   const shotsRef = useRef<ScreenShots | null>(null);
   useEffect(() => {
-    const shots = new ScreenShots(gl, screens, states, screenMaterials);
+    const shots = new ScreenShots(gl, screens, states, screenMaterials, () => invalidate());
     shotsRef.current = shots;
     screens.forEach((_, i) => shots.load(i, 0));
     return () => {
       shots.dispose();
       if (shotsRef.current === shots) shotsRef.current = null;
     };
-  }, [gl, screens, states, screenMaterials]);
+  }, [gl, screens, states, screenMaterials, invalidate]);
+
+  // The gallery changing slide: a world rendering on demand draws, so the
+  // screen can follow (see liveScreen)
+  useEffect(() => {
+    const repaint = () => invalidate();
+    window.addEventListener(projectShotEvent, repaint);
+    return () => window.removeEventListener(projectShotEvent, repaint);
+  }, [invalidate]);
 
   // Projects with no screenshots show their art, drawn once the icons are in
   const icons = useIconCollections();
@@ -987,7 +1026,7 @@ export function ProjectsStation({
       const svg = iconSvg(icons, screen.icon || 'ph:code-bold', '#ffffff', 256);
       shots.placeholder(i, drawProjectArt(svg, i + 1));
     });
-  }, [icons, screens, gl, states, screenMaterials]);
+  }, [icons, screens, gl, states, screenMaterials, invalidate]);
 
   const settled = useRef(false);
   /** When the station's frames began (clock seconds, -1 before), and whether its hull has shown */
@@ -1030,20 +1069,31 @@ export function ProjectsStation({
     if (sharpWidth) shots.sharpen(sharpWidth, Math.max(front, 0), live);
 
     setUniform(materials.base, 'uTime', t);
+    // The open gallery's slide, as an index into its screen's shots (one it
+    // doesn't carry holds the screen where it is)
+    const shot = worldStore.projectShot;
+    let changing = false;
     screenMaterials.forEach((material, i) => {
       const state = states[i];
+      const images = screens[i].images;
+      if (shot.project !== i || !images.length) state.pin = -1;
+      else {
+        const pinned = images.findIndex((image) => image.index === shot.image);
+        state.pin = pinned >= 0 ? pinned : state.next >= 0 ? state.next : state.index;
+      }
       setUniform(material, 'uTime', t + i);
       liveScreen(
         material,
         state,
-        screens[i].images.length,
+        images,
         i,
         t,
         dt,
         i === live || i === hoveredRef.current,
         shots,
-        sharpWidth > 0 && i === live
+        sharpWidth > 0 && i === live && state.pin < 0
       );
+      changing ||= state.next >= 0 || (state.pin >= 0 && state.pin !== state.index);
       const reveal = material.uniforms.uReveal.value as number;
       if (reveal < 1.1) setUniform(material, 'uReveal', snap ? 1.1 : reveal + dt * 0.8);
       const dim = front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) * ride : 0;
@@ -1080,6 +1130,10 @@ export function ProjectsStation({
 
     const hub = hubRef.current;
     if (hub) hub.rotation.y = 0.4 + t * 0.1 + worldStore.pointerX * 0.2;
+
+    // Rendering on demand: keep drawing until a screen's fade (or its wait
+    // for the gallery's slide to load) is over
+    if (snap && changing) invalidate();
   });
 
   return (

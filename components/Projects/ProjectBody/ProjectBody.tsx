@@ -6,6 +6,8 @@ import Image, { getImageProps } from 'next/image';
 import { AnimatePresence, m } from 'framer-motion';
 import { Icon } from '@iconify/react';
 
+import { showProjectShot } from 'components/World/ride';
+
 import { motionLevel } from '@/utils/motion';
 
 import ProjectArt from '../ProjectArt/ProjectArt';
@@ -45,9 +47,12 @@ const slideVariants = {
   exit: (dir: number) => ({ opacity: 0, x: `${dir * -7}%`, scale: 0.97, filter: 'blur(12px)' }),
 };
 
-/** Carousel position + direction of travel (for the slide animation) */
-export function useSlides(count: number) {
-  const [[index, direction], setSlide] = useState<[number, number]>([0, 0]);
+/**
+ * Carousel position + direction of travel (for the slide animation),
+ * starting on `initial` (read once, on mount)
+ */
+export function useSlides(count: number, initial: () => number = () => 0) {
+  const [[index, direction], setSlide] = useState<[number, number]>(() => [initial(), 0]);
 
   const step = useCallback(
     (delta: number) => {
@@ -207,6 +212,7 @@ function preloadSlide(image: ProjectImage) {
 
 function Gallery({
   images,
+  project,
   title,
   site,
   index,
@@ -215,6 +221,8 @@ function Gallery({
   onSelect,
 }: {
   images: ProjectImage[];
+  /** The project's position in the full list (0-based): its helix screen follows the slide on show */
+  project: number;
   title: string;
   /** Host shown in a full-page screenshot's address bar */
   site: string;
@@ -237,6 +245,12 @@ function Gallery({
     preloadSlide(images[(index + 1) % count]);
     preloadSlide(images[(index - 1 + count) % count]);
   }, [images, index, count, multiple]);
+
+  // The project's helix screen shows the slide on show (worldStore.projectShot)
+  useEffect(() => {
+    showProjectShot(project, index);
+  }, [project, index]);
+  useEffect(() => () => showProjectShot(-1, -1), []);
 
   const onPointerDown = (e: PointerEvent) => {
     pointerStart.current = { x: e.clientX, y: e.clientY };
@@ -429,6 +443,7 @@ export function ProjectBody({
         <Gallery
           key={name}
           images={images}
+          project={number - 1}
           title={name}
           site={siteHost(url) ?? name}
           index={slides.index}

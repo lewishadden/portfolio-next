@@ -7,6 +7,7 @@ import { Icon } from '@iconify/react';
 import { useLenis } from 'lenis/react';
 
 import { ScrambleText } from 'components/Motion/ScrambleText';
+import { screenSlide } from 'components/World/ride';
 import { ProjectBody, pad, useSlides } from '../ProjectBody/ProjectBody';
 
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -63,7 +64,8 @@ export function ProjectDetailsModal({
 }) {
   const { title, images, url, startDate, thumbnail } = project;
   const name = title.trim();
-  const slides = useSlides(images.length);
+  // Opens on the shot the project's screen is showing
+  const slides = useSlides(images.length, () => screenSlide(number - 1, images.length));
   const dialogRef = useFocusTrap<HTMLDivElement>(true);
   const lenis = useLenis();
   const titleId = useId();
