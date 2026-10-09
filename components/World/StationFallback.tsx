@@ -2,7 +2,8 @@ import Image from 'next/image';
 
 /**
  * 2D render of a station's model, displayed only when the WebGL world is off
- * (no WebGL / Save-Data — see World.tsx). Hidden images are never fetched.
+ * (no WebGL, Save-Data, or switched off: see World.tsx), over the still sky
+ * World.scss puts in the world's place. Hidden images are never fetched.
  */
 export function StationFallback({ src, className = '' }: { src: string; className?: string }) {
   return (
@@ -18,6 +19,11 @@ export function StationFallback({ src, className = '' }: { src: string; classNam
   );
 }
 
+/**
+ * The 2D renders, by what they show. The terminal (also the projects'
+ * Open Graph render) stands in for the stations that are built in code
+ * rather than modelled: skills and the project pages
+ */
 export const illustrations = {
   astronaut: '/static/images/illustrations/astronaut.webp',
   helmet: '/static/images/illustrations/helmet.webp',

@@ -1,4 +1,6 @@
+@use 'sass:list';
 @use '../../app/motion' as *;
+@use '../../app/stars' as *;
 
 .world {
   position: fixed;
@@ -42,6 +44,47 @@
   }
 }
 
+/* The world off, or no JavaScript (nothing says the world will run): a
+   still sky in its place behind the 2D station renders, the loading
+   screen's stars over a faint nebula drifting through the right of the
+   view, where the render floats */
+html:not([data-world-expected]),
+html[data-world='off'] {
+  .world__backdrop {
+    --star: color-mix(in oklab, var(--text-primary) 60%, transparent);
+    --nebula-a: rgba(139, 92, 246, 0.16);
+    --nebula-b: rgba(34, 211, 238, 0.08);
+    --nebula-c: rgba(244, 114, 182, 0.07);
+
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+    }
+
+    &::before {
+      background:
+        radial-gradient(ellipse 38% 30% at 74% 28%, var(--nebula-a), transparent 70%),
+        radial-gradient(ellipse 26% 42% at 90% 64%, var(--nebula-b), transparent 70%),
+        radial-gradient(ellipse 55% 20% at 42% 88%, var(--nebula-c), transparent 70%);
+    }
+
+    &::after {
+      background-image: list.join(star-tile(14, 260), star-tile(20, 430), comma);
+      background-size: list.join(tile-sizes(14, 260px), tile-sizes(20, 430px), comma);
+      opacity: 0.75;
+    }
+  }
+
+  &[data-theme='light'] .world__backdrop {
+    --star: color-mix(in oklab, var(--accent-primary) 32%, transparent);
+    --nebula-a: rgba(167, 139, 250, 0.24);
+    --nebula-b: rgba(103, 232, 249, 0.2);
+    --nebula-c: rgba(244, 114, 182, 0.1);
+  }
+}
+
 @media (max-width: 899px) {
   .world__veil {
     background: linear-gradient(
@@ -52,6 +95,37 @@
       color-mix(in oklab, var(--bg-primary) 70%, transparent) 100%
     );
   }
+}
+
+/* Dark theme on wide layouts: the copy column sits over the brightest of
+   the sky (the nebula's core, beacons, a station's glow), and light text
+   lost contrast there. The wash is stronger and reaches further across,
+   clear of the station by 70% of the width */
+@media (min-width: 900px) {
+  [data-theme='dark'] .world__veil {
+    background:
+      linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--bg-primary) 70%, transparent) 0%,
+        color-mix(in oklab, var(--bg-primary) 45%, transparent) 45%,
+        transparent 70%
+      ),
+      linear-gradient(
+        0deg,
+        color-mix(in oklab, var(--bg-primary) 40%, transparent),
+        transparent 30%
+      );
+  }
+}
+
+/* Dark theme: a soft halo of the page's own background behind the lines
+   most often set straight over the sky, the page subtitle and the hero's
+   tagline (their secondary grey is the first to drop below 4.5:1) */
+[data-theme='dark'] :is(.page-sub, .hero__tag) {
+  text-shadow:
+    0 0 1px var(--bg-primary),
+    0 0 8px var(--bg-primary),
+    0 0 18px color-mix(in oklab, var(--bg-primary) 70%, transparent);
 }
 
 /* Sector map shown while the camera flies (and during tours / explore mode) */
@@ -172,10 +246,12 @@ html.world-dragging {
 }
 
 /* =============================================================
-   Tour and explore modes: the page steps aside for the world
+   Tour and explore modes: the page steps aside for the world, and
+   stays aside while the camera flies back to it ('returning', World)
    ============================================================= */
 html[data-world-mode='tour'],
-html[data-world-mode='explore'] {
+html[data-world-mode='explore'],
+html[data-world-mode='returning'] {
   overflow: hidden;
 
   #main-content,
@@ -193,8 +269,19 @@ html[data-world-mode='explore'] {
   }
 }
 
+/* Header.scss hides its scrim for the tour and free roam */
+html[data-world-mode='returning'] .header-scrim {
+  opacity: 0;
+}
+
 .world__veil {
   transition: opacity 0.8s var(--ease-out);
+}
+
+/* A long flight between pages (World): no copy until the approach, so
+   nothing to veil, and the view is clear for the cruise */
+html[data-flight='cruise'] .world__veil {
+  opacity: 0;
 }
 
 /* ----- Guided tour caption card ----- */
@@ -205,7 +292,7 @@ html[data-world-mode='explore'] {
   z-index: 80;
   display: grid;
   gap: 0.6rem;
-  width: min(560px, calc(100vw - 32px));
+  width: min(620px, calc(100vw - 32px));
   padding: 1.1rem 1.25rem 1rem;
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
@@ -264,14 +351,16 @@ html[data-world-mode='explore'] {
     transform: scaleX(0);
     transform-origin: left;
 
+    /* --tour-dwell: the stop's dwell, from its caption's length (TourOverlay) */
     &--run {
-      animation: tour-fill 6.5s linear forwards;
+      animation: tour-fill var(--tour-dwell, 6.5s) linear forwards;
     }
   }
 
   /* Holding the tour (TourOverlay) freezes the countdown too */
   &:hover &__fill--run,
-  &:has(:focus-visible) &__fill--run {
+  &:has(:focus-visible) &__fill--run,
+  &[data-paused] &__fill--run {
     animation-play-state: paused;
   }
 
@@ -285,6 +374,41 @@ html[data-world-mode='explore'] {
 
   &__btn {
     min-height: 40px;
+  }
+
+  /* Previous stop and pause: small round buttons */
+  &__controls {
+    display: inline-flex;
+    gap: 0.35rem;
+  }
+
+  &__icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    transition:
+      color var(--dur-fast) ease,
+      border-color var(--dur-fast) ease;
+
+    &:hover {
+      border-color: var(--accent-secondary);
+      color: var(--accent-secondary);
+    }
+
+    &[aria-disabled='true'] {
+      opacity: 0.45;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    &[aria-pressed='true'] {
+      border-color: var(--accent-secondary);
+      color: var(--accent-secondary);
+    }
   }
 
   &__exit {

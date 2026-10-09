@@ -48,6 +48,39 @@ test('no loading screen holds the page when the world is off', async ({ page }) 
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 });
 
+test('free roam is a few tab stops in, not after the whole page', async ({ page }) => {
+  await openHydrated(page, '/');
+  // Its label depends on whether the world is on: the button itself is what counts
+  const roam = page.locator('.roam-fab');
+  await expect(roam).toBeVisible();
+  let stops = 0;
+  while (stops < 15 && !(await roam.evaluate((el) => el === document.activeElement))) {
+    await page.keyboard.press('Tab');
+    stops++;
+  }
+  await expect(roam).toBeFocused();
+});
+
+test('with the world switched off, a still sky and 2D renders stand in for it', async ({
+  page,
+}) => {
+  for (const path of ['/skills', '/projects/drive-king']) {
+    await openHydrated(page, path);
+    await expect(page.locator('html')).toHaveAttribute('data-world', 'off');
+    await expect(page.locator('.station-fallback')).toBeVisible();
+  }
+  const stars = await page
+    .locator('.world__backdrop')
+    .evaluate((el) => getComputedStyle(el, '::after').backgroundImage);
+  expect(stars).toContain('radial-gradient');
+
+  // The corner button says what it does now: it turns the world back on
+  const turnOn = page.getByRole('button', { name: 'Turn on 3D' });
+  await turnOn.click();
+  await expect(page.locator('html')).toHaveAttribute('data-world', 'on');
+  await expect(page.getByRole('button', { name: 'Free roam' })).toBeVisible();
+});
+
 test.describe('3D effects toggle', () => {
   // Reduced motion renders on demand, so software WebGL isn't redrawing all the time
   test.use({ world: 'on', reducedMotion: 'reduce' });
@@ -161,6 +194,182 @@ test.describe('tour and explore modes', () => {
     await page.waitForSelector('html[data-theme]', { state: 'attached' });
     await expect(page.locator('html')).not.toHaveAttribute('data-boot');
   });
+});
+
+test.describe('the guided tour', () => {
+  test.use({ world: 'on', reducedMotion: 'reduce' });
+
+  test(
+    'starts where you are and steps with the keyboard to a closing card',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/skills');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+
+      await page.keyboard.press('ControlOrMeta+k');
+      const palette = page.getByRole('dialog', { name: 'Command palette' });
+      await palette.getByRole('combobox', { name: 'Command' }).fill('guided tour');
+      await page.keyboard.press('Enter');
+      const tour = page.getByRole('region', { name: 'Guided tour' });
+      const title = tour.getByRole('heading', { level: 2 });
+
+      // The first stop is the station on show, and still reads 01
+      await expect(tour).toContainText('01 / 06');
+      await expect(title).toContainText('Skills');
+      await expect(tour).toBeFocused();
+
+      // Space on the card pauses it; the button says so
+      const pause = tour.getByRole('button', { name: 'Pause the tour' });
+      await page.keyboard.press('Space');
+      await expect(pause).toHaveAttribute('aria-pressed', 'true');
+
+      // → and ← step through the stops, round from where it started
+      await page.keyboard.press('ArrowRight');
+      await expect(tour).toContainText('02 / 06');
+      await expect(title).toContainText('Contact');
+      await page.keyboard.press('ArrowLeft');
+      await expect(tour).toContainText('01 / 06');
+      await expect(title).toContainText('Skills');
+      await page.keyboard.press('ArrowLeft');
+      await expect(tour).toContainText('01 / 06');
+
+      // Past the last stop, a closing card waits for a choice
+      for (const stop of ['02', '03', '04', '05', '06']) {
+        await page.keyboard.press('ArrowRight');
+        await expect(tour).toContainText(`${stop} / 06`);
+      }
+      await expect(title).toContainText('Projects');
+      // Space again plays it (the pointer resting on the card holds the
+      // countdown meanwhile)
+      await tour.hover();
+      await page.keyboard.press('Space');
+      await expect(pause).toHaveAttribute('aria-pressed', 'false');
+      await page.keyboard.press('ArrowRight');
+      await expect(tour).toContainText('Complete');
+      await expect(tour.getByRole('button', { name: 'Open Contact' })).toBeVisible();
+      await expect(tour.getByRole('button', { name: 'Fly freely from here' })).toBeVisible();
+      // The closing card has nothing to pause: Space there leaves the last stop playing
+      await expect(tour).toBeFocused();
+      await page.keyboard.press('Space');
+      await page.keyboard.press('ArrowLeft');
+      await expect(tour).toContainText('06 / 06');
+      await expect(pause).toHaveAttribute('aria-pressed', 'false');
+      await expect(tour).not.toContainText('Paused');
+      await page.keyboard.press('ArrowRight');
+      await tour.getByRole('button', { name: /^Back to Skills/ }).click();
+      await expect(tour).toBeHidden();
+      await expect(page).toHaveURL(/\/skills$/);
+      await expect(page.locator('#main-content')).not.toHaveAttribute('inert');
+    }
+  );
+});
+
+test.describe('leaving the tour for a page', () => {
+  // Full motion: the camera flies, and the page you leave would fly off with it
+  test.use({ world: 'on' });
+
+  test(
+    'the hidden page never shows as the camera leaves, and the new one waits for it',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      const { width, height } = page.viewportSize()!;
+      await page.mouse.move(width / 2, height - 120);
+      await page.getByRole('button', { name: 'Take the tour' }).click();
+      const tour = page.getByRole('region', { name: 'Guided tour' });
+      await expect(tour).toContainText('01 / 06');
+      await tour.getByRole('button', { name: 'Next stop' }).click();
+      await expect(tour).toContainText('02 / 06');
+
+      // Every copy of a page that leaves with the camera, and every mode the page goes through
+      await page.evaluate(() => {
+        const log = { ghosts: [] as string[], modes: [] as string[] };
+        (window as unknown as { handover: typeof log }).handover = log;
+        new MutationObserver((records) => {
+          for (const record of records) {
+            for (const node of record.addedNodes) {
+              if (node instanceof HTMLElement && node.classList.contains('page-ghost')) {
+                log.ghosts.push(node.textContent ?? '');
+              }
+            }
+          }
+        }).observe(document.body, { childList: true });
+        new MutationObserver(() => {
+          log.modes.push(document.documentElement.dataset.worldMode ?? '');
+        }).observe(document.documentElement, { attributeFilter: ['data-world-mode'] });
+      });
+      await tour.getByRole('button', { name: 'Visit About' }).click();
+      await expect(page).toHaveURL(/\/about$/);
+      await expect(page.locator('html')).toHaveAttribute('data-world-mode', 'page', {
+        timeout: 20_000,
+      });
+      await expect(page.locator('#main-content')).not.toHaveAttribute('inert');
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+      const log = await page.evaluate(
+        () => (window as unknown as { handover: { ghosts: string[]; modes: string[] } }).handover
+      );
+      expect(log.ghosts).toEqual([]);
+      // Hidden until the camera was back: the tour, then the return, then the page
+      expect(log.modes.filter((mode, i) => mode !== log.modes[i - 1])).toEqual([
+        'returning',
+        'page',
+      ]);
+      // However the copy arrived, it settles with no transform or filter left
+      // on its wrapper (either would trap the page's fixed elements)
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const wrapper = document.querySelector('#main-content > div:not(.page-sweep)')!;
+            const { transform, filter } = getComputedStyle(wrapper);
+            return [transform, filter];
+          })
+        )
+        .toEqual(['none', 'none']);
+    }
+  );
+});
+
+test.describe('coming back from the tour and free roam', () => {
+  test.use({ world: 'on', reducedMotion: 'reduce' });
+
+  test(
+    'keyboard focus returns to the control that started them',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+
+      // The tour's card takes focus; Esc hands it back to the button that started it
+      const start = page.getByRole('button', { name: 'Take the tour' });
+      await start.focus();
+      await page.keyboard.press('Enter');
+      const tour = page.getByRole('region', { name: 'Guided tour' });
+      await expect(tour).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(tour).toBeHidden();
+      await expect(start).toBeFocused();
+
+      // Free roam from its button, then off into the HUD's station list
+      const roam = page.getByRole('button', { name: 'Free roam' });
+      await roam.focus();
+      await page.keyboard.press('Enter');
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      await page.evaluate(() => document.exitPointerLock());
+      await hud
+        .getByRole('list', { name: 'Stations' })
+        .getByRole('button', { name: /^Autopilot to Projects/ })
+        .focus();
+      await page.keyboard.press('Escape');
+      await expect(hud).toBeHidden();
+      await expect(roam).toBeFocused();
+    }
+  );
 });
 
 test.describe('free roam on touch', () => {

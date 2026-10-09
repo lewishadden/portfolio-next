@@ -1,10 +1,10 @@
 'use client';
 
-import { Component, useCallback, useEffect, useState } from 'react';
+import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 
-import { snapshotPage } from '@/components/PageTransition/pageSnapshot';
+import { copyHeldFor, onCopyHold, snapshotPage } from '@/components/PageTransition/pageSnapshot';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useMotionLevel } from '@/hooks/useMotion';
@@ -21,8 +21,15 @@ import { usePageReading, useRoutePreview, useTargetHover, useTilt } from './page
 import { TourOverlay } from './TourOverlay';
 import { WorldTooltip } from './WorldTooltip';
 import { liteQuery, prefetchStationModel, stationForPath } from './routes';
-import { arrivedAt, navigateFromMode, useWorldMode, worldMode } from './worldMode';
-import { intentSettle, setDocking, setIntent, worldNavigateEvent, worldStore } from './worldStore';
+import { arrivedAt, navigateFromMode, restoreFocus, useWorldMode, worldMode } from './worldMode';
+import {
+  intentSettle,
+  onFlight,
+  setDocking,
+  setIntent,
+  worldNavigateEvent,
+  worldStore,
+} from './worldStore';
 
 import type { ReactNode } from 'react';
 import type { StationKey } from './routes';
@@ -32,6 +39,10 @@ import './World.scss';
 
 /** How long the docking sequence plays before the page opens (ms; World.scss's clamps match) */
 const dockTime = 1700;
+/** Longest the page waits for the camera coming back from the tour or free roam (ms) */
+const returnCap = 6500;
+/** A flight longer than this (s) is a cruise: the veil over the copy lifts until approach */
+const cruiseAfter = 1.6;
 
 // three.js + R3F live in their own chunk, fetched after the page is interactive
 const WorldCanvas = dynamic(() => import('./WorldCanvas'), { ssr: false });
@@ -248,16 +259,110 @@ export function World({ content }: { content: WorldContent }) {
     if (active) root.dataset.worldExpected = '';
   }, [active]);
 
-  // Touring or exploring hides the page (html[data-world-mode]) and takes it
-  // out of the tab order and the accessibility tree until you come back; so
-  // does the loading screen until it lifts
+  // Coming back from the tour or free roam, the camera flies back to the
+  // page's station: the page waits for it ('returning') rather than showing
+  // over open space mid-flight. Only when the camera flies: below full
+  // motion it cuts straight there, and the page comes straight back
+  const [modeSeen, setModeSeen] = useState(mode);
+  const [returning, setReturning] = useState(false);
+  if (modeSeen !== mode) {
+    setModeSeen(mode);
+    setReturning(mode === 'page' && active && motion === 'full');
+  }
+  const here = stationForPath(pathname);
   useEffect(() => {
-    const away = active && mode !== 'page';
-    document.documentElement.dataset.worldMode = away ? mode : 'page';
+    if (!returning) return;
+    const done = () => setReturning(false);
+    // On final approach, as a link's flight shows its page
+    const stop = onFlight((event, to) => {
+      if (to === here && event !== 'start') done();
+    });
+    // The camera plans its flight on its next frame: none on its way here
+    // by the frame after (the camera was already there), or one already on
+    // approach, and there is nothing to wait for
+    let frames = 0;
+    let frame = 0;
+    const check = () => {
+      if (++frames < 3) {
+        frame = requestAnimationFrame(check);
+        return;
+      }
+      const { active: flying, to, approached } = worldStore.flight;
+      if (!flying || to !== here || approached) done();
+    };
+    frame = requestAnimationFrame(check);
+    const cap = window.setTimeout(done, returnCap);
+    return () => {
+      stop();
+      cancelAnimationFrame(frame);
+      window.clearTimeout(cap);
+    };
+  }, [returning, here]);
+
+  // Touring or exploring hides the page (html[data-world-mode]) and takes it
+  // out of the tab order and the accessibility tree until you come back (and
+  // the camera has, 'returning'); so does the loading screen until it lifts.
+  // The skip link goes too while the page is hidden: it leads into it
+  const away = active && mode !== 'page';
+  const hidden = away || (active && returning);
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.worldMode = away ? mode : hidden ? 'returning' : 'page';
     for (const el of document.querySelectorAll('#main-content, .header, .footer')) {
-      el.toggleAttribute('inert', away || !booted);
+      el.toggleAttribute('inert', hidden || !booted);
     }
-  }, [active, mode, booted]);
+    document.querySelector('.skip-link')?.toggleAttribute('inert', hidden);
+  }, [away, hidden, mode, booted]);
+
+  // A long flight between pages is a cruise (html[data-flight='cruise']):
+  // the new page's copy is held back until the approach (PageTransition),
+  // so there is none to keep legible, the veil lifts and the view is clear.
+  // Short hops keep it, and so does any flight the copy isn't waiting for:
+  // the warp in whenever the canvas starts (as the site loads, or switched
+  // back on after a navigation), whose page is already showing. It ends
+  // whenever the copy stops waiting on that flight, however that comes
+  // about (on approach, the longest hold, a camera found already there)
+  useEffect(() => {
+    if (!active) return;
+    const root = document.documentElement;
+    const clear = () => {
+      delete root.dataset.flight;
+    };
+    const stop = onFlight((event, to) => {
+      const cruise =
+        event === 'start' &&
+        to === copyHeldFor() &&
+        worldMode.get().mode === 'page' &&
+        worldStore.flight.duration > cruiseAfter;
+      if (cruise) root.dataset.flight = 'cruise';
+      else clear();
+    });
+    const unhold = onCopyHold(() => {
+      const { active: flying, to } = worldStore.flight;
+      if (!flying || to !== copyHeldFor()) clear();
+    });
+    return () => {
+      stop();
+      unhold();
+      clear();
+    };
+  }, [active, mode]);
+
+  // The page is back: keyboard focus returns where it was, once inert has
+  // lifted (the effect above), and the page fades back in once the camera
+  // is home (the hiding rule's own transition only runs on the way out). An
+  // animation, not a transition: the header and footer keep their own
+  const wasHidden = useRef(false);
+  useEffect(() => {
+    const back = wasHidden.current && !hidden;
+    wasHidden.current = hidden;
+    if (!back) return;
+    requestAnimationFrame(restoreFocus);
+    if (motion !== 'full') return;
+    for (const el of document.querySelectorAll('#main-content, .header, .footer')) {
+      el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 600, easing: 'ease-out' });
+    }
+  }, [hidden, motion]);
 
   // Loaded: a visit soon after skips the loading screen (it's all cached)
   useEffect(() => {

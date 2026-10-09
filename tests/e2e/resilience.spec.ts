@@ -129,6 +129,18 @@ test.describe('with the world on', () => {
         .getByRole('link', { name: 'Skills' })
         .click();
       await expect(page).toHaveURL(/\/skills$/);
+      // Once the camera is on its way: within 3 frames of setting off it is
+      // still within 0.25 of About, where it plans no flight back (it is
+      // there already) and the copy rightly shows at once. About to Skills
+      // is on approach only after 38 frames
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            let frames = 0;
+            const tick = () => (++frames >= 6 ? resolve() : requestAnimationFrame(tick));
+            requestAnimationFrame(tick);
+          })
+      );
       await page.goBack();
       await expect(page).toHaveURL(/\/about$/);
       // It does arrive: on approach, or after the longest hold

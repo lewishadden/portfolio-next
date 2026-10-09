@@ -8,6 +8,7 @@ import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
 import { screenSlide } from 'components/World/ride';
+import { illustrations } from 'components/World/StationFallback';
 import { worldStore } from 'components/World/worldStore';
 import { ProjectBody, pad, useSlides } from '../ProjectBody/ProjectBody';
 
@@ -116,6 +117,7 @@ export function ProjectPage({
         label={`Project ${pad(number)} / ${pad(total)}`}
         title={lead}
         accent={accent}
+        illustration={illustrations.terminal}
       >
         <Reveal className="project-page__meta" delay={0.16}>
           <span className="chip">
