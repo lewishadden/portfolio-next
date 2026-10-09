@@ -384,17 +384,18 @@ const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() 
 
 /**
  * Strips per bake, each one frame's work, so no single draw holds the GPU
- * for long: about 1.2M pixels each (four for the desktop's 3072 bake). Not
- * smaller: on an M3 the whole desktop bake is ~12ms of GPU work, but every
- * extra render into the bake target cost a dropped frame while the world was
- * on show (24 strips of 200k pixels dropped 20 frames on a theme change,
- * 4 strips none), whatever its size
+ * for long. A strip's cost follows its area, plus a small fixed cost for
+ * binding the target: on an M3 Pro the whole desktop bake is ~40ms of GPU
+ * work, a 600k-pixel strip ~6ms and a 250k-pixel phone strip ~3ms
  */
 const stripsFor = (width: number, height: number, budget: number) =>
   Math.max(1, Math.round((width * height) / budget));
 
-/** Pixels per bake strip: phones' GPUs are several times slower */
-const stripBudget = { desktop: 1_200_000, phone: 500_000 };
+/**
+ * Pixels per bake strip: eight strips for the desktop's 3072 bake and for a
+ * phone's 2048. Phones' GPUs are several times slower, so theirs are smaller
+ */
+const stripBudget = { desktop: 600_000, phone: 250_000 };
 
 /**
  * The bake's size. Phones ask for 1024, which magnified on a narrow screen
@@ -509,15 +510,18 @@ async function bakeSky(
     if (!isCurrent()) return false;
     // Another bake may have set the uniforms for its theme between strips
     themeBake(bake, theme);
-    const restore = renderer.getRenderTarget();
-    renderer.setRenderTarget(target);
+    // The strip's scissor goes on the target before it is bound: three only
+    // copies a target's scissor into GL state in setRenderTarget, so set after
+    // the bind, every strip shaded (and cleared) the whole sky
     const y = Math.floor((i * height) / strips);
     const h = Math.floor(((i + 1) * height) / strips) - y;
     target.scissor.set(0, y, width, h);
     target.scissorTest = true;
+    const restore = renderer.getRenderTarget();
+    renderer.setRenderTarget(target);
     renderer.render(bake.scene, bake.camera);
-    target.scissorTest = false;
     renderer.setRenderTarget(restore);
+    target.scissorTest = false;
     await nextFrame();
   }
   return isCurrent();
