@@ -78,7 +78,7 @@ export const About = ({
 
       <div className="about__grid" data-world-section="bio">
         <Reveal className="about__media" y={60} scale={0.94}>
-          <div className="about__frame" ref={portraitRef}>
+          <div className="about__frame" ref={portraitRef} data-world-target="about:portrait">
             <div className="about__frame-inner">
               <Image
                 src={image.url}

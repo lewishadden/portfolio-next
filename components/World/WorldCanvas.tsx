@@ -496,7 +496,7 @@ export default function WorldCanvas({
           )}
           {has('about') && (
             <Precompiled>
-              <AboutStation theme={theme} />
+              <AboutStation theme={theme} portrait={content.about.portrait} />
             </Precompiled>
           )}
           {has('experience') && (
@@ -537,7 +537,7 @@ export default function WorldCanvas({
 
           <Beacons theme={theme} current={station} />
           <CourseLine theme={theme} />
-          <HeadingProjector theme={theme} station={station} />
+          <HeadingProjector theme={theme} />
           <DockingBeam theme={theme} />
           <EdgeShimmer theme={theme} />
           <Pings theme={theme} />
