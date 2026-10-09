@@ -8,10 +8,12 @@
    copied. Like the KTX2 transcoder, the worker runs from a blob URL.
    ------------------------------------------------------------------ */
 
+import { imageAccept } from './routes';
+
 const workerSource = `
 self.onmessage = async ({ data: { id, url, options } }) => {
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: { Accept: ${JSON.stringify(imageAccept)} } });
     if (!response.ok) throw new Error(response.status + ' for ' + url);
     const bitmap = await createImageBitmap(await response.blob(), options);
     self.postMessage({ id, bitmap }, [bitmap]);
@@ -39,7 +41,7 @@ let nextId = 0;
 const pending = new Map<number, Request>();
 
 async function decodeHere(url: string, options: ImageBitmapOptions) {
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: { Accept: imageAccept } });
   if (!response.ok) throw new Error(`${response.status} for ${url}`);
   return createImageBitmap(await response.blob(), options);
 }
