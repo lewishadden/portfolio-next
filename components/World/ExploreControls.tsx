@@ -495,7 +495,8 @@ export function ExploreControls() {
         setCourse(Number(course[1]));
         return;
       }
-      if (keys.has(e.code)) {
+      // With Cmd, Ctrl or Alt it is the browser's (Cmd+R reloads), not a flight key
+      if (keys.has(e.code) && plain) {
         e.preventDefault();
         held.add(e.code);
         apply();
@@ -503,6 +504,13 @@ export function ExploreControls() {
     };
     const upKey = (e: KeyboardEvent) => {
       if (e.key === 'Shift') exploreInput.boost = false;
+      // macOS never sends the keyup of a key let go while Cmd is down, so
+      // letting go of Cmd lets go of them all rather than leave one stuck
+      if (e.key === 'Meta' && held.size) {
+        held.clear();
+        apply();
+        return;
+      }
       if (held.delete(e.code)) apply();
     };
     const blur = () => {
