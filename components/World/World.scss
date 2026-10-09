@@ -212,7 +212,7 @@ html[data-world-mode='returning'] .header-scrim {
   z-index: 80;
   display: grid;
   gap: 0.6rem;
-  width: min(560px, calc(100vw - 32px));
+  width: min(620px, calc(100vw - 32px));
   padding: 1.1rem 1.25rem 1rem;
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
