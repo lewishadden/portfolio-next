@@ -27,10 +27,12 @@ const maxHold = 6500;
  * copy rushing past or swinging away, see pageSnapshot). The first page
  * load enters as the loading screen lifts.
  *
- * The reveal is state (the route it has been shown for), not an imperative
- * animation start: a remount of the keyed wrapper (StrictMode in
- * development) resets it to its initial "hidden" and would drop a one-off
- * start, leaving the page invisible.
+ * The reveal is state, not an imperative animation start: a remount of the
+ * keyed wrapper (StrictMode in development) resets it to its initial
+ * "hidden" and would drop a one-off start, leaving the page invisible. It
+ * starts over on every navigation, even back to the route last shown (off
+ * to another page and straight back, before that flight was on approach):
+ * that copy waits for the camera again.
  */
 export function PageTransition({ children }: { children: React.ReactNode }) {
   // Keyed by route, not URL: the project modal's shallow URL change must not remount the grid
@@ -38,7 +40,10 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const lenis = useLenis();
-  const [shownRoute, setShownRoute] = useState<string | null>(null);
+  const [reveal, setReveal] = useState({ route: routeKey, shown: false });
+  // Reset while rendering, so the new route never renders a frame as shown
+  if (reveal.route !== routeKey) setReveal({ route: routeKey, shown: false });
+  const shown = reveal.route === routeKey && reveal.shown;
   const station = useRef<StationKey | null>(null);
   const route = useRef<string | null>(null);
   const flight = useRef(false);
@@ -67,7 +72,10 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const next = station.current;
-    const show = () => setShownRoute(routeKey);
+    const show = () =>
+      setReveal((current) =>
+        current.route === routeKey && !current.shown ? { route: routeKey, shown: true } : current
+      );
     if (!flight.current) {
       // A full page load enters as the loading screen lifts
       return whenBooted(show);
@@ -97,7 +105,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
       <m.div
         key={routeKey}
         initial="hidden"
-        animate={shownRoute === routeKey ? 'visible' : 'hidden'}
+        animate={shown ? 'visible' : 'hidden'}
         variants={{
           hidden: { opacity: 0, y: reduceMotion ? 0 : 28, filter: 'blur(14px)' },
           visible: {
