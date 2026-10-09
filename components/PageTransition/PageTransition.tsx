@@ -10,7 +10,13 @@ import { stationForPath } from '@/components/World/routes';
 import { onFlight, worldStore } from '@/components/World/worldStore';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useRouteKey } from '@/hooks/useRouteKey';
-import { releaseSnapshot, watchNavigation, worldOnScreen } from './pageSnapshot';
+import {
+  copyHeldFor,
+  holdCopy,
+  releaseSnapshot,
+  watchNavigation,
+  worldOnScreen,
+} from './pageSnapshot';
 
 import type { StationKey } from '@/components/World/routes';
 
@@ -101,6 +107,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
     const next = stationForPath(pathname);
     station.current = next;
     flight.current = previous !== null && previous !== next && !reduceMotion && worldOnScreen();
+    holdCopy(flight.current ? next : null);
     releaseSnapshot(next, flight.current);
     // ThemeScript's failsafe showed the page that loaded before the app did; the next runs as usual
     if (route.current !== null && route.current !== routeKey) {
@@ -111,12 +118,14 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const next = station.current;
-    const show = (arrival: Arrival | null = null) =>
+    const show = (arrival: Arrival | null = null) => {
+      if (copyHeldFor() === next) holdCopy(null);
       setShownRoute((current) =>
         current.route === routeKey && !current.shown
           ? { route: routeKey, shown: true, arrival }
           : current
       );
+    };
     if (!flight.current) {
       // A full page load enters as the loading screen lifts
       return whenBooted(() => show());

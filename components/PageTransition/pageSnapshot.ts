@@ -68,6 +68,23 @@ interface Snapshot {
 let pending: Snapshot | null = null;
 /** The station of the page on screen (kept by releaseSnapshot) */
 let shown: StationKey | null = null;
+/** The station whose page's copy is held back for the camera (PageTransition), if any */
+let waiting: StationKey | null = null;
+
+/**
+ * PageTransition holds the new page's copy until the camera flying to
+ * `station` is on approach (null: it shows, or never waited)
+ */
+export function holdCopy(station: StationKey | null) {
+  waiting = station;
+}
+
+/**
+ * The station a flight must be going to for the copy to be waiting on it:
+ * World lifts the veil for such a flight (a cruise), as there is no copy
+ * on screen to keep legible
+ */
+export const copyHeldFor = () => waiting;
 
 /** The 3D world is on screen, in any mode */
 export const worldOnScreen = () =>

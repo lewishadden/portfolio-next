@@ -4,7 +4,7 @@ import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 
-import { snapshotPage } from '@/components/PageTransition/pageSnapshot';
+import { copyHeldFor, snapshotPage } from '@/components/PageTransition/pageSnapshot';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useMotionLevel } from '@/hooks/useMotion';
@@ -315,21 +315,21 @@ export function World({ content }: { content: WorldContent }) {
   }, [away, hidden, mode, booted]);
 
   // A long flight between pages is a cruise (html[data-flight='cruise']):
-  // there is no copy to keep legible until the approach, so the veil lifts
-  // and the view is clear. Short hops keep it, and so does the warp in as
-  // the site loads (before any navigation), whose copy arrives as it starts
-  // The path the site loaded on, until the first navigation (then null)
-  const loadedOn = useRef<string | null>(pathname);
+  // the new page's copy is held back until the approach (PageTransition),
+  // so there is none to keep legible, the veil lifts and the view is clear.
+  // Short hops keep it, and so does any flight the copy isn't waiting for:
+  // the warp in whenever the canvas starts (as the site loads, or switched
+  // back on after a navigation), whose page is already showing
   useEffect(() => {
     if (!active) return;
     const root = document.documentElement;
     const clear = () => {
       delete root.dataset.flight;
     };
-    const stop = onFlight((event) => {
+    const stop = onFlight((event, to) => {
       const cruise =
         event === 'start' &&
-        loadedOn.current === null &&
+        to === copyHeldFor() &&
         worldMode.get().mode === 'page' &&
         worldStore.flight.duration > cruiseAfter;
       if (cruise) root.dataset.flight = 'cruise';
@@ -393,7 +393,6 @@ export function World({ content }: { content: WorldContent }) {
   );
   // A tour or free roam that asked for this page hands the camera back now it is here
   useEffect(() => {
-    if (pathname !== loadedOn.current) loadedOn.current = null;
     arrivedAt(pathname);
   }, [pathname]);
 
