@@ -74,14 +74,19 @@ export function trick(state: Reaction, duration = 1, at?: Point) {
   emitCue('trick', at ? { at: [at.x, at.y, at.z] } : undefined);
 }
 
+/** How long (ms) the still level keeps drawing after a click, so its ping plays out */
+const pingTime = 1000;
+
 /**
  * Pointer handlers for a character: hover leans it in (and shows `tip`), a
- * click pings where it landed and plays its `duration`-second trick. Put
- * them on an invisible proxy (a capsule or sphere round the character), not
- * on the model: R3F raycasts everything under the object with the handlers,
- * and a GLB's triangles cost far more to test on every pointer move
+ * click pings where it landed and plays its `duration`-second trick (at
+ * the still level only the ping: nothing is set moving). Put them on an
+ * invisible proxy (a capsule or sphere round the character), not on the
+ * model: R3F raycasts everything under the object with the handlers, and a
+ * GLB's triangles cost far more to test on every pointer move
  */
 export function useReactionHandlers(state: RefObject<Reaction>, tip: WorldTip, duration = 1) {
+  const invalidate = useThree((s) => s.invalidate);
   return useMemo(
     () => ({
       onPointerOver(e: ThreeEvent<PointerEvent>) {
@@ -94,10 +99,11 @@ export function useReactionHandlers(state: RefObject<Reaction>, tip: WorldTip, d
       onClick(e: ThreeEvent<MouseEvent>) {
         e.stopPropagation();
         spawnPing(e.point);
-        trick(state.current, duration, e.point);
+        if (motionLevel() === 'still') keepDrawing(invalidate, pingTime);
+        else trick(state.current, duration, e.point);
       },
     }),
-    [state, tip, duration]
+    [state, tip, duration, invalidate]
   );
 }
 
