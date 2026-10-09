@@ -258,6 +258,8 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
         <span className="tour__dot" aria-hidden="true" />
         Guided tour · {String(tourStep + 1).padStart(2, '0')} /{' '}
         {String(tourStops.length).padStart(2, '0')}
+        {/* Said aloud (the card is a live region) when Space pauses it */}
+        {paused && ' · Paused'}
       </p>
       <h2 className="tour__title">
         {caption!.title} <span>· {names.page}</span>
