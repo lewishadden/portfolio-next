@@ -11,10 +11,11 @@ import { useLenis } from 'lenis/react';
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
-import { worldStore } from 'components/World/worldStore';
+import { projectRideEvent, settleFocus } from 'components/World/ride';
+import { emitCue, worldStore } from 'components/World/worldStore';
 
 import { motionLevel } from '@/utils/motion';
-import { projectPath, projectSlugFromPath } from '@/utils/projectPaths';
+import { projectPath, projectSlugFromPath, projectTitle } from '@/utils/projectPaths';
 
 import ProjectArt from './ProjectArt/ProjectArt';
 import ProjectDetailsModal from './ProjectDetailsModal/ProjectDetailsModal';
@@ -178,8 +179,39 @@ function ProjectHud({
   );
 }
 
-/** Scroll that comes to rest on the ride glides to the nearest stop, after this long (ms) */
+/**
+ * The HUD's copy travels with the camera between projects: `--ride` is how
+ * far the camera is from the project shown (settleFocus, -0.5..0.5, 0 while
+ * it holds on one) and `--hud-o` the copy's opacity, gone by a ride of
+ * 0.45, where the next project's copy takes over. Within `rideRest` of a
+ * project there is no transform or opacity at all, so text at rest is crisp
+ */
+const rideRest = 0.02;
+
+function rideStage(stage: HTMLElement | null, focus: number) {
+  if (!stage) return;
+  const ride = settleFocus(focus) - Math.round(focus);
+  if (Math.abs(ride) < rideRest) {
+    stage.removeAttribute('data-riding');
+    stage.style.removeProperty('--ride');
+    stage.style.removeProperty('--hud-o');
+    return;
+  }
+  stage.setAttribute('data-riding', '');
+  stage.style.setProperty('--ride', ride.toFixed(4));
+  stage.style.setProperty('--hud-o', Math.min(Math.max(1 - Math.abs(ride) * 2.2, 0), 1).toFixed(3));
+}
+
+/** Scroll that comes to rest on the ride glides to a stop, after this long (ms) */
 const snapAfter = 160;
+/**
+ * A scroll that ends this far (px) from where the last one came to rest
+ * carries on to the next stop its way, however short of halfway it is
+ * (the stop beyond its start nearest where it ended); a smaller one goes
+ * back. From the top of the page a smaller one still docks
+ */
+const snapCommit = 60;
+const snapCommitTop = 24;
 const snapEase = (t: number) => 1 - Math.pow(1 - t, 3);
 
 /**
@@ -194,10 +226,18 @@ const snapEase = (t: number) => 1 - Math.pow(1 - t, 3);
  * the 3D world the ride is the same, but the stage shows each project's own
  * screenshot where the 3D screen would be, and nothing waits.
  */
-export const Projects = ({ projects }: { projects: ProjectsProps }) => {
+export const Projects = ({
+  projects,
+  siteName,
+}: {
+  projects: ProjectsProps;
+  /** The site's name, for the document title while a project's modal is open */
+  siteName: string;
+}) => {
   const { label, items } = projects;
   const tourRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const indexRef = useRef<HTMLOListElement>(null);
   const [active, setActive] = useState(0);
   const lenis = useLenis();
 
@@ -229,17 +269,22 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     if (!tour) return;
     let lane = runway();
     let frame = 0;
+    /** The project the ride last settled on (-1 off the ride); the first update only notes it */
+    let ticked = -1;
+    let quiet = true;
     const update = () => {
       frame = 0;
+      const stage = stageRef.current;
       if (selected >= 0) {
         worldStore.projectFocus = selected;
         worldStore.projectIntro = 0;
         worldStore.projectTail = 0;
+        rideStage(stage, selected);
         return;
       }
-      const stage = stageRef.current;
       if (lane.step < 10) {
         stage?.removeAttribute('data-waiting');
+        rideStage(stage, 0);
         return;
       }
       const focus = Math.min(
@@ -247,6 +292,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         items.length - 1
       );
       worldStore.projectFocus = focus;
+      rideStage(stage, focus);
       // Past the last project the camera descends with the page, so the last
       // screen scrolls away with its copy
       const last = lane.docked + lane.step * (items.length - 1);
@@ -257,6 +303,21 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         lane.docked > 1 ? Math.min(Math.max(1 - window.scrollY / lane.docked, 0), 1) : 0;
       worldStore.projectIntro = intro;
       stage?.toggleAttribute('data-waiting', intro > 0.12);
+      // The ride's detent: settling on another project ticks (not as the
+      // page first draws, nor as the modal closes). With the world on, the
+      // helix's station ticks from the screen instead
+      const rest = Math.round(focus);
+      if (intro > 0.12) ticked = -1;
+      else if (rest !== ticked && Math.abs(settleFocus(focus) - rest) < rideRest) {
+        if (!quiet && document.documentElement.dataset.world !== 'on') emitCue('tick');
+        ticked = rest;
+      }
+      quiet = false;
+      // Docked: the sticky stage holds the screen, from the first project to the last
+      stage?.toggleAttribute(
+        'data-docked',
+        window.scrollY >= lane.docked - 1 && window.scrollY <= last + 1
+      );
       setActive(Math.round(focus));
     };
     const schedule = () => {
@@ -289,19 +350,41 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       }
       const y = lane.docked + lane.step * index;
       const reduce = motionLevel() !== 'full';
-      if (lenis) lenis.scrollTo(y, { immediate: reduce });
+      if (lenis) lenis.scrollTo(y, { immediate: reduce, userData: { rideTo: y } });
       else window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
     },
     [lenis, runway]
   );
 
-  // Snapping: once scroll comes to rest on the ride, glide to the nearest
-  // project (or back to the top of the page); past the last one it is free.
-  // Any scroll input interrupts the glide (Lenis stops programmatic scrolls)
+  // Snapping: once scroll comes to rest on the ride, glide to a project (or
+  // back to the top of the page): the next one in the direction of the
+  // gesture once it has gone snapCommit from where it started (the first
+  // from the top always docks), else back to the nearest. Past the last
+  // project it is free. Any scroll input interrupts the ride's own scrolls
+  // (a snap glide, or goTo's ride to a project, marked by their userData)
   useEffect(() => {
     if (!lenis || selected >= 0) return;
     let timer = 0;
     let pressed = false;
+    /** Where the scroll last came to rest (or was sent, or a gesture caught one of the ride's scrolls) */
+    let anchor = window.scrollY;
+    /** Where the scroll a gesture caught was going, when the gesture went the same way (else NaN) */
+    let heading = NaN;
+    /** Where the ride's own scroll under way is going, if one is (and nothing has taken it over) */
+    const riding = () => {
+      const to: unknown = lenis.isScrolling === 'smooth' ? lenis.userData.rideTo : undefined;
+      return typeof to === 'number' ? to : undefined;
+    };
+    // Wheel or touch input during one of the ride's scrolls stops it
+    // (touch) or carries on from where it has got to (wheel), so the
+    // gesture starts there: measured from where the scroll started or was
+    // going, a short swipe read as one the other way and the ride went back
+    const interrupt = ({ deltaY, event }: { deltaY: number; event: WheelEvent | TouchEvent }) => {
+      const to = riding();
+      if (to === undefined || deltaY === 0 || event.ctrlKey) return;
+      anchor = window.scrollY;
+      heading = Math.sign(to - anchor) === Math.sign(deltaY) ? to : NaN;
+    };
     const settle = () => {
       const lane = runway();
       if (pressed || lane.step < 10) return;
@@ -310,41 +393,134 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         rest();
         return;
       }
-      const y = window.scrollY;
+      const at = window.scrollY;
+      const caught = heading;
+      heading = NaN;
       const stops = items.map((_, i) => lane.docked + lane.step * i);
-      if (y > stops[stops.length - 1] + lane.step / 2) return;
+      const last = stops[stops.length - 1];
+      if (at > last + lane.step / 2) {
+        anchor = at;
+        return;
+      }
       if (lane.docked > 1) stops.unshift(0);
-      const nearest = stops.reduce((best, stop) =>
+      // A gesture that caught a scroll and kept going its way is measured
+      // from where that scroll was going, and short of there it goes there:
+      // each swipe onwards counts, however soon after the last it comes
+      let from = anchor;
+      let y = at;
+      const way = Math.sign(caught - anchor);
+      if (way && Math.sign(y - anchor) === way) {
+        from = caught;
+        if ((y - caught) * way < 0) y = caught;
+      }
+      const moved = y - from;
+      const commit = from < lane.docked - 2 && moved > 0 ? snapCommitTop : snapCommit;
+      // Gone far enough: the nearest stop beyond where it started, its way
+      // (not the first past where it stopped: a ride to a project that
+      // lands a little past it, as the layout settles, stays there)
+      const onward =
+        Math.abs(moved) > commit
+          ? stops.filter((stop) => (moved > 0 ? stop > from + 2 : stop < from - 2))
+          : [];
+      const target = (onward.length ? onward : stops).reduce((best, stop) =>
         Math.abs(stop - y) < Math.abs(best - y) ? stop : best
       );
-      if (Math.abs(nearest - y) < 2) return;
-      const reduce = motionLevel() !== 'full';
-      lenis.scrollTo(nearest, { duration: 0.75, easing: snapEase, immediate: reduce });
+      anchor = target;
+      if (Math.abs(target - at) < 2) return;
+      lenis.scrollTo(target, {
+        duration: 0.75,
+        easing: snapEase,
+        immediate: motionLevel() !== 'full',
+        userData: { rideTo: target },
+      });
     };
     function rest() {
+      // One of the ride's own scrolls is under way, so no gesture has taken
+      // it over: a later ride (an index link, a helix screen) or the one a
+      // gesture failed to catch. A heading from an earlier catch is stale
+      // (it sent a later ride on past the project chosen, to where the
+      // caught one was going). A wheel that catches a ride replaces its
+      // userData, and a touch turns the scroll native, so they keep theirs
+      if (riding() !== undefined) heading = NaN;
       window.clearTimeout(timer);
       timer = window.setTimeout(settle, snapAfter);
     }
-    // Dragging the scrollbar (or a finger still down) is not at rest
-    const press = () => {
+    // Dragging the scrollbar (or a finger still down) is not at rest. A
+    // scrollbar drag puts the page where it is dropped, so a mouse press
+    // drops the heading (a finger keeps it: a second swipe onwards in a
+    // caught ride's momentum still counts from where the ride was going)
+    const press = (event: PointerEvent) => {
       pressed = true;
+      if (event.pointerType === 'mouse') heading = NaN;
     };
     const release = () => {
       pressed = false;
       rest();
     };
     lenis.on('scroll', rest);
+    lenis.on('virtual-scroll', interrupt);
     window.addEventListener('pointerdown', press);
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
     return () => {
       window.clearTimeout(timer);
       lenis.off('scroll', rest);
+      lenis.off('virtual-scroll', interrupt);
       window.removeEventListener('pointerdown', press);
       window.removeEventListener('pointerup', release);
       window.removeEventListener('pointercancel', release);
     };
   }, [items, lenis, runway, selected]);
+
+  // A click on a helix screen other than the one in front rides to it
+  useEffect(() => {
+    const ride = (e: Event) => {
+      const index = (e as CustomEvent<number>).detail;
+      if (Number.isInteger(index) && index >= 0 && index < items.length) goTo(index);
+    };
+    window.addEventListener(projectRideEvent, ride);
+    return () => window.removeEventListener(projectRideEvent, ride);
+  }, [goTo, items.length]);
+
+  // Closing a project's modal leaves the visitor at that project: the ride
+  // comes to it if it wasn't the one in front (opened from its screen, or
+  // by going forward in history), and its "View details" link gets focus
+  const closed = useRef(-1);
+  const focusOn = useRef(-1);
+  const lastSelected = useRef(selected);
+  useEffect(() => {
+    if (selected < 0 && lastSelected.current >= 0) closed.current = lastSelected.current;
+    lastSelected.current = selected;
+  }, [selected]);
+  const focusDetails = useCallback(() => {
+    stageRef.current?.querySelector<HTMLElement>('.proj-hud__btn')?.focus({ preventScroll: true });
+  }, []);
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+    if (focusOn.current !== active) return;
+    focusOn.current = -1;
+    focusDetails();
+  }, [active, focusDetails]);
+  // Once the dialog has gone (and given the page its scroll back)
+  const afterClose = useCallback(() => {
+    const index = closed.current;
+    closed.current = -1;
+    if (index < 0) return;
+    requestAnimationFrame(() => {
+      if (index === activeRef.current) {
+        if (!stageRef.current?.contains(document.activeElement)) focusDetails();
+        return;
+      }
+      // Its link takes focus as the ride gets there (not if the visitor
+      // has gone elsewhere and comes by much later)
+      focusOn.current = index;
+      window.setTimeout(() => {
+        if (focusOn.current === index) focusOn.current = -1;
+      }, 4000);
+      goTo(index);
+    });
+  }, [focusDetails, goTo]);
 
   const open = useCallback((e: MouseEvent<HTMLAnchorElement>, slug: string) => {
     if (!plainClick(e)) return;
@@ -356,6 +532,19 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     if (window.history.state?.projectModal) window.history.back();
     else window.history.replaceState(null, '', '/projects');
   }, []);
+
+  // Narrow layouts show the index as one row that scrolls sideways: keep
+  // the project in front in view
+  useEffect(() => {
+    const list = indexRef.current;
+    const item = list?.children[active] as HTMLElement | undefined;
+    if (!list || !item || list.scrollWidth <= list.clientWidth) return;
+    const left = item.offsetLeft - (list.clientWidth - item.offsetWidth) / 2;
+    list.scrollTo({
+      left: Math.max(0, left),
+      behavior: motionLevel() === 'full' ? 'smooth' : 'auto',
+    });
+  }, [active]);
 
   const current = items[Math.min(active, items.length - 1)];
   const selectedProject = selected >= 0 ? items[selected] : null;
@@ -387,13 +576,17 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       >
         <div ref={stageRef} className="projects__stage">
           <nav className="projects__index" aria-label="Projects">
-            <ol>
+            {/* In narrow layouts a row that scrolls sideways: sideways swipes
+                scroll it natively (Lenis took any with a little vertical
+                drift for the page), vertical ones still ride the page */}
+            <ol ref={indexRef} data-lenis-prevent-horizontal>
               {items.map((project, i) => (
                 <li key={project.slug}>
                   <Link
                     href={projectPath(project.slug)}
                     prefetch={false}
                     className="projects__index-link"
+                    data-world-project={i}
                     aria-current={i === active ? 'true' : undefined}
                     onClick={(e) => {
                       if (!plainClick(e)) return;
@@ -437,12 +630,14 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         </Magnet>
       </Reveal>
 
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={afterClose}>
         {selectedProject && (
           <ProjectDetailsModal
             key={selectedProject.slug}
             project={selectedProject}
             number={selected + 1}
+            fromScreen={selected === active}
+            documentTitle={`${projectTitle(selectedProject.title)} | ${siteName}`}
             onClose={close}
           />
         )}

@@ -7,6 +7,7 @@ import { Icon } from '@iconify/react';
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
+import { screenSlide } from 'components/World/ride';
 import { worldStore } from 'components/World/worldStore';
 import { ProjectBody, pad, useSlides } from '../ProjectBody/ProjectBody';
 
@@ -46,6 +47,7 @@ const PagerLink = ({
       href={projectPath(project.slug)}
       rel={direction}
       className={`project-pager__link project-pager__link--${direction} glass spotlight`}
+      data-world-project={number - 1}
     >
       <span className="project-pager__dir">
         {!next && <Icon icon="ph:arrow-left-bold" width={14} height={14} aria-hidden="true" />}
@@ -87,7 +89,10 @@ export function ProjectPage({
     };
   }, [number]);
 
-  const slides = useSlides(project.images.length);
+  // Opens on the shot the project's screen is showing (unknown on a fresh load: the first)
+  const slides = useSlides(project.images.length, () =>
+    screenSlide(number - 1, project.images.length)
+  );
   const name = project.title.trim();
   const { lead, accent } = splitTitle(name);
 

@@ -29,6 +29,19 @@ test.describe('project modal', () => {
     await expect(card).toBeFocused();
   });
 
+  test('names the open project in the tab, as its page does', async ({ page }) => {
+    await openHydrated(page, '/projects');
+    const listTitle = await page.title();
+    await pick(page, 'Drive King');
+    await page.getByRole('link', { name: 'View details for Drive King' }).click();
+    await expect(page.getByRole('dialog', { name: 'Drive King' })).toBeVisible();
+    await expect(page).toHaveTitle('Drive King | Projects | Lewis Hadden');
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(page).toHaveTitle(listTitle);
+  });
+
   test('the Back button closes it and Forward reopens it', async ({ page }) => {
     await openHydrated(page, '/projects');
     await pick(page, 'Sidenote');
@@ -97,6 +110,232 @@ test.describe('project index', () => {
   });
 });
 
+test.describe('the ride without the world', () => {
+  const pageY = (page: Page) => page.evaluate(() => Math.round(window.scrollY));
+  /** Waits for the scroll (and any snap glide) to come to rest */
+  const settledOn = (page: Page) =>
+    expect
+      .poll(async () => {
+        const start = await pageY(page);
+        await page.waitForTimeout(400);
+        return (await pageY(page)) === start;
+      })
+      .toBe(true);
+
+  test('a short scroll carries on to the next project, and the first docks', async ({ page }) => {
+    await openHydrated(page, '/projects');
+    const index = page.getByRole('navigation', { name: 'Projects' });
+    const scrollY = () => pageY(page);
+    const settled = () => settledOn(page);
+    const { width, height } = page.viewportSize()!;
+    await page.mouse.move(width / 2, height / 2);
+
+    // From the top, a short swipe docks on the first project rather than
+    // going back up (the stage is further away than that)
+    await page.mouse.wheel(0, 150);
+    await settled();
+    const docked = await page.evaluate(() => {
+      const tour = document.querySelector<HTMLElement>('.projects__tour')!;
+      const stage = document.querySelector<HTMLElement>('.projects__stage')!;
+      return (
+        tour.getBoundingClientRect().top + window.scrollY - parseFloat(getComputedStyle(stage).top)
+      );
+    });
+    expect(Math.abs((await scrollY()) - docked)).toBeLessThan(4);
+    await expect(index.getByRole('link', { name: 'ZGS Carpentry', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+
+    // 150px is well short of halfway to the next project: it still goes on to it
+    await page.mouse.wheel(0, 150);
+    await settled();
+    await expect(index.getByRole('link', { name: 'Sidenote', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    await expect(page.getByRole('heading', { level: 2, name: 'Sidenote' })).toBeVisible();
+
+    // And back the same way
+    await page.mouse.wheel(0, -150);
+    await settled();
+    await expect(index.getByRole('link', { name: 'ZGS Carpentry', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+  });
+
+  // A swipe onwards sets off a glide to the next project. Just as it starts,
+  // a second swipe the same way catches it: it goes on, however short it is
+  // (measured from the stop the glide was heading for, a 70px swipe read as
+  // one back; measured from where it caught the glide, a 30px one was too
+  // short to count and went back to the nearest project, the first)
+  for (const swipe of [70, 30]) {
+    test(`a ${swipe}px swipe onwards that catches a snap glide keeps going its way`, async ({
+      page,
+    }) => {
+      await openHydrated(page, '/projects');
+      const index = page.getByRole('navigation', { name: 'Projects' });
+      const { width, height } = page.viewportSize()!;
+      await page.mouse.move(width / 2, height / 2);
+      await page.mouse.wheel(0, 150);
+      await settledOn(page);
+      await expect(index.getByRole('link', { name: 'ZGS Carpentry', exact: true })).toHaveAttribute(
+        'aria-current',
+        'true'
+      );
+
+      const swiped = (await pageY(page)) + 100;
+      await page.mouse.wheel(0, 100);
+      await page.evaluate(
+        ([rest, deltaY]) =>
+          new Promise<void>((resolve) => {
+            // The wheel's own scroll comes to rest, then the glide sets off
+            let arrived = false;
+            const watch = () => {
+              arrived ||= window.scrollY >= rest - 2;
+              if (!arrived || window.scrollY <= rest + 3) {
+                requestAnimationFrame(watch);
+                return;
+              }
+              document.body.dispatchEvent(
+                new WheelEvent('wheel', { deltaY, bubbles: true, cancelable: true })
+              );
+              resolve();
+            };
+            watch();
+          }),
+        [swiped, swipe]
+      );
+      await settledOn(page);
+      await expect(index.getByRole('link', { name: 'Sidenote', exact: true })).toHaveAttribute(
+        'aria-current',
+        'true'
+      );
+    });
+  }
+
+  test('a swipe back that catches a ride to a project stops a project short', async ({ page }) => {
+    await openHydrated(page, '/projects');
+    const index = page.getByRole('navigation', { name: 'Projects' });
+    const { width, height } = page.viewportSize()!;
+    await page.mouse.move(width / 2, height / 2);
+    await page.mouse.wheel(0, 150);
+    await settledOn(page);
+    await expect(index.getByRole('link', { name: 'ZGS Carpentry', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+
+    // The index rides down to the seventh project. As the ride arrives, a
+    // 100px swipe back catches it: measured from there it goes back one
+    // project (measured from the first project, where the scroll last
+    // rested, it read as a swipe onwards and went on to the seventh)
+    const ride = page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const tour = document.querySelector<HTMLElement>('.projects__tour')!;
+          const stage = document.querySelector<HTMLElement>('.projects__stage')!;
+          const steps = document.querySelectorAll('.projects__index-link').length - 1;
+          const docked =
+            tour.getBoundingClientRect().top +
+            window.scrollY -
+            parseFloat(getComputedStyle(stage).top);
+          const stop = docked + ((tour.offsetHeight - stage.offsetHeight) / steps) * 6;
+          let last = window.scrollY;
+          const watch = () => {
+            const y = window.scrollY;
+            const moving = y !== last;
+            last = y;
+            if (!moving || stop - y > 50 || stop - y < 3) {
+              requestAnimationFrame(watch);
+              return;
+            }
+            document.body.dispatchEvent(
+              new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true })
+            );
+            resolve();
+          };
+          watch();
+        })
+    );
+    await index.getByRole('link', { name: 'Sanctions Checker', exact: true }).click();
+    await ride;
+    await settledOn(page);
+    await expect(index.getByRole('link', { name: 'ADP RUN', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+  });
+
+  // The index sends the page on a ride and a swipe its way catches it.
+  // Before that settles, the index sends the page to a project short of
+  // where the caught ride was going: it stops there (the caught ride's
+  // heading outlived it, and the page glided on past the project chosen)
+  for (const { from, ride, then, way } of [
+    { from: 'ZGS Carpentry', ride: 'Sanctions Checker', then: 'Sip Happens', way: 'down' },
+    { from: 'Home Greening Microsite', ride: 'ZGS Carpentry', then: 'Sidenote', way: 'up' },
+  ]) {
+    test(`a ride the index sends after a swipe caught another ends where it was sent (${way})`, async ({
+      page,
+    }) => {
+      await openHydrated(page, '/projects');
+      const index = page.getByRole('navigation', { name: 'Projects' });
+      const link = (name: string) => index.getByRole('link', { name, exact: true });
+      const { width, height } = page.viewportSize()!;
+      await page.mouse.move(width / 2, height / 2);
+      await page.mouse.wheel(0, 150);
+      await settledOn(page);
+      await link(from).click();
+      await settledOn(page);
+      await expect(link(from)).toHaveAttribute('aria-current', 'true');
+
+      // In the page, so the catch and the second ride come in time. The
+      // second is a click with no pointer down, as an index link's Enter is
+      const caught = await page.evaluate(
+        ([ride, then]) =>
+          new Promise<boolean>((resolve) => {
+            const links = [...document.querySelectorAll<HTMLElement>('.projects__index-link')];
+            const at = (name: string) => links.findIndex((l) => l.textContent?.includes(name));
+            const tour = document.querySelector<HTMLElement>('.projects__tour')!;
+            const stage = document.querySelector<HTMLElement>('.projects__stage')!;
+            const step = (tour.offsetHeight - stage.offsetHeight) / (links.length - 1);
+            const start = window.scrollY;
+            const startAt = links.findIndex((l) => l.getAttribute('aria-current') === 'true');
+            const dir = Math.sign(at(ride) - startAt);
+            const thenY = start + step * (at(then) - startAt);
+            // Catch it well under way, short enough of the project sent to
+            // later that the swipe leaves the page short of it too
+            const watch = () => {
+              const y = window.scrollY;
+              if ((thenY - y) * dir < 150) {
+                resolve(false);
+                return;
+              }
+              if ((y - start) * dir < step * 1.5) {
+                requestAnimationFrame(watch);
+                return;
+              }
+              document.body.dispatchEvent(
+                new WheelEvent('wheel', { deltaY: 100 * dir, bubbles: true, cancelable: true })
+              );
+              window.setTimeout(() => {
+                links[at(then)].click();
+                resolve(true);
+              }, 100);
+            };
+            links[at(ride)].click();
+            watch();
+          }),
+        [ride, then]
+      );
+      expect(caught).toBe(true);
+      await settledOn(page);
+      await expect(link(then)).toHaveAttribute('aria-current', 'true');
+    });
+  }
+});
+
 test.describe('the helix ride', () => {
   test.use({ world: 'on' });
 
@@ -146,10 +385,11 @@ test.describe('the helix ride', () => {
       await expect(title).toBeVisible();
       await expect(title).toHaveText('ZGS Carpentry');
 
-      // A little past a project glides back to it, not to a point in between
-      await page.mouse.wheel(0, (await lane()).step * 0.3);
+      // A nudge past a project glides back to it, not to a point in between
+      await page.mouse.wheel(0, 40);
       await restsOn(0);
-      await page.mouse.wheel(0, (await lane()).step * 0.7);
+      // Further than that carries on to the next, even well short of halfway
+      await page.mouse.wheel(0, (await lane()).step * 0.3);
       await restsOn(1);
     }
   );

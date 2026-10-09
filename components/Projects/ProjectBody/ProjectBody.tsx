@@ -6,12 +6,14 @@ import Image, { getImageProps } from 'next/image';
 import { AnimatePresence, m } from 'framer-motion';
 import { Icon } from '@iconify/react';
 
+import { showProjectShot } from 'components/World/ride';
+
 import { motionLevel } from '@/utils/motion';
 
 import ProjectArt from '../ProjectArt/ProjectArt';
 import { techIconClass } from '../techIcon';
 
-import type { CSSProperties, PointerEvent, RefObject } from 'react';
+import type { CSSProperties, PointerEvent, Ref, RefObject } from 'react';
 import type { Project } from '@/types';
 
 import './ProjectBody.scss';
@@ -45,9 +47,12 @@ const slideVariants = {
   exit: (dir: number) => ({ opacity: 0, x: `${dir * -7}%`, scale: 0.97, filter: 'blur(12px)' }),
 };
 
-/** Carousel position + direction of travel (for the slide animation) */
-export function useSlides(count: number) {
-  const [[index, direction], setSlide] = useState<[number, number]>([0, 0]);
+/**
+ * Carousel position + direction of travel (for the slide animation),
+ * starting on `initial` (read once, on mount)
+ */
+export function useSlides(count: number, initial: () => number = () => 0) {
+  const [[index, direction], setSlide] = useState<[number, number]>(() => [initial(), 0]);
 
   const step = useCallback(
     (delta: number) => {
@@ -207,14 +212,20 @@ function preloadSlide(image: ProjectImage) {
 
 function Gallery({
   images,
+  project,
   title,
   site,
   index,
   direction,
   onStep,
   onSelect,
+  stageRef,
 }: {
   images: ProjectImage[];
+  /** The stage (the modal flies it out of the 3D screen) */
+  stageRef?: Ref<HTMLDivElement>;
+  /** The project's position in the full list (0-based): its helix screen follows the slide on show */
+  project: number;
   title: string;
   /** Host shown in a full-page screenshot's address bar */
   site: string;
@@ -237,6 +248,12 @@ function Gallery({
     preloadSlide(images[(index + 1) % count]);
     preloadSlide(images[(index - 1 + count) % count]);
   }, [images, index, count, multiple]);
+
+  // The project's helix screen shows the slide on show (worldStore.projectShot)
+  useEffect(() => {
+    showProjectShot(project, index);
+  }, [project, index]);
+  useEffect(() => () => showProjectShot(-1, -1), []);
 
   const onPointerDown = (e: PointerEvent) => {
     pointerStart.current = { x: e.clientX, y: e.clientY };
@@ -267,6 +284,7 @@ function Gallery({
       }}
     >
       <div
+        ref={stageRef}
         className="project-gallery__stage"
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
@@ -405,12 +423,15 @@ export function ProjectBody({
   number,
   slides,
   headingLevel = 3,
+  stageRef,
 }: {
   project: Project;
   /** 1-based position in the full project list */
   number: number;
   slides: Slides;
   headingLevel?: 2 | 3;
+  /** The gallery's stage, or the art's (the modal flies it out of the 3D screen) */
+  stageRef?: Ref<HTMLDivElement>;
 }) {
   const { title, description, images, technologies, url, startDate, thumbnail } = project;
   const name = title.trim();
@@ -429,16 +450,18 @@ export function ProjectBody({
         <Gallery
           key={name}
           images={images}
+          project={number - 1}
           title={name}
           site={siteHost(url) ?? name}
           index={slides.index}
           direction={slides.direction}
           onStep={slides.step}
           onSelect={slides.select}
+          stageRef={stageRef}
         />
       ) : (
         <div className="project-gallery">
-          <div className="project-gallery__stage project-gallery__stage--art">
+          <div ref={stageRef} className="project-gallery__stage project-gallery__stage--art">
             <ProjectArt icon={thumbnail} tone={number} />
           </div>
         </div>
