@@ -165,11 +165,12 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
   useFrame(({ size }, delta) => {
     followMasks(masking);
     updateReadingGuard(chain.guard, theme, size, gl.getPixelRatio(), delta);
-    updateOptics(chain.optics, camera, {
-      fringes: top,
-      shafts: top && theme === 'dark',
-      light: theme === 'light',
-    });
+    updateOptics(
+      chain.optics,
+      camera,
+      { fringes: top, shafts: top && theme === 'dark', light: theme === 'light' },
+      delta
+    );
   });
 
   useEffect(() => {

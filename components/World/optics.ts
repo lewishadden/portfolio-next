@@ -15,8 +15,9 @@ import type { WorldTheme } from './utils';
    The camera's optics, as post-processing effects (see Effects.tsx).
 
    OpticsEffect: everything that samples the frame along lines. At speed,
-   a radial streak blur out from the point the camera is heading for (the
-   jump to lightspeed) with colour fringes towards the edges, and light
+   while the camera travels (a flight, free roam), a radial streak blur out
+   from the point it is heading for (the jump to lightspeed) with colour
+   fringes towards the edges, and light
    shafts fanning out from the sun when it's in view (top tier only). All
    of it switches off by uniform, never by rebuilding a shader: at rest it
    is a single texture read.
@@ -186,6 +187,12 @@ const readingGuardShader = /* glsl */ `
 `;
 
 export class OpticsEffect extends Effect {
+  /**
+   * 0..1, eased: whether the camera is travelling (a flight, or free roam's
+   * thrust) rather than following the page's scroll
+   */
+  travel = 0;
+
   constructor() {
     super('OpticsEffect', opticsShader, {
       attributes: EffectAttribute.CONVOLUTION,
@@ -335,28 +342,36 @@ const outside = (u: number, v: number) =>
 
 /**
  * Per frame: the streak blur and fringes follow the camera's speed (fringes
- * only on the top tier, as before), aimed at the point it is heading for;
- * the shafts follow the sun on screen (top tier and the dark sky only). On
- * the light sky the streaks reach about half as far: smeared over a bright
- * frame, full-length streaks washed everything out
+ * only on the top tier, as before), aimed at the point it is heading for,
+ * but only while it travels: a flight between stations or free roam's
+ * thrust. Following the page's scroll (End and Home on a long page) never
+ * reads as lightspeed. The shafts follow the sun on screen (top tier and
+ * the dark sky only). On the light sky the streaks reach about half as far:
+ * smeared over a bright frame, full-length streaks washed everything out
  */
 export function updateOptics(
   effect: OpticsEffect,
   camera: Camera,
-  { fringes, shafts, light }: { fringes: boolean; shafts: boolean; light: boolean }
+  { fringes, shafts, light }: { fringes: boolean; shafts: boolean; light: boolean },
+  delta: number
 ) {
   const uniforms = effect.uniforms;
   const speed = cameraMotion.speed;
+  const travelling = worldStore.flight.active || worldMode.get().mode === 'explore';
+  // Eased out, so a flight's last streaks don't cut off as it lands
+  effect.travel = travelling ? 1 : Math.max(0, effect.travel - Math.min(delta, 0.1) / 0.3);
   // Only heading into the view: drifting sideways or backwards doesn't streak
   const warp =
-    MathUtils.smoothstep(speed, 40, 140) * MathUtils.smoothstep(cameraMotion.ahead, 0.15, 0.6);
+    MathUtils.smoothstep(speed, 40, 140) *
+    MathUtils.smoothstep(cameraMotion.ahead, 0.15, 0.6) *
+    effect.travel;
   uniforms.get('uWarp')!.value = warp;
   uniforms.get('uReach')!.value = light ? 0.55 : 1;
   (uniforms.get('uFocus')!.value as Vector2).set(
     cameraMotion.focusX * 0.5 + 0.5,
     cameraMotion.focusY * 0.5 + 0.5
   );
-  uniforms.get('uFringe')!.value = fringes ? Math.min(speed / 40, 1.2) * 0.007 : 0;
+  uniforms.get('uFringe')!.value = fringes ? Math.min(speed / 40, 1.2) * 0.007 * effect.travel : 0;
 
   let strength = 0;
   if (shafts) {
