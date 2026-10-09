@@ -44,13 +44,27 @@ export const canHail = () =>
   document.documentElement.dataset.world === 'on' && !!document.querySelector('.world--ready');
 
 /**
+ * How long a station takes to answer before it hears another hail (ms):
+ * longer than its trick (about 1s), its ping (0.9s) and, at the still
+ * level, its run of nav-light flashes. Each answer flashes, so hails can't
+ * come faster than this: a held Enter on the Hail button repeats its click
+ * at the key-repeat rate (up to 30 a second), well past 3 flashes a second
+ */
+const hailCooldown = 1200;
+const lastHail: Partial<Record<StationKey, number>> = {};
+
+/**
  * Hails a station: it performs its trick, the hail sounds from where it
  * floats, and listeners (the readout's status line) hear what happened.
- * Returns that, or '' when it doesn't answer
+ * Returns that, or '' when it doesn't answer (or is still answering the
+ * last hail, when the status line keeps saying what that did)
  */
 export function hail(station: StationKey) {
   const answer = hailAnswer(station);
   if (!answer) return '';
+  const now = performance.now();
+  if (now - (lastHail[station] ?? -Infinity) < hailCooldown) return '';
+  lastHail[station] = now;
   showcase(station, 'hail');
   emitCue('hail', { at: stationPositions[station] });
   listeners.forEach((listener) => listener(station, answer));
