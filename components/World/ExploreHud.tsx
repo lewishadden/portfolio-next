@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { Icon } from '@iconify/react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -237,12 +237,12 @@ function TouchSticks() {
 
 /**
  * Boosting (Shift, or the move stick pushed out to its boost ring) while
- * thrusting: a rocket jet fires under the middle of the view, its flame
- * longer the faster you go. Read each frame, not rendered by React
+ * thrusting: the ship's engines flare at the corners of the view (Cockpit,
+ * in the canvas), and this says so for screen readers. Read each frame,
+ * not rendered by React
  */
-function BoostJet() {
-  const ref = useRef<HTMLDivElement>(null);
-  const gradient = useId();
+function BoostStatus() {
+  const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const el = ref.current;
@@ -254,36 +254,16 @@ function BoostJet() {
       const thrusting = exploreInput.forward || exploreInput.strafe || exploreInput.lift;
       const boosting =
         exploreInput.boost && !!thrusting && !worldStore.autopilot && !worldStore.docking;
-      if (boosting !== on) {
-        on = boosting;
-        el.toggleAttribute('data-on', on);
-      }
-      if (on) el.style.setProperty('--thrust', Math.min(worldStore.velocity / 70, 1).toFixed(2));
+      if (boosting === on) return;
+      on = boosting;
+      el.toggleAttribute('data-on', on);
+      el.textContent = on ? 'Boost' : '';
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  return (
-    <div ref={ref} className="explore-hud__jet" aria-hidden="true">
-      <svg className="explore-hud__rocket" viewBox="0 0 24 30" width="24" height="30">
-        <defs>
-          <linearGradient id={gradient} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" style={{ stopColor: 'var(--gradient-start)' }} />
-            <stop offset="1" style={{ stopColor: 'var(--gradient-end)' }} />
-          </linearGradient>
-        </defs>
-        <g fill={`url(#${gradient})`}>
-          <path d="M12 1c4.2 3.6 6.3 8.6 6.3 14.6V24H5.7v-8.4C5.7 9.6 7.8 4.6 12 1Z" />
-          <path d="M5.7 16.5 1.5 22v5l4.2-2.6ZM18.3 16.5l4.2 5.5v5l-4.2-2.6Z" />
-          <path d="M8.6 24h6.8l-.9 3H9.5Z" />
-        </g>
-        <circle cx="12" cy="12" r="2.6" className="explore-hud__rocket-window" />
-      </svg>
-      <span className="explore-hud__flame" />
-      <span className="explore-hud__jet-label">Boost</span>
-    </div>
-  );
+  return <span ref={ref} className="explore-hud__jet sr-only" role="status" />;
 }
 
 const noLock = () => false;
@@ -491,7 +471,7 @@ export function ExploreHud({
       </div>
 
       <SignalCard cv={cv} onPage={onDockRequest} />
-      <BoostJet />
+      <BoostStatus />
       <HullContact />
 
       {!touch && (
