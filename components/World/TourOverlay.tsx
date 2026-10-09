@@ -9,7 +9,7 @@ import { motionLevel } from '@/utils/motion';
 
 import { stationForPath, stationNames, stationPaths } from './routes';
 import { launchWorldMode, navigateFromMode, tourStops, useWorldMode, worldMode } from './worldMode';
-import { onFlight, worldStore } from './worldStore';
+import { onFlight, showcase, worldStore } from './worldStore';
 
 import type { CSSProperties } from 'react';
 import type { WorldContent } from './types';
@@ -21,6 +21,8 @@ import type { WorldContent } from './types';
 const dwellFor = (text: string) => Math.min(10000, Math.max(5500, 3500 + 45 * text.length));
 /** Arrive anyway if no flight reports in (ms) */
 const arrivalFallback = 5000;
+/** The station shows off (its trick) this long after the camera lands (ms) */
+const showcaseDelay = 600;
 
 /** A touch screen taps where a mouse clicks or hovers */
 const pointerVerbs = /\b(click|hover)(s|ed|ing)?\b/gi;
@@ -75,6 +77,7 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
     let advance = 0;
     let check = 0;
     let frame = 0;
+    let trick = 0;
     // Time left at this stop; -1 until the camera has arrived
     let remaining = -1;
     let startedAt = 0;
@@ -120,6 +123,10 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
       setLandedAt(`${tourStep}`);
       remaining = dwell;
       run();
+      // The station greets the camera with its trick; only at full motion
+      if (motionLevel() === 'full') {
+        trick = window.setTimeout(() => showcase(station, 'tour'), showcaseDelay);
+      }
     };
 
     const stop = onFlight((event, to) => {
@@ -152,6 +159,7 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
       window.clearTimeout(fallback);
       window.clearTimeout(advance);
       window.clearTimeout(check);
+      window.clearTimeout(trick);
     };
   }, [touring, finale, tourStep, station, dwell]);
 
