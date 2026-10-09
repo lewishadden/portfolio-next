@@ -1423,9 +1423,13 @@ export function ProjectsStation({
       });
       // A detent: the ride settling on another screen ticks, from that
       // screen (not as the station first draws; still motion too, it is a
-      // sound)
+      // sound). An open project (its page or its modal) never does: its
+      // front screen changes the moment the address does, as the camera
+      // only sets off, and those hops have their own cues. Without the
+      // world, Projects ticks instead
       const settledOn = live >= 0 && Math.abs(front - live) < 0.02 ? live : -1;
-      if (live < 0) ticked.current = -1;
+      if (opened >= 0) ticked.current = opened;
+      else if (live < 0) ticked.current = -1;
       else if (settledOn >= 0 && settledOn !== ticked.current) {
         if (!first) {
           spiral.children[settledOn]?.getWorldPosition(centre);

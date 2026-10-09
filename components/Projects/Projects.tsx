@@ -12,7 +12,7 @@ import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
 import { projectRideEvent, settleFocus } from 'components/World/ride';
-import { worldStore } from 'components/World/worldStore';
+import { emitCue, worldStore } from 'components/World/worldStore';
 
 import { motionLevel } from '@/utils/motion';
 import { projectPath, projectSlugFromPath, projectTitle } from '@/utils/projectPaths';
@@ -269,6 +269,9 @@ export const Projects = ({
     if (!tour) return;
     let lane = runway();
     let frame = 0;
+    /** The project the ride last settled on (-1 off the ride); the first update only notes it */
+    let ticked = -1;
+    let quiet = true;
     const update = () => {
       frame = 0;
       const stage = stageRef.current;
@@ -300,6 +303,16 @@ export const Projects = ({
         lane.docked > 1 ? Math.min(Math.max(1 - window.scrollY / lane.docked, 0), 1) : 0;
       worldStore.projectIntro = intro;
       stage?.toggleAttribute('data-waiting', intro > 0.12);
+      // The ride's detent: settling on another project ticks (not as the
+      // page first draws, nor as the modal closes). With the world on, the
+      // helix's station ticks from the screen instead
+      const rest = Math.round(focus);
+      if (intro > 0.12) ticked = -1;
+      else if (rest !== ticked && Math.abs(settleFocus(focus) - rest) < rideRest) {
+        if (!quiet && document.documentElement.dataset.world !== 'on') emitCue('tick');
+        ticked = rest;
+      }
+      quiet = false;
       // Docked: the sticky stage holds the screen, from the first project to the last
       stage?.toggleAttribute(
         'data-docked',
