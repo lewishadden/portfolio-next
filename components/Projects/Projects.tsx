@@ -276,6 +276,7 @@ export const Projects = ({
       frame = 0;
       const stage = stageRef.current;
       if (selected >= 0) {
+        worldStore.projectRideTo = -1;
         worldStore.projectFocus = selected;
         worldStore.projectIntro = 0;
         worldStore.projectTail = 0;
@@ -350,11 +351,34 @@ export const Projects = ({
       }
       const y = lane.docked + lane.step * index;
       const reduce = motionLevel() !== 'full';
-      if (lenis) lenis.scrollTo(y, { immediate: reduce, userData: { rideTo: y } });
-      else window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
+      if (lenis) {
+        // Named, the camera's ride heads straight for the project (rideGoal
+        // in stations.ts) rather than for each screen the glide passes. Only
+        // when Lenis will glide (not at calm or still, not while a modal has
+        // it stopped, not when already there), so no name outlives its glide
+        const glides =
+          !reduce && !lenis.isStopped && !lenis.isLocked && Math.abs(y - lenis.targetScroll) > 1;
+        worldStore.projectRideTo = glides ? index : -1;
+        lenis.scrollTo(y, { immediate: reduce, userData: { rideTo: y } });
+      } else window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
     },
     [lenis, runway]
   );
+
+  // The project goTo names for the camera's ride stays named until its
+  // glide ends or anything else takes the scroll over
+  useEffect(() => {
+    if (!lenis) return;
+    const named = () => {
+      if (lenis.isScrolling !== 'smooth' || typeof lenis.userData.rideTo !== 'number')
+        worldStore.projectRideTo = -1;
+    };
+    lenis.on('scroll', named);
+    return () => {
+      lenis.off('scroll', named);
+      worldStore.projectRideTo = -1;
+    };
+  }, [lenis]);
 
   // Snapping: once scroll comes to rest on the ride, glide to a project (or
   // back to the top of the page): the next one in the direction of the
