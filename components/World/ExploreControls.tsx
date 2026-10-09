@@ -174,7 +174,7 @@ function stickTurn(offset: number) {
 const overControls = (target: EventTarget | null) =>
   target instanceof Element &&
   !!target.closest(
-    'button, a, input, .explore-hud__top, .explore-hud__dock, .explore-hud__lift, .explore-hud__waypoints'
+    'button, a, input, .explore-hud__top, .explore-hud__coach, .explore-hud__autopilot, .explore-hud__signal, .explore-hud__dock, .explore-hud__lift, .explore-hud__waypoints'
   );
 
 function typing(target: EventTarget | null) {
