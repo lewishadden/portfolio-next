@@ -29,6 +29,7 @@ import {
 } from 'three';
 
 import { bloomMaskLayer, maskBloom } from '../bloomMask';
+import { smootherstep } from '../flight';
 import { iconSvg, useIconCollections } from '../icons';
 import { decodeImage } from '../imageDecoder';
 import { projectRideEvent, projectShotEvent } from '../ride';
@@ -142,6 +143,9 @@ const screenFragment = /* glsl */ `
   uniform float uAspect;
   uniform float uDim;
   uniform float uFocus;
+  // The edge light's power: 1 on, below it while the screen powers up
+  uniform float uPower;
+  uniform vec3 uSeam;
   varying vec2 vUv;
   float roundedBox(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + r;
@@ -171,7 +175,13 @@ const screenFragment = /* glsl */ `
     // screen out inside its edge light (ScreenMask), so a white page reads
     // as a page, not a lamp
     vec3 img = uHasMap > 0.5 ? shot(uMap, uRect, uPlate) : mix(uTint * 0.25, uTint * 0.6, vUv.y);
-    if (uMix > 0.0) img = mix(img, shot(uMapB, uRectB, uPlateB), uMix);
+    // The next shot wipes down the screen behind a thin bright seam
+    if (uMix > 0.0) {
+      float seamAt = uMix * 1.08 - 0.04;
+      float down = 1.0 - vUv.y;
+      img = mix(shot(uMapB, uRectB, uPlateB), img, smoothstep(seamAt - 0.012, seamAt + 0.012, down));
+      img += uSeam * (1.0 - smoothstep(0.0, 0.018, abs(down - seamAt))) * step(uMix, 0.999);
+    }
     // Scanlines and a passing sweep, faint on the screen in front (uFocus):
     // that one is being read
     float lines = mix(0.08, 0.025, uFocus);
@@ -180,7 +190,7 @@ const screenFragment = /* glsl */ `
     float boost = mix(1.0 + 0.06 * (1.0 - uFocus), 1.0, sweep);
     vec3 col = img * scan * boost * (1.0 + uHover * 0.04);
     float edge = smoothstep(-${edgeBand}, 0.0, d);
-    col = mix(col, uEdge * (2.4 + uHover * 1.8), edge);
+    col = mix(col, uEdge * (2.4 + uHover * 1.8) * uPower, edge);
     float reveal = smoothstep(uReveal - 0.1, uReveal, 1.0 - vUv.y);
     // Screens other than the focused project recede
     col *= 1.0 - uDim * 0.75;
@@ -221,6 +231,8 @@ function createScreenMaterial(tint: string) {
       uAspect: { value: 1.6 },
       uDim: { value: 0 },
       uFocus: { value: 0 },
+      uPower: { value: 1 },
+      uSeam: { value: new Color() },
     },
     vertexShader: screenVertex,
     fragmentShader: screenFragment,
@@ -230,9 +242,37 @@ function createScreenMaterial(tint: string) {
   });
 }
 
-/** The part of a screen that follows the theme: its edge light */
+/** The part of a screen that follows the theme: its edge light, and the seam of a wipe */
 function themeScreen(material: ShaderMaterial, edge: string) {
   setUniform(material, 'uEdge', edge);
+  setUniform(material, 'uSeam', edge);
+  (material.uniforms.uSeam.value as Color).multiplyScalar(0.9);
+}
+
+/** The screen's own power-up runs `screenPowerTime` seconds: the station's (power.tsx) compressed */
+const screenPowerTime = 0.6;
+/**
+ * A screen flickers as it powers up at most this often (seconds): riding
+ * fast past several screens would otherwise flash more than three times a
+ * second; in between, they only ramp up
+ */
+const flickerGap = 1;
+
+/**
+ * The edge light's power `s` seconds into a screen coming to the front:
+ * power.tsx's charge curve (two false starts, a surge past full, then it
+ * settles) compressed so the surge peaks at `screenPowerTime`. Without the
+ * flicker it ramps straight up
+ */
+function screenPowerAt(s: number, flicker: boolean) {
+  const x = (s * 0.95) / screenPowerTime;
+  if (x < 0.42 && !flicker) return MathUtils.lerp(0.22, 1, x / 0.42);
+  if (x < 0.1) return 0.55;
+  if (x < 0.2) return 0.12;
+  if (x < 0.3) return 0.8;
+  if (x < 0.42) return 0.22;
+  if (x < 0.95) return MathUtils.lerp(0.22, 1.4, smootherstep((x - 0.42) / 0.53));
+  return 1 + 0.4 * Math.exp(-(x - 0.95) * 3.2);
 }
 
 /** Optimised (and cached) through the Next.js image endpoint, at the next width it serves */
@@ -512,6 +552,10 @@ interface ScreenState {
   textures: Map<number, Texture>;
   loading: Set<number>;
   fadeStart: number;
+  /** Clock time it came to the front (its power-up), -1 when not powering up */
+  poweredAt: number;
+  /** Whether its power-up flickers (see flickerGap) */
+  flicker: boolean;
   nextSwitch: number;
   hover: number;
   /** Sharp copies of the shot that is up and, on the screen in front, the next one */
@@ -1151,6 +1195,8 @@ export function ProjectsStation({
         fadeStart: 0,
         nextSwitch: 0,
         hover: 0,
+        poweredAt: -1,
+        flicker: false,
         sharp: new Map(),
         sharpLoading: new Set(),
       })),
@@ -1220,6 +1266,8 @@ export function ProjectsStation({
   const settled = useRef(false);
   /** When the station's frames began (clock seconds, -1 before), and whether its hull has shown */
   const hull = useRef({ since: -1, shown: false });
+  /** The screen last brought to the front, and when a power-up last flickered */
+  const powering = useRef({ live: -1, flickerAt: -Infinity });
   const opened = focus >= 0 && focus < screens.length ? focus : -1;
   useHullTimings(groupRef, hubRef);
 
@@ -1248,6 +1296,18 @@ export function ProjectsStation({
     const ride = front >= 0 ? 1 - (opened >= 0 ? 0 : projectIntro()) : 0;
     const live = front >= 0 && ride > 0.9 ? Math.round(front) : -1;
     liveRef.current = live;
+    // A screen coming to the front powers up its edge light (not the one in
+    // front as the station first draws, nor rendering on demand)
+    const power = powering.current;
+    if (live !== power.live) {
+      if (live >= 0 && !instant) {
+        const state = states[live];
+        state.poweredAt = t;
+        state.flicker = t - power.flickerAt >= flickerGap;
+        if (state.flicker) power.flickerAt = t;
+      }
+      power.live = live;
+    }
     // The hovered screen's tip follows what a click on it would now do
     const hovered = hoveredRef.current;
     if (hovered >= 0) {
@@ -1301,6 +1361,14 @@ export function ProjectsStation({
         sharpWidth > 0 && i === live && state.pin < 0
       );
       changing ||= state.next >= 0 || (state.pin >= 0 && state.pin !== state.index);
+      if (state.poweredAt >= 0 && (snap || t - state.poweredAt > 2.5 * screenPowerTime)) {
+        state.poweredAt = -1;
+      }
+      setUniform(
+        material,
+        'uPower',
+        state.poweredAt < 0 ? 1 : screenPowerAt(t - state.poweredAt, state.flicker)
+      );
       const reveal = material.uniforms.uReveal.value as number;
       if (reveal < 1.1) setUniform(material, 'uReveal', snap ? 1.1 : reveal + dt * 0.8);
       const placed = spiral?.children[i];
