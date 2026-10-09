@@ -7,8 +7,15 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { SoundToggle } from 'components/Sound/SoundToggle';
 
 import { canLockPointer, usePointerLocked } from './pointerLock';
-import { sectorCentre, sectorRadius, stationForPath, stationNames, stationPaths } from './routes';
-import { useFoundSignals } from './signalStore';
+import {
+  sectorCentre,
+  sectorRadius,
+  stationForPath,
+  stationKeys,
+  stationNames,
+  stationPaths,
+} from './routes';
+import { signals, useFoundSignals } from './signalStore';
 import { SignalCard, SignalCount, SignalDetector } from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
@@ -336,6 +343,14 @@ function HullContact() {
   );
 }
 
+/** What the autopilot is flying to, by name: a station's page, or a signal ('signal:<id>') */
+function courseName(course: string) {
+  if ((stationKeys as readonly string[]).includes(course)) {
+    return stationNames[course as StationKey].page;
+  }
+  return signals.find((signal) => `signal:${signal.id}` === course)?.name ?? course;
+}
+
 /** The edge warning shows once worldStore.edge reaches this, and goes once it falls back below that */
 const edgeNear = 0.6;
 const edgeClear = 0.3;
@@ -576,7 +591,7 @@ export function ExploreHud({
   const exploring = mode === 'explore';
   const dock = useSyncExternalStore(onDock, readDock, noDock) as StationKey | '';
   const docking = useSyncExternalStore(onDocking, readDocking, noDock);
-  const course = useAutopilot() as StationKey | '';
+  const course = useAutopilot();
   const touch = useMediaQuery('(pointer: coarse)');
   // Phones held upright: the thumbsticks fill the bottom, so the autopilot's
   // status and the dock prompt sit under the top bar instead
@@ -637,7 +652,7 @@ export function ExploreHud({
         <div className="explore-hud__autopilot glass" role="status">
           <span className="explore-hud__autopilot-dot" aria-hidden="true" />
           <span>
-            Autopilot to <b>{stationNames[course].page}</b>
+            Autopilot to <b>{courseName(course)}</b>
           </span>
           <button type="button" className="explore-hud__exit" onClick={() => setAutopilot('')}>
             Take the controls
