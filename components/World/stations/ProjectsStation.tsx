@@ -224,25 +224,31 @@ function optimisedImage(src: string, width: number) {
 
 type Shot = WorldContent['projects'][number]['images'][number];
 
+interface LoadOptions {
+  /** Holds the upload back until it resolves */
+  beforeUpload?: () => Promise<void>;
+  /** False once nothing wants the shot any more: it is then neither made nor uploaded */
+  alive: () => boolean;
+}
+
 /**
  * Loads a screenshot `width` pixels wide (or the source's width, if
  * narrower), decoded and scaled off the main thread, and uploads it on a
- * coming frame. It is scaled here as well as by the image endpoint, which
- * can hand back the full-size original instead (up to 3024 × 8206):
- * uploading those blocked the first flight to the station for over a second
+ * coming frame; null if it was given up on first. It is scaled here as well
+ * as by the image endpoint, which can hand back the full-size original
+ * instead (up to 3024 × 8206): uploading those blocked the first flight to
+ * the station for over a second. The fetch and decode are shared with any
+ * other load of the same shot at the same width still under way
+ * (decodeImage), so a remount (React's development double mount among
+ * them) never fetches a shot twice
  */
-async function loadShot(
-  gl: WebGLRenderer,
-  shot: Shot,
-  width: number,
-  /** Holds the upload back until it resolves */
-  beforeUpload?: () => Promise<void>
-) {
+async function loadShot(gl: WebGLRenderer, shot: Shot, width: number, options: LoadOptions) {
   const bitmap = await decodeImage(optimisedImage(shot.url, width), {
     imageOrientation: 'flipY',
     premultiplyAlpha: 'none',
     ...(shot.width > width && { resizeWidth: width, resizeQuality: 'high' }),
   });
+  if (!options.alive()) return null;
   const texture = new Texture(bitmap);
   // Flipped as it was decoded
   texture.flipY = false;
@@ -255,7 +261,8 @@ async function loadShot(
       ? 'logo'
       : 'whole';
   texture.userData.fit = fit;
-  await beforeUpload?.();
+  await options.beforeUpload?.();
+  if (!options.alive()) return null;
   await queueUpload(gl, texture);
   return texture;
 }
@@ -459,13 +466,17 @@ class ScreenShots {
     private materials: ShaderMaterial[]
   ) {}
 
+  /** False once disposed: loads still under way are then given up */
+  private alive = () => !this.disposed;
+
   load(i: number, index: number) {
     const state = this.states[i];
     const image = this.screens[i].images[index];
     if (!image || state.textures.has(index) || state.loading.has(index)) return;
     state.loading.add(index);
-    loadShot(this.gl, image, shotWidth)
+    loadShot(this.gl, image, shotWidth, { alive: this.alive })
       .then((texture) => {
+        if (!texture) return;
         state.loading.delete(index);
         if (this.disposed) {
           texture.dispose();
@@ -554,8 +565,9 @@ class ScreenShots {
     if (!image || image.width <= shotWidth || this.failed.has(`${i}:${index}`)) return false;
     if (state.sharp.has(index) || state.sharpLoading.has(index)) return false;
     state.sharpLoading.add(index);
-    loadShot(this.gl, image, width, landed)
+    loadShot(this.gl, image, width, { beforeUpload: landed, alive: this.alive })
       .then((texture) => {
+        if (!texture) return;
         state.sharpLoading.delete(index);
         // Disposed, or remade at another size since
         if (this.disposed || this.sharpWidth !== width) {
@@ -596,10 +608,13 @@ class ScreenShots {
     });
   }
 
+  /**
+   * Gives up loads under way and frees every shot. The states and materials
+   * outlive this, so nothing disposed is left in them: the next set of
+   * shots for the same screens (a remount) starts from scratch
+   */
   dispose() {
     this.disposed = true;
-    // The states outlive this, so leave nothing disposed in them: a new set of
-    // shots for the same screens starts from scratch
     this.states.forEach((state) => {
       state.textures.forEach((texture) => texture.dispose());
       state.sharp.forEach((texture) => texture.dispose());
@@ -610,7 +625,12 @@ class ScreenShots {
       state.index = 0;
       state.next = -1;
     });
-    this.materials.forEach((material) => material.dispose());
+    this.materials.forEach((material) => {
+      setUniform(material, 'uMap', null);
+      setUniform(material, 'uMapB', null);
+      setUniform(material, 'uHasMap', 0);
+      setUniform(material, 'uMix', 0);
+    });
   }
 }
 
@@ -773,35 +793,46 @@ export function ProjectsStation({
     );
   }, [screenMaterials, palette.cyan, palette.violet]);
 
-  const shots = useMemo(
-    () => new ScreenShots(gl, screens, states, screenMaterials),
-    [gl, screens, states, screenMaterials]
+  useEffect(
+    () => () => screenMaterials.forEach((material) => material.dispose()),
+    [screenMaterials]
   );
   const maskGeometry = useMemo(() => screenMaskGeometry(), []);
   useEffect(() => () => maskGeometry.dispose(), [maskGeometry]);
 
+  // The screens' shots, made per mount: a set that has been disposed gives
+  // up its loads, so one made once and reused across a remount (React's
+  // development double mount) left every screen blank
+  const shotsRef = useRef<ScreenShots | null>(null);
   useEffect(() => {
+    const shots = new ScreenShots(gl, screens, states, screenMaterials);
+    shotsRef.current = shots;
     screens.forEach((_, i) => shots.load(i, 0));
-    return () => shots.dispose();
-  }, [screens, shots]);
+    return () => {
+      shots.dispose();
+      if (shotsRef.current === shots) shotsRef.current = null;
+    };
+  }, [gl, screens, states, screenMaterials]);
 
   // Projects with no screenshots show their art, drawn once the icons are in
   const icons = useIconCollections();
   useEffect(() => {
-    if (!icons) return;
+    const shots = shotsRef.current;
+    if (!icons || !shots) return;
     screens.forEach((screen, i) => {
       if (screen.images.length) return;
       const svg = iconSvg(icons, screen.icon || 'ph:code-bold', '#ffffff', 256);
       shots.placeholder(i, drawProjectArt(svg, i + 1));
     });
-  }, [icons, screens, shots]);
+  }, [icons, screens, gl, states, screenMaterials]);
 
   const settled = useRef(false);
   const opened = focus >= 0 && focus < screens.length ? focus : -1;
 
   useFrame(({ camera, clock, size }, delta) => {
     const group = groupRef.current;
-    if (!stationInRange(group, camera, 'projects')) return;
+    const shots = shotsRef.current;
+    if (!shots || !stationInRange(group, camera, 'projects')) return;
     const t = clock.elapsedTime;
     const dt = Math.min(delta, 0.05);
     const instant = snap || !settled.current;
