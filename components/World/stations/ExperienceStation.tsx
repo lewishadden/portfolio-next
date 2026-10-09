@@ -16,6 +16,7 @@ import {
   SRGBColorSpace,
 } from 'three';
 
+import { pastStamp } from '../clock';
 import { setProjectorEmitter } from '../HeadingProjector';
 import { createBeamMaterial, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
@@ -125,6 +126,8 @@ function stepBeamPing(
   origin: { x: number; y: number; z: number },
   still: boolean
 ) {
+  ping.at = pastStamp(ping.at, t);
+  ping.cueAt = pastStamp(ping.cueAt, t);
   if (trickAt !== ping.trickAt) {
     ping.trickAt = trickAt;
     ping.at = trickAt;

@@ -20,6 +20,7 @@ import {
 } from 'three';
 
 import { bloomMaskLayer, maskBloom } from '../bloomMask';
+import { pastStamp } from '../clock';
 import { decodeImage } from '../imageDecoder';
 import { asGlow, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
@@ -256,8 +257,10 @@ interface VisorState {
  * on the page) or hidden; at the still level it jumps straight there
  */
 function stepVisor(state: VisorState, t: number, dt: number, still: boolean) {
-  const wanted =
-    worldStore.targetHover === 'about:portrait' || t - state.clickAt < scanIn + scanHold ? 1 : 0;
+  state.clickAt = pastStamp(state.clickAt, t);
+  const since = t - state.clickAt;
+  const clicked = since >= 0 && since < scanIn + scanHold;
+  const wanted = worldStore.targetHover === 'about:portrait' || clicked ? 1 : 0;
   if (still) state.show = wanted;
   else if (wanted > state.show) state.show = Math.min(1, state.show + dt / scanIn);
   else state.show = Math.max(0, state.show - dt / scanOut);

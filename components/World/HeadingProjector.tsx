@@ -261,7 +261,11 @@ export function HeadingProjector({ theme }: { theme: WorldTheme }) {
       state.pending = false;
       state.startAt = clock.elapsedTime;
     }
-    const strength = state.station ? envelope(clock.elapsedTime - state.startAt) : 0;
+    // Done with once over, or once R3F restarts its clock (the start then
+    // lies ahead of it): kept, it would play again when the clock caught up
+    const s = clock.elapsedTime - state.startAt;
+    if (s < 0 || s >= duration) state.station = null;
+    const strength = state.station ? envelope(s) : 0;
     group.visible = strength > 0;
     if (!group.visible || !state.station) return;
     placeEmitter(state.station);

@@ -4,6 +4,7 @@ import { MathUtils, Vector3 } from 'three';
 
 import { motionLevel } from '@/utils/motion';
 
+import { pastStamp } from './clock';
 import { spawnPing } from './Pings';
 import { flashNavLights } from './power';
 import { emitCue, onShowcase, setWorldHover, worldStore, worldTip } from './worldStore';
@@ -41,6 +42,7 @@ export const createReaction = (): Reaction => ({
 });
 
 export function stepReaction(state: Reaction, t: number, dt: number) {
+  state.trickAt = pastStamp(state.trickAt, t);
   state.now = t;
   state.amount = MathUtils.damp(state.amount, state.hovered ? 1 : 0, 6, dt);
   state.yaw = MathUtils.damp(state.yaw, worldStore.pointerX, 3.2, dt);

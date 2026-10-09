@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { MathUtils } from 'three';
 
+import { pastStamp } from './clock';
 import { smootherstep } from './flight';
 import { stationKeys, stationPositions } from './routes';
 import { worldMode } from './worldMode';
@@ -142,12 +143,14 @@ function stepPower(t: number, dt: number) {
   const holdUp = !paging();
   for (const key of stationKeys) {
     const power = stationPower[key];
+    power.flashAt = pastStamp(power.flashAt, t);
     if (holdUp && power.target < 1) power.target = 1;
     if (power.onAt >= 0) {
       const s = t - power.onAt;
       power.charge.value = chargeAt(s);
       power.windows.value = windowsAt(s);
-      if (s > powerOnTime) {
+      // Done, or begun before R3F restarted its clock: it finishes at once
+      if (s > powerOnTime || s < 0) {
         power.onAt = -1;
         power.charge.value = 1;
         power.windows.value = 1;
