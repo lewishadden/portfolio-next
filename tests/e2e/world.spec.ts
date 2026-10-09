@@ -220,11 +220,9 @@ test.describe('the guided tour', () => {
       await expect(tour).toBeFocused();
 
       // Space on the card pauses it; the button says so
+      const pause = tour.getByRole('button', { name: 'Pause the tour' });
       await page.keyboard.press('Space');
-      await expect(tour.getByRole('button', { name: 'Pause the tour' })).toHaveAttribute(
-        'aria-pressed',
-        'true'
-      );
+      await expect(pause).toHaveAttribute('aria-pressed', 'true');
 
       // → and ← step through the stops, round from where it started
       await page.keyboard.press('ArrowRight');
@@ -242,12 +240,22 @@ test.describe('the guided tour', () => {
         await expect(tour).toContainText(`${stop} / 06`);
       }
       await expect(title).toContainText('Projects');
+      // Space again plays it (the pointer resting on the card holds the
+      // countdown meanwhile)
+      await tour.hover();
+      await page.keyboard.press('Space');
+      await expect(pause).toHaveAttribute('aria-pressed', 'false');
       await page.keyboard.press('ArrowRight');
       await expect(tour).toContainText('Complete');
       await expect(tour.getByRole('button', { name: 'Open Contact' })).toBeVisible();
       await expect(tour.getByRole('button', { name: 'Fly freely from here' })).toBeVisible();
+      // The closing card has nothing to pause: Space there leaves the last stop playing
+      await expect(tour).toBeFocused();
+      await page.keyboard.press('Space');
       await page.keyboard.press('ArrowLeft');
       await expect(tour).toContainText('06 / 06');
+      await expect(pause).toHaveAttribute('aria-pressed', 'false');
+      await expect(tour).not.toContainText('Paused');
       await page.keyboard.press('ArrowRight');
       await tour.getByRole('button', { name: /^Back to Skills/ }).click();
       await expect(tour).toBeHidden();
