@@ -88,8 +88,14 @@ function placeTag(box: Rect, w: number, h: number, width: number, height: number
   return [Math.min(Math.max(options[0][0], margin), width - w - margin), top];
 }
 
-/** Eases the drawn box towards the target box (critically damped), or snaps it */
+/**
+ * Eases the drawn box towards the target box, or snaps it. A critically
+ * damped spring stepped by its exact solution, x(t) = (x0 + (v0 + kx0)t)e^-kt,
+ * so it settles at any frame rate: stepped by integration instead (as it
+ * once was), it swung ever wider at 30 fps and below and flew off screen
+ */
 function follow(spring: Spring, target: number[], dt: number, snap: boolean) {
+  const decay = Math.exp(-stiffness * dt);
   for (let i = 0; i < 4; i++) {
     if (snap) {
       spring.at[i] = target[i];
@@ -97,9 +103,9 @@ function follow(spring: Spring, target: number[], dt: number, snap: boolean) {
       continue;
     }
     const offset = spring.at[i] - target[i];
-    const accel = -stiffness * stiffness * offset - 2 * stiffness * spring.speed[i];
-    spring.speed[i] += accel * dt;
-    spring.at[i] += spring.speed[i] * dt;
+    const drift = spring.speed[i] + stiffness * offset;
+    spring.at[i] = target[i] + (offset + drift * dt) * decay;
+    spring.speed[i] = (spring.speed[i] - stiffness * drift * dt) * decay;
   }
 }
 
