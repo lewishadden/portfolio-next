@@ -127,10 +127,15 @@ export function refreshPointer(state: RootState) {
     return;
   }
   replaying = true;
+  const before = state.internal.lastEvent.current;
   try {
     move(last);
   } finally {
     replaying = false;
+    // R3F keeps what it handles as its last event; a stand-in must not
+    // outlive this look, or later ones (a page scroll) replay it as a
+    // pointer resting at the centre of the screen
+    state.internal.lastEvent.current = before;
   }
 }
 
@@ -161,6 +166,8 @@ export function clickTarget(state: RootState) {
     click(syntheticEvent('click', x, y));
   } finally {
     replaying = false;
+    // The stand-in click isn't where the pointer is (see refreshPointer)
+    internal.lastEvent.current = last;
   }
   return true;
 }
