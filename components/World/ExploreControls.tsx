@@ -6,6 +6,7 @@ import { CatmullRomCurve3, Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } f
 
 import { motionLevel } from '@/utils/motion';
 
+import { colliderCount, contactWith, shipMargin } from './colliders';
 import { clickTarget, refreshPointer, releaseHover } from './interaction';
 import { canLockPointer, lockPointer } from './pointerLock';
 import { navigableStations, stationForPath } from './routes';
@@ -26,6 +27,7 @@ import {
 
 import type { RootState } from '@react-three/fiber';
 import type { Scene } from 'three';
+import type { Contact } from './colliders';
 import type { StationKey } from './routes';
 
 /* ------------------------------------------------------------------
@@ -44,8 +46,10 @@ import type { StationKey } from './routes';
    and the number keys (or a click on a marker) set the autopilot, which
    turns, flies and brakes to park in front of that station. Flying close
    to a station offers to dock, which opens its page (the camera rig then
-   flies the last stretch in). Hulls push you back out rather than
-   letting you clip inside them.
+   flies the last stretch in). Hulls, and simple solids standing in for
+   the experience beam, the projects helix, the derelict and the signal
+   craft (colliders.ts), push you back out rather than letting you clip
+   inside them.
    ------------------------------------------------------------------ */
 
 const keys = new Map<string, keyof typeof exploreInput>([
@@ -94,7 +98,6 @@ const nudge = 0.0016;
 const stickDeadZone = 0.12;
 const stickYawRate = 1.9;
 const stickPitchRate = 1.2;
-const hullRadius = 5.5;
 /** Fastest a bump into a hull can be met without a jolt (units per second) */
 const gentle = 3;
 /** Steepest bank into a turn (radians), and how much each radian a second of turning banks */
@@ -217,6 +220,8 @@ interface LookState {
   frames: number;
   /** The course worldStore.autopilotPath was planned for ('' for none) */
   planned: StationKey | '';
+  /** Colliders the camera started free roam inside (colliders.ts): not enforced until it leaves them */
+  excused: Set<number>;
 }
 
 /**
@@ -237,13 +242,39 @@ function stopAiming(state: RootState) {
 }
 
 /** A knock against a hull, `speed` units a second into it: a jolt, a flash of the HUD and a thud */
-function bump(speed: number, t: number, state: LookState) {
+function bump(speed: number, t: number, state: LookState, hit: Contact) {
   if (t - state.bumpedAt < 0.35) return;
   state.bumpedAt = t;
   const strength = MathUtils.clamp(speed / 30, 0.25, 1);
   worldStore.shake = Math.max(worldStore.shake, strength);
-  emitCue('bump');
+  emitCue('bump', { at: [hit.point.x, hit.point.y, hit.point.z], strength });
   window.dispatchEvent(new CustomEvent(worldBumpEvent, { detail: strength }));
+}
+
+const contact: Contact = { normal: new Vector3(), gap: 0, point: new Vector3() };
+
+/** Colliders the ship is already inside as free roam starts: left alone until it is clear of them */
+function excuseColliders(position: Vector3, t: number, state: LookState) {
+  state.excused.clear();
+  for (let i = 0; i < colliderCount; i++) {
+    if (contactWith(i, position, t, contact)) state.excused.add(i);
+  }
+}
+
+/** Pushes the ship back out of anything it has flown into, bouncing off rather than grinding along */
+function collide(cam: PerspectiveCamera, t: number, state: LookState) {
+  for (let i = 0; i < colliderCount; i++) {
+    if (!contactWith(i, cam.position, t, contact)) {
+      state.excused.delete(i);
+      continue;
+    }
+    if (state.excused.has(i)) continue;
+    cam.position.addScaledVector(contact.normal, shipMargin - contact.gap);
+    const into = -velocity.dot(contact.normal);
+    if (into <= 0) continue;
+    velocity.addScaledVector(contact.normal, into * 1.5);
+    if (into > gentle) bump(into, t, state, contact);
+  }
 }
 
 /**
@@ -349,6 +380,7 @@ export function ExploreControls() {
     calm: false,
     frames: 0,
     planned: '',
+    excused: new Set(),
   });
   const lite = useLite();
   const get = useThree((s) => s.get);
@@ -506,6 +538,9 @@ export function ExploreControls() {
       exploreInput.steerY = 0;
       exploreInput.lookX = 0;
       exploreInput.lookY = 0;
+      // Free roam starts wherever the page left the camera, which can be
+      // closer to a craft than the ship is held: no shove out on the first frame
+      excuseColliders(cam.position, clock.elapsedTime, state);
     }
 
     // Read every frame, so a change of level applies mid-flight
@@ -574,23 +609,14 @@ export function ExploreControls() {
     cam.quaternion.setFromEuler(euler.set(state.pitch, state.yaw, state.roll, 'YXZ'));
     cam.position.addScaledVector(velocity, dt);
 
-    // Hulls push back (a hard knock jolts the view, flashes the HUD and
-    // thuds); the edge of the world gently turns you round
+    // Hulls (and the proxies round beams, helices and craft) push back: a
+    // hard knock jolts the view, flashes the HUD and thuds. The edge of the
+    // world gently turns you round
+    collide(cam, clock.elapsedTime, state);
     let nearest = '';
     let nearestDistance = Infinity;
     for (const key of navigableStations) {
-      station.fromArray(stationPositions[key]);
-      const distance = cam.position.distanceTo(station);
-      if (distance < hullRadius) {
-        const normal = station.sub(cam.position).normalize().negate();
-        cam.position.addScaledVector(normal, hullRadius - distance);
-        const into = -velocity.dot(normal);
-        if (into > 0) {
-          // Bounce off rather than grinding along the hull
-          velocity.addScaledVector(normal, into * 1.5);
-          if (into > gentle) bump(into, clock.elapsedTime, state);
-        }
-      }
+      const distance = cam.position.distanceTo(station.fromArray(stationPositions[key]));
       if (distance < nearestDistance) {
         nearestDistance = distance;
         nearest = key;
