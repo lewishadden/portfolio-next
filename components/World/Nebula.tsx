@@ -27,7 +27,16 @@ import {
 import { motionLevel } from '@/utils/motion';
 
 import { noiseGlsl } from './materials';
-import { galacticCentre, galacticEast, galacticNormal, nebulae, sunDirection } from './sky';
+import {
+  backdropDirection,
+  backdropMajor,
+  backdropMinor,
+  galacticCentre,
+  galacticEast,
+  galacticNormal,
+  nebulae,
+  sunDirection,
+} from './sky';
 import { palettes } from './utils';
 import { useWarmupTask } from './warmup';
 
@@ -46,6 +55,9 @@ import type { WorldTheme } from './utils';
    absorb and redden whatever lies behind them. Noise for anything in
    the band is sampled with the plane direction stretched, so features
    run along it the way they really do.
+
+   Far beyond it, behind the stations' cameras, a tilted spiral galaxy
+   (sky.ts backdropDirection): seen on the way back towards Home.
 
    Nebulae are local: a handful of star-forming complexes strung along
    the plane, each with a ragged outline, billowy gas threaded with
@@ -77,6 +89,9 @@ const bakeFragment = /* glsl */ `
   uniform vec3 uGalactic;
   uniform vec3 uCentre;
   uniform vec3 uEast;
+  uniform vec3 uBackdrop;
+  uniform vec3 uBackdropMajor;
+  uniform vec3 uBackdropMinor;
   uniform vec4 uNebula[NEBULAE];
   uniform float uNebulaKind[NEBULAE];
   varying vec2 vUv;
@@ -199,6 +214,36 @@ const bakeFragment = /* glsl */ `
     // In daylight the band is a soft wash of ink instead of light
     float wash = clamp(disc * clouds * (0.5 + 0.5 * toCentre) + wings * 1.5 + bulge * 0.7, 0.0, 1.0);
     col = mix(col, col * vec3(0.82, 0.83, 0.92), wash * 0.5 * uLight);
+
+    // ----- A distant spiral galaxy, tilted, in the backdrop -----
+    // Gnomonic coordinates on the sky in galaxy radii, then unsquashed onto
+    // its disc: an exponential disc, two log-spiral arms broken into clumps,
+    // a warm bulge, and a dust lane along the near side of the centre
+    float facing = dot(dir, uBackdrop);
+    if (facing > 0.98) {
+      vec2 p = vec2(dot(dir, uBackdropMajor), dot(dir, uBackdropMinor)) / (facing * 0.14);
+      vec2 q = vec2(p.x, p.y / 0.42);
+      float r = length(q);
+      float phi = atan(q.y, q.x);
+      float clumps = turbulence(vec3(q * 5.0, 3.7));
+      float galaxyDisc = exp(-r / 0.22) * smoothstep(1.2, 0.5, r);
+      // Clamped: 0.5 + 0.5 * cos() can round just below 0, and pow() of a
+      // negative base is NaN on Apple GPUs (a NaN texel blacks out the frame)
+      float spiral = clamp(0.5 + 0.5 * cos(2.0 * (phi - 3.4 * log(max(r, 1e-3)))), 0.0, 1.0);
+      float arms = pow(spiral, 2.5) * (0.4 + 0.9 * clumps) * smoothstep(0.06, 0.28, r) *
+        exp(-r / 0.42) * smoothstep(1.1, 0.65, r);
+      float galaxyBulge = exp(-r * r / 0.014);
+      float laneY = (p.y - 0.05) / 0.06;
+      float galaxyLane = exp(-laneY * laneY) * smoothstep(0.8, 0.12, abs(p.x)) * (0.55 + 0.6 * clumps);
+      float knots = arms * smoothstep(0.62, 0.9, clumps);
+      // Its core well under the bloom threshold, like the band's
+      vec3 glow = vec3(0.55, 0.6, 0.78) * galaxyDisc * 0.12 + vec3(0.7, 0.78, 1.0) * arms * 0.16 +
+        vec3(1.0, 0.84, 0.6) * galaxyBulge * 0.4 + uHydrogen * knots * 0.12;
+      col += glow * (1.0 - 0.8 * clamp(galaxyLane, 0.0, 1.0)) * dark;
+      // Light sky: a soft wash of ink, deepest in the lane
+      float ink = clamp(galaxyDisc * 0.7 + arms * 1.1 + galaxyBulge * 0.9 + galaxyLane * 0.4, 0.0, 1.0);
+      col = mix(col, col * vec3(0.72, 0.74, 0.9), ink * 0.7 * uLight);
+    }
 
     // Faint stars, denser in the band
     float s = stars(dir, 420.0, 0.012 + 0.04 * disc) + stars(dir, 900.0, 0.02 + 0.06 * disc) * 0.6;
@@ -362,6 +407,9 @@ function createBake(octaves: number): Bake {
       uGalactic: { value: galacticNormal },
       uCentre: { value: galacticCentre },
       uEast: { value: galacticEast },
+      uBackdrop: { value: backdropDirection },
+      uBackdropMajor: { value: backdropMajor },
+      uBackdropMinor: { value: backdropMinor },
       uNebula: {
         value: nebulae.map(
           (n) => new Vector4(n.direction.x, n.direction.y, n.direction.z, n.radius)
