@@ -19,8 +19,13 @@ import type { WorldContent } from './types';
  * read its caption, within bounds (ms)
  */
 const dwellFor = (text: string) => Math.min(10000, Math.max(5500, 3500 + 45 * text.length));
-/** Arrive anyway if no flight reports in (ms) */
+/**
+ * When to look for an arrival that never reported in (ms), and how often
+ * after that while a flight here is still getting on: about-turns take up
+ * to 7.8s, and longer when frames drop
+ */
 const arrivalFallback = 5000;
+const arrivalRecheck = 500;
 /** The station shows off (its trick) this long after the camera lands (ms) */
 const showcaseDelay = 600;
 
@@ -142,7 +147,17 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
         else if (!(worldStore.flight.active && worldStore.flight.to === station)) land();
       };
       frame = requestAnimationFrame(look);
-      fallback = window.setTimeout(land, arrivalFallback);
+      // Arrive anyway if the flight's 'end' never comes, but not while the
+      // flight here is still moving (a stale one, its progress stuck, isn't)
+      let seen = -1;
+      const recheck = () => {
+        const { active, to, progress } = worldStore.flight;
+        if (active && to === station && progress !== seen) {
+          seen = progress;
+          fallback = window.setTimeout(recheck, arrivalRecheck);
+        } else land();
+      };
+      fallback = window.setTimeout(recheck, arrivalFallback);
     } else {
       // Below full motion the camera cuts to each stop: it is there already
       fallback = window.setTimeout(land, 0);
