@@ -100,6 +100,22 @@ const enter = () => {
   away = false;
 };
 
+/** A real mouse event: not a touch or pen, nor a click made from the keyboard */
+function fromMouse(event: PointerEventLike) {
+  if ('pointerType' in event && event.pointerType !== 'mouse') return false;
+  // A keyboard click has no position (a mouse click counts at least one press)
+  return !(event.type === 'click' && event.detail === 0);
+}
+
+/**
+ * A past event refreshPointer can replay from where the mouse is: a real
+ * mouse event, with the mouse still in the window. refreshPointer and
+ * reticleFreed share it, so a hover is let go whenever nothing can look again
+ */
+function replayable(event: PointerEventLike | null): event is PointerEventLike {
+  return !!event && !away && fromMouse(event);
+}
+
 /**
  * Raycasts again from the last pointer event, as if the mouse had moved
  * where it is: the world moves under a still pointer (the page scrolls and
@@ -111,12 +127,10 @@ export function refreshPointer(state: RootState) {
   const move = state.events.handlers?.onPointerMove;
   if (!move) return;
   const reticle = aimingReticle();
+  const real = state.internal.lastEvent.current;
+  if (!reticle && !replayable(real)) return;
   // The reticle needs no real event (free roam started from the keyboard)
-  const last =
-    state.internal.lastEvent.current ??
-    (reticle ? syntheticEvent('pointermove', state.size.width / 2, state.size.height / 2) : null);
-  if (!last || (away && !reticle)) return;
-  if (!reticle && 'pointerType' in last && last.pointerType !== 'mouse') return;
+  const last = real ?? syntheticEvent('pointermove', state.size.width / 2, state.size.height / 2);
   // Over page content with nothing hovered there is nothing to find or let
   // go of: R3F would raycast every hoverable object only to drop the hits
   if (
@@ -180,24 +194,18 @@ export function releaseHover(state: RootState) {
   clearWorldHover();
 }
 
-/** A real mouse event refreshPointer can replay: not a touch or pen, nor a click made from the keyboard */
-function fromMouse(event: PointerEventLike) {
-  if ('pointerType' in event && event.pointerType !== 'mouse') return false;
-  // A keyboard click has no position (a mouse click counts at least one press)
-  return !(event.type === 'click' && event.detail === 0);
-}
-
 /**
  * The reticle has stopped aiming but free roam goes on (Esc freed the
- * mouse). With a real mouse event to hand, refreshPointer looks again from
- * where the mouse is. Without one (free roam started from the keyboard:
- * no event yet, or the key's click on the Free roam button) nothing would
- * look again, and what the reticle was on would stay hovered, its brackets
- * following it as the ship flies on, until the mouse moved
+ * mouse). With a real mouse event to hand and the mouse in the window,
+ * refreshPointer looks again from where the mouse is. Otherwise nothing
+ * would look again: free roam started from the keyboard (no event yet, or
+ * the key's click on the Free roam button), or the mouse is outside the
+ * window (on the tab strip, say). What the reticle was on would then stay
+ * hovered, its brackets following it as the ship flies on, until the mouse
+ * came back, so it is let go here
  */
 export function reticleFreed(state: RootState) {
-  const last = state.internal.lastEvent.current;
-  if (!last || !fromMouse(last)) releaseHover(state);
+  if (!replayable(state.internal.lastEvent.current)) releaseHover(state);
 }
 
 export function worldEvents(store: RootStore): EventManager<HTMLElement> {
