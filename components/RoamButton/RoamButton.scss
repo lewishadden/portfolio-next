@@ -1,3 +1,5 @@
+@use '../../app/motion' as *;
+
 /* Just the icon: the label folds away (RoamButton decides where) */
 @mixin compact {
   gap: 0;
@@ -127,7 +129,7 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
+  @include reduced-motion {
     animation: none;
 
     &__icon::after {

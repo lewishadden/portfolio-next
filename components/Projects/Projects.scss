@@ -1,3 +1,5 @@
+@use '../../app/motion' as *;
+
 /* =============================================================
    Projects: a ride down the 3D helix. A runway of scroll (one
    step per project) moves the camera from screen to screen; a
@@ -249,7 +251,7 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
+  @include reduced-motion {
     animation: none;
 
     &__live-dot {

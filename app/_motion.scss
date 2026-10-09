@@ -1,0 +1,79 @@
+@use 'sass:list';
+@use 'sass:selector';
+@use 'sass:string';
+
+// Motion levels (utils/motion.ts): ThemeScript sets html[data-motion] to
+// full, calm or still before first paint, and setMotionPref() keeps it in
+// step. Without JavaScript there is no attribute, and the OS setting
+// (prefers-reduced-motion) decides instead.
+
+// `@include reduced-motion { ... }` applies at calm and still, and
+// `@include full-motion { ... }` at full only. Use them wherever a
+// `@media (prefers-reduced-motion: ...)` query would go, nested in the rule
+// they adjust or at the top level. `:where()` keeps every rule's specificity
+// exactly as it was. Inside the block `&` already carries the check on
+// <html>, so use it at most once per selector: for `&[data-open] &__item`,
+// include the mixin inside that rule instead.
+
+$-held: ":where([data-motion='calm'], [data-motion='still'])";
+$-full: ":where([data-motion='full'])";
+$-unset: ':where(:not([data-motion]))';
+
+// `$selector` while <html> matches `$state`: joined onto a selector that
+// starts at <html> (or :root) itself, otherwise <html> goes in front as an
+// ancestor
+@function -rooted($selector, $state) {
+  $result: ();
+
+  @each $complex in selector.parse($selector) {
+    $first: '#{list.nth($complex, 1)}';
+
+    @if string.index($first, 'html') == 1 or string.index($first, ':root') == 1 {
+      $complex: list.set-nth($complex, 1, selector.unify($first, $state));
+    } @else {
+      $complex: list.join((':where(html#{$state})'), $complex, $separator: space);
+    }
+
+    $result: list.append($result, $complex, $separator: comma);
+  }
+
+  @return $result;
+}
+
+@mixin -at($state, $fallback) {
+  @if & {
+    @at-root #{-rooted(&, $state)} {
+      @content;
+    }
+
+    @media #{$fallback} {
+      @at-root #{-rooted(&, $-unset)} {
+        @content;
+      }
+    }
+  } @else {
+    :where(html#{$state}) {
+      @content;
+    }
+
+    @media #{$fallback} {
+      :where(html#{$-unset}) {
+        @content;
+      }
+    }
+  }
+}
+
+/// Motion held back: the calm and still levels
+@mixin reduced-motion {
+  @include -at($-held, '(prefers-reduced-motion: reduce)') {
+    @content;
+  }
+}
+
+/// Full motion only
+@mixin full-motion {
+  @include -at($-full, '(prefers-reduced-motion: no-preference)') {
+    @content;
+  }
+}

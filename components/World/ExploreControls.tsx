@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
+import { motionLevel } from '@/utils/motion';
+
 import { canLockPointer, lockPointer } from './pointerLock';
 import { navigableStations, stationForPath } from './routes';
 import { applyShake } from './shake';
@@ -398,7 +400,7 @@ export function ExploreControls() {
     if (!state.active) {
       state.active = true;
       state.since = clock.elapsedTime;
-      state.calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      state.calm = motionLevel() !== 'full';
       euler.setFromQuaternion(cam.quaternion, 'YXZ');
       state.yaw = euler.y;
       state.pitch = euler.x;

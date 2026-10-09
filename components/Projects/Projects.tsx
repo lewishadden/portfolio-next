@@ -13,6 +13,7 @@ import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
 import { worldStore } from 'components/World/worldStore';
 
+import { motionLevel } from '@/utils/motion';
 import { projectPath, projectSlugFromPath } from '@/utils/projectPaths';
 
 import ProjectArt from './ProjectArt/ProjectArt';
@@ -287,7 +288,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         return;
       }
       const y = lane.docked + lane.step * index;
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reduce = motionLevel() !== 'full';
       if (lenis) lenis.scrollTo(y, { immediate: reduce });
       else window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
     },
@@ -317,7 +318,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         Math.abs(stop - y) < Math.abs(best - y) ? stop : best
       );
       if (Math.abs(nearest - y) < 2) return;
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reduce = motionLevel() !== 'full';
       lenis.scrollTo(nearest, { duration: 0.75, easing: snapEase, immediate: reduce });
     };
     function rest() {

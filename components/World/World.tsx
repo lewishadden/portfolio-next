@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { snapshotPage } from '@/components/PageTransition/pageSnapshot';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useMotionLevel } from '@/hooks/useMotion';
 import { useRouteKey } from '@/hooks/useRouteKey';
 import { useWorldFocus } from '@/hooks/useWorldFocus';
 import { reportWebGLUnavailable, useWorldPreference } from '@/hooks/useWorldPreference';
@@ -113,7 +113,7 @@ export function World({ content }: { content: WorldContent }) {
   const pathname = usePathname();
   const routeKey = useRouteKey();
   const { theme } = useTheme();
-  const reducedMotion = useReducedMotion();
+  const motion = useMotionLevel();
   const lite = useMediaQuery(liteQuery);
   const { enabled, supported } = useWorldPreference();
   const active = enabled && supported;
@@ -130,7 +130,7 @@ export function World({ content }: { content: WorldContent }) {
   useRoutePreview(active && ready);
   usePageReading(active, routeKey);
   useSkillHover(active && ready);
-  useTilt(active && ready, reducedMotion);
+  useTilt(active && ready, motion !== 'full');
 
   // Navigation requested from inside the canvas (screens, docking): the page
   // being left flies off with the camera, as a clicked link's does
@@ -201,7 +201,7 @@ export function World({ content }: { content: WorldContent }) {
         pendingDock.current = path;
         router.push(path);
       };
-      if (reducedMotion || worldMode.get().mode !== 'explore') {
+      if (motion !== 'full' || worldMode.get().mode !== 'explore') {
         open();
         return;
       }
@@ -211,7 +211,7 @@ export function World({ content }: { content: WorldContent }) {
         if (worldStore.docking === path) open();
       }, dockTime);
     },
-    [pathname, reducedMotion, router]
+    [pathname, motion, router]
   );
   useEffect(() => {
     if (pendingDock.current === pathname) {
@@ -244,7 +244,7 @@ export function World({ content }: { content: WorldContent }) {
             <WorldCanvas
               station={stationForPath(pathname)}
               theme={theme}
-              reducedMotion={reducedMotion}
+              motion={motion}
               lite={lite}
               content={content}
               focusProject={focusProject}

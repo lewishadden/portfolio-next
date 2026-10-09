@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useLenis } from 'lenis/react';
 
 import { worldFocusEvent } from '@/components/World/worldStore';
+import { motionLevel } from '@/utils/motion';
 
 /**
  * Clicking a skill badge or a role's pod in 3D brings the matching page
@@ -18,7 +19,7 @@ export function useWorldFocus() {
       const id = (e as CustomEvent<string>).detail;
       const target = document.querySelector<HTMLElement>(`[data-world-target="${CSS.escape(id)}"]`);
       if (!target) return;
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reduce = motionLevel() !== 'full';
       if (lenis) lenis.scrollTo(target, { offset: -window.innerHeight / 3, immediate: reduce });
       else target.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
       target.classList.remove('world-ping');

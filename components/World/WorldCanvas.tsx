@@ -47,6 +47,7 @@ import { tourStops, useWorldMode } from './worldMode';
 import { worldStore } from './worldStore';
 
 import type { Dispatch, SetStateAction } from 'react';
+import type { MotionLevel } from '@/utils/motion';
 import type { QualityTier } from './quality';
 import type { StationKey } from './stations';
 import type { WorldContent } from './types';
@@ -55,7 +56,7 @@ import type { WorldTheme } from './utils';
 /** Everywhere free roam can reach: every station, and the 404 derelict as a hidden signal */
 const roamable: StationKey[] = [...navigableStations, 'lost'];
 
-/** With frameloop="demand" (reduced motion), repaint on scroll, resize and route changes */
+/** With frameloop="demand" (the still motion level), repaint on scroll, resize and route changes */
 function DemandDriver({
   station,
   theme,
@@ -153,7 +154,8 @@ function QualityGovernor({
 export interface WorldCanvasProps {
   station: StationKey;
   theme: WorldTheme;
-  reducedMotion: boolean;
+  /** `still` draws on demand, `calm` draws every frame with the camera cutting between stations */
+  motion: MotionLevel;
   lite: boolean;
   content: WorldContent;
   /** Index of the project whose screen faces the camera, -1 for none */
@@ -164,7 +166,7 @@ export interface WorldCanvasProps {
 export default function WorldCanvas({
   station: pageStation,
   theme,
-  reducedMotion,
+  motion,
   lite,
   content,
   focusProject,
@@ -252,13 +254,21 @@ export default function WorldCanvas({
     return () => window.clearInterval(id);
   }, [tracker, warm]);
 
+  // Still: drawn only when something changes, except in free roam, where the
+  // visitor flies the camera (and the autopilot needs every frame)
+  const frameloop = !warm
+    ? 'never'
+    : motion === 'still' && mode !== 'explore'
+      ? 'demand'
+      : 'always';
+
   return (
     <Canvas
       className="world__canvas"
       dpr={[1, dpr]}
       gl={{ antialias: false, alpha: false, stencil: false, powerPreference: 'high-performance' }}
       camera={{ fov: baseFov, near: 0.1, far: 2000, position: [0, 0, 60] }}
-      frameloop={!warm ? 'never' : reducedMotion ? 'demand' : 'always'}
+      frameloop={frameloop}
       shadows={shadows ? 'percentage' : false}
       // The canvas sits behind the page: listen on the document, react only
       // over open space. No eventPrefix: it would replace worldEvents' compute,
@@ -276,13 +286,13 @@ export default function WorldCanvas({
           <color attach="background" args={[palette.background]} />
           <fog attach="fog" args={[palette.background, palette.fog[0], palette.fog[1]]} />
           <QualityGovernor tier={tier} ceiling={ceiling} setTier={setTier} />
-          {reducedMotion && (
+          {frameloop === 'demand' && (
             <DemandDriver station={station} theme={theme} focusProject={focusProject} />
           )}
 
-          <CameraRig station={station} reducedMotion={reducedMotion} />
+          <CameraRig station={station} motion={motion} />
           <ExploreControls />
-          <MotionProbe reducedMotion={reducedMotion} />
+          <MotionProbe motion={motion} />
           <PowerDriver />
 
           <Lighting theme={theme} station={station} shadows={shadows} />

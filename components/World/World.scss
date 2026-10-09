@@ -1,3 +1,5 @@
+@use '../../app/motion' as *;
+
 .world {
   position: fixed;
   inset: 0;
@@ -124,7 +126,7 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
+  @include reduced-motion {
     transition: none;
   }
 }
@@ -1262,7 +1264,7 @@ html[data-pointer-lock] {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@include reduced-motion {
   .tour,
   .explore-hud__dock,
   .explore-hud__autopilot {

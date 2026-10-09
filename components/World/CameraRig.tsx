@@ -19,6 +19,7 @@ import { baseFov, stationCamera, stationKeys, stationPositions } from './station
 import { worldMode } from './worldMode';
 import { emitFlight, worldStore } from './worldStore';
 
+import type { MotionLevel } from '@/utils/motion';
 import type { Flight, FlightView } from './flight';
 import type { StationKey } from './stations';
 import type { WorldMode } from './worldMode';
@@ -67,13 +68,10 @@ interface RigState {
  * starfield, FOV and chromatic aberration use for the warp effect. In explore
  * mode the visitor's controls own the camera; leaving it flies back here.
  */
-export function CameraRig({
-  station,
-  reducedMotion,
-}: {
-  station: StationKey;
-  reducedMotion: boolean;
-}) {
+export function CameraRig({ station, motion }: { station: StationKey; motion: MotionLevel }) {
+  // Below full motion (calm and still) the camera cuts to each pose instead of
+  // flying or easing there: no flights, warp in, parallax, tour orbit or shake
+  const snap = motion !== 'full';
   const state = useRef<RigState>({
     progress: 0,
     screens: 0,
@@ -123,7 +121,7 @@ export function CameraRig({
     if (newPage) {
       rig.progress = 0;
       rig.screens = 0;
-    } else if (reducedMotion || retarget) {
+    } else if (snap || retarget) {
       rig.progress = scrollTarget;
       rig.screens = screensTarget;
     } else {
@@ -136,19 +134,20 @@ export function CameraRig({
     target.add(origin);
     look.add(origin);
 
-    // A slow orbit while the tour lingers at a stop
-    if (mode === 'tour' && !rig.flight) {
+    // A slow orbit while the tour lingers at a stop (none when the camera
+    // cuts: it would turn the view continuously, or jump on each repaint)
+    if (mode === 'tour' && !rig.flight && !snap) {
       const angle = Math.sin((t - rig.arrivedAt) * 0.22) * 0.32;
       target.sub(look).applyAxisAngle(yAxis, angle).add(look);
     }
 
-    if (!reducedMotion && mode === 'page') {
+    if (!snap && mode === 'page') {
       target.x += worldStore.pointerX * 0.45;
       target.y += worldStore.pointerY * 0.28;
     }
 
     // Out in deep space until the loading screen lifts, then warp in
-    if (!rig.started && !reducedMotion && !isBooted()) {
+    if (!rig.started && !snap && !isBooted()) {
       cam.position.copy(target).add(introOffset);
       cam.lookAt(look);
       record(cam);
@@ -158,20 +157,20 @@ export function CameraRig({
       // First frame: start out in deep space and warp in
       rig.started = true;
       lookCurrent.copy(look);
-      if (reducedMotion) cam.position.copy(target);
+      if (snap) cam.position.copy(target);
       else {
         cam.position.copy(target).add(introOffset);
         cam.lookAt(look);
         startFlight(rig, cam, station);
       }
-    } else if (retarget && !reducedMotion) {
+    } else if (retarget && !snap) {
       startFlight(rig, cam, station);
     }
     rig.station = station;
     rig.mode = mode;
 
     previous.copy(cam.position);
-    if (reducedMotion) {
+    if (snap) {
       cam.position.copy(target);
       lookCurrent.copy(look);
       cam.lookAt(lookCurrent);
@@ -183,15 +182,15 @@ export function CameraRig({
       cam.lookAt(lookCurrent);
     }
 
-    // Snapped (reduced-motion) cameras jump between poses; that is not flight
-    const speed = reducedMotion ? 0 : cam.position.distanceTo(previous) / Math.max(dt, 1e-4);
+    // Snapped cameras (motion held back) jump between poses; that is not flight
+    const speed = snap ? 0 : cam.position.distanceTo(previous) / Math.max(dt, 1e-4);
     rig.velocity.subVectors(cam.position, previous).divideScalar(Math.max(dt, 1e-4));
     worldStore.velocity = speed;
 
-    const fov = baseFov + (reducedMotion ? 0 : Math.min(speed * 0.3, 24));
+    const fov = baseFov + (snap ? 0 : Math.min(speed * 0.3, 24));
     easing.damp(cam, 'fov', fov, 0.3, dt);
     cam.updateProjectionMatrix();
-    applyShake(cam, t, dt, reducedMotion);
+    applyShake(cam, t, dt, snap);
     record(cam);
     if (mode === 'page') planPreview(rig, cam, size.width, size.height);
   });

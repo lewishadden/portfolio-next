@@ -1,5 +1,6 @@
 import { liteQuery, stationForPath, stationKeys, stationPositions } from 'components/World/routes';
 import { worldStore } from 'components/World/worldStore';
+import { motionLevel } from '@/utils/motion';
 
 import type { StationKey } from 'components/World/routes';
 
@@ -149,8 +150,6 @@ export interface Space {
   ear: { x: number; y: number; z: number; fx: number; fy: number; fz: number; primed: boolean };
   /** The listener has AudioParams (Firefox's and older Safari's only have setPosition) */
   params: boolean;
-  /** Reduced motion: the camera snaps between stations, so the listener glides instead */
-  still: MediaQueryList;
 }
 
 /** AudioParam positions where the browser has them (typed boolean, so TS doesn't narrow the node away) */
@@ -228,7 +227,6 @@ export function buildSpace(ctx: AudioContext, out: AudioNode): Space {
     voices,
     ear: { x: 0, y: 0, z: 0, fx: 0, fy: 0, fz: -1, primed: false },
     params: hasParams(ctx.listener),
-    still: window.matchMedia('(prefers-reduced-motion: reduce)'),
   };
 }
 
@@ -264,9 +262,12 @@ export function listen(space: Space, ctx: AudioContext, dt: number) {
   }
 
   // Close behind a flying camera; a glide (crossfading the voices) when
-  // it snaps from station to station or there is none
+  // there is none, or it cuts from station to station: below full motion,
+  // except in free roam, where the visitor flies it at every level
   const { ear } = space;
-  const time = live && !space.still.matches ? followTime : glideTime;
+  const flown =
+    live && (motionLevel() === 'full' || document.documentElement.dataset.worldMode === 'explore');
+  const time = flown ? followTime : glideTime;
   const k = ear.primed ? 1 - Math.exp(-dt / time) : 1;
   ear.primed = true;
   ear.x += (aim.x - ear.x) * k;

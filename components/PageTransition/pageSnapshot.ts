@@ -1,6 +1,7 @@
 import { stationForPath } from '@/components/World/routes';
 import { worldMode } from '@/components/World/worldMode';
 import { onFlight, worldStore } from '@/components/World/worldStore';
+import { motionLevel } from '@/utils/motion';
 
 import type { StationKey } from '@/components/World/routes';
 
@@ -19,8 +20,6 @@ import type { StationKey } from '@/components/World/routes';
 const keepFor = 3000;
 /** How long the snapshot waits for the camera to set off before leaving anyway (ms) */
 const waitForFlight = 250;
-
-const reducedMotionQuery = '(prefers-reduced-motion: reduce)';
 
 /** Attributes page code looks things up by: a copy must never be found instead */
 const lookupAttribute = /^(id|name|form|autofocus|data-world.*)$/;
@@ -180,7 +179,7 @@ function freeze(part: Element, copyPart: Element, source: Element[], copy: Eleme
  * caught by `watchNavigation`; call this just before navigating in code.
  */
 export function snapshotPage(href?: string) {
-  if (!worldIsLive() || window.matchMedia(reducedMotionQuery).matches) return;
+  if (!worldIsLive() || motionLevel() !== 'full') return;
   if (href) {
     const url = new URL(href, window.location.href);
     const here = shown ?? stationForPath(window.location.pathname);

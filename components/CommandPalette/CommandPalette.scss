@@ -1,3 +1,5 @@
+@use '../../app/motion' as *;
+
 /* =============================================================
    Command palette: ⌘K / Ctrl+K
    ============================================================= */
@@ -204,7 +206,7 @@ html.palette-open {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@include reduced-motion {
   .palette,
   .palette__dialog {
     animation: none;

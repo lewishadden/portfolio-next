@@ -4,6 +4,7 @@ import { useEffect, useId, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { stationForPath } from 'components/World/routes';
+import { motionLevel } from '@/utils/motion';
 
 import {
   backArc,
@@ -108,7 +109,6 @@ export function BrandMark({
       ...svg.querySelectorAll<SVGCircleElement>(`[data-moon="${k}"]`),
     ]);
     const notch = svg.querySelector<SVGPathElement>('[data-notch]');
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     const motion = createMarkMotion();
     let last = performance.now();
     let frame = 0;
@@ -125,7 +125,7 @@ export function BrandMark({
       frame = requestAnimationFrame(tick);
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
-      const pose = motion.step(dt, hoverRef.current, reduce.matches);
+      const pose = motion.step(dt, hoverRef.current, motionLevel() !== 'full');
       place(layers[0], pose.moon);
       for (let k = 1; k <= ghosts; k++) {
         place(layers[k], pose.moon + k * (0.08 + pose.rush * 0.1));

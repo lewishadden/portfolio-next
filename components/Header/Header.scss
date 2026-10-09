@@ -1,3 +1,5 @@
+@use '../../app/motion' as *;
+
 .header {
   position: fixed;
   top: 0;
@@ -307,7 +309,7 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
+  @include reduced-motion {
     .header__link:hover {
       animation: none;
     }

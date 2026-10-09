@@ -6,6 +6,8 @@ import Image, { getImageProps } from 'next/image';
 import { AnimatePresence, m } from 'framer-motion';
 import { Icon } from '@iconify/react';
 
+import { motionLevel } from '@/utils/motion';
+
 import ProjectArt from '../ProjectArt/ProjectArt';
 import { techIconClass } from '../techIcon';
 
@@ -72,7 +74,7 @@ export type Slides = ReturnType<typeof useSlides>;
 function useAutoScroll(ref: RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     const el = ref.current;
-    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!el || motionLevel() !== 'full') return;
     let frame = 0;
     let last = performance.now();
     let phase: 'wait' | 'down' | 'hold' | 'up' = 'wait';

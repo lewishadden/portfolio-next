@@ -1,5 +1,6 @@
 @use 'sass:list';
 @use 'sass:math';
+@use '../../app/motion' as *;
 
 /* =============================================================
    Loading screen: the header's orbit mark, blown up, over stars
@@ -387,7 +388,7 @@ html[data-boot='loading'] {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@include reduced-motion {
   .boot__mark {
     animation: none !important;
   }
@@ -396,8 +397,10 @@ html[data-boot='loading'] {
     opacity: 1;
     animation: none !important;
   }
+}
 
-  html[data-boot='leaving'] .boot {
+html[data-boot='leaving'] .boot {
+  @include reduced-motion {
     animation: boot-lift 0.5s ease both;
 
     .boot__sky,

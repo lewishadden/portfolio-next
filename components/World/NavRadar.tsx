@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 
+import { motionLevel } from '@/utils/motion';
+
 import { navigableStations, stationNames, stationPositions } from './routes';
 import { worldMode } from './worldMode';
 import { onFlight, onPreview, worldStore } from './worldStore';
@@ -338,7 +340,6 @@ export function NavRadar() {
     let lastActive = -Infinity;
     let lastPreview = -Infinity;
     let colours = readColours();
-    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const font =
       getComputedStyle(document.documentElement).getPropertyValue('--font-geist-mono').trim() ||
       'ui-monospace, monospace';
@@ -357,7 +358,7 @@ export function NavRadar() {
         frame = 0;
         return;
       }
-      paint(ctx, colours, font, now, still);
+      paint(ctx, colours, font, now, motionLevel() !== 'full');
       frame = requestAnimationFrame(tick);
     };
     const start = () => {

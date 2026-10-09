@@ -1,4 +1,5 @@
 import { bootMemory, bootMemoryKey } from 'components/World/bootMemory';
+import { motionStorageKey } from '@/utils/motion';
 
 /** Without the app, when the page shows anyway (ms after it starts) */
 const pageFailsafe = 4_000;
@@ -22,22 +23,32 @@ const noScriptCss = `<style>${waiting(asServed)} { ${shown} }</style>`;
 // The app never started (ThemeScript's failsafe below): shown, and kept shown
 // if it starts late, until the first page change
 const failsafeCss = `html[data-failsafe] ${waiting(`${asServed}, [style*='opacity: 0']`)} { ${shown} }
-@media (prefers-reduced-motion: no-preference) {
-  html[data-failsafe] ${waiting(asServed)} {
-    transition: opacity 0.6s ease, transform 0.6s ease, filter 0.6s ease !important;
-  }
+html[data-failsafe][data-motion='full'] ${waiting(asServed)} {
+  transition: opacity 0.6s ease, transform 0.6s ease, filter 0.6s ease !important;
 }`;
 
 /**
- * Runs in <head> before first paint: the theme, a saved "3D off" and the
- * loading screen, so none of them flash in after the page. Also the
- * failsafes for a page whose app never starts (a script that 404s after a
- * deploy, a blocker, an old browser), so nothing stays hidden or covered.
+ * Runs in <head> before first paint: the theme, the motion level, a saved
+ * "3D off" and the loading screen, so none of them flash in after the
+ * page. Also the failsafes for a page whose app never starts (a script that
+ * 404s after a deploy, a blocker, an old browser), so nothing stays hidden
+ * or covered.
  */
 export function ThemeScript() {
   const themeScript = `
     (function() {
       var root = document.documentElement;
+      // Motion level (utils/motion.ts): the visitor's choice, else the OS
+      // setting. Before the rest, so blocked storage can't skip it
+      var motion = '';
+      try {
+        motion = localStorage.getItem('${motionStorageKey}') || '';
+      } catch (e) {}
+      if (motion !== 'full' && motion !== 'calm' && motion !== 'still') {
+        motion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'still' : 'full';
+      }
+      root.setAttribute('data-motion', motion);
       try {
         var theme = localStorage.getItem('theme') ||
           (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
