@@ -54,6 +54,37 @@
   }
 }
 
+/* Dark theme on wide layouts: the copy column sits over the brightest of
+   the sky (the nebula's core, beacons, a station's glow), and light text
+   lost contrast there. The wash is stronger and reaches further across,
+   clear of the station by 70% of the width */
+@media (min-width: 900px) {
+  [data-theme='dark'] .world__veil {
+    background:
+      linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--bg-primary) 70%, transparent) 0%,
+        color-mix(in oklab, var(--bg-primary) 45%, transparent) 45%,
+        transparent 70%
+      ),
+      linear-gradient(
+        0deg,
+        color-mix(in oklab, var(--bg-primary) 40%, transparent),
+        transparent 30%
+      );
+  }
+}
+
+/* Dark theme: a soft halo of the page's own background behind the lines
+   most often set straight over the sky, the page subtitle and the hero's
+   tagline (their secondary grey is the first to drop below 4.5:1) */
+[data-theme='dark'] :is(.page-sub, .hero__tag) {
+  text-shadow:
+    0 0 1px var(--bg-primary),
+    0 0 8px var(--bg-primary),
+    0 0 18px color-mix(in oklab, var(--bg-primary) 70%, transparent);
+}
+
 /* Sector map shown while the camera flies (and during tours / explore mode) */
 .nav-radar {
   position: fixed;
