@@ -7,7 +7,13 @@ import { CatmullRomCurve3, Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } f
 import { motionLevel } from '@/utils/motion';
 
 import { colliderCount, contactWith, shipMargin } from './colliders';
-import { clickTarget, refreshPointer, releaseHover } from './interaction';
+import {
+  aimingReticle,
+  clickTarget,
+  refreshPointer,
+  releaseHover,
+  reticleFreed,
+} from './interaction';
 import { spawnPing } from './Pings';
 import { signals } from './signalStore';
 import { cometAt } from './Signals';
@@ -249,6 +255,8 @@ interface LookState {
   calm: boolean;
   /** Frames since free roam began, for looking again under the reticle every few */
   frames: number;
+  /** The reticle aimed last frame (the pointer was locked) */
+  aiming: boolean;
   /** The course worldStore.autopilotPath was planned for ('' for none), and when (clock time) */
   planned: string;
   plannedAt: number;
@@ -263,13 +271,18 @@ interface LookState {
  */
 function aimReticle(state: RootState, look: LookState) {
   if (state.raycaster.far !== reach) state.raycaster.far = reach;
+  const aiming = aimingReticle();
+  // The mouse was freed: a hover only the reticle could end lets go now
+  if (look.aiming && !aiming) reticleFreed(state);
+  look.aiming = aiming;
   look.frames++;
   if (look.frames % aimEvery === 0) refreshPointer(state);
 }
 
 /** Free roam is over: hovers made under the reticle end, and the raycaster reaches as far as it can */
-function stopAiming(state: RootState) {
+function stopAiming(state: RootState, look: LookState) {
   state.raycaster.far = Infinity;
+  look.aiming = false;
   releaseHover(state);
 }
 
@@ -465,6 +478,7 @@ export function ExploreControls() {
     bumpedAt: -Infinity,
     calm: false,
     frames: 0,
+    aiming: false,
     planned: '',
     plannedAt: 0,
     excused: new Set(),
@@ -612,7 +626,7 @@ export function ExploreControls() {
         setDock('');
         setAutopilot('');
         setDocking('');
-        stopAiming(root);
+        stopAiming(root, state);
         trackCourse('', camera.position, clock.elapsedTime, state);
         worldStore.edge = 0;
       }
@@ -629,6 +643,7 @@ export function ExploreControls() {
       state.yaw = euler.y;
       state.pitch = euler.x;
       state.roll = 0;
+      state.aiming = false;
       velocity.set(0, 0, 0);
       exploreInput.steerX = 0;
       exploreInput.steerY = 0;

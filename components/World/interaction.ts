@@ -180,6 +180,26 @@ export function releaseHover(state: RootState) {
   clearWorldHover();
 }
 
+/** A real mouse event refreshPointer can replay: not a touch or pen, nor a click made from the keyboard */
+function fromMouse(event: PointerEventLike) {
+  if ('pointerType' in event && event.pointerType !== 'mouse') return false;
+  // A keyboard click has no position (a mouse click counts at least one press)
+  return !(event.type === 'click' && event.detail === 0);
+}
+
+/**
+ * The reticle has stopped aiming but free roam goes on (Esc freed the
+ * mouse). With a real mouse event to hand, refreshPointer looks again from
+ * where the mouse is. Without one (free roam started from the keyboard:
+ * no event yet, or the key's click on the Free roam button) nothing would
+ * look again, and what the reticle was on would stay hovered, its brackets
+ * following it as the ship flies on, until the mouse moved
+ */
+export function reticleFreed(state: RootState) {
+  const last = state.internal.lastEvent.current;
+  if (!last || !fromMouse(last)) releaseHover(state);
+}
+
 export function worldEvents(store: RootStore): EventManager<HTMLElement> {
   const base = pointerEvents(store);
   return {
