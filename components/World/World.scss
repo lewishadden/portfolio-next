@@ -172,10 +172,12 @@ html.world-dragging {
 }
 
 /* =============================================================
-   Tour and explore modes: the page steps aside for the world
+   Tour and explore modes: the page steps aside for the world, and
+   stays aside while the camera flies back to it ('returning', World)
    ============================================================= */
 html[data-world-mode='tour'],
-html[data-world-mode='explore'] {
+html[data-world-mode='explore'],
+html[data-world-mode='returning'] {
   overflow: hidden;
 
   #main-content,
@@ -191,6 +193,11 @@ html[data-world-mode='explore'] {
   .world__veil {
     opacity: 0;
   }
+}
+
+/* Header.scss hides its scrim for the tour and free roam */
+html[data-world-mode='returning'] .header-scrim {
+  opacity: 0;
 }
 
 .world__veil {

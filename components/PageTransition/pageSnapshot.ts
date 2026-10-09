@@ -69,11 +69,19 @@ let pending: Snapshot | null = null;
 /** The station of the page on screen (kept by releaseSnapshot) */
 let shown: StationKey | null = null;
 
-/** The 3D world is on screen and following the page */
+/** The 3D world is on screen, in any mode */
+export const worldOnScreen = () =>
+  document.documentElement.dataset.world === 'on' && !!document.querySelector('.world--ready');
+
+/**
+ * The 3D world is on screen and following the page, which is showing: not
+ * hidden for the tour or free roam, nor while the camera comes back from
+ * them (html[data-world-mode='returning'])
+ */
 export const worldIsLive = () =>
-  document.documentElement.dataset.world === 'on' &&
-  !!document.querySelector('.world--ready') &&
-  worldMode.get().mode === 'page';
+  worldOnScreen() &&
+  worldMode.get().mode === 'page' &&
+  document.documentElement.dataset.worldMode === 'page';
 
 function drop() {
   if (!pending) return;
@@ -175,8 +183,11 @@ function freeze(part: Element, copyPart: Element, source: Element[], copy: Eleme
  * Takes a still copy of the page on screen, held out of sight until the
  * route changes (`releaseSnapshot`); dropped if no navigation follows. Only
  * when the camera is going to fly: the world is live, motion is welcome and
- * `href` (when given) is another station. Link clicks and Back / Forward are
- * caught by `watchNavigation`; call this just before navigating in code.
+ * `href` (when given) is another station. Never while the tour or free roam
+ * hides the page: the copy has no id, so the rule hiding #main-content
+ * wouldn't hide it, and the hidden page would flash up as it left. Link
+ * clicks and Back / Forward are caught by `watchNavigation`; call this just
+ * before navigating in code.
  */
 export function snapshotPage(href?: string) {
   if (!worldIsLive() || motionLevel() !== 'full') return;

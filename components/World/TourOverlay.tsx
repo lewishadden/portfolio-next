@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 
 import { stationNames, stationPaths } from './routes';
-import { tourStops, useWorldMode, worldMode } from './worldMode';
-import { navigateTo, onFlight } from './worldStore';
+import { navigateFromMode, tourStops, useWorldMode, worldMode } from './worldMode';
+import { onFlight } from './worldStore';
 
 import type { WorldContent } from './types';
 
@@ -109,10 +109,9 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
 
   if (!touring || !caption) return null;
   const names = stationNames[station];
-  const visit = () => {
-    worldMode.exit();
-    navigateTo(stationPaths[station]);
-  };
+  // Stays in the tour until the page has arrived, so the camera flies there
+  // as one move and the page waits for it (World's 'returning')
+  const visit = () => navigateFromMode(stationPaths[station]);
 
   return (
     <div

@@ -163,6 +163,63 @@ test.describe('tour and explore modes', () => {
   });
 });
 
+test.describe('leaving the tour for a page', () => {
+  // Full motion: the camera flies, and the page you leave would fly off with it
+  test.use({ world: 'on' });
+
+  test(
+    'the hidden page never shows as the camera leaves, and the new one waits for it',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      const { width, height } = page.viewportSize()!;
+      await page.mouse.move(width / 2, height - 120);
+      await page.getByRole('button', { name: 'Take the tour' }).click();
+      const tour = page.getByRole('region', { name: 'Guided tour' });
+      await expect(tour).toContainText('01 / 06');
+      await tour.getByRole('button', { name: 'Next stop' }).click();
+      await expect(tour).toContainText('02 / 06');
+
+      // Every copy of a page that leaves with the camera, and every mode the page goes through
+      await page.evaluate(() => {
+        const log = { ghosts: [] as string[], modes: [] as string[] };
+        (window as unknown as { handover: typeof log }).handover = log;
+        new MutationObserver((records) => {
+          for (const record of records) {
+            for (const node of record.addedNodes) {
+              if (node instanceof HTMLElement && node.classList.contains('page-ghost')) {
+                log.ghosts.push(node.textContent ?? '');
+              }
+            }
+          }
+        }).observe(document.body, { childList: true });
+        new MutationObserver(() => {
+          log.modes.push(document.documentElement.dataset.worldMode ?? '');
+        }).observe(document.documentElement, { attributeFilter: ['data-world-mode'] });
+      });
+      await tour.getByRole('button', { name: 'Visit About' }).click();
+      await expect(page).toHaveURL(/\/about$/);
+      await expect(page.locator('html')).toHaveAttribute('data-world-mode', 'page', {
+        timeout: 20_000,
+      });
+      await expect(page.locator('#main-content')).not.toHaveAttribute('inert');
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+      const log = await page.evaluate(
+        () => (window as unknown as { handover: { ghosts: string[]; modes: string[] } }).handover
+      );
+      expect(log.ghosts).toEqual([]);
+      // Hidden until the camera was back: the tour, then the return, then the page
+      expect(log.modes.filter((mode, i) => mode !== log.modes[i - 1])).toEqual([
+        'returning',
+        'page',
+      ]);
+    }
+  );
+});
+
 test.describe('free roam on touch', () => {
   test.use({
     world: 'on',

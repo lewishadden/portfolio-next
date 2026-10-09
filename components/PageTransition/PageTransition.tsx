@@ -10,7 +10,7 @@ import { stationForPath } from '@/components/World/routes';
 import { onFlight } from '@/components/World/worldStore';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useRouteKey } from '@/hooks/useRouteKey';
-import { releaseSnapshot, watchNavigation, worldIsLive } from './pageSnapshot';
+import { releaseSnapshot, watchNavigation, worldOnScreen } from './pageSnapshot';
 
 import type { StationKey } from '@/components/World/routes';
 
@@ -56,12 +56,14 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   }, [routeKey, lenis]);
 
   // Before paint, so the page you left never blinks out: is the camera
-  // flying? If it is, that page's snapshot takes its place and leaves with it
+  // flying? If it is, that page's snapshot takes its place and leaves with it.
+  // A page opened from the tour or free roam (Visit, docking) waits for the
+  // camera too, though nothing was snapshotted: the page was hidden
   useLayoutEffect(() => {
     const previous = station.current;
     const next = stationForPath(pathname);
     station.current = next;
-    flight.current = previous !== null && previous !== next && !reduceMotion && worldIsLive();
+    flight.current = previous !== null && previous !== next && !reduceMotion && worldOnScreen();
     releaseSnapshot(next, flight.current);
     // ThemeScript's failsafe showed the page that loaded before the app did; the next runs as usual
     if (route.current !== null && route.current !== routeKey) {
