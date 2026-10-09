@@ -9,6 +9,7 @@ import {
   DataTexture,
   HalfFloatType,
   LinearFilter,
+  MathUtils,
   Mesh,
   MeshBasicMaterial,
   OrthographicCamera,
@@ -37,8 +38,9 @@ import {
   nebulae,
   sunDirection,
 } from './sky';
-import { palettes } from './utils';
+import { palettes, setUniform } from './utils';
 import { useWarmupTask } from './warmup';
+import { worldStore } from './worldStore';
 
 import type { Texture, WebGLRenderer } from 'three';
 import type { WorldTheme } from './utils';
@@ -84,6 +86,7 @@ const bakeFragment = /* glsl */ `
   uniform vec3 uOxygen;
   uniform vec3 uHydrogen;
   uniform vec3 uDust;
+  uniform float uDetail;
   uniform vec3 uMilky;
   uniform vec3 uSun;
   uniform vec3 uGalactic;
@@ -172,14 +175,17 @@ const bakeFragment = /* glsl */ `
     float grain = 0.82 + 0.36 * snoise(along * 46.0) * disc;
     float band = (disc * clouds * grain + wings) * (0.4 + 0.6 * toCentre) + bulge * 1.1;
     // Cool white out in the arms, warming to cream only around the bulge
-    vec3 bandColour = mix(uMilky, vec3(1.0, 0.88, 0.7), clamp(bulge * 0.9 + toCentre * toCentre * 0.2, 0.0, 1.0));
+    // A bake too small to resolve the band (uDetail) gets a warmer, more coloured bulge instead
+    vec3 bulgeColour = mix(vec3(1.0, 0.88, 0.7), vec3(1.0, 0.76, 0.5), uDetail);
+    vec3 bandColour = mix(uMilky, bulgeColour, clamp(bulge * (0.9 + 0.4 * uDetail) + toCentre * toCentre * 0.2, 0.0, 1.0));
 
     // Dust lanes: ridged filaments hugging the plane, and the great rift off the centre
     float lanes = ridged(along * 4.2 + vec3(0.6 * fbm(along * 1.3 + 7.0)));
     float laneMask = exp(-(ab * ab) / 0.012);
     float riftPath = abs(b - 0.025 - 0.02 * snoise(along * 2.0 + 5.0));
     float rift = smoothstep(0.07, 0.015, riftPath) * smoothstep(-0.15, 0.15, glon) * smoothstep(1.9, 1.2, glon);
-    float dust = smoothstep(0.25, 0.95, clamp(lanes * 1.4 * laneMask + rift * (0.6 + 0.5 * lanes), 0.0, 1.0));
+    // …and darker, wider dust around it, so the band never reads as a smooth grey
+    float dust = smoothstep(0.25 - 0.1 * uDetail * toCentre, 0.95, clamp(lanes * 1.4 * laneMask + rift * (0.6 + 0.5 * lanes), 0.0, 1.0));
     float absorb = dust * 0.9 * (1.0 - uLight * 0.7);
 
     // ----- Nebula complexes -----
@@ -308,6 +314,7 @@ const domeFragment = /* glsl */ `
   uniform sampler2D uGrainMap;
   uniform vec2 uSize;
   uniform float uGrain;
+  uniform float uWarp;
   varying vec3 vDir;
 
   vec4 cubic(float v) {
@@ -345,11 +352,16 @@ const domeFragment = /* glsl */ `
     vec4 sky = bicubic(uMapA, uv);
     if (uMix > 0.0) sky = mix(sky, bicubic(uMapB, uv), uMix);
     vec3 col = sky.rgb;
-    if (uGrain > 0.0 && sky.a > 0.003) {
+    // At warp speed the band and bulge (where the alpha is) dim to 45% and
+    // lose their grain: magnified, streaked and blurred, they smeared the
+    // whole frame into a flat grey
+    col *= 1.0 - 0.55 * uWarp * smoothstep(0.0, 0.5, sky.a);
+    float grain = uGrain * (1.0 - uWarp);
+    if (grain > 0.0 && sky.a > 0.003) {
       // Random texels, bilinear between them: value noise at ~4px and ~12px on screen
       float g = texture2D(uGrainMap, uv * vec2(9.0, 4.5)).r * 0.55 +
         texture2D(uGrainMap, uv * vec2(3.0, 1.5)).g * 0.45;
-      col *= 1.0 + uGrain * sky.a * (g - 0.5) * 1.1;
+      col *= 1.0 + grain * sky.a * (g - 0.5) * 1.1;
     }
     gl_FragColor = vec4(col, 1.0);
   }
@@ -378,21 +390,39 @@ const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() 
  * on show (24 strips of 200k pixels dropped 20 frames on a theme change,
  * 4 strips none), whatever its size
  */
-const stripsFor = (width: number, height: number) =>
-  Math.max(1, Math.round((width * height) / 1_200_000));
+const stripsFor = (width: number, height: number, budget: number) =>
+  Math.max(1, Math.round((width * height) / budget));
+
+/** Pixels per bake strip: phones' GPUs are several times slower */
+const stripBudget = { desktop: 1_200_000, phone: 500_000 };
+
+/**
+ * The bake's size. Phones ask for 1024, which magnified on a narrow screen
+ * blurs the band into a smooth grey; they get 2048 where memory allows (16MB
+ * per target, two after a theme change), else a richer bulge (uDetail)
+ */
+function bakeSizeFor(requested: number, renderer: WebGLRenderer) {
+  if (requested >= 2048) return { size: requested, detail: 0 };
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  const roomy =
+    (memory === undefined || memory >= 4) && renderer.capabilities.maxTextureSize >= 4096;
+  return roomy ? { size: 2048, detail: 0 } : { size: requested, detail: 1 };
+}
 
 /** Seconds the dome takes to crossfade from one theme's sky to the next */
 const crossfade = 0.9;
 
 /** The bake: one material for the canvas's life, compiled once, its uniforms set per theme */
 interface Bake {
+  /** Pixels per strip */
+  budget: number;
   material: ShaderMaterial;
   geometry: PlaneGeometry;
   scene: Scene;
   camera: OrthographicCamera;
 }
 
-function createBake(octaves: number): Bake {
+function createBake(octaves: number, detail: number, budget: number): Bake {
   const material = new ShaderMaterial({
     uniforms: {
       uStrength: { value: 0 },
@@ -403,6 +433,7 @@ function createBake(octaves: number): Bake {
       uHydrogen: { value: new Color() },
       uDust: { value: new Color() },
       uMilky: { value: new Color() },
+      uDetail: { value: detail },
       uSun: { value: sunDirection },
       uGalactic: { value: galacticNormal },
       uCentre: { value: galacticCentre },
@@ -426,7 +457,13 @@ function createBake(octaves: number): Bake {
   const geometry = new PlaneGeometry(2, 2);
   const scene = new Scene();
   scene.add(new Mesh(geometry, material));
-  return { material, geometry, scene, camera: new OrthographicCamera(-1, 1, 1, -1, 0, 1) };
+  return {
+    budget,
+    material,
+    geometry,
+    scene,
+    camera: new OrthographicCamera(-1, 1, 1, -1, 0, 1),
+  };
 }
 
 /** The bake's colours for a theme */
@@ -467,7 +504,7 @@ async function bakeSky(
   await compiled;
 
   const { width, height } = target;
-  const strips = stripsFor(width, height);
+  const strips = stripsFor(width, height, bake.budget);
   for (let i = 0; i < strips; i++) {
     if (!isCurrent()) return false;
     // Another bake may have set the uniforms for its theme between strips
@@ -513,6 +550,7 @@ function createEnvironmentKit(renderer: WebGLRenderer, size: Vector2): Environme
       uGrainMap: { value: null },
       uSize: { value: size },
       uGrain: { value: 0 },
+      uWarp: { value: 0 },
     },
     vertexShader: domeVertex,
     fragmentShader: domeFragment,
@@ -600,9 +638,12 @@ interface Sky {
   environmentTheme: WorldTheme | null;
   /** Environment maps replaced this frame, disposed on the next */
   retired: WebGLRenderTarget[];
+  /** 0..1, how far into warp speed the camera is (eased) */
+  warp: number;
 }
 
-function createSky(renderer: WebGLRenderer, size: number, octaves: number): Sky {
+function createSky(renderer: WebGLRenderer, requested: number, octaves: number): Sky {
+  const { size, detail } = bakeSizeFor(requested, renderer);
   const front = createSkyTarget(size);
   const uSize = new Vector2(front.width, front.height);
   const grainMap = createGrainMap();
@@ -614,6 +655,7 @@ function createSky(renderer: WebGLRenderer, size: number, octaves: number): Sky 
       uGrainMap: { value: grainMap },
       uSize: { value: uSize },
       uGrain: { value: 1 },
+      uWarp: { value: 0 },
     },
     vertexShader: domeVertex,
     fragmentShader: domeFragment,
@@ -623,7 +665,8 @@ function createSky(renderer: WebGLRenderer, size: number, octaves: number): Sky 
   });
   return {
     size,
-    bake: createBake(octaves),
+    bake: createBake(octaves, detail, requested < 2048 ? stripBudget.phone : stripBudget.desktop),
+    warp: 0,
     kit: createEnvironmentKit(renderer, uSize),
     dome,
     grainMap,
@@ -778,6 +821,14 @@ function stepSky(sky: Sky, scene: Scene, delta: number, invalidate: () => void) 
   invalidate();
 }
 
+/** Eases the dome's warp (band dimmed, grain off) towards the camera's speed: 40 to 140 units/s */
+function followWarp(sky: Sky, delta: number) {
+  const goal = MathUtils.smoothstep(worldStore.velocity, 40, 140);
+  sky.warp = MathUtils.damp(sky.warp, goal, 6, Math.min(delta, 0.1));
+  if (sky.warp < 1e-3 && goal === 0) sky.warp = 0;
+  setUniform(sky.dome, 'uWarp', sky.warp);
+}
+
 /**
  * The baked sky (an equirectangular half-float texture, longitude round x),
  * shared as a uniform for anything that shows the sky through itself, bent
@@ -794,6 +845,7 @@ export function Nebula({
 }: {
   theme: WorldTheme;
   octaves: number;
+  /** The bake's width as asked for (half as tall); phones' 1024 becomes 2048 where memory allows */
   size: number;
 }) {
   const meshRef = useRef<Mesh>(null);
@@ -818,6 +870,7 @@ export function Nebula({
 
   useFrame(({ camera }, delta) => {
     meshRef.current?.position.copy(camera.position);
+    followWarp(sky, delta);
     stepSky(sky, scene, delta, invalidate);
   });
 
