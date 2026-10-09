@@ -271,17 +271,37 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
   return shader;
 }
 
-/** Sets up the shader on a canvas; null where WebGL can't start */
-function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
-  const gl = canvas.getContext('webgl', {
-    alpha: true,
-    premultipliedAlpha: true,
-    antialias: false,
-    depth: false,
-    stencil: false,
-    powerPreference: 'low-power',
-  });
-  if (!gl || gl.isContextLost()) return null;
+const uniformNames = [
+  'uRes',
+  'uDpr',
+  'uSize',
+  'uMargin',
+  'uTime',
+  'uHoverRect',
+  'uAim',
+  'uLock',
+  'uLockOpen',
+  'uLockFlash',
+  'uLockPing',
+  'uLine',
+  'uFillColour',
+  'uFill',
+  'uGlow',
+  'uMotion',
+  'uLineAlpha',
+  'uBoot',
+  'uSplit',
+  'uTear',
+  'uTilt',
+] as const;
+type Uniforms = Record<(typeof uniformNames)[number], WebGLUniformLocation | null>;
+
+/**
+ * Compiles and links the HUD's program, with the full-screen triangle, and
+ * reads its uniform locations from that program: locations belong to the
+ * program they came from, so they are read afresh with every one linked
+ */
+function link(gl: WebGLRenderingContext) {
   const vertex = compile(gl, gl.VERTEX_SHADER, vertexShader);
   const fragment = compile(gl, gl.FRAGMENT_SHADER, fragmentShader);
   const program = gl.createProgram();
@@ -296,35 +316,35 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
   const position = gl.getAttribLocation(program, 'position');
   gl.enableVertexAttribArray(position);
   gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+  const u = Object.fromEntries(
+    uniformNames.map((name) => [name, gl.getUniformLocation(program, name)])
+  ) as Uniforms;
+  return { program, u };
+}
 
-  const at = (name: string) => gl.getUniformLocation(program, name);
-  const names = [
-    'uRes',
-    'uDpr',
-    'uSize',
-    'uMargin',
-    'uTime',
-    'uHoverRect',
-    'uAim',
-    'uLock',
-    'uLockOpen',
-    'uLockFlash',
-    'uLockPing',
-    'uLine',
-    'uFillColour',
-    'uFill',
-    'uGlow',
-    'uMotion',
-    'uLineAlpha',
-    'uBoot',
-    'uSplit',
-    'uTear',
-    'uTilt',
-  ] as const;
-  const u = Object.fromEntries(names.map((name) => [name, at(name)])) as Record<
-    (typeof names)[number],
-    WebGLUniformLocation | null
-  >;
+/** Sets up the shader on a canvas; null where WebGL can't start */
+function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
+  const gl = canvas.getContext('webgl', {
+    alpha: true,
+    premultipliedAlpha: true,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    powerPreference: 'low-power',
+  });
+  if (!gl || gl.isContextLost()) return null;
+  const linked = link(gl);
+  if (!linked) return null;
+  const { program, u } = linked;
+  /**
+   * Set once this instance is done with. React runs effects twice in
+   * development on the same canvas, so the same context: the second run
+   * links a program of its own, and anything the first run left waiting (a
+   * fonts.ready re-measure) would set this program's uniforms with the
+   * other one in use (INVALID_OPERATION). A disposed instance touches
+   * nothing
+   */
+  let disposed = false;
 
   const lost = (e: Event) => {
     e.preventDefault();
@@ -334,12 +354,14 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
 
   return {
     resize(width: number, height: number, dpr: number) {
+      if (disposed) return;
       const w = Math.round((width + hudMargin * 2) * dpr);
       const h = Math.round((height + hudMargin * 2) * dpr);
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
       }
+      gl.useProgram(program);
       gl.viewport(0, 0, w, h);
       gl.uniform2f(u.uRes, w, h);
       gl.uniform1f(u.uDpr, dpr);
@@ -347,7 +369,9 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
       gl.uniform1f(u.uMargin, hudMargin);
     },
     draw(f: Frame) {
+      if (disposed) return;
       const palette = palettes[f.theme];
+      gl.useProgram(program);
       gl.uniform1f(u.uTime, f.time);
       gl.uniform4fv(u.uHoverRect, f.hover);
       gl.uniform1f(u.uAim, f.aim);
@@ -372,6 +396,7 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
     // The context goes with the canvas; losing it here would break a remount
     // that reuses the canvas (React runs effects twice in development)
     dispose() {
+      disposed = true;
       canvas.removeEventListener('webglcontextlost', lost);
       gl.deleteProgram(program);
     },
