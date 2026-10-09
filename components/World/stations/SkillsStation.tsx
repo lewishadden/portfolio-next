@@ -1022,6 +1022,8 @@ export function SkillsStation({
               const badge = badgeAt(e);
               if (badge < 0) return;
               spawnPing(e.point);
+              // At `still` the world draws on demand: keep drawing while the ping plays
+              if (motionLevel() === 'still') repaintFor(invalidate, 1000);
               focusOnPage(`skill:${badges[badge].name}`);
             }}
           >

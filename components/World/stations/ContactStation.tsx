@@ -401,7 +401,8 @@ const pressPoint = new Vector3();
  * release. A press that barely moves is a click instead: it pings where it
  * landed, like every other click in the world (by hand, as a touch claimed
  * for the drag never becomes a click). `repaint` keeps it drawing at
- * `still`, where the world only draws on demand
+ * `still`, where the world only draws on demand: a frame per move, and
+ * frames for as long as a ping plays
  */
 function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>, repaint: () => void) {
   e.stopPropagation();
@@ -444,6 +445,8 @@ function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>, repaint: () => void)
     if (event.type === 'pointerup' && wandered < clickSlop) {
       spin.velocity = 0;
       spawnPing(pressPoint);
+      // At `still` one repaint would freeze the ping's first frame: keep drawing while it plays
+      if (motionLevel() === 'still') repaintFor(repaint, 1000);
     }
     repaint();
   };
