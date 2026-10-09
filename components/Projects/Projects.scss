@@ -44,6 +44,9 @@
     top: calc(var(--header-h) + 1rem);
     display: grid;
     grid-template-columns: 2.75rem minmax(0, 1fr);
+    /* The stage's own height: a tall index must not stretch the HUD (and
+       its actions) past the bottom of it */
+    grid-template-rows: minmax(0, 1fr);
     gap: clamp(1rem, 3vw, 2.5rem);
     align-items: center;
     height: var(--stage-h);
@@ -103,6 +106,25 @@
   opacity: 0;
   visibility: hidden;
   transform: translateY(14px);
+}
+
+/* Between projects the copy rides with the camera (Projects' rideStage):
+   up and out as the camera leaves a project, in from below as it reaches
+   the next, tracking the scroll (no transition). At rest there is no
+   transform or opacity at all */
+.projects__stage[data-riding] .proj-hud {
+  > .proj-hud__head,
+  > .proj-hud__tech,
+  > .proj-hud__desc,
+  > .proj-hud__actions {
+    opacity: var(--hud-o);
+    transform: translateY(calc(var(--ride) * -2.5rem));
+    transition: none;
+
+    @include reduced-motion {
+      transform: none;
+    }
+  }
 }
 
 /* Written round the screen: head top left, stack top right, summary and
@@ -260,14 +282,44 @@
   }
 }
 
+/* Touch: every index link is a 44px target. In the desktop column (a
+   tablet held sideways) the links sit two to a row: one to a row, 15 of
+   them outgrew a stage under about 790px tall and pushed View details off
+   the bottom of the screen. Eight rows (about 363px) fit the shortest
+   stage this layout gets (about 412px). The stacked layout below resets
+   both grids, for its one-row index */
+@media (pointer: coarse) {
+  .projects__stage {
+    grid-template-columns: calc(88px + 0.25rem) minmax(0, 1fr);
+  }
+
+  .projects__index ol {
+    grid-template-columns: repeat(2, 44px);
+    column-gap: 0.25rem;
+  }
+
+  .projects__index-link {
+    display: flex;
+    align-items: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 /* Narrow (stacked) layouts: the screen holds the top of the stage and the
-   copy stacks below it, clear of the floating buttons */
-@media (max-width: 899px), (max-aspect-ratio: 11 / 10) {
+   copy stacks below it, clear of the floating buttons. Short landscape
+   screens of any width (a phone on its side, a short or zoomed desktop
+   window) start from this layout too, for its one-row index and clamped
+   summary: the short landscape block below then rearranges the stage */
+@media (max-width: 899px),
+  (max-aspect-ratio: 11 / 10),
+  (max-height: 520px) and (orientation: landscape) {
   .projects {
     --step: 45vh;
   }
 
   .projects__stage {
+    grid-template-rows: none;
     grid-template-columns: minmax(0, 1fr);
     gap: 0.5rem;
     align-items: end;
@@ -278,10 +330,27 @@
     order: 2;
   }
 
+  /* One row that scrolls sideways (Projects keeps the current project in
+     view): wrapped, the touch-sized links took three rows and ran off the
+     bottom of the stage */
   .projects__index ol {
+    position: relative;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.1rem 0.5rem;
+    gap: 0.5rem;
+    /* Room for the links' focus rings, which the scroller would clip */
+    margin: -6px;
+    padding: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .projects__index li {
+    flex: none;
   }
 
   .projects__index-link {
@@ -320,6 +389,90 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     line-clamp: 3;
+  }
+
+  /* Docked, the ride's copy runs to the bottom of the screen: the back to
+     top button would sit on it (and the ride has its own way back up) */
+  body:has(.projects__stage[data-docked]) .back-to-top {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Short phones held upright (667px tall and less): a smaller screen cell
+   and a two-line summary, so the actions and the index stay on screen
+   however long the project's stack list runs */
+@media (max-width: 899px) and (max-height: 700px) and (orientation: portrait) {
+  .proj-hud {
+    grid-template-rows: minmax(30svh, 1fr) auto auto auto auto;
+  }
+
+  .proj-hud__desc {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+
+/* Short landscape (a phone on its side, or a short desktop window): the
+   stacked layout doesn't fit (View details fell off the bottom of the
+   stage). Building on it (the block above matches here too), the screen
+   takes the left half with the index under it; the copy takes the right
+   half, the actions beside the title and the summary clamped to two lines,
+   all clear of the floating buttons in the bottom right corner */
+@media (max-height: 520px) and (orientation: landscape) {
+  .projects__stage {
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'hud hud'
+      'index index';
+    gap: 0.4rem clamp(1rem, 3vw, 2rem);
+    align-items: stretch;
+    padding-bottom: 0.5rem;
+  }
+
+  /* Clear of the floating buttons in the bottom right corner */
+  .projects__index {
+    grid-area: index;
+    order: 0;
+    max-width: calc(100% - 5rem);
+  }
+
+  .proj-hud {
+    grid-area: hud;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      'screen head actions'
+      'screen tech tech'
+      'screen desc desc';
+    gap: 0.4rem clamp(0.75rem, 2vw, 1.25rem);
+    height: auto;
+    max-height: none;
+  }
+
+  .proj-hud__title {
+    font-size: clamp(1.1rem, 5.5vh, 1.6rem);
+  }
+
+  .proj-hud__actions {
+    flex-direction: column;
+    align-items: flex-end;
+    align-self: start;
+    justify-self: end;
+    gap: 0.35rem;
+  }
+
+  .proj-hud__desc {
+    align-self: start;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .proj-hud__screen {
+    align-self: stretch;
   }
 }
 

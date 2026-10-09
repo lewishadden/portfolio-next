@@ -89,11 +89,22 @@ export const hullUrl = (key: StationKey, lite: boolean) =>
 
 const prefetched = new Set<string>();
 
+/**
+ * What image fetches accept (the prefetch here and the decoder's fetches in
+ * imageDecoder.ts). The image endpoint picks its output format from the
+ * request's Accept header, and its responses vary on it: a bare fetch
+ * accepts anything without naming WebP, so it could get the source format
+ * back, and a prefetch sent with another Accept than the decode's missed
+ * the HTTP cache
+ */
+export const imageAccept = 'image/webp,image/*;q=0.8';
+
 /** Fetches a URL once, at low priority, into the HTTP cache (plain fetch, no three.js) */
 export function prefetch(url: string) {
   if (prefetched.has(url)) return;
   prefetched.add(url);
-  fetch(url, { priority: 'low' } as RequestInit).catch(() => prefetched.delete(url));
+  const headers = url.startsWith('/_next/image') ? { Accept: imageAccept } : undefined;
+  fetch(url, { priority: 'low', headers } as RequestInit).catch(() => prefetched.delete(url));
 }
 
 /**

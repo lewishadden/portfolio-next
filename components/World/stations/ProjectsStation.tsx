@@ -1,28 +1,40 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import { easing } from 'maath';
 import {
+  Box2,
+  BoxGeometry,
   CanvasTexture,
   Color,
+  CylinderGeometry,
+  DataTexture,
   DoubleSide,
   Group,
+  LinearFilter,
+  LinearMipmapLinearFilter,
   MathUtils,
+  Matrix4,
+  Quaternion,
   ShaderMaterial,
   Shape,
   ShapeGeometry,
   SRGBColorSpace,
   Texture,
+  Vector2,
+  Vector3,
   Vector4,
 } from 'three';
 
 import { bloomMaskLayer, maskBloom } from '../bloomMask';
+import { smootherstep } from '../flight';
 import { iconSvg, useIconCollections } from '../icons';
 import { decodeImage } from '../imageDecoder';
+import { projectRideEvent, projectShotEvent } from '../ride';
 import { createHaloMaterial, createRingMaterial } from '../materials';
-import { NavLights, Truss } from '../parts';
+import { NavLights, partMaterials, Truss } from '../parts';
 import { spawnPing } from '../Pings';
 import { StationScope } from '../power';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
@@ -39,9 +51,11 @@ import { StationHull } from '../StationHull';
 import { palettes, setUniform } from '../utils';
 import { queueUpload } from '../warmup';
 import { prefetch } from '../routes';
-import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
+import { worldMode } from '../worldMode';
+import { emitCue, navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 
-import type { BufferGeometry, Mesh, WebGLRenderer } from 'three';
+import type { RefObject } from 'react';
+import type { BufferGeometry, Camera, InstancedMesh, Mesh, Object3D, WebGLRenderer } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
@@ -80,6 +94,12 @@ const maxSharpWidth = 2048;
 const maxSharpLoads = 3;
 /** Longest a crossfade waits for the next shot's sharp copy before using its working copy */
 const sharpWait = 3;
+/**
+ * Rows of a sharp copy uploaded per frame: a 2048-wide full-page capture
+ * (up to 2048 × 5548, ~45MB) goes up as ~22 bands of ~2MB rather than in
+ * one frame
+ */
+const bandRows = 256;
 
 const spineLights: NavLight[] = [
   { position: [0, 5.1, 0], kind: 'white' },
@@ -123,6 +143,9 @@ const screenFragment = /* glsl */ `
   uniform float uAspect;
   uniform float uDim;
   uniform float uFocus;
+  // The edge light's power: 1 on, below it while the screen powers up
+  uniform float uPower;
+  uniform vec3 uSeam;
   varying vec2 vUv;
   float roundedBox(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + r;
@@ -152,7 +175,13 @@ const screenFragment = /* glsl */ `
     // screen out inside its edge light (ScreenMask), so a white page reads
     // as a page, not a lamp
     vec3 img = uHasMap > 0.5 ? shot(uMap, uRect, uPlate) : mix(uTint * 0.25, uTint * 0.6, vUv.y);
-    if (uMix > 0.0) img = mix(img, shot(uMapB, uRectB, uPlateB), uMix);
+    // The next shot wipes down the screen behind a thin bright seam
+    if (uMix > 0.0) {
+      float seamAt = uMix * 1.08 - 0.04;
+      float down = 1.0 - vUv.y;
+      img = mix(shot(uMapB, uRectB, uPlateB), img, smoothstep(seamAt - 0.012, seamAt + 0.012, down));
+      img += uSeam * (1.0 - smoothstep(0.0, 0.018, abs(down - seamAt))) * step(uMix, 0.999);
+    }
     // Scanlines and a passing sweep, faint on the screen in front (uFocus):
     // that one is being read
     float lines = mix(0.08, 0.025, uFocus);
@@ -161,7 +190,7 @@ const screenFragment = /* glsl */ `
     float boost = mix(1.0 + 0.06 * (1.0 - uFocus), 1.0, sweep);
     vec3 col = img * scan * boost * (1.0 + uHover * 0.04);
     float edge = smoothstep(-${edgeBand}, 0.0, d);
-    col = mix(col, uEdge * (2.4 + uHover * 1.8), edge);
+    col = mix(col, uEdge * (2.4 + uHover * 1.8) * uPower, edge);
     float reveal = smoothstep(uReveal - 0.1, uReveal, 1.0 - vUv.y);
     // Screens other than the focused project recede
     col *= 1.0 - uDim * 0.75;
@@ -202,6 +231,8 @@ function createScreenMaterial(tint: string) {
       uAspect: { value: 1.6 },
       uDim: { value: 0 },
       uFocus: { value: 0 },
+      uPower: { value: 1 },
+      uSeam: { value: new Color() },
     },
     vertexShader: screenVertex,
     fragmentShader: screenFragment,
@@ -211,9 +242,38 @@ function createScreenMaterial(tint: string) {
   });
 }
 
-/** The part of a screen that follows the theme: its edge light */
+/** The part of a screen that follows the theme: its edge light, and the seam of a wipe */
 function themeScreen(material: ShaderMaterial, edge: string) {
   setUniform(material, 'uEdge', edge);
+  setUniform(material, 'uSeam', edge);
+  (material.uniforms.uSeam.value as Color).multiplyScalar(0.9);
+}
+
+/** The screen's own power-up runs `screenPowerTime` seconds: the station's (power.tsx) compressed */
+const screenPowerTime = 0.6;
+/**
+ * A screen flickers as it powers up at most this often (seconds): riding
+ * fast past several screens would otherwise flash more than three times a
+ * second; in between, they only swell
+ */
+const flickerGap = 1;
+
+/**
+ * The edge light's power `s` seconds into a screen coming to the front:
+ * power.tsx's charge curve (two false starts, a surge past full, then it
+ * settles) compressed so the surge peaks at `screenPowerTime`. Without the
+ * flicker it swells smoothly from full into the surge, never dimming: any
+ * drop (one dipped back to the dim floor a quarter-second in) is a flash
+ */
+function screenPowerAt(s: number, flicker: boolean) {
+  const x = (s * 0.95) / screenPowerTime;
+  if (x >= 0.95) return 1 + 0.4 * Math.exp(-(x - 0.95) * 3.2);
+  if (!flicker) return MathUtils.lerp(1, 1.4, smootherstep(x / 0.95));
+  if (x < 0.1) return 0.55;
+  if (x < 0.2) return 0.12;
+  if (x < 0.3) return 0.8;
+  if (x < 0.42) return 0.22;
+  return MathUtils.lerp(0.22, 1.4, smootherstep((x - 0.42) / 0.53));
 }
 
 /** Optimised (and cached) through the Next.js image endpoint, at the next width it serves */
@@ -224,38 +284,107 @@ function optimisedImage(src: string, width: number) {
 
 type Shot = WorldContent['projects'][number]['images'][number];
 
+interface LoadOptions {
+  /** Holds the upload back until it resolves */
+  beforeUpload?: () => Promise<void>;
+  /** False once nothing wants the shot any more: it is then neither made nor uploaded */
+  alive: () => boolean;
+  /** Upload in row bands, a frame each (uploadBanded): for the big sharp copies */
+  banded?: boolean;
+}
+
+const bandRegion = new Box2();
+const bandAt = new Vector2();
+const noData = new Uint8Array(0);
+
+/**
+ * Uploads a decoded shot a band of rows per frame, through the shared
+ * upload queue: one frame allocates the texture with all its mip levels
+ * (texStorage2D, nothing uploaded: `dataReady` false), then each band is
+ * copied in on a frame of its own (texSubImage2D of that part of the
+ * bitmap), and the last one builds the mipmaps. A full-page capture's sharp
+ * copy in one upload (plus its mipmaps) held up a frame by far more than a
+ * frame's budget. Null if it was given up on part way
+ */
+async function uploadBanded(gl: WebGLRenderer, bitmap: ImageBitmap, alive: () => boolean) {
+  const { width, height } = bitmap;
+  const texture = new DataTexture(null, width, height);
+  const levels = Math.floor(Math.log2(Math.max(width, height))) + 1;
+  // Declared levels make three allocate the whole chain up front without
+  // generating mipmaps from the empty texture; nothing is read from them
+  texture.mipmaps = Array.from({ length: levels }, (_, level) => ({
+    data: noData,
+    width: Math.max(1, width >> level),
+    height: Math.max(1, height >> level),
+  }));
+  texture.source.dataReady = false;
+  texture.generateMipmaps = false;
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearMipmapLinearFilter;
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  await queueUpload(gl, texture);
+  const source = new Texture(bitmap);
+  for (let top = 0; top < height; top += bandRows) {
+    // Already allocated, so this only books the band its own frame in the queue
+    await queueUpload(gl, texture);
+    if (!alive()) {
+      texture.dispose();
+      return null;
+    }
+    const rows = Math.min(bandRows, height - top);
+    bandRegion.min.set(0, top);
+    bandRegion.max.set(width, top + rows);
+    bandAt.set(0, top);
+    texture.generateMipmaps = top + rows >= height;
+    gl.copyTextureToTexture(source, texture, bandRegion, bandAt);
+  }
+  texture.generateMipmaps = false;
+  return texture;
+}
+
 /**
  * Loads a screenshot `width` pixels wide (or the source's width, if
  * narrower), decoded and scaled off the main thread, and uploads it on a
- * coming frame. It is scaled here as well as by the image endpoint, which
- * can hand back the full-size original instead (up to 3024 × 8206):
- * uploading those blocked the first flight to the station for over a second
+ * coming frame; null if it was given up on first. It is scaled here as well
+ * as by the image endpoint, which can hand back the full-size original
+ * instead (up to 3024 × 8206): uploading those blocked the first flight to
+ * the station for over a second. The fetch and decode are shared with any
+ * other load of the same shot at the same width still under way
+ * (decodeImage), so a remount (React's development double mount among
+ * them) never fetches a shot twice
  */
-async function loadShot(
-  gl: WebGLRenderer,
-  shot: Shot,
-  width: number,
-  /** Holds the upload back until it resolves */
-  beforeUpload?: () => Promise<void>
-) {
+async function loadShot(gl: WebGLRenderer, shot: Shot, width: number, options: LoadOptions) {
   const bitmap = await decodeImage(optimisedImage(shot.url, width), {
     imageOrientation: 'flipY',
     premultiplyAlpha: 'none',
     ...(shot.width > width && { resizeWidth: width, resizeQuality: 'high' }),
   });
+  if (!options.alive()) return null;
+  const fit: Fit = shot.tall
+    ? 'page'
+    : bitmap.width / bitmap.height > logoAspect
+      ? 'logo'
+      : 'whole';
+  const banded =
+    options.banded &&
+    bitmap.height > bandRows * 2 &&
+    bitmap.height <= gl.capabilities.maxTextureSize;
+  await options.beforeUpload?.();
+  if (!options.alive()) return null;
+  if (banded) {
+    const texture = await uploadBanded(gl, bitmap, options.alive);
+    if (texture) texture.userData.fit = fit;
+    return texture;
+  }
   const texture = new Texture(bitmap);
   // Flipped as it was decoded
   texture.flipY = false;
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = 4;
   texture.needsUpdate = true;
-  const fit: Fit = shot.tall
-    ? 'page'
-    : bitmap.width / bitmap.height > logoAspect
-      ? 'logo'
-      : 'whole';
   texture.userData.fit = fit;
-  await beforeUpload?.();
   await queueUpload(gl, texture);
   return texture;
 }
@@ -415,9 +544,19 @@ function frameShot(rect: Vector4, texture: Texture, t: number, phase: number) {
 interface ScreenState {
   index: number;
   next: number;
+  /**
+   * The shot the project's open gallery is on (worldStore.projectShot), as
+   * an index into the screen's shots: the screen fades to it and holds it.
+   * -1 when no gallery of this project is open
+   */
+  pin: number;
   textures: Map<number, Texture>;
   loading: Set<number>;
   fadeStart: number;
+  /** Clock time it came to the front (its power-up), -1 when not powering up */
+  poweredAt: number;
+  /** Whether its power-up flickers (see flickerGap) */
+  flicker: boolean;
   nextSwitch: number;
   hover: number;
   /** Sharp copies of the shot that is up and, on the screen in front, the next one */
@@ -456,16 +595,22 @@ class ScreenShots {
     private gl: WebGLRenderer,
     private screens: WorldContent['projects'],
     readonly states: ScreenState[],
-    private materials: ShaderMaterial[]
+    private materials: ShaderMaterial[],
+    /** Called as a shot lands, so a world rendering on demand draws it */
+    private onLanded: () => void
   ) {}
+
+  /** False once disposed: loads still under way are then given up */
+  private alive = () => !this.disposed;
 
   load(i: number, index: number) {
     const state = this.states[i];
     const image = this.screens[i].images[index];
     if (!image || state.textures.has(index) || state.loading.has(index)) return;
     state.loading.add(index);
-    loadShot(this.gl, image, shotWidth)
+    loadShot(this.gl, image, shotWidth, { alive: this.alive })
       .then((texture) => {
+        if (!texture) return;
         state.loading.delete(index);
         if (this.disposed) {
           texture.dispose();
@@ -475,7 +620,10 @@ class ScreenShots {
         if (index === state.index && !state.sharp.has(index)) {
           setUniform(this.materials[i], 'uMap', texture);
           setUniform(this.materials[i], 'uHasMap', 1);
+          // (Mid-fade, the screen reports the shot it is fading to)
+          if (state.next < 0) worldStore.screenShown[i] = image.index;
         }
+        this.onLanded();
       })
       .catch(() => state.loading.delete(index));
   }
@@ -554,8 +702,9 @@ class ScreenShots {
     if (!image || image.width <= shotWidth || this.failed.has(`${i}:${index}`)) return false;
     if (state.sharp.has(index) || state.sharpLoading.has(index)) return false;
     state.sharpLoading.add(index);
-    loadShot(this.gl, image, width, landed)
+    loadShot(this.gl, image, width, { beforeUpload: landed, alive: this.alive, banded: true })
       .then((texture) => {
+        if (!texture) return;
         state.sharpLoading.delete(index);
         // Disposed, or remade at another size since
         if (this.disposed || this.sharpWidth !== width) {
@@ -569,6 +718,7 @@ class ScreenShots {
           setUniform(material, 'uHasMap', 1);
         }
         if (state.next === index) setUniform(material, 'uMapB', texture);
+        this.onLanded();
       })
       .catch(() => {
         state.sharpLoading.delete(index);
@@ -596,11 +746,15 @@ class ScreenShots {
     });
   }
 
+  /**
+   * Gives up loads under way and frees every shot. The states and materials
+   * outlive this, so nothing disposed is left in them: the next set of
+   * shots for the same screens (a remount) starts from scratch
+   */
   dispose() {
     this.disposed = true;
-    // The states outlive this, so leave nothing disposed in them: a new set of
-    // shots for the same screens starts from scratch
-    this.states.forEach((state) => {
+    this.states.forEach((state, i) => {
+      worldStore.screenShown[i] = -1;
       state.textures.forEach((texture) => texture.dispose());
       state.sharp.forEach((texture) => texture.dispose());
       state.textures.clear();
@@ -610,14 +764,94 @@ class ScreenShots {
       state.index = 0;
       state.next = -1;
     });
-    this.materials.forEach((material) => material.dispose());
+    this.materials.forEach((material) => {
+      setUniform(material, 'uMap', null);
+      setUniform(material, 'uMapB', null);
+      setUniform(material, 'uHasMap', 0);
+      setUniform(material, 'uMix', 0);
+    });
   }
+}
+
+const corner = new Vector3();
+const centre = new Vector3();
+
+/**
+ * Whether a screen sits behind the page's heading block (worldStore.copy,
+ * -1..1 from the centre, y up), give or take a little: on a project page the
+ * screens other than the project's own dim there, so the copy reads
+ */
+function behindCopy(screen: Object3D, camera: Camera) {
+  const copy = worldStore.copy;
+  if (copy.right <= copy.left || copy.top <= copy.bottom) return false;
+  screen.getWorldPosition(centre).project(camera);
+  const margin = 0.08;
+  return (
+    centre.z < 1 &&
+    centre.x > copy.left - margin &&
+    centre.x < copy.right + margin &&
+    centre.y > copy.bottom - margin &&
+    centre.y < copy.top + margin
+  );
+}
+
+const cornerSigns = [
+  [-1, -1],
+  [1, -1],
+  [1, 1],
+  [-1, 1],
+] as const;
+
+/**
+ * Writes where a screen is on the page (worldStore.screenRect, CSS px: the
+ * box round its four corners as the camera sees them), so the project
+ * modal's gallery can fly out of it. Off when a corner is behind the camera
+ */
+function measureScreen(screen: Object3D, camera: Camera, width: number, height: number) {
+  const rect = worldStore.screenRect;
+  rect.on = false;
+  screen.updateWorldMatrix(true, false);
+  camera.updateMatrixWorld();
+  let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const [x, y] of cornerSigns) {
+    corner.set((x * screenSize.width) / 2, (y * screenSize.height) / 2, 0);
+    screen.localToWorld(corner).project(camera);
+    if (corner.z < -1 || corner.z > 1) return;
+    const px = ((corner.x + 1) / 2) * width;
+    const py = ((1 - corner.y) / 2) * height;
+    left = Math.min(left, px);
+    right = Math.max(right, px);
+    top = Math.min(top, py);
+    bottom = Math.max(bottom, py);
+  }
+  rect.left = left;
+  rect.top = top;
+  rect.right = right;
+  rect.bottom = bottom;
+  rect.on = true;
+}
+
+/** What clicking a screen does: open the project, ride the page to it, or nothing but the ping */
+type ScreenAction = 'open' | 'ride' | 'none';
+
+/** The projects page (its ride) is the page on show */
+const onProjectsPage = () => !!document.querySelector('#main-content section.projects');
+
+/**
+ * Following the page, a screen opens its project: on the projects page the
+ * one in front opens the modal and the rest ride the page to themselves;
+ * from anywhere else it opens the project's page. In the tour or free roam
+ * a click only pings
+ */
+function screenAction(i: number, front: number): ScreenAction {
+  if (worldMode.get().mode !== 'page') return 'none';
+  return onProjectsPage() && i !== front ? 'ride' : 'open';
 }
 
 /** Opens a project: the grid's modal when on /projects, its page from anywhere else */
 function openProject(slug: string) {
   const href = `/projects/${slug}`;
-  if (document.querySelector('#main-content section.projects')) {
+  if (onProjectsPage()) {
     window.history.pushState({ projectModal: true }, '', href);
   } else {
     navigateTo(href);
@@ -629,12 +863,17 @@ function openProject(slug: string) {
  * (focused or hovered) crossfades through the project's other shots,
  * loading each the first time it is needed. With `waitForSharp` (the screen
  * in front, while sharp copies load) it waits a little for the next shot's
- * sharp copy before fading to it.
+ * sharp copy before fading to it. While the project's gallery is open
+ * (`state.pin`) it fades straight to the gallery's slide and holds it.
+ * The shot it shows, or is fading to, is recorded in
+ * worldStore.screenShown, which a gallery opening starts from: one that
+ * opened mid-fade on the outgoing shot had the screen finish the wipe,
+ * then wipe back to the gallery's slide.
  */
 function liveScreen(
   material: ShaderMaterial,
   state: ScreenState,
-  count: number,
+  images: Shot[],
   i: number,
   t: number,
   dt: number,
@@ -666,10 +905,24 @@ function liveScreen(
       (material.uniforms.uRect.value as Vector4).copy(material.uniforms.uRectB.value);
       setUniform(material, 'uPlate', material.uniforms.uPlateB.value);
       setUniform(material, 'uMix', 0);
+      worldStore.screenShown[i] = images[state.index].index;
     }
     return;
   }
 
+  // The project's gallery is open: straight to its slide (once loaded), then hold
+  if (state.pin >= 0) {
+    if (state.pin === state.index) return;
+    shots.load(i, state.pin);
+    if (!state.textures.has(state.pin)) return;
+    state.next = state.pin;
+    state.fadeStart = t;
+    setUniform(material, 'uMapB', shots.copy(i, state.pin));
+    worldStore.screenShown[i] = images[state.pin].index;
+    return;
+  }
+
+  const count = images.length;
   if (!live || count < 2) {
     state.nextSwitch = Math.max(state.nextSwitch, t + 1.2);
     return;
@@ -683,6 +936,7 @@ function liveScreen(
     state.next = upcoming;
     state.fadeStart = t;
     setUniform(material, 'uMapB', shots.copy(i, upcoming));
+    worldStore.screenShown[i] = images[upcoming].index;
   }
 }
 
@@ -702,6 +956,187 @@ function screenMaskGeometry() {
   shape.absarc(-x, -y, radius, Math.PI, Math.PI * 1.5);
   shape.absarc(x, -y, radius, Math.PI * 1.5, Math.PI * 2);
   return new ShapeGeometry(shape, 4);
+}
+
+/**
+ * Sharp copies (their prefetches included) wait for the hub's hull to show,
+ * or this long (seconds of the station's frames) if it never does: they
+ * shared the connection with the hull's download and held it up for seconds
+ */
+const sharpHold = 6;
+
+/** Whether the hub's hull is in the scene yet (Model adds it once loaded, compiled and uploaded) */
+function hullIn(hub: Group | null) {
+  let mesh = false;
+  hub?.traverse((child) => {
+    mesh ||= (child as Mesh).isMesh === true;
+  });
+  return mesh;
+}
+
+/** Development builds time the hub's hull (useHullTimings) */
+const timeHull = process.env.NODE_ENV !== 'production';
+/** Seconds the hull takes to scan in once shown (Model's revealTime) */
+const hullRevealTime = 1.1;
+
+/**
+ * Development only: performance marks and measures for the hub's hull, from
+ * the station mounting to its hull scanned in, logged once it has:
+ * `projects:mount`, `projects:hull-fetch` (the GLB's request, from the
+ * resource timing), `projects:station-ready` (compiled, Precompiled shows
+ * it), `projects:hull-shown` (loaded, compiled and its textures up: Model
+ * puts it in the scene) and `projects:hull-revealed` (scanned in). It
+ * appeared 8 to 19 seconds late now and then; these say which step waits
+ */
+function useHullTimings(groupRef: RefObject<Group | null>, hubRef: RefObject<Group | null>) {
+  const progress = useRef({ ready: false, shownAt: -1, revealed: false });
+
+  useEffect(() => {
+    if (!timeHull) return;
+    const start = performance.now();
+    performance.mark('projects:mount');
+    // The GLB's first request: the loader's own starts as the station
+    // renders (before this effect), a hover or intent prefetch earlier still
+    let measured = false;
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as PerformanceResourceTiming[]) {
+        if (measured || !entry.name.includes('/stations/')) continue;
+        if (!entry.name.endsWith('/projects.glb') || entry.startTime < start - 10000) continue;
+        measured = true;
+        performance.measure('projects:hull-fetch', {
+          start: entry.startTime,
+          end: entry.responseEnd,
+        });
+      }
+    });
+    observer.observe({ type: 'resource', buffered: true });
+    return () => observer.disconnect();
+  }, []);
+
+  useFrame(({ clock }) => {
+    if (!timeHull) return;
+    const state = progress.current;
+    if (state.revealed) return;
+    if (!state.ready) {
+      let shown = true;
+      for (let node = groupRef.current as Object3D | null; node; node = node.parent)
+        shown &&= node.visible;
+      if (groupRef.current && shown) {
+        state.ready = true;
+        performance.mark('projects:station-ready');
+      }
+    }
+    if (state.shownAt < 0) {
+      if (hullIn(hubRef.current)) {
+        state.shownAt = clock.elapsedTime;
+        performance.mark('projects:hull-shown');
+      }
+    } else if (clock.elapsedTime - state.shownAt >= hullRevealTime) {
+      state.revealed = true;
+      performance.mark('projects:hull-revealed');
+      const at = (name: string) => {
+        const entry = performance.getEntriesByName(name).at(-1);
+        return entry ? Math.round(entry.startTime + entry.duration) : null;
+      };
+      const mount = at('projects:mount') ?? 0;
+      const fetch = performance.getEntriesByName('projects:hull-fetch').at(-1);
+      console.info('[World] projects hull (ms after the station mounted)', {
+        fetchStart: fetch ? Math.round(fetch.startTime - mount) : null,
+        fetchEnd: fetch ? Math.round(fetch.startTime + fetch.duration - mount) : null,
+        stationReady: (at('projects:station-ready') ?? mount) - mount,
+        hullShown: (at('projects:hull-shown') ?? mount) - mount,
+        hullRevealed: (at('projects:hull-revealed') ?? mount) - mount,
+      });
+    }
+  });
+}
+
+/** The yard's truss spine, top to bottom (station-local heights) */
+const spine = { bottom: -11, top: 5 };
+/**
+ * The arms holding the screens out on the spiral: from a collar on the
+ * spine to just behind each screen's centre (radii, world units). Screens
+ * hanging below the spine's foot are held from the foot
+ */
+const arm = { from: 0.22, to: helix.radius - 0.14, radius: 0.035 };
+
+/**
+ * One arm per screen out from the spine, and a joint at each end: two
+ * instanced draws in the truss's material, their matrices set once (the
+ * screens only turn in place, and this group turns with the helix)
+ */
+function ScreenArms({ count }: { count: number }) {
+  const material = partMaterials().dark;
+  const armsRef = useRef<InstancedMesh>(null);
+  const jointsRef = useRef<InstancedMesh>(null);
+  const geometry = useMemo(
+    () => ({
+      // Unit length along +Y, scaled to each arm's length
+      arm: new CylinderGeometry(arm.radius, arm.radius, 1, 6),
+      joint: new BoxGeometry(0.11, 0.11, 0.11),
+    }),
+    []
+  );
+  useEffect(
+    () => () => {
+      geometry.arm.dispose();
+      geometry.joint.dispose();
+    },
+    [geometry]
+  );
+
+  useLayoutEffect(() => {
+    const arms = armsRef.current;
+    const joints = jointsRef.current;
+    if (!arms || !joints) return;
+    const matrix = new Matrix4();
+    const turn = new Quaternion();
+    const start = new Vector3();
+    const end = new Vector3();
+    const along = new Vector3();
+    const middle = new Vector3();
+    const scale = new Vector3();
+    const one = new Vector3(1, 1, 1);
+    const up = new Vector3(0, 1, 0);
+    for (let i = 0; i < count; i++) {
+      const angle = i * helix.turn;
+      const y = helixScreenY(i);
+      const [x, z] = [Math.sin(angle), Math.cos(angle)];
+      start.set(x * arm.from, MathUtils.clamp(y, spine.bottom + 0.2, spine.top), z * arm.from);
+      end.set(x * arm.to, y, z * arm.to);
+      along.subVectors(end, start);
+      const length = along.length();
+      turn.setFromUnitVectors(up, along.divideScalar(length));
+      middle.addVectors(start, end).multiplyScalar(0.5);
+      arms.setMatrixAt(i, matrix.compose(middle, turn, scale.set(1, length, 1)));
+      joints.setMatrixAt(i * 2, matrix.compose(start, turn, one));
+      joints.setMatrixAt(i * 2 + 1, matrix.compose(end, turn, one));
+    }
+    arms.instanceMatrix.needsUpdate = true;
+    joints.instanceMatrix.needsUpdate = true;
+    // Culled by the instances' own bounds, not the unit geometry's
+    arms.computeBoundingSphere();
+    joints.computeBoundingSphere();
+  }, [count]);
+
+  // Not shadow casters: an instanced depth variant would compile on the
+  // first shadow pass rather than with the station
+  return (
+    <>
+      <instancedMesh
+        ref={armsRef}
+        args={[geometry.arm, material, count]}
+        receiveShadow
+        frustumCulled
+      />
+      <instancedMesh
+        ref={jointsRef}
+        args={[geometry.joint, material, count * 2]}
+        receiveShadow
+        frustumCulled
+      />
+    </>
+  );
 }
 
 /** Keeps a screen's page out of bloom, so it shows at its own brightness */
@@ -731,8 +1166,10 @@ export function ProjectsStation({
   // On-demand rendering (reduced motion) snaps instead of easing
   const snap = useThree((s) => s.frameloop === 'demand');
   const gl = useThree((s) => s.gl);
+  const invalidate = useThree((s) => s.invalidate);
   const groupRef = useRef<Group>(null);
   const helixRef = useRef<Group>(null);
+  const armsRef = useRef<Group>(null);
   const hubRef = useRef<Group>(null);
   const materials = useThemedMaterials(buildMaterials, theme, 'projects');
   const palette = palettes[theme];
@@ -740,21 +1177,36 @@ export function ProjectsStation({
   const screens = useMemo(() => projects.slice(0, helix.screens), [projects]);
 
   const hoveredRef = useRef(-1);
+  /** The screen in front once the ride has settled on it (-1 for none): a click on it opens the modal */
+  const liveRef = useRef(-1);
+  // One tip per screen and action, made once, so the hovered screen's tip
+  // can be recognised (and swapped as what a click does changes)
   const tips = useMemo(
     () =>
-      screens.map((screen) => ({ label: screen.title.trim(), sub: 'Click to open the project' })),
+      screens.map((screen) => {
+        const label = screen.title.trim();
+        return {
+          open: { label, sub: 'Open project' },
+          ride: { label, sub: 'Ride to this project' },
+          none: { label },
+        } satisfies Record<ScreenAction, { label: string; sub?: string }>;
+      }),
     [screens]
   );
+  const tipFor = (i: number) => tips[i][screenAction(i, liveRef.current)];
   const states = useMemo<ScreenState[]>(
     () =>
       screens.map(() => ({
         index: 0,
         next: -1,
+        pin: -1,
         textures: new Map(),
         loading: new Set(),
         fadeStart: 0,
         nextSwitch: 0,
         hover: 0,
+        poweredAt: -1,
+        flicker: false,
         sharp: new Map(),
         sharpLoading: new Set(),
       })),
@@ -773,38 +1225,75 @@ export function ProjectsStation({
     );
   }, [screenMaterials, palette.cyan, palette.violet]);
 
-  const shots = useMemo(
-    () => new ScreenShots(gl, screens, states, screenMaterials),
-    [gl, screens, states, screenMaterials]
+  useEffect(
+    () => () => screenMaterials.forEach((material) => material.dispose()),
+    [screenMaterials]
   );
   const maskGeometry = useMemo(() => screenMaskGeometry(), []);
   useEffect(() => () => maskGeometry.dispose(), [maskGeometry]);
 
+  // The screens' shots, made per mount: a set that has been disposed gives
+  // up its loads, so one made once and reused across a remount (React's
+  // development double mount) left every screen blank
+  const shotsRef = useRef<ScreenShots | null>(null);
   useEffect(() => {
+    const shots = new ScreenShots(gl, screens, states, screenMaterials, () => invalidate());
+    shotsRef.current = shots;
     screens.forEach((_, i) => shots.load(i, 0));
-    return () => shots.dispose();
-  }, [screens, shots]);
+    return () => {
+      shots.dispose();
+      if (shotsRef.current === shots) shotsRef.current = null;
+    };
+  }, [gl, screens, states, screenMaterials, invalidate]);
+
+  useEffect(
+    () => () => {
+      worldStore.screenRect.on = false;
+    },
+    []
+  );
+
+  // The gallery changing slide: a world rendering on demand draws, so the
+  // screen can follow (see liveScreen)
+  useEffect(() => {
+    const repaint = () => invalidate();
+    window.addEventListener(projectShotEvent, repaint);
+    return () => window.removeEventListener(projectShotEvent, repaint);
+  }, [invalidate]);
 
   // Projects with no screenshots show their art, drawn once the icons are in
   const icons = useIconCollections();
   useEffect(() => {
-    if (!icons) return;
+    const shots = shotsRef.current;
+    if (!icons || !shots) return;
     screens.forEach((screen, i) => {
       if (screen.images.length) return;
       const svg = iconSvg(icons, screen.icon || 'ph:code-bold', '#ffffff', 256);
       shots.placeholder(i, drawProjectArt(svg, i + 1));
     });
-  }, [icons, screens, shots]);
+  }, [icons, screens, gl, states, screenMaterials, invalidate]);
 
   const settled = useRef(false);
+  /** When the station's frames began (clock seconds, -1 before), and whether its hull has shown */
+  const hull = useRef({ since: -1, shown: false });
+  /** The screen last brought to the front, and when a power-up last flickered */
+  const powering = useRef({ live: -1, flickerAt: -Infinity });
+  /** The screen the ride last settled on (its detent's tick), -1 off the ride */
+  const ticked = useRef(-1);
   const opened = focus >= 0 && focus < screens.length ? focus : -1;
+  useHullTimings(groupRef, hubRef);
 
   useFrame(({ camera, clock, size }, delta) => {
     const group = groupRef.current;
-    if (!stationInRange(group, camera, 'projects')) return;
+    const shots = shotsRef.current;
+    if (!shots || !stationInRange(group, camera, 'projects')) {
+      worldStore.screenRect.on = false;
+      return;
+    }
     const t = clock.elapsedTime;
     const dt = Math.min(delta, 0.05);
-    const instant = snap || !settled.current;
+    const first = !settled.current;
+    const instant = snap || first;
     settled.current = true;
 
     // The project in front: an open one, else wherever the page has scrolled to
@@ -819,33 +1308,89 @@ export function ProjectsStation({
     // yard: the first screen only comes forward (and lights up) on scroll
     const ride = front >= 0 ? 1 - (opened >= 0 ? 0 : projectIntro()) : 0;
     const live = front >= 0 && ride > 0.9 ? Math.round(front) : -1;
+    liveRef.current = live;
+    // A screen coming to the front powers up its edge light (not the one in
+    // front as the station first draws, nor rendering on demand)
+    const power = powering.current;
+    if (live !== power.live) {
+      if (live >= 0 && !instant) {
+        const state = states[live];
+        state.poweredAt = t;
+        state.flicker = t - power.flickerAt >= flickerGap;
+        if (state.flicker) power.flickerAt = t;
+      }
+      power.live = live;
+    }
+    // The hovered screen's tip follows what a click on it would now do
+    const hovered = hoveredRef.current;
+    if (hovered >= 0) {
+      const tip = worldTip.get();
+      const own = Object.values(tips[hovered]) as unknown[];
+      if (own.includes(tip) && tip !== tipFor(hovered)) worldTip.set(tipFor(hovered));
+    }
     // On the page (or a project's), sharp copies load ahead of the camera,
     // nearest the project in front first, so none is ever soft once it gets
-    // there (flying in, they download and decode but wait to upload)
-    const sharpening = scrolled >= 0 || opened >= 0;
+    // there (flying in, they download and decode but wait to upload). They
+    // start once the hub's hull is in, so they don't slow its download
+    const wait = hull.current;
+    if (wait.since < 0) wait.since = t;
+    wait.shown ||= hullIn(hubRef.current);
+    const sharpening = (scrolled >= 0 || opened >= 0) && (wait.shown || t - wait.since > sharpHold);
     const sharpWidth = sharpening
       ? frontScreenWidth(size.width, size.height, gl.domElement.height)
       : 0;
     if (sharpWidth) shots.sharpen(sharpWidth, Math.max(front, 0), live);
 
     setUniform(materials.base, 'uTime', t);
+    // The open gallery's slide, as an index into its screen's shots (one it
+    // doesn't carry holds the screen where it is)
+    const shot = worldStore.projectShot;
+    let changing = false;
+    // A project named on the page that is pointed at or focused (an index
+    // link, a pager card): its screen lights up and goes live
+    const target = worldStore.targetHover;
+    const named = target.startsWith('project:') ? Number(target.slice('project:'.length)) : -1;
+    // On a project page, other screens behind its heading dim right down
+    const aside = worldStore.projectAside && front >= 0;
+    const spiral = helixRef.current;
     screenMaterials.forEach((material, i) => {
       const state = states[i];
+      const images = screens[i].images;
+      if (shot.project !== i || !images.length) state.pin = -1;
+      else {
+        const pinned = images.findIndex((image) => image.index === shot.image);
+        state.pin = pinned >= 0 ? pinned : state.next >= 0 ? state.next : state.index;
+      }
       setUniform(material, 'uTime', t + i);
       liveScreen(
         material,
         state,
-        screens[i].images.length,
+        images,
         i,
         t,
         dt,
-        i === live || i === hoveredRef.current,
+        i === live || i === hoveredRef.current || i === named,
         shots,
-        sharpWidth > 0 && i === live
+        sharpWidth > 0 && i === live && state.pin < 0
+      );
+      changing ||= state.next >= 0 || (state.pin >= 0 && state.pin !== state.index);
+      if (state.poweredAt >= 0 && (snap || t - state.poweredAt > 2.5 * screenPowerTime)) {
+        state.poweredAt = -1;
+      }
+      setUniform(
+        material,
+        'uPower',
+        state.poweredAt < 0 ? 1 : screenPowerAt(t - state.poweredAt, state.flicker)
       );
       const reveal = material.uniforms.uReveal.value as number;
       if (reveal < 1.1) setUniform(material, 'uReveal', snap ? 1.1 : reveal + dt * 0.8);
-      const dim = front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) * ride : 0;
+      const placed = spiral?.children[i];
+      const hidden =
+        aside && i !== Math.round(front) && !!placed && behindCopy(placed, camera) ? 1 : 0;
+      const dim = Math.max(
+        front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) * ride : 0,
+        hidden
+      );
       const current = material.uniforms.uDim.value as number;
       setUniform(material, 'uDim', instant ? dim : approach(current, dim, 6, dt));
       // The screen in front is being read: solid, with faint scanlines
@@ -854,7 +1399,6 @@ export function ProjectsStation({
       setUniform(material, 'uFocus', instant ? reading : approach(shown, reading, 6, dt));
     });
 
-    const spiral = helixRef.current;
     if (spiral) {
       // The camera rides the helix (stationCamera), so it holds still while a
       // project is in front; elsewhere it turns slowly with the page. Always
@@ -863,6 +1407,8 @@ export function ProjectsStation({
       const turnTo = spiral.rotation.y + angleDelta(spiral.rotation.y, angle);
       if (instant) spiral.rotation.y = turnTo;
       else easing.damp(spiral.rotation, 'y', turnTo, 0.35, dt);
+      const arms = armsRef.current;
+      if (arms) arms.rotation.y = spiral.rotation.y;
 
       spiral.children.forEach((screen, i) => {
         const near = front >= 0 ? Math.max(0, 1 - Math.abs(i - front)) * ride : 0;
@@ -875,10 +1421,36 @@ export function ProjectsStation({
         // Screens orbit with the helix but always turn to face the viewer
         screen.lookAt(camera.position);
       });
+      // A detent: the ride settling on another screen ticks, from that
+      // screen (not as the station first draws; still motion too, it is a
+      // sound). An open project (its page or its modal) never does: its
+      // front screen changes the moment the address does, as the camera
+      // only sets off, and those hops have their own cues. Without the
+      // world, Projects ticks instead
+      const settledOn = live >= 0 && Math.abs(front - live) < 0.02 ? live : -1;
+      if (opened >= 0) ticked.current = opened;
+      else if (live < 0) ticked.current = -1;
+      else if (settledOn >= 0 && settledOn !== ticked.current) {
+        if (!first) {
+          spiral.children[settledOn]?.getWorldPosition(centre);
+          emitCue('tick', { at: [centre.x, centre.y, centre.z] });
+        }
+        ticked.current = settledOn;
+      }
+
+      // Where the screen in front is on the page, for the project modal
+      const inFront = front >= 0 ? spiral.children[Math.round(front)] : undefined;
+      if (worldStore.projectFocus >= 0 && inFront)
+        measureScreen(inFront, camera, size.width, size.height);
+      else worldStore.screenRect.on = false;
     }
 
     const hub = hubRef.current;
     if (hub) hub.rotation.y = 0.4 + t * 0.1 + worldStore.pointerX * 0.2;
+
+    // Rendering on demand: keep drawing until a screen's fade (or its wait
+    // for the gallery's slide to load) is over
+    if (snap && changing) invalidate();
   });
 
   return (
@@ -904,7 +1476,7 @@ export function ProjectsStation({
             const angle = i * helix.turn;
             return (
               <group
-                key={screen.title}
+                key={screen.slug}
                 position={[
                   Math.sin(angle) * helix.radius,
                   helixScreenY(i),
@@ -920,18 +1492,23 @@ export function ProjectsStation({
                     if (hoveredRef.current >= 0) setWorldHover(false);
                     hoveredRef.current = i;
                     setWorldHover(true);
-                    worldTip.set(tips[i]);
+                    worldTip.set(tipFor(i));
                   }}
                   onPointerOut={() => {
                     if (hoveredRef.current !== i) return;
                     hoveredRef.current = -1;
                     setWorldHover(false);
-                    if (worldTip.get() === tips[i]) worldTip.set(null);
+                    const tip = worldTip.get();
+                    if ((Object.values(tips[i]) as unknown[]).includes(tip)) worldTip.set(null);
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
                     spawnPing(e.point);
-                    openProject(screen.slug);
+                    const action = screenAction(i, liveRef.current);
+                    if (action === 'open') openProject(screen.slug);
+                    else if (action === 'ride') {
+                      window.dispatchEvent(new CustomEvent(projectRideEvent, { detail: i }));
+                    }
                   }}
                 >
                   <planeGeometry />
@@ -942,8 +1519,13 @@ export function ProjectsStation({
           })}
         </group>
 
+        {/* Arms out to the screens, turning with the helix */}
+        <group ref={armsRef}>
+          <ScreenArms count={screens.length} />
+        </group>
+
         {/* The fabrication yard: its hub on a truss spine, the helix of work orbiting it */}
-        <Truss position={[0, -11, 0]} length={16} size={0.36} />
+        <Truss position={[0, spine.bottom, 0]} length={spine.top - spine.bottom} size={0.36} />
         <NavLights lights={spineLights} />
         <group ref={hubRef}>
           <StationHull station="projects" height={2.7} theme={theme} />

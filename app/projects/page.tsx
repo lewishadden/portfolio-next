@@ -2,7 +2,7 @@ import { Projects } from 'components/Projects/Projects';
 import { PageJsonLd } from 'components/Seo/PageJsonLd';
 
 import { getPageContent } from 'utils/serverUtils';
-import { pageMetadata } from 'utils/seo';
+import { pageMetadata, personName } from 'utils/seo';
 
 import { ResumeData } from '@/types';
 
@@ -26,7 +26,7 @@ export default async function ProjectsPage() {
         description={description}
         type="CollectionPage"
       />
-      <Projects projects={projects} />
+      <Projects projects={projects} siteName={personName} />
     </>
   );
 }

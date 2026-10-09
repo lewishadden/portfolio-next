@@ -1,5 +1,6 @@
 /* =============================================================
-   Project details — glass dialog over a dimmed, blurred backdrop
+   Project details: a dialog over a plain scrim. No backdrop blur:
+   blurring the live 3D world behind it every frame was costly
    ============================================================= */
 
 .pdm {
@@ -16,15 +17,7 @@
   &__backdrop {
     position: absolute;
     inset: 0;
-    background:
-      radial-gradient(
-        80% 70% at 50% 40%,
-        color-mix(in oklab, var(--bg-primary) 50%, transparent),
-        color-mix(in oklab, var(--bg-primary) 88%, transparent)
-      ),
-      radial-gradient(60% 50% at 20% 0%, var(--glow-violet), transparent 70%);
-    -webkit-backdrop-filter: blur(12px) saturate(125%);
-    backdrop-filter: blur(12px) saturate(125%);
+    background: color-mix(in oklab, var(--bg-primary) 80%, transparent);
   }
 
   &__dialog {
@@ -40,8 +33,6 @@
     box-shadow:
       0 50px 120px -40px rgba(0, 0, 0, 0.85),
       var(--shadow-glow);
-    -webkit-backdrop-filter: blur(26px) saturate(150%);
-    backdrop-filter: blur(26px) saturate(150%);
     isolation: isolate;
 
     [data-theme='light'] & {
@@ -203,6 +194,43 @@
 }
 
 /* =============================================================
+   Flying out of the 3D screen (ProjectDetailsModal's FLIP): the
+   gallery's stage starts over the screen in front and eases into
+   place while the dialog's frame and copy fade in round it.
+   Closing reverses it: frame and copy fade, the stage flies back
+   ============================================================= */
+.pdm--flip {
+  .pdm__dialog {
+    animation: pdm-frame-in 0.55s var(--ease-out) both;
+  }
+
+  .pdm__head,
+  .project-body__content,
+  .project-gallery__bar {
+    animation: pdm-copy-in 0.5s 0.24s var(--ease-out) both;
+  }
+
+  .pdm__border {
+    animation:
+      spin-border 6s linear infinite,
+      pdm-fade-in 0.5s 0.24s var(--ease-out) both;
+  }
+}
+
+.pdm--closing {
+  .pdm__dialog {
+    animation: pdm-frame-out 0.3s var(--ease-in-out) both;
+  }
+
+  .pdm__head,
+  .pdm__border,
+  .project-body__content,
+  .project-gallery__bar {
+    animation: pdm-fade-out 0.2s var(--ease-in-out) both;
+  }
+}
+
+/* =============================================================
    Responsive
    ============================================================= */
 /* Phones: a full-screen sheet */
@@ -231,6 +259,41 @@
   .pdm__badge {
     width: 2.5rem;
     height: 2.5rem;
+  }
+}
+
+@keyframes pdm-frame-in {
+  from {
+    border-color: transparent;
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+@keyframes pdm-frame-out {
+  to {
+    border-color: transparent;
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+@keyframes pdm-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes pdm-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pdm-fade-out {
+  to {
+    opacity: 0;
   }
 }
 
