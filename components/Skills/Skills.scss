@@ -308,7 +308,9 @@
       transition: opacity var(--dur-med) ease;
     }
 
-    &:hover {
+    /* Focus (keyboard) lights it as hover does, and its badge in the world */
+    &:hover,
+    &:focus-visible {
       transform: translateY(-4px);
       border-color: color-mix(in oklab, var(--accent-primary) 50%, transparent);
       background: var(--surface-hover);
