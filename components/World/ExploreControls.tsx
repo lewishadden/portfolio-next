@@ -139,6 +139,13 @@ const takeOver = 80;
 /** Autopilot: points along the course it publishes for the radar and the course line */
 const courseSamples = 26;
 /**
+ * Autopilot to something on the move (the comet): the course is planned
+ * again once its goal is this far from where the course ends (units), at
+ * most every `replanEvery` seconds
+ */
+const courseDrift = 4;
+const replanEvery = 0.5;
+/**
  * Autopilot to a signal ('signal:<id>'): parks this far short of it, on
  * the ship's side (further from the derelict, whose wreck spreads wide)
  */
@@ -242,8 +249,9 @@ interface LookState {
   calm: boolean;
   /** Frames since free roam began, for looking again under the reticle every few */
   frames: number;
-  /** The course worldStore.autopilotPath was planned for ('' for none) */
+  /** The course worldStore.autopilotPath was planned for ('' for none), and when (clock time) */
   planned: string;
+  plannedAt: number;
   /** Colliders the camera started free roam inside (colliders.ts): not enforced until it leaves them */
   excused: Set<number>;
 }
@@ -375,14 +383,25 @@ function planCourse(course: string, from: Vector3, t: number) {
 }
 
 /**
- * Keeps worldStore.autopilotPath in step with the autopilot: planned once
- * when a course is set (a new array, so whoever draws it sees the change),
- * emptied when the autopilot hands back the controls
+ * Keeps worldStore.autopilotPath in step with the autopilot: planned when a
+ * course is set (a new array, so whoever draws it sees the change), and
+ * again from where the ship is as a signal's goal moves off the end of it
+ * (the comet flies on along its orbit), emptied when the autopilot hands
+ * back the controls
  */
 function trackCourse(course: string, from: Vector3, t: number, state: LookState) {
-  if (course === state.planned) return;
-  state.planned = course;
-  worldStore.autopilotPath = course ? planCourse(course, from, t) : noCourse;
+  if (course !== state.planned) {
+    state.planned = course;
+    state.plannedAt = t;
+    worldStore.autopilotPath = course ? planCourse(course, from, t) : noCourse;
+    return;
+  }
+  const path = worldStore.autopilotPath;
+  if (!course.startsWith('signal:') || path.length < 3 || t - state.plannedAt < replanEvery) return;
+  if (resolveCourse(course, from, t) !== 'signal') return;
+  if (goal.distanceToSquared(point.fromArray(path, path.length - 3)) < courseDrift ** 2) return;
+  state.plannedAt = t;
+  worldStore.autopilotPath = planCourse(course, from, t);
 }
 
 /**
@@ -447,6 +466,7 @@ export function ExploreControls() {
     calm: false,
     frames: 0,
     planned: '',
+    plannedAt: 0,
     excused: new Set(),
   });
   const lite = useLite();
