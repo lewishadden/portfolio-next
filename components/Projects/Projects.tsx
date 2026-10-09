@@ -345,16 +345,27 @@ export const Projects = ({
 
   // Snapping: once scroll comes to rest on the ride, glide to a project (or
   // back to the top of the page): the next one in the direction of the
-  // gesture once it has gone snapCommit from where the last one rested (the
-  // first from the top always docks), else back to the nearest. Past the
-  // last project it is free. Any scroll input interrupts the glide (Lenis
-  // stops programmatic scrolls)
+  // gesture once it has gone snapCommit from where it started (the first
+  // from the top always docks), else back to the nearest. Past the last
+  // project it is free. Any scroll input interrupts the glide (Lenis stops
+  // programmatic scrolls), and the gesture then starts where it caught it
   useEffect(() => {
     if (!lenis || selected >= 0) return;
     let timer = 0;
     let pressed = false;
-    /** Where the scroll last came to rest (or was sent) */
+    /** Where the scroll last came to rest (or was sent, or a gesture caught a glide) */
     let anchor = window.scrollY;
+    /** A snap glide is under way */
+    let gliding = false;
+    // Wheel or touch input during a glide stops it (touch) or carries on
+    // from where it has got to (wheel), so the gesture starts there:
+    // measured from the stop the glide was sent to, a short swipe onwards
+    // read as one backwards and the ride went back a project
+    const interrupt = ({ deltaY, event }: { deltaY: number; event: WheelEvent | TouchEvent }) => {
+      if (!gliding || deltaY === 0 || event.ctrlKey) return;
+      gliding = false;
+      anchor = window.scrollY;
+    };
     const settle = () => {
       const lane = runway();
       if (pressed || lane.step < 10) return;
@@ -363,6 +374,7 @@ export const Projects = ({
         rest();
         return;
       }
+      gliding = false;
       const y = window.scrollY;
       const stops = items.map((_, i) => lane.docked + lane.step * i);
       const last = stops[stops.length - 1];
@@ -386,7 +398,15 @@ export const Projects = ({
       anchor = target;
       if (Math.abs(target - y) < 2) return;
       const reduce = motionLevel() !== 'full';
-      lenis.scrollTo(target, { duration: 0.75, easing: snapEase, immediate: reduce });
+      gliding = !reduce;
+      lenis.scrollTo(target, {
+        duration: 0.75,
+        easing: snapEase,
+        immediate: reduce,
+        onComplete: () => {
+          gliding = false;
+        },
+      });
     };
     function rest() {
       window.clearTimeout(timer);
@@ -401,12 +421,14 @@ export const Projects = ({
       rest();
     };
     lenis.on('scroll', rest);
+    lenis.on('virtual-scroll', interrupt);
     window.addEventListener('pointerdown', press);
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
     return () => {
       window.clearTimeout(timer);
       lenis.off('scroll', rest);
+      lenis.off('virtual-scroll', interrupt);
       window.removeEventListener('pointerdown', press);
       window.removeEventListener('pointerup', release);
       window.removeEventListener('pointercancel', release);

@@ -111,19 +111,22 @@ test.describe('project index', () => {
 });
 
 test.describe('the ride without the world', () => {
+  const pageY = (page: Page) => page.evaluate(() => Math.round(window.scrollY));
+  /** Waits for the scroll (and any snap glide) to come to rest */
+  const settledOn = (page: Page) =>
+    expect
+      .poll(async () => {
+        const start = await pageY(page);
+        await page.waitForTimeout(400);
+        return (await pageY(page)) === start;
+      })
+      .toBe(true);
+
   test('a short scroll carries on to the next project, and the first docks', async ({ page }) => {
     await openHydrated(page, '/projects');
     const index = page.getByRole('navigation', { name: 'Projects' });
-    const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
-    /** Waits for the scroll (and any snap glide) to come to rest */
-    const settled = () =>
-      expect
-        .poll(async () => {
-          const start = await scrollY();
-          await page.waitForTimeout(400);
-          return (await scrollY()) === start;
-        })
-        .toBe(true);
+    const scrollY = () => pageY(page);
+    const settled = () => settledOn(page);
     const { width, height } = page.viewportSize()!;
     await page.mouse.move(width / 2, height / 2);
 
@@ -157,6 +160,51 @@ test.describe('the ride without the world', () => {
     await page.mouse.wheel(0, -150);
     await settled();
     await expect(index.getByRole('link', { name: 'ZGS Carpentry', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+  });
+
+  test('a swipe onwards that catches a snap glide keeps going its way', async ({ page }) => {
+    await openHydrated(page, '/projects');
+    const index = page.getByRole('navigation', { name: 'Projects' });
+    const { width, height } = page.viewportSize()!;
+    await page.mouse.move(width / 2, height / 2);
+    await page.mouse.wheel(0, 150);
+    await settledOn(page);
+    await expect(index.getByRole('link', { name: 'ZGS Carpentry', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+
+    // A swipe onwards sets off a glide to the next project. Just as it
+    // starts, a second short swipe the same way catches it: measured from
+    // where it caught the glide, it goes on (measured from the stop the glide
+    // was heading for, it read as a swipe back and returned to the first)
+    const swiped = (await pageY(page)) + 100;
+    await page.mouse.wheel(0, 100);
+    await page.evaluate(
+      (rest) =>
+        new Promise<void>((resolve) => {
+          // The wheel's own scroll comes to rest, then the glide sets off
+          let arrived = false;
+          const watch = () => {
+            arrived ||= window.scrollY >= rest - 2;
+            if (!arrived || window.scrollY <= rest + 3) {
+              requestAnimationFrame(watch);
+              return;
+            }
+            document.body.dispatchEvent(
+              new WheelEvent('wheel', { deltaY: 70, bubbles: true, cancelable: true })
+            );
+            resolve();
+          };
+          watch();
+        }),
+      swiped
+    );
+    await settledOn(page);
+    await expect(index.getByRole('link', { name: 'Sidenote', exact: true })).toHaveAttribute(
       'aria-current',
       'true'
     );
