@@ -242,6 +242,9 @@ interface FindState {
   foundAt: number;
 }
 
+/** Where the nearest unfound signal is, reported to the detector each frame */
+const nearestAt: [number, number, number] = [0, 0, 0];
+
 const sweepFrom = new Vector3();
 const seen = new Vector3();
 const onView = new Vector3();
@@ -527,9 +530,13 @@ export function Signals({ theme }: { theme: WorldTheme }) {
         }
         return;
       }
-      nearest = Math.min(nearest, distance);
+      if (distance < nearest) {
+        nearest = distance;
+        // Where it is (the comet's live position), for the detector's sonar to sound from
+        node.position.toArray(nearestAt);
+      }
     });
-    reportNearest(exploring ? nearest : Infinity);
+    reportNearest(exploring ? nearest : Infinity, nearestAt);
   });
 
   return (
