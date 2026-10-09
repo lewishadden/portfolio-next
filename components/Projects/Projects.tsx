@@ -298,6 +298,11 @@ export const Projects = ({
         lane.docked > 1 ? Math.min(Math.max(1 - window.scrollY / lane.docked, 0), 1) : 0;
       worldStore.projectIntro = intro;
       stage?.toggleAttribute('data-waiting', intro > 0.12);
+      // Docked: the sticky stage holds the screen, from the first project to the last
+      stage?.toggleAttribute(
+        'data-docked',
+        window.scrollY >= lane.docked - 1 && window.scrollY <= last + 1
+      );
       setActive(Math.round(focus));
     };
     const schedule = () => {

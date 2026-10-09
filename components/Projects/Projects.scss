@@ -340,6 +340,24 @@
     -webkit-line-clamp: 3;
     line-clamp: 3;
   }
+
+  /* Docked, the ride's copy runs to the bottom of the screen: the back to
+     top button would sit on it (and the ride has its own way back up) */
+  body:has(.projects__stage[data-docked]) .back-to-top {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Touch: every index link is a 44px target */
+@media (pointer: coarse) {
+  .projects__index-link {
+    display: flex;
+    align-items: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 /* Short landscape (a phone on its side): the stacked layout doesn't fit
