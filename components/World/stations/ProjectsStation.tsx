@@ -620,7 +620,8 @@ class ScreenShots {
         if (index === state.index && !state.sharp.has(index)) {
           setUniform(this.materials[i], 'uMap', texture);
           setUniform(this.materials[i], 'uHasMap', 1);
-          worldStore.screenShown[i] = image.index;
+          // (Mid-fade, the screen reports the shot it is fading to)
+          if (state.next < 0) worldStore.screenShown[i] = image.index;
         }
         this.onLanded();
       })
@@ -864,8 +865,10 @@ function openProject(slug: string) {
  * in front, while sharp copies load) it waits a little for the next shot's
  * sharp copy before fading to it. While the project's gallery is open
  * (`state.pin`) it fades straight to the gallery's slide and holds it.
- * Whatever it settles on is recorded in worldStore.screenShown, which a
- * gallery opening starts from.
+ * The shot it shows, or is fading to, is recorded in
+ * worldStore.screenShown, which a gallery opening starts from: one that
+ * opened mid-fade on the outgoing shot had the screen finish the wipe,
+ * then wipe back to the gallery's slide.
  */
 function liveScreen(
   material: ShaderMaterial,
@@ -915,6 +918,7 @@ function liveScreen(
     state.next = state.pin;
     state.fadeStart = t;
     setUniform(material, 'uMapB', shots.copy(i, state.pin));
+    worldStore.screenShown[i] = images[state.pin].index;
     return;
   }
 
@@ -932,6 +936,7 @@ function liveScreen(
     state.next = upcoming;
     state.fadeStart = t;
     setUniform(material, 'uMapB', shots.copy(i, upcoming));
+    worldStore.screenShown[i] = images[upcoming].index;
   }
 }
 

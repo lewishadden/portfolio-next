@@ -37,8 +37,9 @@ export function showProjectShot(project: number, image: number) {
 
 /**
  * The slide a project's gallery opens on: the shot its helix screen is
- * showing (worldStore.screenShown), so the screen and the gallery show the
- * same thing; the first when that isn't known or isn't one of its shots
+ * showing or fading to (worldStore.screenShown), so the screen and the
+ * gallery show the same thing; the first when that isn't known or isn't
+ * one of its shots
  */
 export function screenSlide(project: number, count: number) {
   const shown =
