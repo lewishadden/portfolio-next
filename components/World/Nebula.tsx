@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
   BackSide,
@@ -651,6 +651,9 @@ function createSky(renderer: WebGLRenderer, requested: number, octaves: number):
   const front = createSkyTarget(size);
   const uSize = new Vector2(front.width, front.height);
   const grainMap = createGrainMap();
+  // Bound to the front target before it is baked, but never drawn before:
+  // the sky is made once per canvas, and warm-up (which waits for the first
+  // bake) holds the frameloop until then
   const dome = new ShaderMaterial({
     uniforms: {
       uMapA: { value: front.texture },
@@ -848,8 +851,12 @@ export function Nebula({
   size,
 }: {
   theme: WorldTheme;
+  /** Read once, at mount */
   octaves: number;
-  /** The bake's width as asked for (half as tall); phones' 1024 becomes 2048 where memory allows */
+  /**
+   * The bake's width as asked for (half as tall), read once, at mount; phones'
+   * 1024 becomes 2048 where memory allows
+   */
   size: number;
 }) {
   const meshRef = useRef<Mesh>(null);
@@ -858,7 +865,13 @@ export function Nebula({
   const invalidate = useThree((s) => s.invalidate);
   const track = useWarmupTask();
 
-  const sky = useMemo(() => createSky(gl, size, octaves), [gl, size, octaves]);
+  // The bake's size and detail are decided once, like shadows. A window
+  // resized across the lite breakpoint used to rebuild the sky while the
+  // world was drawing: a new bake program to compile, hulls on an empty
+  // environment, and the dome showing its new target black, then filling
+  // in strip by strip as it baked
+  const [spec] = useState(() => ({ size, octaves }));
+  const sky = useMemo(() => createSky(gl, spec.size, spec.octaves), [gl, spec]);
   useEffect(() => () => disposeSky(sky), [sky]);
 
   // Before WarmupGate's precompile (an earlier sibling's effects run first)
