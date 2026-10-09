@@ -1,11 +1,17 @@
-import { useMemo } from 'react';
-import { MathUtils } from 'three';
+import { useEffect, useMemo } from 'react';
+import { useThree } from '@react-three/fiber';
+import { MathUtils, Vector3 } from 'three';
+
+import { motionLevel } from '@/utils/motion';
 
 import { spawnPing } from './Pings';
-import { emitCue, setWorldHover, worldStore, worldTip } from './worldStore';
+import { flashNavLights } from './power';
+import { emitCue, onShowcase, setWorldHover, worldStore, worldTip } from './worldStore';
 
 import type { RefObject } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
+import type { Object3D } from 'three';
+import type { StationKey } from './routes';
 import type { WorldTip } from './worldStore';
 
 /**
@@ -92,5 +98,55 @@ export function useReactionHandlers(state: RefObject<Reaction>, tip: WorldTip, d
       },
     }),
     [state, tip, duration]
+  );
+}
+
+const showcasePoint = new Vector3();
+
+/** How long (ms) the still level keeps drawing after a hail, so its ping and blink play out */
+const answerTime = 1400;
+
+/** Asks for frames for `ms` (the still level draws on demand; elsewhere it costs nothing) */
+function keepDrawing(invalidate: () => void, ms: number) {
+  const until = performance.now() + ms;
+  const frame = () => {
+    invalidate();
+    if (performance.now() < until) requestAnimationFrame(frame);
+  };
+  frame();
+}
+
+/**
+ * Shows the character off when its station is asked to (`showcase()`: a
+ * tour stop landing, or the visitor hailing it): a ping out from the
+ * character and its `duration`-second trick. A tour's showcase is only for
+ * full motion; at the still level a hail is answered with the ping and a
+ * blink of the station's nav lights, nothing that moves
+ */
+export function useShowcase(
+  station: StationKey,
+  target: RefObject<Object3D | null>,
+  state: RefObject<Reaction>,
+  duration: number
+) {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(
+    () =>
+      onShowcase((key, reason) => {
+        if (key !== station) return;
+        const level = motionLevel();
+        if (reason === 'tour' && level !== 'full') return;
+        const object = target.current;
+        if (!object) return;
+        object.getWorldPosition(showcasePoint);
+        spawnPing(showcasePoint);
+        if (level === 'still') {
+          flashNavLights(station);
+          keepDrawing(invalidate, answerTime);
+        } else {
+          trick(state.current, duration, showcasePoint);
+        }
+      }),
+    [station, target, state, duration, invalidate]
   );
 }

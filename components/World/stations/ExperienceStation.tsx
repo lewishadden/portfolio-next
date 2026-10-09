@@ -17,6 +17,7 @@ import {
   stepReaction,
   trickProgress,
   useReactionHandlers,
+  useShowcase,
 } from '../reaction';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { StationHull } from '../StationHull';
@@ -128,6 +129,7 @@ export function ExperienceStation({
   const hovered = useRef(-1);
   const reaction = useRef(createReaction());
   const handlers = useReactionHandlers(reaction, satelliteTip, rollTime);
+  useShowcase('experience', satelliteRef, reaction, rollTime);
   const materials = useThemedMaterials(buildMaterials, theme, 'experience');
   const palette = palettes[theme];
   const beamLength = experienceDepth + 10;

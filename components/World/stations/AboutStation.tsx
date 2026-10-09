@@ -24,6 +24,7 @@ import {
   stepReaction,
   trickProgress,
   useReactionHandlers,
+  useShowcase,
 } from '../reaction';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { StationHull } from '../StationHull';
@@ -147,6 +148,7 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
   const materials = useThemedMaterials(buildMaterials, theme, 'about');
   const reaction = useRef(createReaction());
   const handlers = useReactionHandlers(reaction, helmetTip, spinTime);
+  useShowcase('about', helmetRef, reaction, spinTime);
 
   const motes = useMemo<Mote[]>(() => {
     const random = seededRandom(41);

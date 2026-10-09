@@ -43,12 +43,14 @@ export interface StationPower {
   onAt: number;
   /** What it is heading for when not powering on: 1 or `standby` */
   target: number;
+  /** Clock time its nav lights last blinked in answer to a hail (-Infinity: never) */
+  flashAt: number;
 }
 
 export const stationPower = Object.fromEntries(
   stationKeys.map((key) => [
     key,
-    { charge: { value: 1 }, windows: { value: 1 }, onAt: -1, target: 1 },
+    { charge: { value: 1 }, windows: { value: 1 }, onAt: -1, target: 1, flashAt: -Infinity },
   ])
 ) as Record<StationKey, StationPower>;
 
@@ -71,10 +73,24 @@ const windowsAt = (s: number) => MathUtils.clamp((s - 0.3) / 1.1, 0, 1);
  */
 export function navPower(key: StationKey, index: number, t: number) {
   const power = stationPower[key];
+  // Answering a hail: each light blinks once, one after another
+  const blink = t - power.flashAt - index * flashStep;
+  if (blink >= 0 && blink < flashTime) return 2.6;
   if (power.onAt < 0) return MathUtils.lerp(0.06, 1, power.windows.value);
   const s = t - power.onAt - 0.45 - index * 0.11;
   if (s < 0) return 0.06;
   return s < 0.14 ? 2.6 : 1;
+}
+
+/** How long each nav light's answering blink lasts, and the beat between one light and the next (s) */
+const flashTime = 0.2;
+const flashStep = 0.07;
+/** Stations whose nav lights blink on the next frame */
+const flashes = new Set<StationKey>();
+
+/** Blinks a station's nav lights once, one after another (a hail's answer when nothing may move) */
+export function flashNavLights(key: StationKey) {
+  flashes.add(key);
 }
 
 type Pending = { event: 'start' | 'approach' | 'end'; to: string };
@@ -119,6 +135,8 @@ function publishCharge(key: StationKey, charge: number) {
 
 function stepPower(t: number, dt: number) {
   while (pending.length) handle(pending.shift()!, t);
+  for (const key of flashes) stationPower[key].flashAt = t;
+  flashes.clear();
   // The tour and free roam never leave a station waiting: one a flight left
   // in standby when the mode changed (it never got its approach) powers up
   const holdUp = !paging();

@@ -15,6 +15,7 @@ import {
   stepReaction,
   trickProgress,
   useReactionHandlers,
+  useShowcase,
 } from '../reaction';
 import { Shards } from '../Shards';
 import { StationHull } from '../StationHull';
@@ -39,6 +40,7 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
   const materials = useThemedMaterials(buildMaterials, theme, 'lost');
   const reaction = useRef(createReaction());
   const handlers = useReactionHandlers(reaction, lostTip, flailTime);
+  useShowcase('lost', driftRef, reaction, flailTime);
 
   useFrame(({ camera, clock }, delta) => {
     if (!stationInRange(groupRef.current, camera, 'lost')) return;

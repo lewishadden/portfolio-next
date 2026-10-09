@@ -16,6 +16,7 @@ import {
   stepReaction,
   trickProgress,
   useReactionHandlers,
+  useShowcase,
 } from '../reaction';
 import { Shards } from '../Shards';
 import { StationHull } from '../StationHull';
@@ -151,6 +152,7 @@ export function HomeStation({ theme }: { theme: WorldTheme }) {
   const materials = useThemedMaterials(buildMaterials, theme, 'home');
   const reaction = useRef(createReaction());
   const handlers = useReactionHandlers(reaction, astronautTip, rollTime);
+  useShowcase('home', floatRef, reaction, rollTime);
 
   useFrame(({ camera, clock }, delta) => {
     if (!stationInRange(groupRef.current, camera, 'home')) return;
