@@ -41,6 +41,8 @@ import './World.scss';
 const dockTime = 1700;
 /** Longest the page waits for the camera coming back from the tour or free roam (ms) */
 const returnCap = 6500;
+/** A flight longer than this (s) is a cruise: the veil over the copy lifts until approach */
+const cruiseAfter = 1.6;
 
 // three.js + R3F live in their own chunk, fetched after the page is interactive
 const WorldCanvas = dynamic(() => import('./WorldCanvas'), { ssr: false });
@@ -311,6 +313,29 @@ export function World({ content }: { content: WorldContent }) {
     }
     document.querySelector('.skip-link')?.toggleAttribute('inert', hidden);
   }, [away, hidden, mode, booted]);
+
+  // A long flight between pages is a cruise (html[data-flight='cruise']):
+  // there is no copy to keep legible until the approach, so the veil lifts
+  // and the view is clear. Short hops keep it
+  useEffect(() => {
+    if (!active) return;
+    const root = document.documentElement;
+    const clear = () => {
+      delete root.dataset.flight;
+    };
+    const stop = onFlight((event) => {
+      const cruise =
+        event === 'start' &&
+        worldMode.get().mode === 'page' &&
+        worldStore.flight.duration > cruiseAfter;
+      if (cruise) root.dataset.flight = 'cruise';
+      else clear();
+    });
+    return () => {
+      stop();
+      clear();
+    };
+  }, [active, mode]);
 
   // The page is back: keyboard focus returns where it was, once inert has
   // lifted (the effect above), and the page fades back in once the camera

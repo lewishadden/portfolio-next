@@ -204,6 +204,12 @@ html[data-world-mode='returning'] .header-scrim {
   transition: opacity 0.8s var(--ease-out);
 }
 
+/* A long flight between pages (World): no copy until the approach, so
+   nothing to veil, and the view is clear for the cruise */
+html[data-flight='cruise'] .world__veil {
+  opacity: 0;
+}
+
 /* ----- Guided tour caption card ----- */
 .tour {
   position: fixed;
