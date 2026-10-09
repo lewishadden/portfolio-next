@@ -49,20 +49,34 @@ function tileFor(key: string, tiles: HTMLElement[], from: number) {
     case 'ArrowDown':
     case 'ArrowUp': {
       const down = key === 'ArrowDown';
-      const here = tiles[from].getBoundingClientRect();
-      const rects = tiles.map((tile) => tile.getBoundingClientRect());
+      // Layout offsets of the tiles' cells (siblings, so one offsetParent),
+      // which no transform moves. Screen rects did: the focused tile's
+      // focus-visible lift put its row-mates "below" it, so ↓ went sideways
+      // (the cells' entrance offset and the card's tilt skew them too)
+      const boxes = tiles.map((tile) => {
+        const cell = tile.parentElement ?? tile;
+        return {
+          top: cell.offsetTop,
+          centre: cell.offsetLeft + cell.offsetWidth / 2,
+          height: cell.offsetHeight,
+        };
+      });
+      const here = boxes[from];
+      // Tiles within half a tile's height of each other share a row
+      const band = here.height / 2;
       // The top of the next row that way
       let row = down ? Infinity : -Infinity;
-      for (const { top } of rects) {
-        if (down ? top > here.top + 1 && top < row : top < here.top - 1 && top > row) row = top;
+      for (const { top } of boxes) {
+        if (down ? top > here.top + band && top < row : top < here.top - band && top > row) {
+          row = top;
+        }
       }
       if (!Number.isFinite(row)) return from;
-      const centre = here.left + here.width / 2;
       let nearest = from;
       let gap = Infinity;
-      rects.forEach((rect, i) => {
-        const dx = Math.abs(rect.left + rect.width / 2 - centre);
-        if (Math.abs(rect.top - row) <= 1 && dx < gap) {
+      boxes.forEach(({ top, centre }, i) => {
+        const dx = Math.abs(centre - here.centre);
+        if (Math.abs(top - row) < band && dx < gap) {
           gap = dx;
           nearest = i;
         }

@@ -73,4 +73,24 @@ test('each category is one tab stop, and the arrow keys move between its tiles',
   await expect(first.last()).toBeFocused();
   await page.keyboard.press('Home');
   await expect(first.nth(0)).toBeFocused();
+
+  // ↓ and ↑ move a row, to the tile in the same column, while the focused
+  // tile is lifted as hover lifts it (its lift once made ↓ move sideways)
+  const lifted = 'matrix(1, 0, 0, 1, 0, -4)';
+  const columns = await first.evaluateAll((tiles) => {
+    const top = (tile: Element) => (tile.parentElement as HTMLElement).offsetTop;
+    return tiles.filter((tile) => top(tile) === top(tiles[0])).length;
+  });
+  expect(await first.count()).toBeGreaterThan(columns);
+  await expect(first.nth(0)).toHaveCSS('transform', lifted);
+  await page.keyboard.press('ArrowDown');
+  await expect(first.nth(columns)).toBeFocused();
+  await expect(first.nth(columns)).toHaveCSS('transform', lifted);
+  await page.keyboard.press('ArrowUp');
+  await expect(first.nth(0)).toBeFocused();
+  // ↓ on the last row stays put
+  await page.keyboard.press('End');
+  await expect(first.last()).toHaveCSS('transform', lifted);
+  await page.keyboard.press('ArrowDown');
+  await expect(first.last()).toBeFocused();
 });
