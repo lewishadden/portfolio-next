@@ -117,6 +117,15 @@ export function refreshPointer(state: RootState) {
     (reticle ? syntheticEvent('pointermove', state.size.width / 2, state.size.height / 2) : null);
   if (!last || (away && !reticle)) return;
   if (!reticle && 'pointerType' in last && last.pointerType !== 'mouse') return;
+  // Over page content with nothing hovered there is nothing to find or let
+  // go of: R3F would raycast every hoverable object only to drop the hits
+  if (
+    !reticle &&
+    !state.internal.hovered.size &&
+    !isOpenSpace(document.elementFromPoint(last.clientX, last.clientY))
+  ) {
+    return;
+  }
   replaying = true;
   try {
     move(last);
