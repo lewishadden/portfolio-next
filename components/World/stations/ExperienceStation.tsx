@@ -16,7 +16,7 @@ import {
   SRGBColorSpace,
 } from 'three';
 
-import { pastStamp } from '../clock';
+import { ambientTime, pastStamp } from '../clock';
 import { setProjectorEmitter } from '../HeadingProjector';
 import { createBeamMaterial, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
@@ -373,14 +373,17 @@ export function ExperienceStation({
     [count]
   );
 
-  useFrame(({ camera, clock, size }, delta) => {
+  useFrame((state, delta) => {
+    const { camera, size } = state;
     const group = groupRef.current;
     if (!stationInRange(group, camera, 'experience') || !group) return;
-    const t = clock.elapsedTime;
+    // Clicks and hovers are timed by the clock, idle motion by ambient time
+    const t = state.clock.elapsedTime;
+    const ambient = ambientTime(state);
     const dt = Math.min(delta, 1 / 20);
-    setUniform(materials.core, 'uTime', t);
-    setUniform(materials.glow, 'uTime', t);
-    setUniform(materials.nodeRing, 'uTime', t);
+    setUniform(materials.core, 'uTime', ambient);
+    setUniform(materials.glow, 'uTime', ambient);
+    setUniform(materials.nodeRing, 'uTime', ambient);
 
     const localCameraY = camera.position.y - group.position.y;
     const r = reaction.current;
@@ -388,7 +391,7 @@ export function ExperienceStation({
 
     const satellite = satelliteRef.current;
     if (satellite) {
-      const angle = t * 0.35;
+      const angle = ambient * 0.35;
       // Wide: up beside the copy. Narrow: centred in the stage slot above it
       const framedY = framedHeight('experience', localCameraY, size.width, size.height);
       const targetY = isWideViewport(size.width, size.height)
@@ -400,9 +403,9 @@ export function ExperienceStation({
       // Keep the sensor eye turned towards the camera as it circles the beam;
       // hovered it turns a little more to you, clicked it rolls
       const roll = trickProgress(r, rollTime);
-      satellite.rotation.y = Math.sin(t * 0.3) * 0.4 + r.yaw * 0.3 * r.amount;
+      satellite.rotation.y = Math.sin(ambient * 0.3) * 0.4 + r.yaw * 0.3 * r.amount;
       satellite.rotation.z =
-        Math.sin(t * 0.5) * 0.15 + (roll >= 0 ? easeInOut(roll) * Math.PI * 2 : 0);
+        Math.sin(ambient * 0.5) * 0.15 + (roll >= 0 ? easeInOut(roll) * Math.PI * 2 : 0);
       satellite.scale.setScalar(1 + r.amount * 0.08);
       // The page heading is projected from the satellite as the camera arrives
       setProjectorEmitter(

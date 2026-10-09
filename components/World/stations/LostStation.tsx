@@ -5,6 +5,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import { Group, MathUtils, Quaternion, Vector3 } from 'three';
 
+import { ambientTime } from '../clock';
 import { createBeamMaterial, createHaloMaterial } from '../materials';
 import { Model } from '../Model';
 import { NavLights } from '../parts';
@@ -136,7 +137,9 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
   useFrame((state, delta) => {
     const { camera, clock } = state;
     if (!stationInRange(groupRef.current, camera, 'lost')) return;
+    // Clicks are timed by the clock, idle motion by ambient time
     const t = clock.elapsedTime;
+    const ambient = ambientTime(state);
     const r = reaction.current;
     stepReaction(r, t, Math.min(delta, 0.05));
     const drift = driftRef.current;
@@ -144,12 +147,20 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
     // A nudge sends it tumbling faster, limbs flailing, until it slows again
     const flail = trickProgress(r, flailTime);
     const tumble = flail >= 0 ? easeInOut(flail) * Math.PI * 3 : 0;
-    const shake = flail >= 0 ? Math.sin(flail * Math.PI) * Math.sin(t * 28) * 0.12 : 0;
-    drift.rotation.set(t * 0.21 + tumble, t * 0.13 + shake, t * 0.17 + tumble * 0.4);
+    const shake = flail >= 0 ? Math.sin(flail * Math.PI) * Math.sin(ambient * 28) * 0.12 : 0;
+    drift.rotation.set(
+      ambient * 0.21 + tumble,
+      ambient * 0.13 + shake,
+      ambient * 0.17 + tumble * 0.4
+    );
     drift.scale.setScalar(1 + r.amount * 0.05);
-    drift.position.set(Math.sin(t * 0.2) * 0.6, Math.cos(t * 0.17) * 0.4, Math.sin(t * 0.1) * 0.8);
+    drift.position.set(
+      Math.sin(ambient * 0.2) * 0.6,
+      Math.cos(ambient * 0.17) * 0.4,
+      Math.sin(ambient * 0.1) * 0.8
+    );
     const wreck = wreckRef.current;
-    if (wreck) wreck.rotation.set(0.4 + t * 0.03, t * 0.05, 0.3 + t * 0.02);
+    if (wreck) wreck.rotation.set(0.4 + ambient * 0.03, ambient * 0.05, 0.3 + ambient * 0.02);
 
     // The tractor beam reaches out from the wreck once locked (at once at the
     // still level). One locked before R3F restarted its clock (so stamped
@@ -162,8 +173,8 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
       const still = state.frameloop === 'demand';
       const reach = still ? 1 : MathUtils.smootherstep(t - lockedAt, 0, beamReach);
       placeBeam(beam, drift.position, Math.max(reach, 0.02));
-      setUniform(materials.tractor, 'uTime', t);
-      setUniform(materials.tractorGlow, 'uTime', t);
+      setUniform(materials.tractor, 'uTime', ambient);
+      setUniform(materials.tractorGlow, 'uTime', ambient);
     }
   });
 

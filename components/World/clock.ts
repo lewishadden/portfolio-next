@@ -1,9 +1,17 @@
+import type { RootState } from '@react-three/fiber';
+
 /*
    The world's time, for frame callbacks in the world canvas. R3F's clock
-   restarts at 0 whenever the canvas's frameloop changes. CoverPause
-   (WorldCanvas) carries it across a cover, but nothing carries it across
-   the still level's switches between drawing on demand and every frame:
-   entering or leaving free roam, or a change of motion level.
+   isn't steady:
+   - at the still level the canvas draws on demand, and the clock counts
+     the whole wall time between the frames it draws;
+   - it restarts at 0 whenever the canvas's frameloop changes. CoverPause
+     (WorldCanvas) carries it across a cover, but nothing carries it across
+     the still level's switches between drawing on demand and every frame:
+     entering or leaving free roam, or a change of motion level.
+   Idle motion runs on `ambientTime()`; timing that answers an event (a
+   click's trick, a power-on, a ping, a flight) stays on the clock, with
+   its stamps passed through `pastStamp()`.
 */
 
 /**
@@ -13,3 +21,28 @@
  * play again once the clock caught up. It is forgotten (-Infinity) instead
  */
 export const pastStamp = (stamp: number, t: number) => (stamp > t ? -Infinity : stamp);
+
+/** The most ambient time moves on in one step (s): a slow frame doesn't lurch */
+const maxStep = 0.1;
+const ambient = { t: 0, seen: 0 };
+
+/**
+ * Ambient time (s): what the world's idle motion runs on (turning rings
+ * and craft, bobbing characters, blinking nav lights, drifting shaders) in
+ * place of the clock. It moves on with the clock while the canvas draws
+ * every frame and holds while it draws on demand (the still level), so a
+ * frame drawn there to answer a hover or a scroll changes only what it was
+ * drawn for, never the whole idle gap's motion at once. It carries on
+ * rather than starting again when R3F restarts its clock. Every caller in
+ * one frame gets the same time; call it from frame callbacks in the world
+ * canvas only (one clock)
+ */
+export function ambientTime({ clock, frameloop }: RootState) {
+  const now = clock.elapsedTime;
+  if (now !== ambient.seen) {
+    const step = now - ambient.seen;
+    ambient.seen = now;
+    if (frameloop !== 'demand' && step > 0) ambient.t += Math.min(step, maxStep);
+  }
+  return ambient.t;
+}

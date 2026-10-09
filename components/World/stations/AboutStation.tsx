@@ -20,7 +20,7 @@ import {
 } from 'three';
 
 import { bloomMaskLayer, maskBloom } from '../bloomMask';
-import { pastStamp } from '../clock';
+import { ambientTime, pastStamp } from '../clock';
 import { decodeImage } from '../imageDecoder';
 import { asGlow, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
@@ -114,7 +114,7 @@ interface Mote {
 const moteCount = 26;
 const moteDummy = new Object3D();
 
-/** Places every mote for clock time `t`: each rises through the rings and starts again below */
+/** Places every mote for ambient time `t`: each rises through the rings and starts again below */
 function placeMotes(mesh: InstancedMesh | null, motes: Mote[], t: number) {
   if (!mesh) return;
   motes.forEach((m, i) => {
@@ -386,22 +386,24 @@ export function AboutStation({ theme, portrait }: { theme: WorldTheme; portrait:
   }, []);
   useEffect(() => () => moteGeometry.dispose(), [moteGeometry]);
 
-  useFrame(({ camera, clock }, delta) => {
-    if (!stationInRange(groupRef.current, camera, 'about')) return;
-    const t = clock.elapsedTime;
+  useFrame((state, delta) => {
+    if (!stationInRange(groupRef.current, state.camera, 'about')) return;
+    // Clicks and hovers are timed by the clock, idle motion by ambient time
+    const t = state.clock.elapsedTime;
+    const ambient = ambientTime(state);
     const r = reaction.current;
     stepReaction(r, t, Math.min(delta, 0.05));
     for (const material of [materials.ringA, materials.ringB, materials.ringC, materials.scan]) {
-      setUniform(material, 'uTime', t);
+      setUniform(material, 'uTime', ambient);
     }
 
     const helmet = helmetRef.current;
     if (helmet) {
       // The visor follows the pointer, turns to face you on hover, spins on click
       const spin = trickProgress(r, spinTime);
-      helmet.position.y = 0.35 + Math.sin(t * 0.8) * 0.14 + r.amount * 0.1;
+      helmet.position.y = 0.35 + Math.sin(ambient * 0.8) * 0.14 + r.amount * 0.1;
       helmet.rotation.y =
-        (0.15 + Math.sin(t * 0.3) * 0.3) * (1 - r.amount * 0.8) +
+        (0.15 + Math.sin(ambient * 0.3) * 0.3) * (1 - r.amount * 0.8) +
         r.yaw * 0.75 +
         (spin >= 0 ? easeInOut(spin) * Math.PI * 2 : 0);
       helmet.rotation.x = -r.pitch * 0.35;
@@ -410,15 +412,15 @@ export function AboutStation({ theme, portrait }: { theme: WorldTheme; portrait:
 
     const rings = ringsRef.current;
     if (rings) {
-      rings.children[0].rotation.z = t * 0.12;
-      rings.children[1].rotation.z = -t * 0.08;
-      rings.children[2].rotation.z = t * 0.2;
+      rings.children[0].rotation.z = ambient * 0.12;
+      rings.children[1].rotation.z = -ambient * 0.08;
+      rings.children[2].rotation.z = ambient * 0.2;
     }
 
     const scan = scanRef.current;
-    if (scan) scan.position.y = Math.sin(t * 0.7) * 1.35;
+    if (scan) scan.position.y = Math.sin(ambient * 0.7) * 1.35;
 
-    placeMotes(motesRef.current, motes, t);
+    placeMotes(motesRef.current, motes, ambient);
 
     // The helmet cam: nothing to draw until the portrait is in and asked for
     const visor = visorState.current;
@@ -433,8 +435,7 @@ export function AboutStation({ theme, portrait }: { theme: WorldTheme; portrait:
     if (shell) shell.visible = shown && photo !== null;
     if (shown !== visorShown) setVisorShown(shown);
     setUniform(materials.visor, 'uShow', visor.show);
-    // Scanlines hold still at the still level
-    if (!still) setUniform(materials.visor, 'uTime', t);
+    setUniform(materials.visor, 'uTime', ambient);
   });
 
   return (

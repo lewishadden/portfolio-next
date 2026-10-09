@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useRef } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import {
   BoxGeometry,
   CanvasTexture,
@@ -24,6 +24,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
+import { ambientTime } from './clock';
 import { navPower, useStationKey } from './power';
 
 import type { ReactNode } from 'react';
@@ -320,13 +321,15 @@ export function NavLights({
   const material = useMemo(() => new MeshBasicMaterial({ toneMapped: false }), []);
   const station = useStationKey();
 
-  useFrame(({ clock }) => {
+  useFrame((state) => {
     const mesh = meshRef.current;
     if (!mesh) return;
-    const t = clock.elapsedTime;
+    // Power-ons and hails are timed by the clock, the blinking by ambient time
+    const t = state.clock.elapsedTime;
+    const ambient = ambientTime(state);
     lights.forEach((light, i) => {
       const power = station ? navPower(station, i, t) : 1;
-      const level = brightness(light.kind, t + (light.phase ?? i * 0.37)) * power;
+      const level = brightness(light.kind, ambient + (light.phase ?? i * 0.37)) * power;
       dummy.position.fromArray(light.position);
       dummy.scale.copy(lightScale.setScalar(size * (0.6 + level * 0.6)));
       dummy.updateMatrix();
@@ -359,7 +362,7 @@ export function NavLights({
  * Turns a craft slowly about its own vertical axis, or with `sweep`
  * (radians) swings it back and forth like a dish tracking a signal. `speed`
  * is the turn rate in radians per second (the peak rate when sweeping).
- * Still for reduced motion: on-demand frames would make it jump.
+ * It runs on ambient time, so it holds still at the still level.
  */
 export function Spin({
   speed = 0.11,
@@ -369,12 +372,11 @@ export function Spin({
   ...props
 }: GroupProps & { speed?: number; sweep?: number; phase?: number; children: ReactNode }) {
   const ref = useRef<Group>(null);
-  const still = useThree((s) => s.frameloop === 'demand');
 
-  useFrame(({ clock }) => {
+  useFrame((state) => {
     const group = ref.current;
-    if (!group || still) return;
-    const t = clock.elapsedTime;
+    if (!group) return;
+    const t = ambientTime(state);
     group.rotation.y =
       sweep > 0 ? Math.sin(t * (speed / sweep) + phase) * sweep : phase + t * speed;
   });

@@ -17,6 +17,7 @@ import {
 
 import { scrambleGlyphs } from 'components/Motion/ScrambleText';
 
+import { ambientTime } from '../clock';
 import { asGlow, createHaloMaterial, createRingMaterial, noiseGlsl } from '../materials';
 import { Model } from '../Model';
 import { skyMap } from '../Nebula';
@@ -363,17 +364,19 @@ export function HomeStation({ theme }: { theme: WorldTheme }) {
   }, [glyphGeometry]);
   const lettered = wide && atlas !== null;
 
-  useFrame(({ camera, clock }, delta) => {
-    if (!stationInRange(groupRef.current, camera, 'home')) return;
-    const t = clock.elapsedTime;
+  useFrame((state, delta) => {
+    if (!stationInRange(groupRef.current, state.camera, 'home')) return;
+    // Clicks and hovers are timed by the clock, idle motion by ambient time
+    const t = state.clock.elapsedTime;
+    const ambient = ambientTime(state);
     const r = reaction.current;
     stepReaction(r, t, Math.min(delta, 0.05));
-    setUniform(materials.portal, 'uTime', t);
-    setUniform(materials.orbit, 'uTime', t);
-    setUniform(materials.glyphs, 'uTime', t);
+    setUniform(materials.portal, 'uTime', ambient);
+    setUniform(materials.orbit, 'uTime', ambient);
+    setUniform(materials.glyphs, 'uTime', ambient);
     if (lettered) spellRing(glyphGeometry);
-    setUniform(materials.outer, 'uTime', t);
-    setUniform(materials.surface, 'uTime', t);
+    setUniform(materials.outer, 'uTime', ambient);
+    setUniform(materials.surface, 'uTime', ambient);
     // The portal ripples with the barrel roll
     setUniform(materials.surface, 'uRipple', Math.max(trickProgress(r, rollTime * 1.6), 0));
 
@@ -382,20 +385,22 @@ export function HomeStation({ theme }: { theme: WorldTheme }) {
       // Watches the pointer, leans in when hovered, barrel-rolls when clicked
       const roll = trickProgress(r, rollTime);
       const hop = roll >= 0 ? Math.sin(roll * Math.PI) * 0.55 : 0;
-      float.position.y = Math.sin(t * 0.9) * 0.18 + r.amount * 0.12 + hop;
-      float.rotation.y = -0.5 + Math.sin(t * 0.25) * 0.12 + r.yaw * 0.6;
+      float.position.y = Math.sin(ambient * 0.9) * 0.18 + r.amount * 0.12 + hop;
+      float.rotation.y = -0.5 + Math.sin(ambient * 0.25) * 0.12 + r.yaw * 0.6;
       float.rotation.x = -r.pitch * 0.3 - r.amount * 0.12;
       float.rotation.z =
-        Math.sin(t * 0.6) * 0.06 +
-        Math.sin(t * 7) * 0.035 * r.amount +
+        Math.sin(ambient * 0.6) * 0.06 +
+        Math.sin(ambient * 7) * 0.035 * r.amount +
         (roll >= 0 ? easeInOut(roll) * Math.PI * 2 : 0);
       float.scale.setScalar(1 + r.amount * 0.05);
     }
-    if (portalRef.current) portalRef.current.rotation.z = t * 0.05;
+    if (portalRef.current) portalRef.current.rotation.z = ambient * 0.05;
     // At the still level the lettered ring holds still, its line starting at the top
-    if (orbitRef.current) orbitRef.current.rotation.z = lettered && still ? 0 : 0.4 - t * 0.08;
-    if (outerRef.current) outerRef.current.rotation.z = t * 0.03;
-    if (hubRef.current) hubRef.current.rotation.y = 0.7 + t * 0.085;
+    if (orbitRef.current) {
+      orbitRef.current.rotation.z = lettered && still ? 0 : 0.4 - ambient * 0.08;
+    }
+    if (outerRef.current) outerRef.current.rotation.z = ambient * 0.03;
+    if (hubRef.current) hubRef.current.rotation.y = 0.7 + ambient * 0.085;
   });
 
   return (

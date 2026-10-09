@@ -17,6 +17,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
+import { ambientTime } from './clock';
 import { applyGlowTheme, createFresnelMaterial } from './materials';
 import { palettes } from './utils';
 import { precompile, uploadTextures, useWarmupTask } from './warmup';
@@ -63,11 +64,12 @@ export function HoloCore({ theme, size = 1.4 }: { theme: WorldTheme; size?: numb
   const groupRef = useRef<Group>(null);
   const materials = holoMaterials(theme);
 
-  useFrame(({ clock }) => {
+  useFrame((state) => {
     const group = groupRef.current;
     if (!group) return;
-    group.rotation.y = clock.elapsedTime * 0.35;
-    group.rotation.x = Math.sin(clock.elapsedTime * 0.4) * 0.3;
+    const t = ambientTime(state);
+    group.rotation.y = t * 0.35;
+    group.rotation.x = Math.sin(t * 0.4) * 0.3;
   });
 
   return (
