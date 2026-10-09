@@ -31,14 +31,24 @@ export function RoleRotator({ titles, interval = 3200 }: { titles: string[]; int
       <span className="sr-only">{titles.join(', ')}</span>
       <span className="hero__role-line" aria-hidden="true">
         <span className="hero__role-prompt">&gt;_</span>
-        <ScrambleText
-          key={index}
-          text={titles[index]}
-          trigger="mount"
-          duration={650}
-          onFrame={showRole}
-        />
-        <span className="hero__role-caret" />
+        {/* Every title in one grid cell, only the current one shown: the line
+            keeps the tallest title's height (a long one wraps on a phone),
+            so nothing under it moves as the titles change */}
+        <span className="hero__role-stack">
+          {titles.map((title, i) => (
+            <span
+              key={`${i}-${title}`}
+              className={`hero__role-title${i === index ? ' hero__role-title--on' : ''}`}
+            >
+              {i === index ? (
+                <ScrambleText text={title} trigger="mount" duration={650} onFrame={showRole} />
+              ) : (
+                title
+              )}
+              <span className="hero__role-caret" />
+            </span>
+          ))}
+        </span>
       </span>
     </p>
   );

@@ -5,7 +5,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useBooted } from '@/components/World/boot';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
-const glyphs = '!<>-_\\/[]{}=+*^?#01ΔΣΛ';
+// ASCII only, so mid-decode text is exactly as wide as the final text in a
+// monospace font (Greek letters fell back to a wider font), and no '-' or
+// '/', which let a decoding word break across lines. Exported for anything
+// else that draws the decode (home's portal ring spells the role line)
+export const scrambleGlyphs = '!<>_\\[]{}=+*^?#01';
 
 /**
  * Decodes text through random glyphs — on mount, when it scrolls into view,
@@ -66,7 +70,7 @@ export function ScrambleText({
       let next = '';
       for (let i = 0; i < text.length; i++) {
         if (i < revealed || text[i] === ' ') next += text[i];
-        else next += glyphs[Math.floor(Math.random() * glyphs.length)];
+        else next += scrambleGlyphs[Math.floor(Math.random() * scrambleGlyphs.length)];
       }
       show(next);
       frame.current = requestAnimationFrame(tick);
