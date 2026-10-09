@@ -11,6 +11,7 @@ import { useLenis } from 'lenis/react';
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
+import { projectRideEvent } from 'components/World/ride';
 import { worldStore } from 'components/World/worldStore';
 
 import { motionLevel } from '@/utils/motion';
@@ -346,6 +347,56 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     };
   }, [items, lenis, runway, selected]);
 
+  // A click on a helix screen other than the one in front rides to it
+  useEffect(() => {
+    const ride = (e: Event) => {
+      const index = (e as CustomEvent<number>).detail;
+      if (Number.isInteger(index) && index >= 0 && index < items.length) goTo(index);
+    };
+    window.addEventListener(projectRideEvent, ride);
+    return () => window.removeEventListener(projectRideEvent, ride);
+  }, [goTo, items.length]);
+
+  // Closing a project's modal leaves the visitor at that project: the ride
+  // comes to it if it wasn't the one in front (opened from its screen, or
+  // by going forward in history), and its "View details" link gets focus
+  const closed = useRef(-1);
+  const focusOn = useRef(-1);
+  const lastSelected = useRef(selected);
+  useEffect(() => {
+    if (selected < 0 && lastSelected.current >= 0) closed.current = lastSelected.current;
+    lastSelected.current = selected;
+  }, [selected]);
+  const focusDetails = useCallback(() => {
+    stageRef.current?.querySelector<HTMLElement>('.proj-hud__btn')?.focus({ preventScroll: true });
+  }, []);
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+    if (focusOn.current !== active) return;
+    focusOn.current = -1;
+    focusDetails();
+  }, [active, focusDetails]);
+  // Once the dialog has gone (and given the page its scroll back)
+  const afterClose = useCallback(() => {
+    const index = closed.current;
+    closed.current = -1;
+    if (index < 0) return;
+    requestAnimationFrame(() => {
+      if (index === activeRef.current) {
+        if (!stageRef.current?.contains(document.activeElement)) focusDetails();
+        return;
+      }
+      // Its link takes focus as the ride gets there (not if the visitor
+      // has gone elsewhere and comes by much later)
+      focusOn.current = index;
+      window.setTimeout(() => {
+        if (focusOn.current === index) focusOn.current = -1;
+      }, 4000);
+      goTo(index);
+    });
+  }, [focusDetails, goTo]);
+
   const open = useCallback((e: MouseEvent<HTMLAnchorElement>, slug: string) => {
     if (!plainClick(e)) return;
     e.preventDefault();
@@ -437,7 +488,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         </Magnet>
       </Reveal>
 
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={afterClose}>
         {selectedProject && (
           <ProjectDetailsModal
             key={selectedProject.slug}

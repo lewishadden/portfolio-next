@@ -27,7 +27,7 @@ import {
 import { bloomMaskLayer, maskBloom } from '../bloomMask';
 import { iconSvg, useIconCollections } from '../icons';
 import { decodeImage } from '../imageDecoder';
-import { projectShotEvent } from '../ride';
+import { projectRideEvent, projectShotEvent } from '../ride';
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { NavLights, Truss } from '../parts';
 import { spawnPing } from '../Pings';
@@ -46,6 +46,7 @@ import { StationHull } from '../StationHull';
 import { palettes, setUniform } from '../utils';
 import { queueUpload } from '../warmup';
 import { prefetch } from '../routes';
+import { worldMode } from '../worldMode';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import type { RefObject } from 'react';
@@ -759,10 +760,27 @@ function measureScreen(screen: Object3D, camera: Camera, width: number, height: 
   rect.on = true;
 }
 
+/** What clicking a screen does: open the project, ride the page to it, or nothing but the ping */
+type ScreenAction = 'open' | 'ride' | 'none';
+
+/** The projects page (its ride) is the page on show */
+const onProjectsPage = () => !!document.querySelector('#main-content section.projects');
+
+/**
+ * Following the page, a screen opens its project: on the projects page the
+ * one in front opens the modal and the rest ride the page to themselves;
+ * from anywhere else it opens the project's page. In the tour or free roam
+ * a click only pings
+ */
+function screenAction(i: number, front: number): ScreenAction {
+  if (worldMode.get().mode !== 'page') return 'none';
+  return onProjectsPage() && i !== front ? 'ride' : 'open';
+}
+
 /** Opens a project: the grid's modal when on /projects, its page from anywhere else */
 function openProject(slug: string) {
   const href = `/projects/${slug}`;
-  if (document.querySelector('#main-content section.projects')) {
+  if (onProjectsPage()) {
     window.history.pushState({ projectModal: true }, '', href);
   } else {
     navigateTo(href);
@@ -991,11 +1009,23 @@ export function ProjectsStation({
   const screens = useMemo(() => projects.slice(0, helix.screens), [projects]);
 
   const hoveredRef = useRef(-1);
+  /** The screen in front once the ride has settled on it (-1 for none): a click on it opens the modal */
+  const liveRef = useRef(-1);
+  // One tip per screen and action, made once, so the hovered screen's tip
+  // can be recognised (and swapped as what a click does changes)
   const tips = useMemo(
     () =>
-      screens.map((screen) => ({ label: screen.title.trim(), sub: 'Click to open the project' })),
+      screens.map((screen) => {
+        const label = screen.title.trim();
+        return {
+          open: { label, sub: 'Open project' },
+          ride: { label, sub: 'Ride to this project' },
+          none: { label },
+        } satisfies Record<ScreenAction, { label: string; sub?: string }>;
+      }),
     [screens]
   );
+  const tipFor = (i: number) => tips[i][screenAction(i, liveRef.current)];
   const states = useMemo<ScreenState[]>(
     () =>
       screens.map(() => ({
@@ -1103,6 +1133,14 @@ export function ProjectsStation({
     // yard: the first screen only comes forward (and lights up) on scroll
     const ride = front >= 0 ? 1 - (opened >= 0 ? 0 : projectIntro()) : 0;
     const live = front >= 0 && ride > 0.9 ? Math.round(front) : -1;
+    liveRef.current = live;
+    // The hovered screen's tip follows what a click on it would now do
+    const hovered = hoveredRef.current;
+    if (hovered >= 0) {
+      const tip = worldTip.get();
+      const own = Object.values(tips[hovered]) as unknown[];
+      if (own.includes(tip) && tip !== tipFor(hovered)) worldTip.set(tipFor(hovered));
+    }
     // On the page (or a project's), sharp copies load ahead of the camera,
     // nearest the project in front first, so none is ever soft once it gets
     // there (flying in, they download and decode but wait to upload). They
@@ -1228,18 +1266,23 @@ export function ProjectsStation({
                     if (hoveredRef.current >= 0) setWorldHover(false);
                     hoveredRef.current = i;
                     setWorldHover(true);
-                    worldTip.set(tips[i]);
+                    worldTip.set(tipFor(i));
                   }}
                   onPointerOut={() => {
                     if (hoveredRef.current !== i) return;
                     hoveredRef.current = -1;
                     setWorldHover(false);
-                    if (worldTip.get() === tips[i]) worldTip.set(null);
+                    const tip = worldTip.get();
+                    if ((Object.values(tips[i]) as unknown[]).includes(tip)) worldTip.set(null);
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
                     spawnPing(e.point);
-                    openProject(screen.slug);
+                    const action = screenAction(i, liveRef.current);
+                    if (action === 'open') openProject(screen.slug);
+                    else if (action === 'ride') {
+                      window.dispatchEvent(new CustomEvent(projectRideEvent, { detail: i }));
+                    }
                   }}
                 >
                   <planeGeometry />

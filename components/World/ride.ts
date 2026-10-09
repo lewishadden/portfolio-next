@@ -45,3 +45,10 @@ export function screenSlide(project: number, count: number) {
     project >= 0 && project < worldStore.screenShown.length ? worldStore.screenShown[project] : -1;
   return shown >= 0 && shown < count ? shown : 0;
 }
+
+/**
+ * Dispatched on window (detail: the project's index) when a helix screen
+ * other than the one in front is clicked on the projects page: the page
+ * rides to that project
+ */
+export const projectRideEvent = 'world:project';
