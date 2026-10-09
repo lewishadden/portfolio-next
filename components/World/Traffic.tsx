@@ -63,17 +63,18 @@ function piece(
 }
 
 /**
- * The shuttle, nose towards +z: a hull, two fins swept down at the back,
- * a light at each fin tip (red to port, green to starboard), a strobe on
- * the tail and the engine's glow behind. One geometry
+ * The shuttle, nose towards +z and port (its left) towards +x: a hull,
+ * two fins swept down at the back, a light at each fin tip (red to port,
+ * green to starboard), a strobe on the tail and the engine's glow behind.
+ * One geometry
  */
 function shuttleGeometry() {
   const pieces = [
     piece([0.42, 0.26, 1.3], [0, 0, 0], parts.hull),
     piece([0.5, 0.04, 0.42], [-0.42, -0.05, -0.32], parts.hull, -0.3),
     piece([0.5, 0.04, 0.42], [0.42, -0.05, -0.32], parts.hull, 0.3),
-    piece([0.08, 0.08, 0.08], [-0.68, -0.13, -0.32], parts.port),
-    piece([0.08, 0.08, 0.08], [0.68, -0.13, -0.32], parts.starboard),
+    piece([0.08, 0.08, 0.08], [0.68, -0.13, -0.32], parts.port),
+    piece([0.08, 0.08, 0.08], [-0.68, -0.13, -0.32], parts.starboard),
     piece([0.06, 0.06, 0.06], [0, 0.16, -0.6], parts.strobe),
     piece([0.3, 0.16, 0.04], [0, 0, -0.67], parts.engine),
   ];
@@ -170,16 +171,18 @@ const vertexShader = /* glsl */ `
     vec3 lane = aTo - aFrom;
     float span = max(length(lane), 1e-3);
     vec3 forward = lane / span;
-    vec3 right = normalize(cross(forward, vec3(0.0, 1.0, 0.0)));
-    vec3 up = cross(right, forward);
+    // A rotation (left, up, forward), never a mirror: a mirrored frame turns
+    // every face inside out, so FrontSide culls the faces towards the camera
+    vec3 left = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+    vec3 up = cross(forward, left);
     // How far along its run it is: 0..1 along the lane, beyond 1 waiting for the next
     float flying = span / aRun.x;
     float s = mod(uTime + aRun.z, flying + aRun.y) / flying;
     // It drops in and out at the ends rather than popping, and is gone between runs
     float size = smoothstep(0.0, 0.12, s) * (1.0 - smoothstep(0.88, 1.0, s));
     vec3 local = position * size;
-    vec3 world = aFrom + lane * min(s, 1.0) + right * local.x + up * local.y + forward * local.z;
-    vNormal = right * normal.x + up * normal.y + forward * normal.z;
+    vec3 world = aFrom + lane * min(s, 1.0) + left * local.x + up * local.y + forward * local.z;
+    vNormal = left * normal.x + up * normal.y + forward * normal.z;
     vPart = aPart;
     // The tail strobe flashes every 1.6s (under 1 Hz); port and starboard burn steadily
     vBlink = step(fract((uTime + aRun.w) / 1.6), 0.05);
