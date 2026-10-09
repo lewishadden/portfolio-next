@@ -557,6 +557,13 @@ interface Sway {
   roll: Axis;
   rx: Axis;
   ry: Axis;
+  /**
+   * A jolt from the camera's shake (worldStore.shake: the rocket's launch),
+   * on top of the springs: px, and degrees of roll; `burst` (0..1) is how
+   * hard the picture splits and tears as a shake hits, dying away fast,
+   * and `last` the shake seen the frame before
+   */
+  jolt: { x: number; y: number; roll: number; burst: number; last: number };
 }
 
 const axis = (): Axis => ({ at: 0, speed: 0 });
@@ -570,6 +577,7 @@ const createSway = (): Sway => ({
   roll: axis(),
   rx: axis(),
   ry: axis(),
+  jolt: { x: 0, y: 0, roll: 0, burst: 0, last: 0 },
 });
 
 /**
@@ -648,10 +656,21 @@ function stepSway(s: Sway, dt: number, t: number) {
   // Only a hint of 3D twist: tilted text renders soft
   spring(s.ry, clamp(yawRate * 1.5, -2, 2) * f, dt);
   spring(s.rx, clamp(pitchRate * 1.5, -1.5, 1.5) * f, dt);
+
+  // The camera's shake knocks it about directly, flight or not: at most
+  // 3px and 1° of roll, jittering faster than the springs could follow.
+  // As a shake hits, the picture splits and tears in a short burst
+  const jolt = clamp(worldStore.shake, 0, 1);
+  s.jolt.x = (Math.sin(t * 53.1) * 0.6 + Math.sin(t * 31.7) * 0.4) * 3 * jolt;
+  s.jolt.y = (Math.cos(t * 47.3) * 0.6 + Math.sin(t * 23.9) * 0.4) * 2 * jolt;
+  s.jolt.roll = (Math.sin(t * 39.4) * 0.7 + Math.cos(t * 17.2) * 0.3) * jolt;
+  s.jolt.burst = Math.max(s.jolt.burst * Math.exp(-5 * dt), jolt - s.jolt.last > 0.15 ? jolt : 0);
+  if (s.jolt.burst < 0.01) s.jolt.burst = 0;
+  s.jolt.last = jolt;
 }
 
-const swayTransform = (s: Sway) =>
-  `perspective(900px) translate3d(${s.x.at.toFixed(2)}px, ${s.y.at.toFixed(2)}px, ${s.z.at.toFixed(2)}px) rotate(${s.roll.at.toFixed(3)}deg) rotateX(${s.rx.at.toFixed(3)}deg) rotateY(${s.ry.at.toFixed(3)}deg)`;
+const swayTransform = ({ x, y, z, roll, rx, ry, jolt }: Sway) =>
+  `perspective(900px) translate3d(${(x.at + jolt.x).toFixed(2)}px, ${(y.at + jolt.y).toFixed(2)}px, ${z.at.toFixed(2)}px) rotate(${(roll.at + jolt.roll).toFixed(3)}deg) rotateX(${rx.at.toFixed(3)}deg) rotateY(${ry.at.toFixed(3)}deg)`;
 
 /** How hard it's swinging, 0..1: colour fringes and the hum follow it */
 const swing = (s: Sway) =>
@@ -856,7 +875,8 @@ export function HeaderHud({
       worldStore.hudHum = boot < 1 ? boot : 0.5 + swinging * 0.5;
       // The sway moves every frame; the hologram only needs every other
       // one, unless something on it is changing
-      const busy = boot < 1 || lock.travelling || sinceLock < 0.6;
+      const busy =
+        boot < 1 || lock.travelling || sinceLock < 0.6 || sway.jolt.burst > 0 || sway.jolt.last > 0;
       odd = !odd;
       if (!odd && !dirty.current && !busy) return;
       dirty.current = false;
@@ -876,8 +896,18 @@ export function HeaderHud({
         lockFlash: flash,
         lockPing: sinceLock < 0.6 ? sinceLock / 0.6 : 0,
         boot,
-        split: Math.max(swinging, clamp(worldStore.velocity / 260, 0, 0.5)),
-        tear: clamp((worldStore.velocity - 80) / 160, 0, 1),
+        // Speed only splits and tears the picture during a flight between
+        // pages (a fast scroll along the projects ride moves the camera
+        // too); the shake's jolt does at any time
+        split: Math.max(
+          swinging,
+          clamp(worldStore.velocity / 260, 0, 0.5) * sway.flying,
+          sway.jolt.burst * 0.7
+        ),
+        tear: Math.max(
+          clamp((worldStore.velocity - 80) / 160, 0, 1) * sway.flying,
+          sway.jolt.burst * 0.8
+        ),
         tilt: [sway.ry.at, sway.rx.at],
       });
     };
