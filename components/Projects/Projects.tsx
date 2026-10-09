@@ -443,6 +443,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
             key={selectedProject.slug}
             project={selectedProject}
             number={selected + 1}
+            fromScreen={selected === active}
             onClose={close}
           />
         )}

@@ -20,6 +20,7 @@ import {
   SRGBColorSpace,
   Texture,
   Vector2,
+  Vector3,
   Vector4,
 } from 'three';
 
@@ -48,7 +49,7 @@ import { prefetch } from '../routes';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import type { RefObject } from 'react';
-import type { BufferGeometry, Mesh, Object3D, WebGLRenderer } from 'three';
+import type { BufferGeometry, Camera, Mesh, Object3D, WebGLRenderer } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
@@ -721,6 +722,43 @@ class ScreenShots {
   }
 }
 
+const corner = new Vector3();
+const cornerSigns = [
+  [-1, -1],
+  [1, -1],
+  [1, 1],
+  [-1, 1],
+] as const;
+
+/**
+ * Writes where a screen is on the page (worldStore.screenRect, CSS px: the
+ * box round its four corners as the camera sees them), so the project
+ * modal's gallery can fly out of it. Off when a corner is behind the camera
+ */
+function measureScreen(screen: Object3D, camera: Camera, width: number, height: number) {
+  const rect = worldStore.screenRect;
+  rect.on = false;
+  screen.updateWorldMatrix(true, false);
+  camera.updateMatrixWorld();
+  let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const [x, y] of cornerSigns) {
+    corner.set((x * screenSize.width) / 2, (y * screenSize.height) / 2, 0);
+    screen.localToWorld(corner).project(camera);
+    if (corner.z < -1 || corner.z > 1) return;
+    const px = ((corner.x + 1) / 2) * width;
+    const py = ((1 - corner.y) / 2) * height;
+    left = Math.min(left, px);
+    right = Math.max(right, px);
+    top = Math.min(top, py);
+    bottom = Math.max(bottom, py);
+  }
+  rect.left = left;
+  rect.top = top;
+  rect.right = right;
+  rect.bottom = bottom;
+  rect.on = true;
+}
+
 /** Opens a project: the grid's modal when on /projects, its page from anywhere else */
 function openProject(slug: string) {
   const href = `/projects/${slug}`;
@@ -1008,6 +1046,13 @@ export function ProjectsStation({
     };
   }, [gl, screens, states, screenMaterials, invalidate]);
 
+  useEffect(
+    () => () => {
+      worldStore.screenRect.on = false;
+    },
+    []
+  );
+
   // The gallery changing slide: a world rendering on demand draws, so the
   // screen can follow (see liveScreen)
   useEffect(() => {
@@ -1037,7 +1082,10 @@ export function ProjectsStation({
   useFrame(({ camera, clock, size }, delta) => {
     const group = groupRef.current;
     const shots = shotsRef.current;
-    if (!shots || !stationInRange(group, camera, 'projects')) return;
+    if (!shots || !stationInRange(group, camera, 'projects')) {
+      worldStore.screenRect.on = false;
+      return;
+    }
     const t = clock.elapsedTime;
     const dt = Math.min(delta, 0.05);
     const instant = snap || !settled.current;
@@ -1126,6 +1174,11 @@ export function ProjectsStation({
         // Screens orbit with the helix but always turn to face the viewer
         screen.lookAt(camera.position);
       });
+      // Where the screen in front is on the page, for the project modal
+      const inFront = front >= 0 ? spiral.children[Math.round(front)] : undefined;
+      if (worldStore.projectFocus >= 0 && inFront)
+        measureScreen(inFront, camera, size.width, size.height);
+      else worldStore.screenRect.on = false;
     }
 
     const hub = hubRef.current;

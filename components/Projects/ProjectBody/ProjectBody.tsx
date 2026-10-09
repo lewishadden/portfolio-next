@@ -13,7 +13,7 @@ import { motionLevel } from '@/utils/motion';
 import ProjectArt from '../ProjectArt/ProjectArt';
 import { techIconClass } from '../techIcon';
 
-import type { CSSProperties, PointerEvent, RefObject } from 'react';
+import type { CSSProperties, PointerEvent, Ref, RefObject } from 'react';
 import type { Project } from '@/types';
 
 import './ProjectBody.scss';
@@ -219,8 +219,11 @@ function Gallery({
   direction,
   onStep,
   onSelect,
+  stageRef,
 }: {
   images: ProjectImage[];
+  /** The stage (the modal flies it out of the 3D screen) */
+  stageRef?: Ref<HTMLDivElement>;
   /** The project's position in the full list (0-based): its helix screen follows the slide on show */
   project: number;
   title: string;
@@ -281,6 +284,7 @@ function Gallery({
       }}
     >
       <div
+        ref={stageRef}
         className="project-gallery__stage"
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
@@ -419,12 +423,15 @@ export function ProjectBody({
   number,
   slides,
   headingLevel = 3,
+  stageRef,
 }: {
   project: Project;
   /** 1-based position in the full project list */
   number: number;
   slides: Slides;
   headingLevel?: 2 | 3;
+  /** The gallery's stage, or the art's (the modal flies it out of the 3D screen) */
+  stageRef?: Ref<HTMLDivElement>;
 }) {
   const { title, description, images, technologies, url, startDate, thumbnail } = project;
   const name = title.trim();
@@ -450,10 +457,11 @@ export function ProjectBody({
           direction={slides.direction}
           onStep={slides.step}
           onSelect={slides.select}
+          stageRef={stageRef}
         />
       ) : (
         <div className="project-gallery">
-          <div className="project-gallery__stage project-gallery__stage--art">
+          <div ref={stageRef} className="project-gallery__stage project-gallery__stage--art">
             <ProjectArt icon={thumbnail} tone={number} />
           </div>
         </div>
