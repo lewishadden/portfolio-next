@@ -41,6 +41,14 @@ export const createReaction = (): Reaction => ({
   now: 0,
 });
 
+/**
+ * Moves a reaction on to clock time `t`. Call it every frame, before the
+ * station's range test (`stationInRange`), as with any other event stamp
+ * the station keeps: R3F may restart its clock while the station is out of
+ * range, and a stamp from before then must be forgotten (`pastStamp`)
+ * before the new clock catches up with it, or the click plays again when
+ * the visitor comes back. It also keeps `now` current for `trick()`
+ */
 export function stepReaction(state: Reaction, t: number, dt: number) {
   state.trickAt = pastStamp(state.trickAt, t);
   state.now = t;

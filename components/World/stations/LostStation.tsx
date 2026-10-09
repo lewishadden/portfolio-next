@@ -138,12 +138,16 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
 
   useFrame((state, delta) => {
     const { camera, clock } = state;
-    if (!stationInRange(groupRef.current, camera, 'lost')) return;
-    // Clicks are timed by the clock, idle motion by ambient time
+    // Clicks are timed by the clock, idle motion by ambient time. The click
+    // and lock stamps are stepped even out of range (see stepReaction): a
+    // lock from before R3F restarted its clock (so stamped ahead of it)
+    // stays locked, restamped as having already reached
     const t = clock.elapsedTime;
-    const ambient = ambientTime(state);
     const r = reaction.current;
     stepReaction(r, t, Math.min(delta, 0.05));
+    if (rescue.current.lockedAt > t) rescue.current.lockedAt = t - beamReach;
+    if (!stationInRange(groupRef.current, camera, 'lost')) return;
+    const ambient = ambientTime(state);
     const drift = driftRef.current;
     if (!drift) return;
     // A nudge sends it tumbling faster, limbs flailing, until it slows again
@@ -165,9 +169,7 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
     if (wreck) wreck.rotation.set(0.4 + ambient * 0.03, ambient * 0.05, 0.3 + ambient * 0.02);
 
     // The tractor beam reaches out from the wreck once locked (at once at the
-    // still level). One locked before R3F restarted its clock (so stamped
-    // ahead of it) stays locked, restamped as having already reached
-    if (rescue.current.lockedAt > t) rescue.current.lockedAt = t - beamReach;
+    // still level)
     const beam = beamRef.current;
     const locked = isLocked(rescue.current);
     if (beam) beam.visible = locked;

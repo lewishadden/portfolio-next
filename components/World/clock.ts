@@ -18,7 +18,9 @@ import type { RootState } from '@react-three/fiber';
  * A clock time stamped for an event (a click, a power-on, a hail), kept
  * while it lies in the past. One stamped before R3F restarted its clock
  * lies ahead of it: kept, it would read as an event still under way, then
- * play again once the clock caught up. It is forgotten (-Infinity) instead
+ * play again once the clock caught up. It is forgotten (-Infinity) instead.
+ * That only works if the stamp is checked before the clock catches up, so
+ * check it every frame, ahead of any early return (a station's range test)
  */
 export const pastStamp = (stamp: number, t: number) => (stamp > t ? -Infinity : stamp);
 

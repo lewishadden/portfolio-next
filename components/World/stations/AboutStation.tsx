@@ -257,7 +257,6 @@ interface VisorState {
  * on the page) or hidden; at the still level it jumps straight there
  */
 function stepVisor(state: VisorState, t: number, dt: number, still: boolean) {
-  state.clickAt = pastStamp(state.clickAt, t);
   const since = t - state.clickAt;
   const clicked = since >= 0 && since < scanIn + scanHold;
   const wanted = worldStore.targetHover === 'about:portrait' || clicked ? 1 : 0;
@@ -387,12 +386,15 @@ export function AboutStation({ theme, portrait }: { theme: WorldTheme; portrait:
   useEffect(() => () => moteGeometry.dispose(), [moteGeometry]);
 
   useFrame((state, delta) => {
-    if (!stationInRange(groupRef.current, state.camera, 'about')) return;
-    // Clicks and hovers are timed by the clock, idle motion by ambient time
+    // Clicks and hovers are timed by the clock, idle motion by ambient time.
+    // The click stamps are stepped even out of range (see stepReaction)
     const t = state.clock.elapsedTime;
-    const ambient = ambientTime(state);
     const r = reaction.current;
     stepReaction(r, t, Math.min(delta, 0.05));
+    const visor = visorState.current;
+    visor.clickAt = pastStamp(visor.clickAt, t);
+    if (!stationInRange(groupRef.current, state.camera, 'about')) return;
+    const ambient = ambientTime(state);
     for (const material of [materials.ringA, materials.ringB, materials.ringC, materials.scan]) {
       setUniform(material, 'uTime', ambient);
     }
@@ -423,7 +425,6 @@ export function AboutStation({ theme, portrait }: { theme: WorldTheme; portrait:
     placeMotes(motesRef.current, motes, ambient);
 
     // The helmet cam: nothing to draw until the portrait is in and asked for
-    const visor = visorState.current;
     if (visor.clicked) {
       visor.clicked = false;
       visor.clickAt = t;

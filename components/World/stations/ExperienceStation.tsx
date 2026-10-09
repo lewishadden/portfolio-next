@@ -111,6 +111,12 @@ const createBeamPing = (): BeamPing => ({
 const cueGap = 0.15;
 const podPoint: [number, number, number] = [0, 0, 0];
 
+/** Forgets the ping's stamps from before R3F restarted its clock (see stepReaction) */
+function forgetPastPing(ping: BeamPing, t: number) {
+  ping.at = pastStamp(ping.at, t);
+  ping.cueAt = pastStamp(ping.cueAt, t);
+}
+
 /**
  * Starts the beam's ping for a new trick (the whole beam) or a newly
  * pointed-at role (its pod only, with the ping cue from the pod); returns
@@ -126,8 +132,6 @@ function stepBeamPing(
   origin: { x: number; y: number; z: number },
   still: boolean
 ) {
-  ping.at = pastStamp(ping.at, t);
-  ping.cueAt = pastStamp(ping.cueAt, t);
   if (trickAt !== ping.trickAt) {
     ping.trickAt = trickAt;
     ping.at = trickAt;
@@ -375,19 +379,21 @@ export function ExperienceStation({
 
   useFrame((state, delta) => {
     const { camera, size } = state;
+    // Clicks and hovers are timed by the clock, idle motion by ambient time.
+    // The click and ping stamps are stepped even out of range (see stepReaction)
+    const t = state.clock.elapsedTime;
+    const dt = Math.min(delta, 1 / 20);
+    const r = reaction.current;
+    stepReaction(r, t, dt);
+    forgetPastPing(beamPing.current, t);
     const group = groupRef.current;
     if (!stationInRange(group, camera, 'experience') || !group) return;
-    // Clicks and hovers are timed by the clock, idle motion by ambient time
-    const t = state.clock.elapsedTime;
     const ambient = ambientTime(state);
-    const dt = Math.min(delta, 1 / 20);
     setUniform(materials.core, 'uTime', ambient);
     setUniform(materials.glow, 'uTime', ambient);
     setUniform(materials.nodeRing, 'uTime', ambient);
 
     const localCameraY = camera.position.y - group.position.y;
-    const r = reaction.current;
-    stepReaction(r, t, dt);
 
     const satellite = satelliteRef.current;
     if (satellite) {

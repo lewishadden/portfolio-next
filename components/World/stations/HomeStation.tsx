@@ -365,12 +365,13 @@ export function HomeStation({ theme }: { theme: WorldTheme }) {
   const lettered = wide && atlas !== null;
 
   useFrame((state, delta) => {
-    if (!stationInRange(groupRef.current, state.camera, 'home')) return;
-    // Clicks and hovers are timed by the clock, idle motion by ambient time
+    // Clicks and hovers are timed by the clock, idle motion by ambient time.
+    // The click's stamp is stepped even out of range (see stepReaction)
     const t = state.clock.elapsedTime;
-    const ambient = ambientTime(state);
     const r = reaction.current;
     stepReaction(r, t, Math.min(delta, 0.05));
+    if (!stationInRange(groupRef.current, state.camera, 'home')) return;
+    const ambient = ambientTime(state);
     setUniform(materials.portal, 'uTime', ambient);
     setUniform(materials.orbit, 'uTime', ambient);
     setUniform(materials.glyphs, 'uTime', ambient);
