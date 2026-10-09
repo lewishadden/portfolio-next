@@ -367,17 +367,59 @@ function holdSelection() {
   };
 }
 
-/** Starts a drag on the globe; window listeners follow the pointer until release */
-function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>) {
+/**
+ * A touch that starts on the globe is the drag's, not the page's to scroll.
+ * Whether a touch may scroll is settled as it starts, before any handler
+ * can change touch-action, so while the globe is in view a listener claims
+ * it instead: the globe's pointerdown (which the browser dispatches just
+ * before touchstart) marks the touch, and touchstart cancels its default
+ * (as touch-action: none would, for that touch only). Elsewhere touches
+ * scroll as ever, and away from /contact nothing listens at all
+ */
+const globeTouch = { pending: false, armed: false };
+
+function claimTouch(event: TouchEvent) {
+  if (!globeTouch.pending) return;
+  globeTouch.pending = false;
+  if (event.cancelable) event.preventDefault();
+}
+
+/** Listens for touches to claim while the globe is in view (and not otherwise: the listener can't be passive) */
+function armTouch(on: boolean) {
+  if (globeTouch.armed === on) return;
+  globeTouch.armed = on;
+  if (on) document.addEventListener('touchstart', claimTouch, { passive: false });
+  else document.removeEventListener('touchstart', claimTouch);
+}
+
+/** Pixels a press may wander and still count as a click (which pings), not a drag */
+const clickSlop = 6;
+const pressPoint = new Vector3();
+
+/**
+ * Starts a drag on the globe; window listeners follow the pointer until
+ * release. A press that barely moves is a click instead: it pings where it
+ * landed, like every other click in the world (by hand, as a touch claimed
+ * for the drag never becomes a click). `repaint` keeps it drawing at
+ * `still`, where the world only draws on demand
+ */
+function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>, repaint: () => void) {
   e.stopPropagation();
   e.nativeEvent.preventDefault();
+  const pointer = e.pointerId;
+  if (e.pointerType === 'touch') globeTouch.pending = true;
   const release = holdSelection();
+  const fromX = e.clientX;
+  const fromY = e.clientY;
+  let wandered = 0;
+  pressPoint.copy(e.point);
   spin.dragging = true;
   spin.lastX = e.clientX;
   spin.lastY = e.clientY;
   spin.lastTime = performance.now();
   spin.velocity = 0;
   const move = (event: PointerEvent) => {
+    if (event.pointerId !== pointer) return;
     const now = performance.now();
     const dx = event.clientX - spin.lastX;
     const dy = event.clientY - spin.lastY;
@@ -388,13 +430,22 @@ function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>) {
     spin.lastX = event.clientX;
     spin.lastY = event.clientY;
     spin.lastTime = now;
+    wandered = Math.max(wandered, Math.hypot(event.clientX - fromX, event.clientY - fromY));
+    repaint();
   };
-  const end = () => {
+  const end = (event: PointerEvent) => {
+    if (event.pointerId !== pointer) return;
     spin.dragging = false;
+    globeTouch.pending = false;
     release();
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', end);
     window.removeEventListener('pointercancel', end);
+    if (event.type === 'pointerup' && wandered < clickSlop) {
+      spin.velocity = 0;
+      spawnPing(pressPoint);
+    }
+    repaint();
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', end);
@@ -627,7 +678,10 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   const wide = useWide();
   const materials = useThemedMaterials(buildMaterials, theme, 'contact');
   const palette = palettes[theme];
+  const invalidate = useThree((s) => s.invalidate);
   useStillRepaint();
+  // Stop claiming touches once the station goes
+  useEffect(() => () => armTouch(false), []);
 
   const { positions, seeds } = useMemo(() => {
     const random = seededRandom(5);
@@ -699,7 +753,9 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
 
   useFrame(({ camera, clock, viewport }, delta) => {
     const group = groupRef.current;
-    if (!stationInRange(group, camera, 'contact')) return;
+    const inRange = stationInRange(group, camera, 'contact');
+    armTouch(inRange);
+    if (!inRange) return;
     const t = clock.elapsedTime;
     const dt = Math.min(delta, 1 / 20);
     // At `still` nothing moves on its own (step), and what answers the page snaps (ease)
@@ -820,7 +876,7 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
       <group ref={groupRef} position={stationPositions.contact}>
         <group ref={globeRef} position={[0, 0.5, 0]} rotation={[0.62, -Math.PI / 2, 0]}>
           <mesh
-            onPointerDown={(e) => startSpin(spinRef.current, e)}
+            onPointerDown={(e) => startSpin(spinRef.current, e, invalidate)}
             onPointerOver={(e) => {
               e.stopPropagation();
               setWorldHover(true, 'grab');
