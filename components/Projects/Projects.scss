@@ -367,6 +367,20 @@
   }
 }
 
+/* Short phones held upright (667px tall and less): a smaller screen cell
+   and a two-line summary, so the actions and the index stay on screen
+   however long the project's stack list runs */
+@media (max-width: 899px) and (max-height: 700px) and (orientation: portrait) {
+  .proj-hud {
+    grid-template-rows: minmax(30svh, 1fr) auto auto auto auto;
+  }
+
+  .proj-hud__desc {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+
 /* Touch: every index link is a 44px target */
 @media (pointer: coarse) {
   .projects__index-link {
