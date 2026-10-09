@@ -9,6 +9,7 @@ import ContactForm from './ContactForm/ContactForm';
 import { LocationMap } from './LocationMap/LocationMap';
 import { PageHead } from 'components/PageHead/PageHead';
 import { illustrations } from 'components/World/StationFallback';
+import { WorldWindow } from 'components/WorldWindow/WorldWindow';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 import { requestLaunch } from 'components/World/worldStore';
 
@@ -164,6 +165,8 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
             ))}
           </RevealGroup>
         </address>
+
+        <WorldWindow />
 
         <Reveal
           className={`contact__panel glass${submitted ? ' contact__panel--submitted' : ''}`}

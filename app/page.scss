@@ -376,6 +376,23 @@ body {
 }
 
 /* =============================================================
+   World windows (components/WorldWindow): on narrow, stacked layouts
+   the copy covers the screen, so these gaps let the camera bring the
+   station back into view as they scroll past. Only when the world will
+   run: never without JavaScript, nor with the world off.
+   ============================================================= */
+.world-window {
+  display: none;
+}
+
+@media (max-width: 899px), (max-aspect-ratio: 11 / 10) {
+  html[data-world-expected]:not([data-world='off']) .world-window {
+    display: block;
+    height: clamp(11rem, 32svh, 18rem);
+  }
+}
+
+/* =============================================================
    Static renders shown when WebGL is unavailable
    (World sets html[data-world='off']). Positioned where the
    3D station would be: right of the copy, or above it on narrow screens.

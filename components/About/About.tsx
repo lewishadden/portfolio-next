@@ -8,6 +8,7 @@ import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Recommendations } from 'components/Recommendations/Recommendations';
 import { illustrations } from 'components/World/StationFallback';
+import { WorldWindow } from 'components/WorldWindow/WorldWindow';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
@@ -144,6 +145,8 @@ export const About = ({
           </Reveal>
         </div>
       </div>
+
+      <WorldWindow />
 
       {recommendations && <Recommendations items={recommendations} />}
 
