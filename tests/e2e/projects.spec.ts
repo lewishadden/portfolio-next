@@ -212,10 +212,11 @@ test.describe('the helix ride', () => {
       await expect(title).toBeVisible();
       await expect(title).toHaveText('ZGS Carpentry');
 
-      // A little past a project glides back to it, not to a point in between
-      await page.mouse.wheel(0, (await lane()).step * 0.3);
+      // A nudge past a project glides back to it, not to a point in between
+      await page.mouse.wheel(0, 40);
       await restsOn(0);
-      await page.mouse.wheel(0, (await lane()).step * 0.7);
+      // Further than that carries on to the next, even well short of halfway
+      await page.mouse.wheel(0, (await lane()).step * 0.3);
       await restsOn(1);
     }
   );
