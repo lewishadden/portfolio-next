@@ -176,3 +176,15 @@ test.describe('with the world on', () => {
     }
   );
 });
+
+test('analytics stays off for local and automated visits', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', (request) => {
+    const url = request.url();
+    if (url.includes('googletagmanager') || url.includes('/api/geo')) requests.push(url);
+  });
+  await openHydrated(page, '/');
+  // It would load once the browser is idle, within 4s
+  await page.waitForTimeout(4_500);
+  expect(requests).toEqual([]);
+});
