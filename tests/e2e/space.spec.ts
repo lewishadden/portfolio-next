@@ -1,5 +1,7 @@
 import { expect, openHydrated, routes, test } from './fixtures';
 
+import { rangeBetween, stationForPath, stationNames } from '../../components/World/routes';
+
 import type { Page } from '@playwright/test';
 
 test('sound is off by default, and turning it on is remembered', async ({ page }) => {
@@ -43,11 +45,40 @@ test('the skip link takes focus to the page content', async ({ page }) => {
   expect(await page.evaluate(() => !!document.activeElement?.closest('#main-content'))).toBe(true);
 });
 
-test('every page says which station it is docked at', async ({ page }) => {
+/** What each page's readout says once docked: the craft, and its range from Home */
+const readout = (route: string) => {
+  const station = stationForPath(route);
+  const craft = stationNames[station].craft.toLowerCase();
+  return station === 'home'
+    ? `Docked at the ${craft}/Home port`
+    : `Docked at the ${craft}/${rangeBetween(station, 'home')} km from Home`;
+};
+const readoutText = (page: Page) =>
+  page
+    .locator('#main-content .station-readout')
+    .first()
+    .evaluate((el) =>
+      (el as HTMLElement).innerText
+        .replace(/\s*\/\s*/, '/')
+        .replace(/\s+/g, ' ')
+        .trim()
+    );
+
+test('every page says which station it is docked at, and how far from Home', async ({ page }) => {
   for (const route of routes) {
     await openHydrated(page, route);
-    await expect(page.locator('.station-readout').first()).toContainText(/Docked at the /);
+    await expect.poll(() => readoutText(page)).toBe(readout(route));
   }
+});
+
+test('the readout says the same without JavaScript', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  for (const route of routes) {
+    await page.goto(route);
+    expect(await readoutText(page)).toBe(readout(route));
+  }
+  await context.close();
 });
 
 test('every role on the experience page wears its mission patch', async ({ page }) => {

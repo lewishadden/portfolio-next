@@ -27,6 +27,15 @@
     opacity: 0.5;
   }
 
+  /* Home's readout says "Home port", unless the camera is on its way there */
+  &__range--home:not([data-en-route]) {
+    display: none;
+  }
+
+  &__range--home[data-en-route] + &__port {
+    display: none;
+  }
+
   &__km {
     display: inline-block;
     min-width: 3ch;

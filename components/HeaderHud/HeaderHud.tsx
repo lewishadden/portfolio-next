@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 
-import { rangeBetween, stationForPath, stationNames, stationKeys } from 'components/World/routes';
-import { emitCue, onFlight, worldStore } from 'components/World/worldStore';
+import { stationKeys, stationNames } from 'components/World/routes';
+import { emitCue, worldStore } from 'components/World/worldStore';
+
+import { rangeToGo, watchCourse } from './course';
 
 import type { StationKey } from 'components/World/routes';
 
@@ -846,25 +848,7 @@ export function HeaderHud({
     let progress = 0;
     /** 0..1: how much the bottom edge shows the flight's course, eased */
     let flightBlend = 0;
-    /**
-     * The flight's ends, for the label riding the lock: the station docked
-     * at (kept from each arrival, as flights and cuts announce them) and
-     * where the flight in progress is going
-     */
-    const course: { docked: StationKey; from: StationKey | ''; to: StationKey | '' } = {
-      docked: stationForPath(window.location.pathname),
-      from: '',
-      to: '',
-    };
-    const stopFlights = onFlight((event, to) => {
-      if (!isStation(to)) return;
-      if (event === 'start') {
-        course.from = course.docked;
-        course.to = to;
-      } else if (event === 'end') {
-        course.docked = to;
-      }
-    });
+    watchCourse();
     const label = courseRef.current;
     let labelText = '';
     const sway = createSway();
@@ -1071,14 +1055,9 @@ export function HeaderHud({
       }
       ticks.reading = readingAt(ticks, scrolled);
       // Riding the travelling lock: where to, and the range still to go
-      if (lock.travelling && flying && course.from && course.to && course.to === flight.to) {
-        const km = Math.round(
-          rangeBetween(course.from, course.to) * (1 - smootherstep(flight.progress))
-        );
-        showLabel(courseLabel(course.to, km), lock.at);
-      } else {
-        showLabel('');
-      }
+      const toGo = lock.travelling && flying ? rangeToGo() : null;
+      if (toGo) showLabel(courseLabel(toGo.to, toGo.km), lock.at);
+      else showLabel('');
       worldStore.hudHum = boot < 1 ? boot : 0.5 + swinging * 0.5;
       // The sway moves every frame; the hologram only needs every other
       // one, unless something on it is changing
@@ -1136,7 +1115,6 @@ export function HeaderHud({
       mutations.disconnect();
       pageSize.disconnect();
       window.clearTimeout(tickTimer);
-      stopFlights();
       showLabel('');
       bar.removeEventListener('pointerover', over);
       bar.removeEventListener('pointerout', out);
