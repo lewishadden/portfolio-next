@@ -650,9 +650,11 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
           position={[rocketBase.x, rocketBase.y, rocketBase.z]}
           rotation={[0, 0, 0.12]}
         >
-          <group {...revHandlers}>
-            <Model url={stationModels.contact!} height={wide ? 2.1 : 1.5} theme={theme} />
-          </group>
+          <Model url={stationModels.contact!} height={wide ? 2.1 : 1.5} theme={theme} />
+          {/* Never drawn: the rocket's target for the pointer, so hover doesn't test its model */}
+          <mesh visible={false} {...revHandlers}>
+            <capsuleGeometry args={[wide ? 0.6 : 0.45, wide ? 1 : 0.7, 4, 12]} />
+          </mesh>
           <points
             material={materials.exhaust}
             position={[0, wide ? -1 : -0.72, 0]}
