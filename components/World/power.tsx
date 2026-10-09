@@ -74,9 +74,6 @@ const windowsAt = (s: number) => MathUtils.clamp((s - 0.3) / 1.1, 0, 1);
  */
 export function navPower(key: StationKey, index: number, t: number) {
   const power = stationPower[key];
-  // Answering a hail: each light blinks once, one after another
-  const blink = t - power.flashAt - index * flashStep;
-  if (blink >= 0 && blink < flashTime) return 2.6;
   if (power.onAt < 0) return MathUtils.lerp(0.06, 1, power.windows.value);
   const s = t - power.onAt - 0.45 - index * 0.11;
   if (s < 0) return 0.06;
@@ -86,6 +83,20 @@ export function navPower(key: StationKey, index: number, t: number) {
 /** How long each nav light's answering blink lasts, and the beat between one light and the next (s) */
 const flashTime = 0.2;
 const flashStep = 0.07;
+/** How bright a nav light is at the height of its answering blink */
+export const navBlink = 2.6;
+
+/**
+ * Whether a station's nav light `index` is blinking in answer to a hail:
+ * each blinks once, one after another. The blink stands in for the light's
+ * own pattern rather than scaling it, so a white strobe (dark most of the
+ * time, and held wherever it stopped at the still level) blinks too
+ */
+export function navBlinking(key: StationKey, index: number, t: number) {
+  const blink = t - stationPower[key].flashAt - index * flashStep;
+  return blink >= 0 && blink < flashTime;
+}
+
 /** Stations whose nav lights blink on the next frame */
 const flashes = new Set<StationKey>();
 

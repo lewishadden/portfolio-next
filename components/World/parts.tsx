@@ -25,7 +25,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 import { ambientTime } from './clock';
-import { navPower, useStationKey } from './power';
+import { navBlink, navBlinking, navPower, useStationKey } from './power';
 
 import type { ReactNode } from 'react';
 import type { BufferGeometry } from 'three';
@@ -309,7 +309,8 @@ function brightness(kind: NavLight['kind'], t: number) {
 /**
  * Blinking navigation lights, drawn as one instanced mesh. Inside a
  * StationScope they follow the station's power: dark in standby, coming on
- * one after another as it powers on
+ * one after another as it powers on; and they blink once each, in turn, to
+ * answer a hail at the still level
  */
 export function NavLights({
   lights,
@@ -328,8 +329,12 @@ export function NavLights({
     const t = state.clock.elapsedTime;
     const ambient = ambientTime(state);
     lights.forEach((light, i) => {
-      const power = station ? navPower(station, i, t) : 1;
-      const level = brightness(light.kind, ambient + (light.phase ?? i * 0.37)) * power;
+      // A hail's blink replaces the light's own pattern (see navBlinking)
+      const level =
+        station && navBlinking(station, i, t)
+          ? navBlink
+          : brightness(light.kind, ambient + (light.phase ?? i * 0.37)) *
+            (station ? navPower(station, i, t) : 1);
       dummy.position.fromArray(light.position);
       dummy.scale.copy(lightScale.setScalar(size * (0.6 + level * 0.6)));
       dummy.updateMatrix();
