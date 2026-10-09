@@ -371,28 +371,68 @@ function holdSelection() {
 }
 
 /**
- * A touch that starts on the globe is the drag's, not the page's to scroll.
- * Whether a touch may scroll is settled as it starts, before any handler
- * can change touch-action, so while the globe is in view a listener claims
- * it instead: the globe's pointerdown (which the browser dispatches just
- * before touchstart) marks the touch, and touchstart cancels its default
- * (as touch-action: none would, for that touch only). Elsewhere touches
- * scroll as ever, and away from /contact nothing listens at all
+ * A touch that starts on the globe and runs sideways is the drag's; one
+ * that runs up or down is still the page's to scroll (pan-y, for that touch
+ * only: the globe's pitch barely moves, and it sits in the gaps left for
+ * scrolling past it on phones). Whether a touch may scroll is settled as it
+ * starts, before any handler can change touch-action, so while the globe is
+ * in view listeners decide instead. The globe's pointerdown (which the
+ * browser dispatches just before touchstart) marks the touch, touchstart
+ * notes where it began, and its first cancelable move either claims it,
+ * cancelling the scroll on every move from then on, or lets it go. A second
+ * finger (a pinch) is the page's too. Away from /contact nothing listens
  */
-const globeTouch = { pending: false, armed: false };
+const globeTouch = { pending: false, claimed: false, armed: false, id: -1, x: 0, y: 0 };
 
-function claimTouch(event: TouchEvent) {
+function noteTouch(event: TouchEvent) {
   if (!globeTouch.pending) return;
-  globeTouch.pending = false;
-  if (event.cancelable) event.preventDefault();
+  const touch = event.changedTouches[0];
+  if (event.touches.length > 1 || !touch) {
+    globeTouch.pending = false;
+    return;
+  }
+  globeTouch.id = touch.identifier;
+  globeTouch.x = touch.clientX;
+  globeTouch.y = touch.clientY;
 }
 
-/** Listens for touches to claim while the globe is in view (and not otherwise: the listener can't be passive) */
+function claimTouch(event: TouchEvent) {
+  if (globeTouch.claimed) {
+    // On every move: iOS scrolls anyway if only the first is cancelled
+    if (event.cancelable) event.preventDefault();
+    return;
+  }
+  // Once the page is scrolling its moves can't be cancelled (and pointercancel ends the drag)
+  if (!globeTouch.pending || !event.cancelable) return;
+  let touch: Touch | null = null;
+  for (let i = 0; i < event.touches.length; i++) {
+    if (event.touches[i].identifier === globeTouch.id) touch = event.touches[i];
+  }
+  if (event.touches.length > 1 || !touch) {
+    globeTouch.pending = false;
+    return;
+  }
+  const across = Math.abs(touch.clientX - globeTouch.x);
+  const down = Math.abs(touch.clientY - globeTouch.y);
+  if (across === down) return;
+  globeTouch.pending = false;
+  if (across > down) {
+    globeTouch.claimed = true;
+    event.preventDefault();
+  }
+}
+
+/** Listens for touches to claim while the globe is in view (and not otherwise: a move listener that cancels can't be passive) */
 function armTouch(on: boolean) {
   if (globeTouch.armed === on) return;
   globeTouch.armed = on;
-  if (on) document.addEventListener('touchstart', claimTouch, { passive: false });
-  else document.removeEventListener('touchstart', claimTouch);
+  if (on) {
+    document.addEventListener('touchstart', noteTouch, { passive: true });
+    document.addEventListener('touchmove', claimTouch, { passive: false });
+  } else {
+    document.removeEventListener('touchstart', noteTouch);
+    document.removeEventListener('touchmove', claimTouch);
+  }
 }
 
 /** Pixels a press may wander and still count as a click (which pings), not a drag */
@@ -402,8 +442,10 @@ const pressPoint = new Vector3();
 /**
  * Starts a drag on the globe; window listeners follow the pointer until
  * release. A press that barely moves is a click instead: it pings where it
- * landed, like every other click in the world (by hand, as a touch claimed
- * for the drag never becomes a click). `repaint` keeps it drawing at
+ * landed, like every other click in the world (by hand on release, as a
+ * touch claimed for the drag never becomes a click). A touch turns the
+ * globe only once it is claimed (it may yet scroll the page instead, which
+ * ends the drag with a pointercancel). `repaint` keeps it drawing at
  * `still`, where the world only draws on demand: a frame per move, and
  * frames for as long as a ping plays
  */
@@ -411,7 +453,11 @@ function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>, repaint: () => void)
   e.stopPropagation();
   e.nativeEvent.preventDefault();
   const pointer = e.pointerId;
-  if (e.pointerType === 'touch') globeTouch.pending = true;
+  const touch = e.pointerType === 'touch';
+  if (touch) {
+    globeTouch.pending = true;
+    globeTouch.claimed = false;
+  }
   const release = holdSelection();
   const fromX = e.clientX;
   const fromY = e.clientY;
@@ -424,6 +470,9 @@ function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>, repaint: () => void)
   spin.velocity = 0;
   const move = (event: PointerEvent) => {
     if (event.pointerId !== pointer) return;
+    wandered = Math.max(wandered, Math.hypot(event.clientX - fromX, event.clientY - fromY));
+    // A touch turns nothing until it is claimed; the first claimed move then catches up from the press
+    if (touch && !globeTouch.claimed) return;
     const now = performance.now();
     const dx = event.clientX - spin.lastX;
     const dy = event.clientY - spin.lastY;
@@ -434,13 +483,12 @@ function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>, repaint: () => void)
     spin.lastX = event.clientX;
     spin.lastY = event.clientY;
     spin.lastTime = now;
-    wandered = Math.max(wandered, Math.hypot(event.clientX - fromX, event.clientY - fromY));
     repaint();
   };
   const end = (event: PointerEvent) => {
     if (event.pointerId !== pointer) return;
     spin.dragging = false;
-    globeTouch.pending = false;
+    globeTouch.pending = globeTouch.claimed = false;
     release();
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', end);
