@@ -34,11 +34,20 @@ const initial: WorldModeState = { mode: 'page', tourStop: 0, tourStep: 0 };
 let state = initial;
 /** The page a tour or free roam is opening, until it has arrived ('' for none) */
 let pending = '';
+/**
+ * Where keyboard focus goes when the page is back: the control that had it
+ * when the tour or free roam started, or the page itself ('page') when the
+ * mode opened another page. See restoreFocus
+ */
+let returnFocus: Element | 'page' | null = null;
 const listeners = new Set<() => void>();
 
 function set(next: Partial<WorldModeState>) {
   const previous = state;
   state = { ...state, ...next };
+  if (previous.mode === 'page' && state.mode !== 'page' && typeof document !== 'undefined') {
+    returnFocus = document.activeElement;
+  }
   if (state.mode !== previous.mode) emitCue(state.mode === 'page' ? 'blip' : 'select');
   else if (state.tourStep !== previous.tourStep) emitCue('blip');
   listeners.forEach((listener) => listener());
@@ -107,7 +116,39 @@ export function navigateFromMode(path: string) {
 
 /** World calls this on every route change: the page a mode was opening is here, so it hands back */
 export function arrivedAt(pathname: string) {
-  if (pending && pending === pathname) worldMode.exit();
+  if (!pending || pending !== pathname) return;
+  // A new page: what had focus is gone, so the page itself takes it
+  returnFocus = 'page';
+  worldMode.exit();
+}
+
+const focusable = (el: Element | null): el is HTMLElement =>
+  el instanceof HTMLElement &&
+  el !== document.body &&
+  el.isConnected &&
+  !el.closest('[inert]') &&
+  el.getClientRects().length > 0;
+
+/**
+ * The page is back from the tour or free roam (World calls this a frame
+ * after it stops being inert): keyboard focus returns to the control that
+ * started the mode, or failing that the free roam button, or the page
+ * (#main-content, focusable but out of the tab order). After the mode
+ * opened another page, the page itself. Without it focus is left on the
+ * body, since the tour card or the HUD that had it is gone.
+ */
+export function restoreFocus() {
+  const target = returnFocus;
+  returnFocus = null;
+  if (!target || state.mode !== 'page') return;
+  const main = document.getElementById('main-content');
+  const choices = target === 'page' ? [main] : [target, document.querySelector('.roam-fab'), main];
+  for (const el of choices) {
+    if (!focusable(el)) continue;
+    if (el === main && !el.hasAttribute('tabindex')) el.tabIndex = -1;
+    el.focus({ preventScroll: true });
+    if (document.activeElement === el) return;
+  }
 }
 
 export function useWorldMode() {

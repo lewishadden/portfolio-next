@@ -281,6 +281,45 @@ test.describe('leaving the tour for a page', () => {
   );
 });
 
+test.describe('coming back from the tour and free roam', () => {
+  test.use({ world: 'on', reducedMotion: 'reduce' });
+
+  test(
+    'keyboard focus returns to the control that started them',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+
+      // The tour's card takes focus; Esc hands it back to the button that started it
+      const start = page.getByRole('button', { name: 'Take the tour' });
+      await start.focus();
+      await page.keyboard.press('Enter');
+      const tour = page.getByRole('region', { name: 'Guided tour' });
+      await expect(tour).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(tour).toBeHidden();
+      await expect(start).toBeFocused();
+
+      // Free roam from its button, then off into the HUD's station list
+      const roam = page.getByRole('button', { name: 'Free roam' });
+      await roam.focus();
+      await page.keyboard.press('Enter');
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      await page.evaluate(() => document.exitPointerLock());
+      await hud
+        .getByRole('list', { name: 'Stations' })
+        .getByRole('button', { name: /^Autopilot to Projects/ })
+        .focus();
+      await page.keyboard.press('Escape');
+      await expect(hud).toBeHidden();
+      await expect(roam).toBeFocused();
+    }
+  );
+});
+
 test.describe('free roam on touch', () => {
   test.use({
     world: 'on',

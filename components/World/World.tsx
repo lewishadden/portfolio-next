@@ -21,7 +21,7 @@ import { usePageReading, useRoutePreview, useTargetHover, useTilt } from './page
 import { TourOverlay } from './TourOverlay';
 import { WorldTooltip } from './WorldTooltip';
 import { liteQuery, prefetchStationModel, stationForPath } from './routes';
-import { arrivedAt, navigateFromMode, useWorldMode, worldMode } from './worldMode';
+import { arrivedAt, navigateFromMode, restoreFocus, useWorldMode, worldMode } from './worldMode';
 import {
   intentSettle,
   onFlight,
@@ -310,14 +310,17 @@ export function World({ content }: { content: WorldContent }) {
     }
   }, [away, hidden, mode, booted]);
 
-  // The page fading back in once the camera is home (the hiding rule's own
-  // transition only runs on the way out). An animation, not a transition:
-  // the header and footer keep their own transitions
+  // The page is back: keyboard focus returns where it was, once inert has
+  // lifted (the effect above), and the page fades back in once the camera
+  // is home (the hiding rule's own transition only runs on the way out). An
+  // animation, not a transition: the header and footer keep their own
   const wasHidden = useRef(false);
   useEffect(() => {
     const back = wasHidden.current && !hidden;
     wasHidden.current = hidden;
-    if (!back || motion !== 'full') return;
+    if (!back) return;
+    requestAnimationFrame(restoreFocus);
+    if (motion !== 'full') return;
     for (const el of document.querySelectorAll('#main-content, .header, .footer')) {
       el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 600, easing: 'ease-out' });
     }
