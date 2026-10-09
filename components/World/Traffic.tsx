@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
   BoxGeometry,
@@ -16,11 +16,10 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { navigableStations, stationPositions } from './routes';
 import { sunDirection } from './sky';
 import { skyTime } from './Starfield';
-import { useThemedMaterials } from './stationHooks';
-import { setUniform, seededRandom } from './utils';
+import { palettes, setUniform, seededRandom } from './utils';
 
 import type { QualityTier } from './quality';
-import type { WorldPalette, WorldTheme } from './utils';
+import type { WorldTheme } from './utils';
 
 /* ------------------------------------------------------------------
    Traffic: small shuttles plying the lanes between the stations, so the
@@ -230,29 +229,48 @@ const fragmentShader = /* glsl */ `
 
 /**
  * The shuttles' one material: a hull lit from the sun's side, nav lights
- * in the stations' colours (NavLights), a cyan engine. Lights glow (and
- * bloom) on the dark sky; on the light one they are plain colours
+ * in the stations' colours (NavLights), a cyan engine. Built once, the
+ * same shader for both themes: a theme change only sets its colours
+ * (applyTrafficTheme), so the program is never deleted and relinked
+ * mid-switch
  */
-const buildMaterials = (p: WorldPalette) => ({
-  shuttle: new ShaderMaterial({
+function buildShuttle() {
+  return new ShaderMaterial({
     uniforms: UniformsUtils.merge([
       UniformsLib.fog,
       {
         uTime: { value: 0 },
         uSun: { value: sunDirection.clone() },
-        uHull: { value: new Color(p.additive ? '#8a92a8' : '#5b6478') },
-        uAmbient: { value: p.additive ? 0.3 : 0.55 },
-        uPort: { value: new Color('#ff3b4e').multiplyScalar(p.additive ? 4 : 1) },
-        uStarboard: { value: new Color('#3dff8a').multiplyScalar(p.additive ? 3.4 : 1) },
-        uStrobe: { value: new Color('#ffffff').multiplyScalar(p.additive ? 6 : 1) },
-        uEngine: { value: new Color(p.cyan).multiplyScalar(p.additive ? 2.2 : 1) },
+        uHull: { value: new Color() },
+        uAmbient: { value: 0.3 },
+        uPort: { value: new Color() },
+        uStarboard: { value: new Color() },
+        uStrobe: { value: new Color() },
+        uEngine: { value: new Color() },
       },
     ]),
     vertexShader,
     fragmentShader,
     fog: true,
-  }),
-});
+  });
+}
+
+/** Sets a uniform's colour, scaled (setUniform would drop the scale) */
+function setScaledColour(material: ShaderMaterial, name: string, colour: string, scale: number) {
+  (material.uniforms[name].value as Color).set(colour).multiplyScalar(scale);
+}
+
+/** Lights glow (and bloom) on the dark sky; on the light one they are plain colours */
+function applyTrafficTheme(material: ShaderMaterial, theme: WorldTheme) {
+  const palette = palettes[theme];
+  const glow = palette.additive;
+  setUniform(material, 'uHull', glow ? '#8a92a8' : '#5b6478');
+  setUniform(material, 'uAmbient', glow ? 0.3 : 0.55);
+  setScaledColour(material, 'uPort', '#ff3b4e', glow ? 4 : 1);
+  setScaledColour(material, 'uStarboard', '#3dff8a', glow ? 3.4 : 1);
+  setScaledColour(material, 'uStrobe', '#ffffff', glow ? 6 : 1);
+  setScaledColour(material, 'uEngine', palette.cyan, glow ? 2.2 : 1);
+}
 
 /**
  * Shuttles plying the lanes between stations: `count` of them (8, 3 on
@@ -269,7 +287,11 @@ export function Traffic({
 }) {
   const shape = useMemo(() => shuttleGeometry(), []);
   const { from, to, run, placed } = useMemo(() => placeLanes(count), [count]);
-  const { shuttle } = useThemedMaterials(buildMaterials, theme);
+  const shuttle = useMemo(() => buildShuttle(), []);
+
+  useEffect(() => applyTrafficTheme(shuttle, theme), [shuttle, theme]);
+
+  useEffect(() => () => shuttle.dispose(), [shuttle]);
 
   useFrame(({ clock }) => {
     setUniform(shuttle, 'uTime', skyTime(clock));
