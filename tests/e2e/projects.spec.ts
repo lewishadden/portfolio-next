@@ -267,6 +267,73 @@ test.describe('the ride without the world', () => {
       'true'
     );
   });
+
+  // The index sends the page on a ride and a swipe its way catches it.
+  // Before that settles, the index sends the page to a project short of
+  // where the caught ride was going: it stops there (the caught ride's
+  // heading outlived it, and the page glided on past the project chosen)
+  for (const { from, ride, then, way } of [
+    { from: 'ZGS Carpentry', ride: 'Sanctions Checker', then: 'Sip Happens', way: 'down' },
+    { from: 'Home Greening Microsite', ride: 'ZGS Carpentry', then: 'Sidenote', way: 'up' },
+  ]) {
+    test(`a ride the index sends after a swipe caught another ends where it was sent (${way})`, async ({
+      page,
+    }) => {
+      await openHydrated(page, '/projects');
+      const index = page.getByRole('navigation', { name: 'Projects' });
+      const link = (name: string) => index.getByRole('link', { name, exact: true });
+      const { width, height } = page.viewportSize()!;
+      await page.mouse.move(width / 2, height / 2);
+      await page.mouse.wheel(0, 150);
+      await settledOn(page);
+      await link(from).click();
+      await settledOn(page);
+      await expect(link(from)).toHaveAttribute('aria-current', 'true');
+
+      // In the page, so the catch and the second ride come in time. The
+      // second is a click with no pointer down, as an index link's Enter is
+      const caught = await page.evaluate(
+        ([ride, then]) =>
+          new Promise<boolean>((resolve) => {
+            const links = [...document.querySelectorAll<HTMLElement>('.projects__index-link')];
+            const at = (name: string) => links.findIndex((l) => l.textContent?.includes(name));
+            const tour = document.querySelector<HTMLElement>('.projects__tour')!;
+            const stage = document.querySelector<HTMLElement>('.projects__stage')!;
+            const step = (tour.offsetHeight - stage.offsetHeight) / (links.length - 1);
+            const start = window.scrollY;
+            const startAt = links.findIndex((l) => l.getAttribute('aria-current') === 'true');
+            const dir = Math.sign(at(ride) - startAt);
+            const thenY = start + step * (at(then) - startAt);
+            // Catch it well under way, short enough of the project sent to
+            // later that the swipe leaves the page short of it too
+            const watch = () => {
+              const y = window.scrollY;
+              if ((thenY - y) * dir < 150) {
+                resolve(false);
+                return;
+              }
+              if ((y - start) * dir < step * 1.5) {
+                requestAnimationFrame(watch);
+                return;
+              }
+              document.body.dispatchEvent(
+                new WheelEvent('wheel', { deltaY: 100 * dir, bubbles: true, cancelable: true })
+              );
+              window.setTimeout(() => {
+                links[at(then)].click();
+                resolve(true);
+              }, 100);
+            };
+            links[at(ride)].click();
+            watch();
+          }),
+        [ride, then]
+      );
+      expect(caught).toBe(true);
+      await settledOn(page);
+      await expect(link(then)).toHaveAttribute('aria-current', 'true');
+    });
+  }
 });
 
 test.describe('the helix ride', () => {

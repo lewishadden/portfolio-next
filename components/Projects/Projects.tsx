@@ -370,13 +370,18 @@ export const Projects = ({
     let anchor = window.scrollY;
     /** Where the scroll a gesture caught was going, when the gesture went the same way (else NaN) */
     let heading = NaN;
+    /** Where the ride's own scroll under way is going, if one is (and nothing has taken it over) */
+    const riding = () => {
+      const to: unknown = lenis.isScrolling === 'smooth' ? lenis.userData.rideTo : undefined;
+      return typeof to === 'number' ? to : undefined;
+    };
     // Wheel or touch input during one of the ride's scrolls stops it
     // (touch) or carries on from where it has got to (wheel), so the
     // gesture starts there: measured from where the scroll started or was
     // going, a short swipe read as one the other way and the ride went back
     const interrupt = ({ deltaY, event }: { deltaY: number; event: WheelEvent | TouchEvent }) => {
-      const to = lenis.isScrolling === 'smooth' ? lenis.userData.rideTo : undefined;
-      if (typeof to !== 'number' || deltaY === 0 || event.ctrlKey) return;
+      const to = riding();
+      if (to === undefined || deltaY === 0 || event.ctrlKey) return;
       anchor = window.scrollY;
       heading = Math.sign(to - anchor) === Math.sign(deltaY) ? to : NaN;
     };
@@ -430,12 +435,23 @@ export const Projects = ({
       });
     };
     function rest() {
+      // One of the ride's own scrolls is under way, so no gesture has taken
+      // it over: a later ride (an index link, a helix screen) or the one a
+      // gesture failed to catch. A heading from an earlier catch is stale
+      // (it sent a later ride on past the project chosen, to where the
+      // caught one was going). A wheel that catches a ride replaces its
+      // userData, and a touch turns the scroll native, so they keep theirs
+      if (riding() !== undefined) heading = NaN;
       window.clearTimeout(timer);
       timer = window.setTimeout(settle, snapAfter);
     }
-    // Dragging the scrollbar (or a finger still down) is not at rest
-    const press = () => {
+    // Dragging the scrollbar (or a finger still down) is not at rest. A
+    // scrollbar drag puts the page where it is dropped, so a mouse press
+    // drops the heading (a finger keeps it: a second swipe onwards in a
+    // caught ride's momentum still counts from where the ride was going)
+    const press = (event: PointerEvent) => {
       pressed = true;
+      if (event.pointerType === 'mouse') heading = NaN;
     };
     const release = () => {
       pressed = false;
