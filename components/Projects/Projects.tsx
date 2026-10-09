@@ -206,8 +206,9 @@ function rideStage(stage: HTMLElement | null, focus: number) {
 const snapAfter = 160;
 /**
  * A scroll that ends this far (px) from where the last one came to rest
- * carries on to the next stop its way, however short of halfway it is; a
- * smaller one goes back. From the top of the page a smaller one still docks
+ * carries on to the next stop its way, however short of halfway it is
+ * (the stop beyond its start nearest where it ended); a smaller one goes
+ * back. From the top of the page a smaller one still docks
  */
 const snapCommit = 60;
 const snapCommitTop = 24;
@@ -372,17 +373,16 @@ export const Projects = ({
       if (lane.docked > 1) stops.unshift(0);
       const moved = y - anchor;
       const commit = anchor < lane.docked - 2 && moved > 0 ? snapCommitTop : snapCommit;
-      let target: number;
-      if (Math.abs(moved) > commit) {
-        target =
-          moved > 0
-            ? (stops.find((stop) => stop >= y - 2) ?? last)
-            : (stops.findLast((stop) => stop <= y + 2) ?? stops[0]);
-      } else {
-        target = stops.reduce((best, stop) =>
-          Math.abs(stop - y) < Math.abs(best - y) ? stop : best
-        );
-      }
+      // Gone far enough: the nearest stop beyond where it started, its way
+      // (not the first past where it stopped: a ride to a project that
+      // lands a little past it, as the layout settles, stays there)
+      const onward =
+        Math.abs(moved) > commit
+          ? stops.filter((stop) => (moved > 0 ? stop > anchor + 2 : stop < anchor - 2))
+          : [];
+      const target = (onward.length ? onward : stops).reduce((best, stop) =>
+        Math.abs(stop - y) < Math.abs(best - y) ? stop : best
+      );
       anchor = target;
       if (Math.abs(target - y) < 2) return;
       const reduce = motionLevel() !== 'full';
