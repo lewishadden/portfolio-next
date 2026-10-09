@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect, useEffectEvent, useSyncExternalStore } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from '@iconify/react';
+
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 import { stationForPath, stationPaths, stationPositions } from './routes';
 import {
   allFound,
   dismissFound,
+  recentFound,
+  reopenFound,
   signalCount,
   signals,
   useDetector,
@@ -22,6 +26,13 @@ import type { WorldContent } from './types';
 
 /** How long a find's card stays up (the mouse may be locked, so it closes itself) */
 const cardTime = 16_000;
+
+/** Controls that act on Enter themselves */
+const enterTargets =
+  'button, a[href], input, textarea, select, [role="button"], [contenteditable]:not([contenteditable="false"])';
+
+/** The card's choices, in order: what it carries first, Close last */
+const cardActions = '.explore-hud__signal-actions :is(a[href], button)';
 
 /* ----------------- A signal's page action: course set, docking on arrival ----------------- */
 
@@ -105,14 +116,19 @@ export function SignalDetector() {
   );
 }
 
+/** Enter reaches the card's choices (shown while keyboard focus is elsewhere) */
+const enterHint = <kbd aria-hidden="true">↵</kbd>;
+
 function ActionButton({
   action,
   cv,
   onCourse,
+  hint,
 }: {
   action: SignalAction;
   cv: WorldContent['cv'];
   onCourse: (path: string, from: HTMLElement) => void;
+  hint: boolean;
 }) {
   const icon = action.kind === 'cv' ? 'ph:file-arrow-down-bold' : 'ph:arrow-up-right-bold';
   if (action.kind === 'page') {
@@ -124,6 +140,7 @@ function ActionButton({
       >
         <span>{action.label}</span>
         <Icon icon={icon} width={15} height={15} aria-hidden="true" />
+        {hint && enterHint}
       </button>
     );
   }
@@ -136,6 +153,7 @@ function ActionButton({
       <span>{action.label}</span>
       <Icon icon={icon} width={15} height={15} aria-hidden="true" />
       {action.kind === 'link' && <span className="sr-only"> (opens in a new tab)</span>}
+      {hint && enterHint}
     </a>
   );
 }
@@ -145,7 +163,10 @@ function ActionButton({
  * offers (the derelict's "Report it", "Say hello" once all are found) isn't
  * opened from wherever the ship is: the autopilot sets course for that
  * page's station, and the ship docks (`onDock`, the docking sequence) once
- * it has parked there. Taking the controls back on the way cancels it
+ * it has parked there. Taking the controls back on the way cancels it.
+ * Enter (on no control, and with no dock offered) brings keyboard focus to
+ * the card's first choice, opening the last find's card again if it has
+ * closed; the card stays up while focus is in it
  */
 export function SignalCard({
   cv,
@@ -157,12 +178,37 @@ export function SignalCard({
   const latest = useLatestSignal();
   const found = useFoundSignals().length;
   const signal = signals.find((s) => s.id === latest);
+  const touch = useMediaQuery('(pointer: coarse)');
+  const cardRef = useRef<HTMLDivElement>(null);
+  // The find whose card has keyboard focus in it ('' for none): it stays up
+  const [focusedOn, setFocusedOn] = useState('');
+  const held = !!latest && focusedOn === latest;
 
   useEffect(() => {
-    if (!latest) return;
+    if (!latest || held) return;
     const id = window.setTimeout(dismissFound, cardTime);
     return () => window.clearTimeout(id);
-  }, [latest]);
+  }, [latest, held]);
+
+  // Enter, with no control focused and no dock offered (the dock prompt has
+  // it then), goes to the last find's card: open again if it has closed,
+  // its first choice focused, so a second Enter takes it. Capture phase,
+  // ahead of the HUD's dock shortcut
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.repeat || e.defaultPrevented) return;
+      if (worldMode.get().mode !== 'explore' || worldStore.docking) return;
+      if (e.target instanceof Element && e.target.closest(enterTargets)) return;
+      if ((worldStore.dock && !worldStore.autopilot) || !recentFound()) return;
+      e.preventDefault();
+      reopenFound();
+      requestAnimationFrame(() =>
+        cardRef.current?.querySelector<HTMLElement>(cardActions)?.focus({ preventScroll: true })
+      );
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
 
   // The course a page action set: docks once the autopilot hands back the
   // controls parked in front of the station, and is forgotten if they were
@@ -183,11 +229,16 @@ export function SignalCard({
     };
   }, []);
 
+  /** The card goes: keyboard focus goes back to the HUD (where Enter docks) */
+  const close = (from: HTMLElement) => {
+    from.closest<HTMLElement>('.explore-hud')?.focus({ preventScroll: true });
+    setFocusedOn('');
+    dismissFound();
+  };
+
   const setCourse = (path: string, from: HTMLElement) => {
     const station = stationForPath(path);
-    // The card goes: keyboard focus goes back to the HUD (where Enter docks)
-    from.closest<HTMLElement>('.explore-hud')?.focus({ preventScroll: true });
-    dismissFound();
+    close(from);
     // Set course first: the autopilot's change would otherwise end the docking course at once
     setAutopilot(station);
     setDockOnArrival(station);
@@ -195,8 +246,21 @@ export function SignalCard({
 
   if (!signal) return null;
   const complete = found === signalCount;
+  const actions = [
+    signal.action,
+    complete && signal.action?.kind !== 'page' ? allFound.action : undefined,
+  ].filter((action): action is SignalAction => !!action);
+  const hint = !touch && !held;
   return (
-    <div className="explore-hud__signal glass" role="status">
+    <div
+      ref={cardRef}
+      className="explore-hud__signal glass"
+      role="status"
+      onFocus={() => setFocusedOn(latest)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocusedOn('');
+      }}
+    >
       <p className="explore-hud__signal-eyebrow">
         <Icon icon="ph:broadcast-bold" width={14} height={14} aria-hidden="true" />
         Signal found · {found}/{signalCount}
@@ -209,12 +273,18 @@ export function SignalCard({
         </p>
       )}
       <div className="explore-hud__signal-actions">
-        {signal.action && <ActionButton action={signal.action} cv={cv} onCourse={setCourse} />}
-        {complete && allFound.action && signal.action?.kind !== 'page' && (
-          <ActionButton action={allFound.action} cv={cv} onCourse={setCourse} />
-        )}
-        <button type="button" className="explore-hud__exit" onClick={dismissFound}>
+        {actions.map((action, i) => (
+          <ActionButton
+            key={action.label}
+            action={action}
+            cv={cv}
+            onCourse={setCourse}
+            hint={hint && i === 0}
+          />
+        ))}
+        <button type="button" className="explore-hud__exit" onClick={(e) => close(e.currentTarget)}>
           Close
+          {hint && !actions.length && enterHint}
         </button>
       </div>
     </div>

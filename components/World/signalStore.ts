@@ -133,6 +133,8 @@ const detectorBars = 5;
 const storageKey = 'signals';
 let found: readonly string[] | undefined;
 let latest = '';
+/** The last signal found this visit, whether or not its card is still up */
+let recent: Signal['id'] | '' = '';
 let bars = 0;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((listener) => listener());
@@ -155,6 +157,7 @@ export function markFound(id: Signal['id']) {
   if (isFound(id)) return false;
   found = [...readFound(), id];
   latest = id;
+  recent = id;
   try {
     localStorage.setItem(storageKey, JSON.stringify(found));
   } catch {
@@ -168,6 +171,16 @@ export function markFound(id: Signal['id']) {
 export function dismissFound() {
   if (!latest) return;
   latest = '';
+  notify();
+}
+
+/** The last signal found this visit ('' for none), whether or not its card is still up */
+export const recentFound = () => recent;
+
+/** Shows the card for the last signal found this visit again, if one was */
+export function reopenFound() {
+  if (!recent || latest === recent) return;
+  latest = recent;
   notify();
 }
 
