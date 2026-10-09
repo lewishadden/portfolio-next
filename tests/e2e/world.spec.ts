@@ -434,6 +434,33 @@ test.describe('free roam controls', () => {
   );
 
   test(
+    'a click on something in 3D in free roam leaves the page where it was',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/skills');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      await page.getByRole('button', { name: 'Free roam' }).click();
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      const scrolled = await page.evaluate(() => window.scrollY);
+
+      // What a click on a skill badge asks for (focusOnPage): on the page it
+      // brings the skill's row into view, here (the last one) far below
+      await page.evaluate(() => {
+        const targets = document.querySelectorAll<HTMLElement>(
+          '#main-content [data-world-target^="skill:"]'
+        );
+        const id = targets[targets.length - 1].dataset.worldTarget;
+        window.dispatchEvent(new CustomEvent('world:focus', { detail: id }));
+      });
+      await page.waitForTimeout(800);
+      expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+      await expect(page.locator('#main-content .world-ping')).toHaveCount(0);
+    }
+  );
+
+  test(
     'the first free roam coaches, then keeps the keys behind a Controls button',
     { tag: '@webgl' },
     async ({ page }) => {
