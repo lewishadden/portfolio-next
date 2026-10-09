@@ -5,7 +5,7 @@ import { motionLevel } from '@/utils/motion';
 import type { StationKey } from './routes';
 import { settleFocus } from './ride';
 import { orbitTilts } from './skillsOrbit';
-import { worldStore } from './worldStore';
+import { emitCue, worldStore } from './worldStore';
 
 export { stationForPath, stationKeys, stationModels, stationPositions } from './routes';
 export type { StationKey } from './routes';
@@ -42,20 +42,215 @@ export function projectIntro() {
 }
 
 /**
- * The projects focus the camera is riding (CameraRig eases it along the
- * helix towards the page's, so a jump of a screen or more orbits the
- * spiral instead of cutting a chord across it), -1 while it has none
+ * The projects focus the camera is riding (CameraRig moves it along the
+ * helix towards the page's with stepRide, so a jump of a screen or more
+ * orbits the spiral instead of cutting a chord across it), -1 while it has
+ * none, and the camera's angle round the helix there
  */
 let ridden = -1;
+let riddenAngle = 0;
 
 /** CameraRig hands over where it is on the ride each frame (-1 off it) */
-export function rideProjectFocus(focus: number) {
+export function rideProjectFocus(focus: number, angle = focus * helix.turn) {
   ridden = focus;
+  riddenAngle = angle;
 }
 
 /** Where the page has the projects ride: settled on each screen, 0 off the page */
 export const pageProjectFocus = () =>
   settleFocus(MathUtils.clamp(worldStore.projectFocus, 0, helix.screens - 1));
+
+/**
+ * The ridden projects focus (CameraRig keeps one and steps it each frame).
+ * It passes the page's straight through while that moves a little at a
+ * time (the scroll runway), and hops when it jumps (prev / next on a project
+ * page, a modal opening another project, the index, End on the runway).
+ * A hop moves two things together: the focus (which screen's height the
+ * camera is at) and the camera's angle round the helix, which takes the
+ * short way round, so even a hop the length of the helix turns the view
+ * half a turn at most.
+ */
+export interface Ride {
+  /** Focus ridden (fractional project index); -1 when there is nothing to ride (off the projects pages) */
+  value: number;
+  /** The camera's angle round the helix (radians), `value` × helix.turn give or take whole turns */
+  angle: number;
+  hopping: boolean;
+  start: number;
+  duration: number;
+  /** Where the hop set off from, focus and angle: its length sets how long it takes */
+  origin: number;
+  angleOrigin: number;
+  /**
+   * Each of the hop's channels runs from → to, setting off at `speed` (focus
+   * per second) or `spin` (radians per second): a hop that changes course
+   * carries on at the speed it had (0 from rest)
+   */
+  from: number;
+  to: number;
+  speed: number;
+  angleFrom: number;
+  angleTo: number;
+  spin: number;
+  /** The ride crosses a screen or more: it sounded as it set off, and locks on as it lands */
+  long: boolean;
+}
+
+export const createRide = (): Ride => ({
+  value: -1,
+  angle: 0,
+  hopping: false,
+  start: 0,
+  duration: 0,
+  origin: 0,
+  angleOrigin: 0,
+  from: 0,
+  to: 0,
+  speed: 0,
+  angleFrom: 0,
+  angleTo: 0,
+  spin: 0,
+  long: false,
+});
+
+/**
+ * Jumps smaller than this in a 60th of a second pass straight through, so
+ * the runway is as responsive as ever. Scaled to the frame's length: per
+ * frame alone, at 120Hz a glide across three screens never hopped, and the
+ * camera chased it through the helix
+ */
+const rideJump = 0.5;
+/**
+ * Fastest a hop turns the view round the helix (radians per second, at the
+ * peak of its ease); flights peak a little under it. Hops were timed by
+ * their length alone, so the length of the helix spun the view 1.7 times
+ * round at up to 700° a second
+ */
+const rideTurnRate = 2.4;
+
+/** Shortest signed angle (radians) */
+const wrapAngle = (angle: number) =>
+  MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
+
+/** smootherstep: 0 to 1, setting off and arriving at rest */
+const ease = (u: number) => u * u * u * (u * (u * 6 - 15) + 10);
+const easeRate = (u: number) => 30 * u * u * (1 - u) * (1 - u);
+/** Sets off at unit speed and comes back to rest where it started: carries a speed into a hop */
+const carry = (u: number) => u * (1 - u) ** 3 * (1 + 3 * u);
+const carryRate = (u: number) => (1 - u) ** 2 * (1 + 2 * u - 15 * u * u);
+
+/** How long a hop of `span` screens turning `turn` radians takes (s): smootherstep peaks at 1.875 times its mean speed */
+const hopDuration = (span: number, turn: number) =>
+  Math.max(MathUtils.clamp(0.8 + 0.12 * span, 0.8, 2.2), (1.875 * Math.abs(turn)) / rideTurnRate);
+
+/** Where the hop under way has the ride at `u` (0..1 through it) */
+function hopAt(ride: Ride, u: number) {
+  const d = ride.duration;
+  ride.value = MathUtils.clamp(
+    ride.from + (ride.to - ride.from) * ease(u) + ride.speed * d * carry(u),
+    0,
+    helix.screens - 1
+  );
+  ride.angle =
+    ride.angleFrom + (ride.angleTo - ride.angleFrom) * ease(u) + ride.spin * d * carry(u);
+}
+
+/** A hop from where the ride is to `goal`, setting off at `speed` / `spin` */
+function setOff(ride: Ride, goal: number, t: number, speed: number, spin: number) {
+  ride.hopping = true;
+  ride.start = t;
+  ride.origin = ride.from = ride.value;
+  ride.angleOrigin = ride.angleFrom = ride.angle;
+  ride.to = goal;
+  ride.angleTo = ride.angle + wrapAngle(goal * helix.turn - ride.angle);
+  ride.speed = speed;
+  ride.spin = spin;
+  ride.duration = hopDuration(Math.abs(goal - ride.value), ride.angleTo - ride.angle);
+}
+
+/**
+ * The page's focus moved mid-hop. While the hop is still setting off, a
+ * goal that races on (the page gliding there: the index, a screen click)
+ * or drifts re-aims the same hop, re-based so it carries on from where it
+ * is: restarted from rest every frame of the glide, it barely moved until
+ * the page stopped, and sounded on every frame. Later, a drift is
+ * followed; a new jump (back the other way, or on again as it slows) sets
+ * off afresh from where it has got to, at the speed it had. Either way it
+ * is one ride for the ear
+ */
+function retarget(ride: Ride, goal: number, t: number, jump: number) {
+  const u = (t - ride.start) / ride.duration;
+  const drift = Math.abs(goal - ride.to) < jump;
+  const onward = Math.sign(goal - ride.to) === Math.sign(ride.to - ride.origin);
+  if (u < 0.5 && (drift || onward)) {
+    const angleTo = ride.angle + wrapAngle(goal * helix.turn - ride.angle);
+    ride.duration = Math.max(
+      ride.duration,
+      hopDuration(Math.abs(goal - ride.origin), angleTo - ride.angleOrigin)
+    );
+    const at = (t - ride.start) / ride.duration;
+    const eased = ease(at);
+    const carried = carry(at) * ride.duration;
+    ride.from = (ride.value - goal * eased - ride.speed * carried) / (1 - eased);
+    ride.angleFrom = (ride.angle - angleTo * eased - ride.spin * carried) / (1 - eased);
+    ride.to = goal;
+    ride.angleTo = angleTo;
+  } else if (drift) {
+    ride.angleTo += (goal - ride.to) * helix.turn;
+    ride.to = goal;
+  } else {
+    const d = ride.duration;
+    const speed = ((ride.to - ride.from) * easeRate(u)) / d + ride.speed * carryRate(u);
+    const spin = ((ride.angleTo - ride.angleFrom) * easeRate(u)) / d + ride.spin * carryRate(u);
+    setOff(ride, goal, t, speed, spin);
+  }
+  if (!ride.long && Math.abs(goal - ride.origin) >= 1) {
+    ride.long = true;
+    emitCue('select');
+  }
+}
+
+/**
+ * Moves the ride towards `goal` (the page's focus, -1 off the projects
+ * pages) at clock time `t`, `dt` after the last frame: straight through
+ * while it moves less than `rideJump` at a time, else a hop of 0.8 to 2.2s
+ * depending on its length (longer if it would turn the view faster than
+ * `rideTurnRate`). A ride over a screen or more sounds once as it sets off
+ * ('select') and once as it lands ('hud-lock'). Cuts when the camera does
+ * (`snap`)
+ */
+export function stepRide(ride: Ride, goal: number, t: number, dt: number, snap: boolean) {
+  if (snap || goal < 0 || ride.value < 0) {
+    ride.value = goal;
+    ride.angle = goal * helix.turn;
+    ride.hopping = false;
+    return;
+  }
+  if (ride.hopping) {
+    const u = (t - ride.start) / ride.duration;
+    if (u < 1) hopAt(ride, u);
+    else {
+      ride.value = ride.to;
+      ride.angle = ride.angleTo;
+      ride.hopping = false;
+      if (ride.long) emitCue('hud-lock');
+    }
+  }
+  const jump = rideJump * Math.min(1, dt * 60);
+  if (ride.hopping) {
+    if (goal !== ride.to) {
+      retarget(ride, goal, t, jump);
+      hopAt(ride, (t - ride.start) / ride.duration);
+    }
+  } else if (Math.abs(goal - ride.value) < jump) {
+    ride.value = goal;
+    ride.angle = goal * helix.turn;
+  } else {
+    setOff(ride, goal, t, 0, 0);
+    ride.long = Math.abs(goal - ride.origin) >= 1;
+    if (ride.long) emitCue('select');
+  }
+}
 
 /**
  * The project the camera is in front of on the ride (fractional): the
@@ -405,7 +600,7 @@ export function stationCamera(
       // it), screen centred. A project page sits the screen beside its copy
       // instead, further back
       const focus = riddenProjectFocus();
-      const angle = focus * helix.turn;
+      const angle = ridden >= 0 ? riddenAngle : focus * helix.turn;
       const aside = reading && worldStore.projectAside;
       const back = aside ? asideDistance : 1;
       // Past the last project it descends with the page, a viewport height
