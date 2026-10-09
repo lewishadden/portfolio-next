@@ -235,10 +235,12 @@ const patchFrom = 0.15;
 /**
  * A pod's patch tilts upright and grows as the pod lights (eased with the
  * pod's own swell), sewn on crooked as the page's are until it is lit; it
- * isn't drawn below `patchFrom`
+ * isn't drawn below `patchFrom`. `patch` is a drei Billboard: the group
+ * inside it is turned to face the camera every frame, so the tilt goes on
+ * the plane within that (two levels down), relative to the camera
  */
 function showPatch(patch: Object3D | undefined, lit: number, ready: boolean) {
-  const plane = patch?.children[0];
+  const plane = patch?.children[0]?.children[0];
   if (!patch || !plane) return;
   patch.visible = ready && lit >= patchFrom;
   if (!patch.visible) return;
