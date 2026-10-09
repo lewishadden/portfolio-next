@@ -1,4 +1,6 @@
+@use 'sass:list';
 @use '../../app/motion' as *;
+@use '../../app/stars' as *;
 
 .world {
   position: fixed;
@@ -39,6 +41,47 @@
         color-mix(in oklab, var(--bg-primary) 40%, transparent),
         transparent 30%
       );
+  }
+}
+
+/* The world off, or no JavaScript (nothing says the world will run): a
+   still sky in its place behind the 2D station renders, the loading
+   screen's stars over a faint nebula drifting through the right of the
+   view, where the render floats */
+html:not([data-world-expected]),
+html[data-world='off'] {
+  .world__backdrop {
+    --star: color-mix(in oklab, var(--text-primary) 60%, transparent);
+    --nebula-a: rgba(139, 92, 246, 0.16);
+    --nebula-b: rgba(34, 211, 238, 0.08);
+    --nebula-c: rgba(244, 114, 182, 0.07);
+
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+    }
+
+    &::before {
+      background:
+        radial-gradient(ellipse 38% 30% at 74% 28%, var(--nebula-a), transparent 70%),
+        radial-gradient(ellipse 26% 42% at 90% 64%, var(--nebula-b), transparent 70%),
+        radial-gradient(ellipse 55% 20% at 42% 88%, var(--nebula-c), transparent 70%);
+    }
+
+    &::after {
+      background-image: list.join(star-tile(14, 260), star-tile(20, 430), comma);
+      background-size: list.join(tile-sizes(14, 260px), tile-sizes(20, 430px), comma);
+      opacity: 0.75;
+    }
+  }
+
+  &[data-theme='light'] .world__backdrop {
+    --star: color-mix(in oklab, var(--accent-primary) 32%, transparent);
+    --nebula-a: rgba(167, 139, 250, 0.24);
+    --nebula-b: rgba(103, 232, 249, 0.2);
+    --nebula-c: rgba(244, 114, 182, 0.1);
   }
 }
 

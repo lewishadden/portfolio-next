@@ -61,6 +61,26 @@ test('free roam is a few tab stops in, not after the whole page', async ({ page 
   await expect(roam).toBeFocused();
 });
 
+test('with the world switched off, a still sky and 2D renders stand in for it', async ({
+  page,
+}) => {
+  for (const path of ['/skills', '/projects/drive-king']) {
+    await openHydrated(page, path);
+    await expect(page.locator('html')).toHaveAttribute('data-world', 'off');
+    await expect(page.locator('.station-fallback')).toBeVisible();
+  }
+  const stars = await page
+    .locator('.world__backdrop')
+    .evaluate((el) => getComputedStyle(el, '::after').backgroundImage);
+  expect(stars).toContain('radial-gradient');
+
+  // The corner button says what it does now: it turns the world back on
+  const turnOn = page.getByRole('button', { name: 'Turn on 3D' });
+  await turnOn.click();
+  await expect(page.locator('html')).toHaveAttribute('data-world', 'on');
+  await expect(page.getByRole('button', { name: 'Free roam' })).toBeVisible();
+});
+
 test.describe('3D effects toggle', () => {
   // Reduced motion renders on demand, so software WebGL isn't redrawing all the time
   test.use({ world: 'on', reducedMotion: 'reduce' });

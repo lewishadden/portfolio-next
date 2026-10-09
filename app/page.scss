@@ -432,6 +432,23 @@ body {
     width: min(62vw, 17rem);
     margin-left: min(-31vw, -8.5rem);
   }
+
+  /* A project page's breadcrumb comes first: the render sits below it
+     (clear of it at the top of its float), inside the room the page head
+     leaves (smaller, so it fits on short screens too) */
+  [data-world='off'] .project-page .station-fallback {
+    --fallback-size: min(52vw, 14rem, 26svh);
+
+    top: calc(var(--header-h) + clamp(3rem, 9vh, 6.5rem) + 2.75rem);
+    width: var(--fallback-size);
+    margin-left: calc(var(--fallback-size) / -2);
+  }
+}
+
+@media (max-width: 640px) {
+  [data-world='off'] .project-page .station-fallback {
+    top: calc(var(--header-h) + 5.25rem);
+  }
 }
 
 /* =============================================================

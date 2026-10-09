@@ -10,6 +10,7 @@ import { Marquee } from 'components/Marquee/Marquee';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 import { useBooted } from 'components/World/boot';
+import { illustrations } from 'components/World/StationFallback';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
 
@@ -274,6 +275,7 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
         title="Tech"
         accent="stack"
         sub={tagline}
+        illustration={illustrations.terminal}
       >
         <Reveal as="ul" className="skills__stats" delay={0.24} aria-label="At a glance">
           <li className="skills__stat">
