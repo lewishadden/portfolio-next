@@ -41,6 +41,30 @@ export function projectIntro() {
   return MathUtils.smoothstep(worldStore.projectIntro, 0, 1);
 }
 
+/**
+ * The projects focus the camera is riding (CameraRig eases it along the
+ * helix towards the page's, so a jump of a screen or more orbits the
+ * spiral instead of cutting a chord across it), -1 while it has none
+ */
+let ridden = -1;
+
+/** CameraRig hands over where it is on the ride each frame (-1 off it) */
+export function rideProjectFocus(focus: number) {
+  ridden = focus;
+}
+
+/** Where the page has the projects ride: settled on each screen, 0 off the page */
+export const pageProjectFocus = () =>
+  settleFocus(MathUtils.clamp(worldStore.projectFocus, 0, helix.screens - 1));
+
+/**
+ * The project the camera is in front of on the ride (fractional): the
+ * ridden focus, or the page's when the rig isn't riding. The station's
+ * front screen should follow this rather than the page, so it lights as
+ * the camera arrives
+ */
+export const riddenProjectFocus = () => (ridden >= 0 ? ridden : pageProjectFocus());
+
 /** Wide layouts push the station's hero object to the right of the copy */
 export const isWideViewport = (width: number, height: number) =>
   width >= 900 && width / height > 1.1;
@@ -320,9 +344,10 @@ export function stationCamera(
     }
     case 'projects': {
       // Ride the helix: the camera orbits down the spiral to face the project
-      // the page has scrolled to (worldStore.projectFocus), screen centred.
-      // A project page sits the screen beside its copy instead, further back
-      const focus = settleFocus(MathUtils.clamp(worldStore.projectFocus, 0, helix.screens - 1));
+      // the page has scrolled to (worldStore.projectFocus, as CameraRig rides
+      // it), screen centred. A project page sits the screen beside its copy
+      // instead, further back
+      const focus = riddenProjectFocus();
       const angle = focus * helix.turn;
       const back = worldStore.projectAside ? asideDistance : 1;
       // Past the last project it descends with the page, a viewport height

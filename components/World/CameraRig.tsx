@@ -15,9 +15,16 @@ import {
 } from './flight';
 import { isBooted } from './boot';
 import { applyShake } from './shake';
-import { baseFov, stationCamera, stationKeys, stationPositions } from './stations';
+import {
+  baseFov,
+  pageProjectFocus,
+  rideProjectFocus,
+  stationCamera,
+  stationKeys,
+  stationPositions,
+} from './stations';
 import { worldMode } from './worldMode';
-import { emitFlight, worldStore } from './worldStore';
+import { emitCue, emitFlight, worldStore } from './worldStore';
 
 import type { MotionLevel } from '@/utils/motion';
 import type { Flight, FlightView } from './flight';
@@ -63,7 +70,29 @@ interface RigState {
   arrivedAt: number;
   /** The station the route preview was last planned to ('' for none) */
   preview: string;
+  ride: Ride;
 }
+
+/**
+ * The projects focus the camera rides (stations.ts reads it): it passes
+ * the page's straight through while that moves a little at a time (the
+ * scroll runway), and hops along the helix when it jumps (prev / next on a
+ * project page, a modal opening another project, End on the runway)
+ */
+interface Ride {
+  /** -1 when there is nothing to ride (off the projects pages) */
+  value: number;
+  hopping: boolean;
+  from: number;
+  to: number;
+  start: number;
+  duration: number;
+  /** The hop crosses a screen or more: it sounded on the way and locks on arrival */
+  long: boolean;
+}
+
+/** Jumps smaller than this pass straight through, so the runway is as responsive as ever */
+const rideJump = 0.5;
 
 /**
  * Flies the camera to the active station along a planned path, then follows
@@ -89,6 +118,7 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     velocity: new Vector3(),
     arrivedAt: 0,
     preview: '',
+    ride: { value: -1, hopping: false, from: 0, to: 0, start: 0, duration: 0, long: false },
   });
 
   useFrame(({ camera, clock, size, frameloop, invalidate }, delta) => {
@@ -132,6 +162,9 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       easing.damp(rig, 'screens', screensTarget, 0.14, dt);
     }
 
+    // The projects ride: off it, nothing to ride
+    const ridingTo = worldStore.projectFocus < 0 ? -1 : pageProjectFocus();
+    rideProjectFocus(stepRide(rig.ride, ridingTo, t, snap));
     stationCamera(station, rig.progress, rig.screens, size.width, size.height, target, look);
     origin.fromArray(stationPositions[station]);
     target.add(origin);
@@ -335,6 +368,49 @@ function planPreview(rig: RigState, cam: PerspectiveCamera, width: number, heigh
   const path = new Float32Array(26 * 3);
   for (let i = 0; i <= 25; i++) toPoint.copy(plan.curve.getPointAt(i / 25)).toArray(path, i * 3);
   worldStore.previewPath = path;
+}
+
+/**
+ * Moves the ridden projects focus towards `goal` (-1 off the projects
+ * pages): straight through while it moves less than `rideJump` at a time,
+ * else a hop along the helix, smootherstep over 0.8 to 2.2s depending on
+ * its length. Hops over a screen or more sound as they set off ('select')
+ * and as they lock on ('hud-lock'). Cuts at reduced motion
+ */
+function stepRide(ride: Ride, goal: number, t: number, snap: boolean) {
+  if (snap || goal < 0 || ride.value < 0) {
+    ride.value = goal;
+    ride.hopping = false;
+    return ride.value;
+  }
+  if (ride.hopping && Math.abs(goal - ride.to) >= rideJump) {
+    // Jumped again mid-hop: a fresh hop from where it has got to
+    ride.hopping = false;
+  }
+  if (!ride.hopping) {
+    if (Math.abs(goal - ride.value) < rideJump) {
+      ride.value = goal;
+      return ride.value;
+    }
+    const span = Math.abs(goal - ride.value);
+    ride.hopping = true;
+    ride.from = ride.value;
+    ride.start = t;
+    ride.duration = MathUtils.clamp(0.8 + 0.12 * span, 0.8, 2.2);
+    ride.long = span >= 1;
+    if (ride.long) emitCue('select');
+  }
+  // A goal that drifts a little while hopping (the runway still settling) is followed
+  ride.to = goal;
+  const s = (t - ride.start) / ride.duration;
+  if (s >= 1) {
+    ride.value = ride.to;
+    ride.hopping = false;
+    if (ride.long) emitCue('hud-lock');
+    return ride.value;
+  }
+  ride.value = MathUtils.lerp(ride.from, ride.to, smootherstep(s));
+  return ride.value;
 }
 
 /** Publishes the camera's position and heading for the radar */
