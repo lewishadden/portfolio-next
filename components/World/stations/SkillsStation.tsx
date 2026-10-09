@@ -175,12 +175,14 @@ const buildMaterials = (p: WorldPalette) => ({
 /* ------------------------------------------------------------------
    Skill badges. Every icon is drawn once into one atlas (one texture,
    uploaded through queueUpload once its images have all decoded), and
-   every badge is an instance of one mesh: a quad turned to face the
+   every badge is an instance of one material: a quad turned to face the
    camera, whose disc, gradient ring and monochrome icons are coloured by
    uniforms, so a theme change recolours them without redrawing anything.
-   The mesh mounts with the station (so its Precompiled pass compiles it)
-   on a 1×1 placeholder, and the icons fade in once the atlas is up. One
-   draw, where there was a sprite (and a texture upload) per skill.
+   Two instanced meshes share it, the badges beyond the giant's centre and
+   the rest, so the giant's ring and atmosphere draw between them. The
+   meshes mount with the station (so its Precompiled pass compiles them)
+   on a 1×1 placeholder, and the icons fade in once the atlas is up. Two
+   draws, where there was a sprite (and a texture upload) per skill.
    ------------------------------------------------------------------ */
 
 /** Atlas cell size in px, and cells per row */
@@ -485,8 +487,10 @@ interface BadgeState {
   alpha: Float32Array;
   depth: Float32Array;
   local: Float32Array;
-  /** Draw order, back to front: instance slot → badge */
+  /** Draw order, back to front: slot → badge */
   order: Int32Array;
+  /** Slots before this are beyond the giant's centre (the far mesh's), the rest nearer (the near mesh's) */
+  split: number;
   /** How far the icons have faded in, 0..1 */
   icons: number;
 }
@@ -507,6 +511,7 @@ function badgeStateFor(ref: { current: BadgeState | null }, count: number) {
       depth: new Float32Array(count),
       local: new Float32Array(count * 3),
       order: Int32Array.from({ length: count }, (_, i) => i),
+      split: 0,
       icons: 0,
     };
   }
@@ -529,6 +534,7 @@ function inkBadges(material: ShaderMaterial, atlas: BadgeAtlas | null, icons: nu
 
 const badgePoint = new Vector3();
 const badgeView = new Vector3();
+const badgesCentre = new Vector3();
 const badgeScale = new Vector3();
 const badgeMatrix = new Matrix4();
 const orbitMatrix = new Matrix4();
@@ -553,16 +559,19 @@ function clearOfCopy(ndc: Vector3) {
  * slots are re-sorted every frame, so a hovered slot can come to hold
  * another badge with no out or over. The raycast rewrites each hit's slot
  * to its badge instead: hover follows badges, firing out and over exactly
- * when the badge under the pointer changes, whatever the sort does
+ * when the badge under the pointer changes, whatever the sort does. The
+ * near mesh's instances start at the split in the draw order
  */
-function badgeRaycast(state: { current: BadgeState | null }) {
+function badgeRaycast(state: { current: BadgeState | null }, near: boolean) {
   return function (this: InstancedMesh, raycaster: Raycaster, intersects: Intersection[]) {
     const from = intersects.length;
     InstancedMesh.prototype.raycast.call(this, raycaster, intersects);
-    const order = state.current?.order;
+    const badges = state.current;
+    if (!badges) return;
+    const offset = near ? badges.split : 0;
     for (let i = from; i < intersects.length; i++) {
       const slot = intersects[i].instanceId;
-      if (slot !== undefined && order) intersects[i].instanceId = order[slot];
+      if (slot !== undefined) intersects[i].instanceId = badges.order[offset + slot];
     }
   };
 }
@@ -581,26 +590,70 @@ function sortBackToFront(order: Int32Array, depth: Float32Array) {
 }
 
 /**
+ * Writes draw slots `from`..`to` into a badge mesh, in order, and moves its
+ * sort point (its bounding sphere's centre) to the middle of those badges:
+ * three sorts transparent objects by that point, so the mesh draws where
+ * its badges are, as the badges' own sprites were sorted. The sphere still
+ * holds every badge, for the raycast's first test
+ */
+function writeBadges(
+  mesh: InstancedMesh,
+  from: number,
+  to: number,
+  state: BadgeState,
+  atlas: BadgeAtlas | null,
+  reach: number
+) {
+  const geometry = mesh.geometry;
+  const cells = geometry.getAttribute('aCell') as InstancedBufferAttribute;
+  const mono = geometry.getAttribute('aMono') as InstancedBufferAttribute;
+  const alpha = geometry.getAttribute('aAlpha') as InstancedBufferAttribute;
+  badgesCentre.set(0, 0, 0);
+  for (let slot = from; slot < to; slot++) {
+    const i = state.order[slot];
+    const instance = slot - from;
+    badgePoint.fromArray(state.local, i * 3);
+    badgesCentre.add(badgePoint);
+    badgeScale.setScalar(state.scale[i]);
+    mesh.setMatrixAt(instance, badgeMatrix.compose(badgePoint, facing, badgeScale));
+    cells.setX(instance, i);
+    mono.setX(instance, atlas?.mono[i] ?? 1);
+    alpha.setX(instance, state.alpha[i]);
+  }
+  mesh.count = to - from;
+  if (to > from) badgesCentre.divideScalar(to - from);
+  mesh.boundingSphere ??= new Sphere();
+  mesh.boundingSphere.center.copy(badgesCentre);
+  mesh.boundingSphere.radius = reach + badgesCentre.length();
+  mesh.instanceMatrix.needsUpdate = true;
+  cells.needsUpdate = mono.needsUpdate = alpha.needsUpdate = true;
+}
+
+/**
  * Places every badge round its orbit (as its spinner has turned), facing
- * the camera, and writes them into the instanced mesh back to front, as
- * transparent sprites were sorted. The badges respond to the page as well
- * as the pointer: the skill a tile is hovered or focused for
- * (worldStore.skillHover) swells like a hovered badge, and badges outside
- * the category being read (worldStore.skillCategory) dim
+ * the camera, and writes them into the instanced meshes back to front, as
+ * transparent sprites were sorted. Badges beyond the giant's centre go in
+ * the far mesh and the rest in the near one, so the giant's ring and
+ * atmosphere (which three sorts at that centre) draw between them: over
+ * the badges behind the giant, under those in front. The badges respond to
+ * the page as well as the pointer: the skill a tile is hovered or focused
+ * for (worldStore.skillHover) swells like a hovered badge, and badges
+ * outside the category being read (worldStore.skillCategory) dim
  */
 function placeBadges(
-  mesh: InstancedMesh,
+  [far, near]: [InstancedMesh, InstancedMesh],
   badges: Badge[],
   state: BadgeState,
   atlas: BadgeAtlas | null,
   spinners: Object3D[],
   named: string,
   camera: Camera,
+  reach: number,
   dt: number
 ) {
   const reading = worldStore.skillCategory;
-  // The camera's orientation in the mesh's frame: every badge faces it
-  mesh.parent?.getWorldQuaternion(facing).invert().multiply(camera.quaternion);
+  // The camera's orientation in the meshes' frame (they share it): every badge faces it
+  far.parent?.getWorldQuaternion(facing).invert().multiply(camera.quaternion);
   for (let i = 0; i < badges.length; i++) {
     const badge = badges[i];
     const spinner = spinners[badge.orbit];
@@ -610,7 +663,7 @@ function placeBadges(
       .set(Math.cos(badge.angle) * badge.radius, 0, Math.sin(badge.angle) * badge.radius)
       .applyMatrix4(orbitMatrix);
     badgePoint.toArray(state.local, i * 3);
-    badgeView.copy(badgePoint).applyMatrix4(mesh.matrixWorld);
+    badgeView.copy(badgePoint).applyMatrix4(far.matrixWorld);
     badgePoint.copy(badgeView).applyMatrix4(camera.matrixWorldInverse);
     state.depth[i] = badgePoint.z;
     const pointed = badge.name === named;
@@ -621,21 +674,15 @@ function placeBadges(
     state.alpha[i] = MathUtils.damp(state.alpha[i], dim * clear, 8, dt);
   }
   sortBackToFront(state.order, state.depth);
-  const geometry = mesh.geometry;
-  const cells = geometry.getAttribute('aCell') as InstancedBufferAttribute;
-  const mono = geometry.getAttribute('aMono') as InstancedBufferAttribute;
-  const alpha = geometry.getAttribute('aAlpha') as InstancedBufferAttribute;
-  for (let slot = 0; slot < badges.length; slot++) {
-    const i = state.order[slot];
-    badgePoint.fromArray(state.local, i * 3);
-    badgeScale.setScalar(state.scale[i]);
-    mesh.setMatrixAt(slot, badgeMatrix.compose(badgePoint, facing, badgeScale));
-    cells.setX(slot, i);
-    mono.setX(slot, atlas?.mono[i] ?? 1);
-    alpha.setX(slot, state.alpha[i]);
-  }
-  mesh.instanceMatrix.needsUpdate = true;
-  cells.needsUpdate = mono.needsUpdate = alpha.needsUpdate = true;
+  // The giant's centre (the meshes' origin) in view depth: farther badges sort first
+  const centre = badgePoint
+    .setFromMatrixPosition(far.matrixWorld)
+    .applyMatrix4(camera.matrixWorldInverse).z;
+  let split = 0;
+  while (split < badges.length && state.depth[state.order[split]] < centre) split += 1;
+  state.split = split;
+  writeBadges(far, 0, split, state, atlas, reach);
+  writeBadges(near, split, badges.length, state, atlas, reach);
 }
 
 /**
@@ -796,7 +843,9 @@ export function SkillsStation({
   const planetRef = useRef<Group>(null);
   const orbitsRef = useRef<Group>(null);
   const outpostRef = useRef<Group>(null);
-  const badgesRef = useRef<InstancedMesh>(null);
+  /** The badges beyond the giant's centre, and the rest (see placeBadges) */
+  const farBadgesRef = useRef<InstancedMesh>(null);
+  const nearBadgesRef = useRef<InstancedMesh>(null);
   /** The badge under the pointer (-1 for none) */
   const hoveredRef = useRef({ badge: -1 });
   const materials = useThemedMaterials(buildMaterials, theme, 'skills');
@@ -857,26 +906,28 @@ export function SkillsStation({
   /** When the last showcase began (clock time) */
   const showRef = useRef({ at: -Infinity });
   useShowcase(planetRef, showRef);
+  // Per-instance attributes for each badge mesh (each can hold every badge)
   const badgeAttributes = useMemo(() => {
     const attribute = () => {
       const buffer = new InstancedBufferAttribute(new Float32Array(badges.length), 1);
       buffer.setUsage(DynamicDrawUsage);
       return buffer;
     };
-    return { cell: attribute(), mono: attribute(), alpha: attribute() };
+    const set = () => ({ cell: attribute(), mono: attribute(), alpha: attribute() });
+    return [set(), set()];
   }, [badges.length]);
   const atlasRef = useBadgeAtlas(badges);
+  /** How far from the giant's centre any badge can be */
+  const reach = useMemo(() => Math.max(...orbits.map((orbit) => orbit.radius), 1) + 1, [orbits]);
 
-  // Badges orbit inside this sphere (the raycast's first test; it never needs recomputing),
-  // and a hit names its badge rather than its draw slot
+  // A hit names its badge rather than its draw slot
   useEffect(() => {
-    const mesh = badgesRef.current;
-    if (!mesh) return;
-    mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    const reach = Math.max(...orbits.map((orbit) => orbit.radius), 1) + 1;
-    mesh.boundingSphere = new Sphere(new Vector3(), reach);
-    mesh.raycast = badgeRaycast(badgeState);
-  }, [orbits, badges.length]);
+    [farBadgesRef.current, nearBadgesRef.current].forEach((mesh, near) => {
+      if (!mesh) return;
+      mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+      mesh.raycast = badgeRaycast(badgeState, near === 1);
+    });
+  }, [badges.length]);
 
   const lines = useMemo(() => {
     const dark = theme === 'dark';
@@ -950,16 +1001,53 @@ export function SkillsStation({
       stepOrbit(orbitGroup, lit, flare, camera, t, dt);
     });
 
-    const mesh = badgesRef.current;
+    const far = farBadgesRef.current;
+    const near = nearBadgesRef.current;
     const state = badgeStateFor(badgeState, badges.length);
     const atlas = atlasRef.current;
-    if (mesh) placeBadges(mesh, badges, state, atlas, spinners, named, camera, dt);
+    if (far && near) {
+      placeBadges([far, near], badges, state, atlas, spinners, named, camera, reach, dt);
+    }
     inkBadges(materials.badges, atlas, fadeIcons(state, atlas, dt));
   });
 
   // The badge a hit names (badgeRaycast puts the badge, not its draw slot, in instanceId)
   const badgeAt = (e: ThreeEvent<PointerEvent | MouseEvent>) =>
     e.instanceId !== undefined && e.instanceId < badges.length ? e.instanceId : -1;
+
+  // Hover and click, shared by both badge meshes (a hit's instanceId is its badge)
+  const badgeHandlers = {
+    onPointerOver: (e: ThreeEvent<PointerEvent>) => {
+      e.stopPropagation();
+      const badge = badgeAt(e);
+      const hovered = hoveredRef.current;
+      if (badge < 0 || hovered.badge === badge) return;
+      if (hovered.badge >= 0) setWorldHover(false);
+      hovered.badge = badge;
+      setWorldHover(true);
+      worldTip.set(tips.get(badges[badge].name) ?? null);
+      invalidate();
+    },
+    onPointerOut: (e: ThreeEvent<PointerEvent>) => {
+      // Only when the pointer leaves the badge hovered
+      const hovered = hoveredRef.current;
+      if (hovered.badge < 0 || badgeAt(e) !== hovered.badge) return;
+      const tip = tips.get(badges[hovered.badge].name);
+      hovered.badge = -1;
+      setWorldHover(false);
+      if (worldTip.get() === tip) worldTip.set(null);
+      invalidate();
+    },
+    onClick: (e: ThreeEvent<MouseEvent>) => {
+      e.stopPropagation();
+      const badge = badgeAt(e);
+      if (badge < 0) return;
+      spawnPing(e.point);
+      // At `still` the world draws on demand: keep drawing while the ping plays
+      if (motionLevel() === 'still') repaintFor(invalidate, 1000);
+      focusOnPage(`skill:${badges[badge].name}`);
+    },
+  };
 
   return (
     <StationScope station="skills">
@@ -1008,50 +1096,26 @@ export function SkillsStation({
               </group>
             </group>
           ))}
-          {/* Every badge, in one draw; placed each frame round its orbit, facing the camera */}
-          <instancedMesh
-            key={badges.length}
-            ref={badgesRef}
-            args={[undefined, undefined, badges.length]}
-            material={materials.badges}
-            frustumCulled={false}
-            onPointerOver={(e) => {
-              e.stopPropagation();
-              const badge = badgeAt(e);
-              const hovered = hoveredRef.current;
-              if (badge < 0 || hovered.badge === badge) return;
-              if (hovered.badge >= 0) setWorldHover(false);
-              hovered.badge = badge;
-              setWorldHover(true);
-              worldTip.set(tips.get(badges[badge].name) ?? null);
-              invalidate();
-            }}
-            onPointerOut={(e) => {
-              // Only when the pointer leaves the badge hovered
-              const hovered = hoveredRef.current;
-              if (hovered.badge < 0 || badgeAt(e) !== hovered.badge) return;
-              const tip = tips.get(badges[hovered.badge].name);
-              hovered.badge = -1;
-              setWorldHover(false);
-              if (worldTip.get() === tip) worldTip.set(null);
-              invalidate();
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              const badge = badgeAt(e);
-              if (badge < 0) return;
-              spawnPing(e.point);
-              // At `still` the world draws on demand: keep drawing while the ping plays
-              if (motionLevel() === 'still') repaintFor(invalidate, 1000);
-              focusOnPage(`skill:${badges[badge].name}`);
-            }}
-          >
-            <planeGeometry>
-              <primitive object={badgeAttributes.cell} attach="attributes-aCell" />
-              <primitive object={badgeAttributes.mono} attach="attributes-aMono" />
-              <primitive object={badgeAttributes.alpha} attach="attributes-aAlpha" />
-            </planeGeometry>
-          </instancedMesh>
+          {/*
+            Every badge, in two draws (those beyond the giant's centre, then
+            the rest); placed each frame round its orbit, facing the camera
+          */}
+          {badgeAttributes.map((attributes, near) => (
+            <instancedMesh
+              key={`${near}-${badges.length}`}
+              ref={near ? nearBadgesRef : farBadgesRef}
+              args={[undefined, undefined, badges.length]}
+              material={materials.badges}
+              frustumCulled={false}
+              {...badgeHandlers}
+            >
+              <planeGeometry>
+                <primitive object={attributes.cell} attach="attributes-aCell" />
+                <primitive object={attributes.mono} attach="attributes-aMono" />
+                <primitive object={attributes.alpha} attach="attributes-aAlpha" />
+              </planeGeometry>
+            </instancedMesh>
+          ))}
         </group>
       </group>
     </StationScope>
