@@ -5,16 +5,21 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import { easing } from 'maath';
 import {
+  Box2,
   CanvasTexture,
   Color,
+  DataTexture,
   DoubleSide,
   Group,
+  LinearFilter,
+  LinearMipmapLinearFilter,
   MathUtils,
   ShaderMaterial,
   Shape,
   ShapeGeometry,
   SRGBColorSpace,
   Texture,
+  Vector2,
   Vector4,
 } from 'three';
 
@@ -80,6 +85,12 @@ const maxSharpWidth = 2048;
 const maxSharpLoads = 3;
 /** Longest a crossfade waits for the next shot's sharp copy before using its working copy */
 const sharpWait = 3;
+/**
+ * Rows of a sharp copy uploaded per frame: a 2048-wide full-page capture
+ * (up to 2048 × 5548, ~45MB) goes up as ~22 bands of ~2MB rather than in
+ * one frame
+ */
+const bandRows = 256;
 
 const spineLights: NavLight[] = [
   { position: [0, 5.1, 0], kind: 'white' },
@@ -229,6 +240,59 @@ interface LoadOptions {
   beforeUpload?: () => Promise<void>;
   /** False once nothing wants the shot any more: it is then neither made nor uploaded */
   alive: () => boolean;
+  /** Upload in row bands, a frame each (uploadBanded): for the big sharp copies */
+  banded?: boolean;
+}
+
+const bandRegion = new Box2();
+const bandAt = new Vector2();
+const noData = new Uint8Array(0);
+
+/**
+ * Uploads a decoded shot a band of rows per frame, through the shared
+ * upload queue: one frame allocates the texture with all its mip levels
+ * (texStorage2D, nothing uploaded: `dataReady` false), then each band is
+ * copied in on a frame of its own (texSubImage2D of that part of the
+ * bitmap), and the last one builds the mipmaps. A full-page capture's sharp
+ * copy in one upload (plus its mipmaps) held up a frame by far more than a
+ * frame's budget. Null if it was given up on part way
+ */
+async function uploadBanded(gl: WebGLRenderer, bitmap: ImageBitmap, alive: () => boolean) {
+  const { width, height } = bitmap;
+  const texture = new DataTexture(null, width, height);
+  const levels = Math.floor(Math.log2(Math.max(width, height))) + 1;
+  // Declared levels make three allocate the whole chain up front without
+  // generating mipmaps from the empty texture; nothing is read from them
+  texture.mipmaps = Array.from({ length: levels }, (_, level) => ({
+    data: noData,
+    width: Math.max(1, width >> level),
+    height: Math.max(1, height >> level),
+  }));
+  texture.source.dataReady = false;
+  texture.generateMipmaps = false;
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearMipmapLinearFilter;
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  await queueUpload(gl, texture);
+  const source = new Texture(bitmap);
+  for (let top = 0; top < height; top += bandRows) {
+    // Already allocated, so this only books the band its own frame in the queue
+    await queueUpload(gl, texture);
+    if (!alive()) {
+      texture.dispose();
+      return null;
+    }
+    const rows = Math.min(bandRows, height - top);
+    bandRegion.min.set(0, top);
+    bandRegion.max.set(width, top + rows);
+    bandAt.set(0, top);
+    texture.generateMipmaps = top + rows >= height;
+    gl.copyTextureToTexture(source, texture, bandRegion, bandAt);
+  }
+  texture.generateMipmaps = false;
+  return texture;
 }
 
 /**
@@ -249,20 +313,29 @@ async function loadShot(gl: WebGLRenderer, shot: Shot, width: number, options: L
     ...(shot.width > width && { resizeWidth: width, resizeQuality: 'high' }),
   });
   if (!options.alive()) return null;
+  const fit: Fit = shot.tall
+    ? 'page'
+    : bitmap.width / bitmap.height > logoAspect
+      ? 'logo'
+      : 'whole';
+  const banded =
+    options.banded &&
+    bitmap.height > bandRows * 2 &&
+    bitmap.height <= gl.capabilities.maxTextureSize;
+  await options.beforeUpload?.();
+  if (!options.alive()) return null;
+  if (banded) {
+    const texture = await uploadBanded(gl, bitmap, options.alive);
+    if (texture) texture.userData.fit = fit;
+    return texture;
+  }
   const texture = new Texture(bitmap);
   // Flipped as it was decoded
   texture.flipY = false;
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = 4;
   texture.needsUpdate = true;
-  const fit: Fit = shot.tall
-    ? 'page'
-    : bitmap.width / bitmap.height > logoAspect
-      ? 'logo'
-      : 'whole';
   texture.userData.fit = fit;
-  await options.beforeUpload?.();
-  if (!options.alive()) return null;
   await queueUpload(gl, texture);
   return texture;
 }
@@ -565,7 +638,7 @@ class ScreenShots {
     if (!image || image.width <= shotWidth || this.failed.has(`${i}:${index}`)) return false;
     if (state.sharp.has(index) || state.sharpLoading.has(index)) return false;
     state.sharpLoading.add(index);
-    loadShot(this.gl, image, width, { beforeUpload: landed, alive: this.alive })
+    loadShot(this.gl, image, width, { beforeUpload: landed, alive: this.alive, banded: true })
       .then((texture) => {
         if (!texture) return;
         state.sharpLoading.delete(index);
