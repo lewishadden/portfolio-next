@@ -1,19 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import { easing } from 'maath';
 import {
   Box2,
+  BoxGeometry,
   CanvasTexture,
   Color,
+  CylinderGeometry,
   DataTexture,
   DoubleSide,
   Group,
   LinearFilter,
   LinearMipmapLinearFilter,
   MathUtils,
+  Matrix4,
+  Quaternion,
   ShaderMaterial,
   Shape,
   ShapeGeometry,
@@ -29,7 +33,7 @@ import { iconSvg, useIconCollections } from '../icons';
 import { decodeImage } from '../imageDecoder';
 import { projectRideEvent, projectShotEvent } from '../ride';
 import { createHaloMaterial, createRingMaterial } from '../materials';
-import { NavLights, Truss } from '../parts';
+import { NavLights, partMaterials, Truss } from '../parts';
 import { spawnPing } from '../Pings';
 import { StationScope } from '../power';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
@@ -50,7 +54,7 @@ import { worldMode } from '../worldMode';
 import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import type { RefObject } from 'react';
-import type { BufferGeometry, Camera, Mesh, Object3D, WebGLRenderer } from 'three';
+import type { BufferGeometry, Camera, InstancedMesh, Mesh, Object3D, WebGLRenderer } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
@@ -993,6 +997,94 @@ function useHullTimings(groupRef: RefObject<Group | null>, hubRef: RefObject<Gro
   });
 }
 
+/** The yard's truss spine, top to bottom (station-local heights) */
+const spine = { bottom: -11, top: 5 };
+/**
+ * The arms holding the screens out on the spiral: from a collar on the
+ * spine to just behind each screen's centre (radii, world units). Screens
+ * hanging below the spine's foot are held from the foot
+ */
+const arm = { from: 0.22, to: helix.radius - 0.14, radius: 0.035 };
+
+/**
+ * One arm per screen out from the spine, and a joint at each end: two
+ * instanced draws in the truss's material, their matrices set once (the
+ * screens only turn in place, and this group turns with the helix)
+ */
+function ScreenArms({ count }: { count: number }) {
+  const material = partMaterials().dark;
+  const armsRef = useRef<InstancedMesh>(null);
+  const jointsRef = useRef<InstancedMesh>(null);
+  const geometry = useMemo(
+    () => ({
+      // Unit length along +Y, scaled to each arm's length
+      arm: new CylinderGeometry(arm.radius, arm.radius, 1, 6),
+      joint: new BoxGeometry(0.11, 0.11, 0.11),
+    }),
+    []
+  );
+  useEffect(
+    () => () => {
+      geometry.arm.dispose();
+      geometry.joint.dispose();
+    },
+    [geometry]
+  );
+
+  useLayoutEffect(() => {
+    const arms = armsRef.current;
+    const joints = jointsRef.current;
+    if (!arms || !joints) return;
+    const matrix = new Matrix4();
+    const turn = new Quaternion();
+    const start = new Vector3();
+    const end = new Vector3();
+    const along = new Vector3();
+    const middle = new Vector3();
+    const scale = new Vector3();
+    const one = new Vector3(1, 1, 1);
+    const up = new Vector3(0, 1, 0);
+    for (let i = 0; i < count; i++) {
+      const angle = i * helix.turn;
+      const y = helixScreenY(i);
+      const [x, z] = [Math.sin(angle), Math.cos(angle)];
+      start.set(x * arm.from, MathUtils.clamp(y, spine.bottom + 0.2, spine.top), z * arm.from);
+      end.set(x * arm.to, y, z * arm.to);
+      along.subVectors(end, start);
+      const length = along.length();
+      turn.setFromUnitVectors(up, along.divideScalar(length));
+      middle.addVectors(start, end).multiplyScalar(0.5);
+      arms.setMatrixAt(i, matrix.compose(middle, turn, scale.set(1, length, 1)));
+      joints.setMatrixAt(i * 2, matrix.compose(start, turn, one));
+      joints.setMatrixAt(i * 2 + 1, matrix.compose(end, turn, one));
+    }
+    arms.instanceMatrix.needsUpdate = true;
+    joints.instanceMatrix.needsUpdate = true;
+    // Culled by the instances' own bounds, not the unit geometry's
+    arms.computeBoundingSphere();
+    joints.computeBoundingSphere();
+  }, [count]);
+
+  // Not shadow casters: an instanced depth variant would compile on the
+  // first shadow pass rather than with the station
+  return (
+    <>
+      <instancedMesh
+        ref={armsRef}
+        args={[geometry.arm, material, count]}
+        receiveShadow
+        frustumCulled
+      />
+      <instancedMesh
+        ref={jointsRef}
+        args={[geometry.joint, material, count * 2]}
+        receiveShadow
+        frustumCulled
+      />
+    </>
+  );
+}
+
 /** Keeps a screen's page out of bloom, so it shows at its own brightness */
 function ScreenMask({ geometry }: { geometry: BufferGeometry }) {
   const ref = useRef<Mesh>(null);
@@ -1023,6 +1115,7 @@ export function ProjectsStation({
   const invalidate = useThree((s) => s.invalidate);
   const groupRef = useRef<Group>(null);
   const helixRef = useRef<Group>(null);
+  const armsRef = useRef<Group>(null);
   const hubRef = useRef<Group>(null);
   const materials = useThemedMaterials(buildMaterials, theme, 'projects');
   const palette = palettes[theme];
@@ -1233,6 +1326,8 @@ export function ProjectsStation({
       const turnTo = spiral.rotation.y + angleDelta(spiral.rotation.y, angle);
       if (instant) spiral.rotation.y = turnTo;
       else easing.damp(spiral.rotation, 'y', turnTo, 0.35, dt);
+      const arms = armsRef.current;
+      if (arms) arms.rotation.y = spiral.rotation.y;
 
       spiral.children.forEach((screen, i) => {
         const near = front >= 0 ? Math.max(0, 1 - Math.abs(i - front)) * ride : 0;
@@ -1326,8 +1421,13 @@ export function ProjectsStation({
           })}
         </group>
 
+        {/* Arms out to the screens, turning with the helix */}
+        <group ref={armsRef}>
+          <ScreenArms count={screens.length} />
+        </group>
+
         {/* The fabrication yard: its hub on a truss spine, the helix of work orbiting it */}
-        <Truss position={[0, -11, 0]} length={16} size={0.36} />
+        <Truss position={[0, spine.bottom, 0]} length={spine.top - spine.bottom} size={0.36} />
         <NavLights lights={spineLights} />
         <group ref={hubRef}>
           <StationHull station="projects" height={2.7} theme={theme} />
