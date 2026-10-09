@@ -16,7 +16,7 @@ import {
   stationPaths,
 } from './routes';
 import { signals, useFoundSignals } from './signalStore';
-import { SignalCard, SignalCount, SignalDetector } from './SignalsHud';
+import { SignalCard, SignalCount, SignalDetector, useDockOnArrival } from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
 import {
@@ -592,6 +592,8 @@ export function ExploreHud({
   const dock = useSyncExternalStore(onDock, readDock, noDock) as StationKey | '';
   const docking = useSyncExternalStore(onDocking, readDocking, noDock);
   const course = useAutopilot();
+  // A signal's page action sets course for that page's station, to dock on arrival
+  const docksOnArrival = useDockOnArrival();
   const touch = useMediaQuery('(pointer: coarse)');
   // Phones held upright: the thumbsticks fill the bottom, so the autopilot's
   // status and the dock prompt sit under the top bar instead
@@ -663,9 +665,15 @@ export function ExploreHud({
       {course && (
         <div className="explore-hud__autopilot glass" role="status">
           <span className="explore-hud__autopilot-dot" aria-hidden="true" />
-          <span>
-            Autopilot to <b>{courseName(course)}</b>
-          </span>
+          {docksOnArrival && course === docksOnArrival ? (
+            <span>
+              Course set for <b>{stationNames[docksOnArrival].craft}</b> · docking on arrival
+            </span>
+          ) : (
+            <span>
+              Autopilot to <b>{courseName(course)}</b>
+            </span>
+          )}
           <button type="button" className="explore-hud__exit" onClick={() => setAutopilot('')}>
             Take the controls
           </button>
@@ -735,7 +743,7 @@ export function ExploreHud({
         {compact && status}
       </div>
 
-      <SignalCard cv={cv} onPage={onDockRequest} />
+      <SignalCard cv={cv} onDock={onDockRequest} />
       <BoostStatus />
       <HullContact />
       <EdgeWarning />
