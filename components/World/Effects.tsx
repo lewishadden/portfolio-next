@@ -16,8 +16,10 @@ import {
   GrainEffect,
   HighlightRolloffEffect,
   OpticsEffect,
+  ReadingGuardEffect,
   tuneGrade,
   updateOptics,
+  updateReadingGuard,
 } from './optics';
 import { palettes } from './utils';
 import { precompileComposer, useWarmupTask } from './warmup';
@@ -41,6 +43,7 @@ interface Chain {
   bloom: SelectiveBloomEffect;
   optics: OpticsEffect;
   rolloff: HighlightRolloffEffect;
+  guard: ReadingGuardEffect;
   vignette: VignetteEffect;
   grain: GrainEffect;
   passes: EffectPass[];
@@ -98,8 +101,9 @@ function composerReady(ref: { current: EffectComposerImpl | null }) {
  *    while there are some.
  * 2. The optics (optics.ts: the streak blur and fringes at speed, the sun's
  *    shafts), on the bloomed, still unclipped frame; then the tone curve
- *    (highlights roll off and burn towards white instead of clipping) and
- *    the vignette.
+ *    (highlights roll off and burn towards white instead of clipping), the
+ *    reading guard (the world behind the page's copy held to a luminance
+ *    the text reads against) and the vignette.
  * 3. SMAA on the finished image (the renderer itself is not antialiased:
  *    thin rings, trusses and orbit lines shimmered without it), then grain.
  *
@@ -130,6 +134,7 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
     bloom.selection.layer = bloomMaskLayer;
     const optics = new OpticsEffect();
     const rolloff = new HighlightRolloffEffect({ knee: grades.dark.knee });
+    const guard = new ReadingGuardEffect();
     const vignette = new VignetteEffect({ darkness: palettes.dark.vignette, offset: 0.28 });
     const smaa = new SMAAEffect({ preset: SMAAPreset.MEDIUM });
     const grain = new GrainEffect({ amount: grades.dark.grain });
@@ -137,11 +142,12 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
       bloom,
       optics,
       rolloff,
+      guard,
       vignette,
       grain,
       passes: [
         new EffectPass(camera, bloom),
-        new EffectPass(camera, optics, rolloff, vignette),
+        new EffectPass(camera, optics, rolloff, guard, vignette),
         new EffectPass(camera, smaa, grain),
       ],
     };
@@ -153,8 +159,9 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
   useLayoutEffect(() => themeChain(chain, theme), [chain, theme]);
 
   const masking = useMemo(() => ({ bloom: chain.bloom, version: -1 }), [chain]);
-  useFrame(() => {
+  useFrame(({ size }, delta) => {
     followMasks(masking);
+    updateReadingGuard(chain.guard, theme, size, gl.getPixelRatio(), delta);
     updateOptics(chain.optics, camera, {
       fringes: top,
       shafts: top && theme === 'dark',

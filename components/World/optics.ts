@@ -1,10 +1,15 @@
 import { BlendFunction, Effect, EffectAttribute } from 'postprocessing';
-import { MathUtils, Uniform, Vector2, Vector3 } from 'three';
+import { Color, MathUtils, Uniform, Vector2, Vector3, Vector4 } from 'three';
+
+import { motionLevel } from '@/utils/motion';
 
 import { cameraMotion } from './MotionProbe';
 import { sunDirection } from './sky';
+import { worldMode } from './worldMode';
+import { worldStore } from './worldStore';
 
 import type { Camera } from 'three';
+import type { WorldTheme } from './utils';
 
 /* ------------------------------------------------------------------
    The camera's optics, as post-processing effects (see Effects.tsx).
@@ -24,6 +29,14 @@ import type { Camera } from 'three';
 
    GrainEffect: fine animated film grain, even in perceived brightness (it
    also dithers the sky's long gradients).
+
+   ReadingGuardEffect: keeps the page's copy readable over the world.
+   Behind each text block the page marks ([data-reading], measured into
+   worldStore.readingRects), it limits the world's luminance so the text
+   keeps 4.5:1 (3:1 for large text): on the dark sky it caps it, on the
+   light sky it lifts it, scaling RGB so the hue holds, feathered ~40px
+   past each block. It lets go while a flight cruises (no copy on show)
+   and outside page mode.
    ------------------------------------------------------------------ */
 
 const opticsShader = /* glsl */ `
@@ -124,6 +137,54 @@ const grainShader = /* glsl */ `
   }
 `;
 
+/** How many text blocks the guard protects (worldStore.readingRects holds this many) */
+const guardedBlocks = 6;
+
+const readingGuardShader = /* glsl */ `
+  uniform vec4 uRects[${guardedBlocks}];
+  uniform float uLarge[${guardedBlocks}];
+  uniform float uCount;
+  uniform float uFeather;
+  uniform vec2 uCeil;
+  uniform vec2 uFloor;
+  uniform float uStrength;
+
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    vec3 color = max(inputColor.rgb, 0.0);
+    if (uStrength <= 0.0 || uCount < 0.5) {
+      outputColor = vec4(color, inputColor.a);
+      return;
+    }
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    vec2 pixel = uv * resolution;
+    float dim = 1.0;
+    float lift = 0.0;
+    for (int i = 0; i < ${guardedBlocks}; i++) {
+      if (float(i) >= uCount) break;
+      vec4 rect = uRects[i] * resolution.xyxy;
+      vec2 outside = max(max(rect.xy - pixel, pixel - rect.zw), 0.0);
+      float weight = uStrength * (1.0 - smoothstep(0.0, uFeather, length(outside)));
+      if (weight <= 0.0) continue;
+      float ceiling = mix(uCeil.x, uCeil.y, uLarge[i]);
+      dim = min(dim, mix(1.0, min(1.0, ceiling / max(luma, 1e-5)), weight));
+      lift = max(lift, weight * mix(uFloor.x, uFloor.y, uLarge[i]));
+    }
+    // Dark sky: scale the light down to the ceiling
+    color *= dim;
+    luma *= dim;
+    // Light sky: scale up to the floor where the colour has room, then
+    // towards white for whatever scaling can't reach
+    if (lift > luma) {
+      float peak = max(max(color.r, color.g), color.b);
+      float scale = min(lift / max(luma, 1e-4), 1.0 / max(peak, 1e-4));
+      color *= scale;
+      luma *= scale;
+      if (lift > luma) color = mix(color, vec3(1.0), (lift - luma) / max(1.0 - luma, 1e-4));
+    }
+    outputColor = vec4(color, inputColor.a);
+  }
+`;
+
 export class OpticsEffect extends Effect {
   constructor() {
     super('OpticsEffect', opticsShader, {
@@ -161,6 +222,109 @@ export class GrainEffect extends Effect {
       uniforms: new Map<string, Uniform>([['uAmount', new Uniform(amount)]]),
     });
   }
+}
+
+export class ReadingGuardEffect extends Effect {
+  /** How firmly it holds, eased (0 while a flight cruises or outside page mode) */
+  strength = 0;
+
+  constructor() {
+    super('ReadingGuardEffect', readingGuardShader, {
+      blendFunction: BlendFunction.SRC,
+      uniforms: new Map<string, Uniform>([
+        ['uRects', new Uniform(Array.from({ length: guardedBlocks }, () => new Vector4()))],
+        ['uLarge', new Uniform(new Array<number>(guardedBlocks).fill(0))],
+        ['uCount', new Uniform(0)],
+        ['uFeather', new Uniform(40)],
+        ['uCeil', new Uniform(new Vector2(100, 100))],
+        ['uFloor', new Uniform(new Vector2(0, 0))],
+        ['uStrength', new Uniform(0)],
+      ]),
+    });
+  }
+}
+
+/** Relative luminance (WCAG) of a CSS colour: three's Color holds it linear */
+const luminanceOf = (css: string) => {
+  const { r, g, b } = new Color(css);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+/** WCAG's ratios, with 3% to spare for the vignette and grain laid on after the guard */
+const ratios = { normal: 4.5 * 1.03, large: 3 * 1.03 };
+/** The brightest the world may be behind light text, for a ratio */
+const ceilingFor = (text: string, ratio: number) => (luminanceOf(text) + 0.05) / ratio - 0.05;
+/** The dimmest it may be behind dark text */
+const floorFor = (text: string, ratio: number) => ratio * (luminanceOf(text) + 0.05) - 0.05;
+
+/**
+ * The guard's limits per theme, from the text the marked blocks use
+ * (theme-variables.scss): the dimmest normal-size text on the dark sky is
+ * the violet accent (--accent-primary), the dimmest large text the
+ * headings' gradient at #818cf8; on the light sky the lightest is the cyan
+ * accent (--accent-secondary) in eyebrows and highlights. Muted text
+ * (--text-muted) would need a black backdrop, so it isn't one of them: it
+ * should only sit where it already reads (the station readout, small labels)
+ */
+const guardLimits: Record<WorldTheme, { ceiling: [number, number]; floor: [number, number] }> = {
+  dark: {
+    ceiling: [ceilingFor('#a78bfa', ratios.normal), ceilingFor('#818cf8', ratios.large)],
+    floor: [0, 0],
+  },
+  light: {
+    ceiling: [100, 100],
+    floor: [floorFor('#0e7490', ratios.normal), floorFor('#0e7490', ratios.large)],
+  },
+};
+
+/** CSS px the guard feathers out past each block */
+const guardFeather = 40;
+
+/**
+ * Per frame: hands the guard the blocks the page measured (viewport
+ * fractions, y down) as canvas UVs (y up), the theme's limits and its
+ * strength, which lets go while a flight cruises (the new page's copy is
+ * held back until the approach) and outside page mode (the tour and free
+ * roam hide the page). Eases over ~0.2s; at once when nothing may move
+ */
+export function updateReadingGuard(
+  effect: ReadingGuardEffect,
+  theme: WorldTheme,
+  size: { width: number; height: number },
+  pixelRatio: number,
+  delta: number
+) {
+  const uniforms = effect.uniforms;
+  const flight = worldStore.flight;
+  const goal = worldMode.get().mode === 'page' && !(flight.active && !flight.approached) ? 1 : 0;
+  effect.strength =
+    motionLevel() === 'still'
+      ? goal
+      : MathUtils.damp(effect.strength, goal, 12, Math.min(delta, 0.1));
+  if (Math.abs(effect.strength - goal) < 1e-3) effect.strength = goal;
+  uniforms.get('uStrength')!.value = effect.strength;
+
+  const count = worldStore.readingCount;
+  uniforms.get('uCount')!.value = count;
+  const rects = uniforms.get('uRects')!.value as Vector4[];
+  const large = uniforms.get('uLarge')!.value as number[];
+  // The page measures against the window; the canvas fills the layout viewport
+  const sx = window.innerWidth / Math.max(size.width, 1);
+  const sy = window.innerHeight / Math.max(size.height, 1);
+  const from = worldStore.readingRects;
+  for (let i = 0; i < count; i++) {
+    rects[i].set(
+      from[i * 4] * sx,
+      1 - from[i * 4 + 3] * sy,
+      from[i * 4 + 2] * sx,
+      1 - from[i * 4 + 1] * sy
+    );
+    large[i] = worldStore.readingLarge[i];
+  }
+  // Device pixels, as the shader measures
+  uniforms.get('uFeather')!.value = guardFeather * pixelRatio;
+  const limits = guardLimits[theme];
+  (uniforms.get('uCeil')!.value as Vector2).set(...limits.ceiling);
+  (uniforms.get('uFloor')!.value as Vector2).set(...limits.floor);
 }
 
 const sunPoint = new Vector3();
