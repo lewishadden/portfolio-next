@@ -189,6 +189,9 @@ const atlasColumns = 8;
 const atlasPad = 8;
 /** Near white: icons drawn in it were monochrome (currentColor), inked by uniform */
 const monoInk = '#fffffe';
+/** Icons drawn into the atlas a frame */
+const atlasBatch = 6;
+const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 /** Share of the badge's width the icon's cell spans (the icon itself is 0.52, inside the inset) */
 const iconSpan = (0.52 * atlasCell) / (atlasCell - 2 * atlasPad);
 
@@ -236,7 +239,8 @@ async function drawAtlas(badges: { name: string; icon: string }[], collections: 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const inner = atlasCell - 2 * atlasPad;
-    images.forEach((image, i) => {
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
       const x = (i % atlasColumns) * atlasCell;
       const y = Math.floor(i / atlasColumns) * atlasCell;
       if (image) ctx.drawImage(image, x + atlasPad, y + atlasPad, inner, inner);
@@ -246,7 +250,9 @@ async function drawAtlas(badges: { name: string; icon: string }[], collections: 
           x + atlasCell / 2,
           y + atlasCell / 2
         );
-    });
+      // An SVG rasterises as it is drawn: a few a frame, so a flight in never stalls on them
+      if (i % atlasBatch === atlasBatch - 1) await nextFrame();
+    }
   }
   return { canvas, rows, mono };
 }
