@@ -2,7 +2,17 @@
 
 import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
-import { Box3, Color, Group, Material, Mesh, MeshStandardMaterial, Object3D, Vector3 } from 'three';
+import {
+  Box3,
+  Color,
+  Group,
+  Material,
+  Mesh,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  Object3D,
+  Vector3,
+} from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -18,19 +28,40 @@ import type { WorldTheme } from './utils';
 
 /* ------------------------------------------------------------------
    Holographic core — shown while a model streams in, and used as
-   the permanent stand-in if a model fails to load.
+   the permanent stand-in if a model fails to load. Every HoloCore shares
+   one set of materials per theme, never disposed: a placeholder going
+   (its model ready) or coming (another station) never deletes a program
+   that the next one would then have to link again, mid-flight.
    ------------------------------------------------------------------ */
+const holoSets: Partial<Record<WorldTheme, ReturnType<typeof buildHoloMaterials>>> = {};
+
+function buildHoloMaterials(theme: WorldTheme) {
+  const palette = palettes[theme];
+  const shell = createFresnelMaterial({ color: palette.cyan, power: 1.8, intensity: 2.2 });
+  applyGlowTheme(shell, theme);
+  return {
+    shell,
+    wire: new MeshBasicMaterial({
+      color: palette.violet,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.45,
+    }),
+    core: new MeshStandardMaterial({
+      color: palette.violet,
+      emissive: palette.violet,
+      emissiveIntensity: theme === 'light' ? 0.4 : 1.6,
+      metalness: 0.4,
+      roughness: 0.25,
+    }),
+  };
+}
+
+const holoMaterials = (theme: WorldTheme) => (holoSets[theme] ??= buildHoloMaterials(theme));
+
 export function HoloCore({ theme, size = 1.4 }: { theme: WorldTheme; size?: number }) {
   const groupRef = useRef<Group>(null);
-  const palette = palettes[theme];
-
-  const shell = useMemo(
-    () => createFresnelMaterial({ color: palette.cyan, power: 1.8, intensity: 2.2 }),
-    [palette.cyan]
-  );
-
-  useEffect(() => applyGlowTheme(shell, theme), [shell, theme]);
-  useEffect(() => () => shell.dispose(), [shell]);
+  const materials = holoMaterials(theme);
 
   useFrame(({ clock }) => {
     const group = groupRef.current;
@@ -41,29 +72,22 @@ export function HoloCore({ theme, size = 1.4 }: { theme: WorldTheme; size?: numb
 
   return (
     <group ref={groupRef}>
-      <mesh material={shell}>
+      <mesh material={materials.shell}>
         <icosahedronGeometry args={[size, 3]} />
       </mesh>
-      <mesh>
+      <mesh material={materials.wire}>
         <icosahedronGeometry args={[size * 1.02, 1]} />
-        <meshBasicMaterial color={palette.violet} wireframe transparent opacity={0.45} />
       </mesh>
-      <mesh>
+      <mesh material={materials.core}>
         <octahedronGeometry args={[size * 0.42, 0]} />
-        <meshStandardMaterial
-          color={palette.violet}
-          emissive={palette.violet}
-          emissiveIntensity={theme === 'light' ? 0.4 : 1.6}
-          metalness={0.4}
-          roughness={0.25}
-        />
       </mesh>
     </group>
   );
 }
 
 /* ------------------------------------------------------------------
-   Error boundary — a missing or corrupt GLB degrades to the HoloCore
+   Error boundary — a missing or corrupt GLB never becomes ready, so
+   Model's HoloCore stays on as its stand-in
    ------------------------------------------------------------------ */
 class ModelBoundary extends Component<{ fallback: ReactNode; children: ReactNode }> {
   state = { failed: false };
@@ -215,15 +239,15 @@ function GltfModel({
   url,
   height,
   envIntensity,
-  placeholder,
   prepare,
+  onReady,
 }: {
   url: string;
   height: number;
   envIntensity: number;
-  /** Shown until the model's shaders are compiled and its textures uploaded */
-  placeholder: ReactNode;
   prepare?: (model: Object3D) => void;
+  /** Called once the model's shaders are compiled and its textures uploaded: it shows from then on */
+  onReady: (url: string) => void;
 }) {
   const gl = useThree((s) => s.gl);
   // No Draco (would fetch a decoder from a CDN)
@@ -246,13 +270,16 @@ function GltfModel({
     const task = precompile(gl, model, camera, world)
       .then(() => uploadTextures(gl, model))
       .then(() => {
-        if (active) setPreparedFor(model);
+        if (!active) return;
+        // One render: the model appears as its placeholder goes
+        setPreparedFor(model);
+        onReady(url);
       });
     track(task);
     return () => {
       active = false;
     };
-  }, [gl, world, camera, model, track]);
+  }, [gl, world, camera, model, track, onReady, url]);
 
   // Scan in once it's on show
   useFrame((_, delta) => {
@@ -269,12 +296,17 @@ function GltfModel({
     stepReveal(model, reveal, state.progress);
   });
 
-  if (preparedFor !== model) return placeholder;
+  if (preparedFor !== model) return null;
 
   return <primitive object={model} />;
 }
 
-/** Streams a GLB with a holographic placeholder and fallback */
+/**
+ * Streams a GLB with a holographic placeholder and fallback. The placeholder
+ * is one HoloCore, outside the loading boundary, from the first frame until
+ * the model is ready (or for good, if it fails): never one while it
+ * downloads and another while it compiles
+ */
 export function Model({
   url,
   height,
@@ -295,19 +327,19 @@ export function Model({
   /** Adjusts the normalised clone (materials, shadows) before it is compiled; keep it stable */
   prepare?: (model: Object3D) => void;
 }) {
-  const fallback = placeholder ? (
-    <HoloCore theme={theme} size={fallbackSize ?? height * 0.36} />
-  ) : null;
+  const [readyUrl, setReadyUrl] = useState('');
+  const ready = readyUrl === url;
   return (
     <group {...props}>
-      <ModelBoundary fallback={fallback}>
-        <Suspense fallback={fallback}>
+      {placeholder && !ready && <HoloCore theme={theme} size={fallbackSize ?? height * 0.36} />}
+      <ModelBoundary fallback={null}>
+        <Suspense fallback={null}>
           <GltfModel
             url={url}
             height={height}
             envIntensity={envIntensity}
-            placeholder={fallback}
             prepare={prepare}
+            onReady={setReadyUrl}
           />
         </Suspense>
       </ModelBoundary>
