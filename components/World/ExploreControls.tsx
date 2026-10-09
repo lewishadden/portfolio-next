@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } from 'three';
+import { CatmullRomCurve3, Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
 import { motionLevel } from '@/utils/motion';
 
@@ -115,6 +115,8 @@ const autoBrake = 16;
 const autoTurn = 1.7;
 /** Mouse travel (px, locked) that takes the controls back from the autopilot */
 const takeOver = 80;
+/** Autopilot: points along the course it publishes for the radar and the course line */
+const courseSamples = 26;
 /** Free roam: how far ahead the reticle picks things out (world units), and every how many frames it looks */
 const reach = 60;
 const aimEvery = 3;
@@ -213,6 +215,8 @@ interface LookState {
   calm: boolean;
   /** Frames since free roam began, for looking again under the reticle every few */
   frames: number;
+  /** The course worldStore.autopilotPath was planned for ('' for none) */
+  planned: StationKey | '';
 }
 
 /**
@@ -243,6 +247,51 @@ function bump(speed: number, t: number, state: LookState) {
 }
 
 /**
+ * Autopilot: coming from behind a station (`from` on its far side), the
+ * course first rounds its side, `rounding` out, until within 8 units of
+ * that point. True when it does; `out` is then the point to round
+ */
+function roundsSide(from: Vector3, at: Vector3, out: Vector3) {
+  if (from.z >= at.z + 4) return false;
+  const side = Math.sign(from.x - at.x) || 1;
+  out.set(at.x + side * rounding, at.y + 2, at.z + 6);
+  return from.distanceTo(out) > 8;
+}
+
+const coursePoints = [new Vector3(), new Vector3(), new Vector3()];
+const noCourse = new Float32Array(0);
+
+/**
+ * The autopilot's course, as the radar and the course line draw it: from
+ * the camera, round the station's side if flyTo will, to where it parks.
+ * `courseSamples` points (x, y, z triples) along a curve through them
+ */
+function planCourse(key: StationKey, from: Vector3) {
+  const [start, round, end] = coursePoints;
+  start.copy(from);
+  station.fromArray(stationPositions[key]);
+  end.copy(station).add(approach);
+  const points = roundsSide(from, station, round) ? [start, round, end] : [start, end];
+  const curve = new CatmullRomCurve3(points, false, 'centripetal');
+  const path = new Float32Array(courseSamples * 3);
+  for (let i = 0; i < courseSamples; i++) {
+    curve.getPointAt(i / (courseSamples - 1), point).toArray(path, i * 3);
+  }
+  return path;
+}
+
+/**
+ * Keeps worldStore.autopilotPath in step with the autopilot: planned once
+ * when a course is set (a new array, so whoever draws it sees the change),
+ * emptied when the autopilot hands back the controls
+ */
+function trackCourse(course: StationKey | '', from: Vector3, state: LookState) {
+  if (course === state.planned) return;
+  state.planned = course;
+  worldStore.autopilotPath = course ? planCourse(course, from) : noCourse;
+}
+
+/**
  * Autopilot: turns towards where it is going (round the station's side
  * first when coming from behind it), burns once roughly facing that way and
  * brakes to park in front of the station, turning to face it on the last
@@ -253,14 +302,9 @@ function flyTo(key: StationKey, state: LookState, cam: PerspectiveCamera, dt: nu
   goal.copy(station).add(approach);
   let left = cam.position.distanceTo(goal);
   let toward = goal;
-  if (cam.position.z < station.z + 4) {
-    const side = Math.sign(cam.position.x - station.x) || 1;
-    point.set(station.x + side * rounding, station.y + 2, station.z + 6);
-    const lap = cam.position.distanceTo(point);
-    if (lap > 8) {
-      toward = point;
-      left = lap + point.distanceTo(goal);
-    }
+  if (roundsSide(cam.position, station, point)) {
+    toward = point;
+    left = cam.position.distanceTo(point) + point.distanceTo(goal);
   }
   wish.subVectors(toward, cam.position);
   const distance = wish.length();
@@ -304,6 +348,7 @@ export function ExploreControls() {
     bumpedAt: -Infinity,
     calm: false,
     frames: 0,
+    planned: '',
   });
   const lite = useLite();
   const get = useThree((s) => s.get);
@@ -441,6 +486,7 @@ export function ExploreControls() {
         setAutopilot('');
         setDocking('');
         stopAiming(root);
+        trackCourse('', camera.position, state);
       }
       return;
     }
@@ -498,6 +544,7 @@ export function ExploreControls() {
     exploreInput.lookY = 0;
 
     const course = worldStore.autopilot as StationKey | '';
+    trackCourse(course, cam.position, state);
     if (worldStore.docking) {
       // Docking: hands off the controls, coast to a stop facing the station
       settle(stationForPath(worldStore.docking), state, cam, dt);
