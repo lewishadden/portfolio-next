@@ -350,7 +350,7 @@ export const Projects = ({
       }
       const y = lane.docked + lane.step * index;
       const reduce = motionLevel() !== 'full';
-      if (lenis) lenis.scrollTo(y, { immediate: reduce });
+      if (lenis) lenis.scrollTo(y, { immediate: reduce, userData: { rideTo: y } });
       else window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
     },
     [lenis, runway]
@@ -360,24 +360,25 @@ export const Projects = ({
   // back to the top of the page): the next one in the direction of the
   // gesture once it has gone snapCommit from where it started (the first
   // from the top always docks), else back to the nearest. Past the last
-  // project it is free. Any scroll input interrupts the glide (Lenis stops
-  // programmatic scrolls), and the gesture then starts where it caught it
+  // project it is free. Any scroll input interrupts the ride's own scrolls
+  // (a snap glide, or goTo's ride to a project, marked by their userData)
   useEffect(() => {
     if (!lenis || selected >= 0) return;
     let timer = 0;
     let pressed = false;
-    /** Where the scroll last came to rest (or was sent, or a gesture caught a glide) */
+    /** Where the scroll last came to rest (or was sent, or a gesture caught one of the ride's scrolls) */
     let anchor = window.scrollY;
-    /** A snap glide is under way */
-    let gliding = false;
-    // Wheel or touch input during a glide stops it (touch) or carries on
-    // from where it has got to (wheel), so the gesture starts there:
-    // measured from the stop the glide was sent to, a short swipe onwards
-    // read as one backwards and the ride went back a project
+    /** Where the scroll a gesture caught was going, when the gesture went the same way (else NaN) */
+    let heading = NaN;
+    // Wheel or touch input during one of the ride's scrolls stops it
+    // (touch) or carries on from where it has got to (wheel), so the
+    // gesture starts there: measured from where the scroll started or was
+    // going, a short swipe read as one the other way and the ride went back
     const interrupt = ({ deltaY, event }: { deltaY: number; event: WheelEvent | TouchEvent }) => {
-      if (!gliding || deltaY === 0 || event.ctrlKey) return;
-      gliding = false;
+      const to = lenis.isScrolling === 'smooth' ? lenis.userData.rideTo : undefined;
+      if (typeof to !== 'number' || deltaY === 0 || event.ctrlKey) return;
       anchor = window.scrollY;
+      heading = Math.sign(to - anchor) === Math.sign(deltaY) ? to : NaN;
     };
     const settle = () => {
       const lane = runway();
@@ -387,38 +388,45 @@ export const Projects = ({
         rest();
         return;
       }
-      gliding = false;
-      const y = window.scrollY;
+      const at = window.scrollY;
+      const caught = heading;
+      heading = NaN;
       const stops = items.map((_, i) => lane.docked + lane.step * i);
       const last = stops[stops.length - 1];
-      if (y > last + lane.step / 2) {
-        anchor = y;
+      if (at > last + lane.step / 2) {
+        anchor = at;
         return;
       }
       if (lane.docked > 1) stops.unshift(0);
-      const moved = y - anchor;
-      const commit = anchor < lane.docked - 2 && moved > 0 ? snapCommitTop : snapCommit;
+      // A gesture that caught a scroll and kept going its way is measured
+      // from where that scroll was going, and short of there it goes there:
+      // each swipe onwards counts, however soon after the last it comes
+      let from = anchor;
+      let y = at;
+      const way = Math.sign(caught - anchor);
+      if (way && Math.sign(y - anchor) === way) {
+        from = caught;
+        if ((y - caught) * way < 0) y = caught;
+      }
+      const moved = y - from;
+      const commit = from < lane.docked - 2 && moved > 0 ? snapCommitTop : snapCommit;
       // Gone far enough: the nearest stop beyond where it started, its way
       // (not the first past where it stopped: a ride to a project that
       // lands a little past it, as the layout settles, stays there)
       const onward =
         Math.abs(moved) > commit
-          ? stops.filter((stop) => (moved > 0 ? stop > anchor + 2 : stop < anchor - 2))
+          ? stops.filter((stop) => (moved > 0 ? stop > from + 2 : stop < from - 2))
           : [];
       const target = (onward.length ? onward : stops).reduce((best, stop) =>
         Math.abs(stop - y) < Math.abs(best - y) ? stop : best
       );
       anchor = target;
-      if (Math.abs(target - y) < 2) return;
-      const reduce = motionLevel() !== 'full';
-      gliding = !reduce;
+      if (Math.abs(target - at) < 2) return;
       lenis.scrollTo(target, {
         duration: 0.75,
         easing: snapEase,
-        immediate: reduce,
-        onComplete: () => {
-          gliding = false;
-        },
+        immediate: motionLevel() !== 'full',
+        userData: { rideTo: target },
       });
     };
     function rest() {

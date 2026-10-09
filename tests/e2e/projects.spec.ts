@@ -165,7 +165,57 @@ test.describe('the ride without the world', () => {
     );
   });
 
-  test('a swipe onwards that catches a snap glide keeps going its way', async ({ page }) => {
+  // A swipe onwards sets off a glide to the next project. Just as it starts,
+  // a second swipe the same way catches it: it goes on, however short it is
+  // (measured from the stop the glide was heading for, a 70px swipe read as
+  // one back; measured from where it caught the glide, a 30px one was too
+  // short to count and went back to the nearest project, the first)
+  for (const swipe of [70, 30]) {
+    test(`a ${swipe}px swipe onwards that catches a snap glide keeps going its way`, async ({
+      page,
+    }) => {
+      await openHydrated(page, '/projects');
+      const index = page.getByRole('navigation', { name: 'Projects' });
+      const { width, height } = page.viewportSize()!;
+      await page.mouse.move(width / 2, height / 2);
+      await page.mouse.wheel(0, 150);
+      await settledOn(page);
+      await expect(index.getByRole('link', { name: 'ZGS Carpentry', exact: true })).toHaveAttribute(
+        'aria-current',
+        'true'
+      );
+
+      const swiped = (await pageY(page)) + 100;
+      await page.mouse.wheel(0, 100);
+      await page.evaluate(
+        ([rest, deltaY]) =>
+          new Promise<void>((resolve) => {
+            // The wheel's own scroll comes to rest, then the glide sets off
+            let arrived = false;
+            const watch = () => {
+              arrived ||= window.scrollY >= rest - 2;
+              if (!arrived || window.scrollY <= rest + 3) {
+                requestAnimationFrame(watch);
+                return;
+              }
+              document.body.dispatchEvent(
+                new WheelEvent('wheel', { deltaY, bubbles: true, cancelable: true })
+              );
+              resolve();
+            };
+            watch();
+          }),
+        [swiped, swipe]
+      );
+      await settledOn(page);
+      await expect(index.getByRole('link', { name: 'Sidenote', exact: true })).toHaveAttribute(
+        'aria-current',
+        'true'
+      );
+    });
+  }
+
+  test('a swipe back that catches a ride to a project stops a project short', async ({ page }) => {
     await openHydrated(page, '/projects');
     const index = page.getByRole('navigation', { name: 'Projects' });
     const { width, height } = page.viewportSize()!;
@@ -177,34 +227,42 @@ test.describe('the ride without the world', () => {
       'true'
     );
 
-    // A swipe onwards sets off a glide to the next project. Just as it
-    // starts, a second short swipe the same way catches it: measured from
-    // where it caught the glide, it goes on (measured from the stop the glide
-    // was heading for, it read as a swipe back and returned to the first)
-    const swiped = (await pageY(page)) + 100;
-    await page.mouse.wheel(0, 100);
-    await page.evaluate(
-      (rest) =>
+    // The index rides down to the seventh project. As the ride arrives, a
+    // 100px swipe back catches it: measured from there it goes back one
+    // project (measured from the first project, where the scroll last
+    // rested, it read as a swipe onwards and went on to the seventh)
+    const ride = page.evaluate(
+      () =>
         new Promise<void>((resolve) => {
-          // The wheel's own scroll comes to rest, then the glide sets off
-          let arrived = false;
+          const tour = document.querySelector<HTMLElement>('.projects__tour')!;
+          const stage = document.querySelector<HTMLElement>('.projects__stage')!;
+          const steps = document.querySelectorAll('.projects__index-link').length - 1;
+          const docked =
+            tour.getBoundingClientRect().top +
+            window.scrollY -
+            parseFloat(getComputedStyle(stage).top);
+          const stop = docked + ((tour.offsetHeight - stage.offsetHeight) / steps) * 6;
+          let last = window.scrollY;
           const watch = () => {
-            arrived ||= window.scrollY >= rest - 2;
-            if (!arrived || window.scrollY <= rest + 3) {
+            const y = window.scrollY;
+            const moving = y !== last;
+            last = y;
+            if (!moving || stop - y > 50 || stop - y < 3) {
               requestAnimationFrame(watch);
               return;
             }
             document.body.dispatchEvent(
-              new WheelEvent('wheel', { deltaY: 70, bubbles: true, cancelable: true })
+              new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true })
             );
             resolve();
           };
           watch();
-        }),
-      swiped
+        })
     );
+    await index.getByRole('link', { name: 'Sanctions Checker', exact: true }).click();
+    await ride;
     await settledOn(page);
-    await expect(index.getByRole('link', { name: 'Sidenote', exact: true })).toHaveAttribute(
+    await expect(index.getByRole('link', { name: 'ADP RUN', exact: true })).toHaveAttribute(
       'aria-current',
       'true'
     );
