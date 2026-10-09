@@ -904,7 +904,7 @@ export function ProjectsStation({
             const angle = i * helix.turn;
             return (
               <group
-                key={screen.title}
+                key={screen.slug}
                 position={[
                   Math.sin(angle) * helix.radius,
                   helixScreenY(i),
