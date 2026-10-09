@@ -208,7 +208,8 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       return;
     }
 
-    // Tours ignore the page's scroll: each stop is framed from the top
+    // Tours ignore the page's scroll: each stop is framed from the top (nor
+    // does stationCamera read the rest of how the hidden page is read)
     const scrollTarget = mode === 'page' ? worldStore.scroll : 0;
     const screensTarget = mode === 'page' ? worldStore.screens : 0;
     const retarget = rig.station !== station || rig.mode !== mode;
@@ -232,7 +233,16 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     // The projects ride: off it, nothing to ride
     const ridingTo = worldStore.projectFocus < 0 ? -1 : pageProjectFocus();
     rideProjectFocus(stepRide(rig.ride, ridingTo, t, snap));
-    stationCamera(station, rig.progress, rig.screens, size.width, size.height, target, look);
+    stationCamera(
+      station,
+      rig.progress,
+      rig.screens,
+      size.width,
+      size.height,
+      target,
+      look,
+      mode === 'page'
+    );
     origin.fromArray(stationPositions[station]);
     target.add(origin);
     look.add(origin);
@@ -442,7 +452,7 @@ function planPreview(rig: RigState, cam: PerspectiveCamera, width: number, heigh
   rig.preview = key;
   worldStore.previewPath = new Float32Array(0);
   if (!key || !stationKeys.includes(key) || rig.flight) return;
-  stationCamera(key, 0, 0, width, height, previewEye, previewLook);
+  stationCamera(key, 0, 0, width, height, previewEye, previewLook, false);
   origin.fromArray(stationPositions[key]);
   previewEye.add(origin);
   previewLook.add(origin);

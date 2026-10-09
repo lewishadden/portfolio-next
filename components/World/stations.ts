@@ -262,9 +262,8 @@ const companions: Partial<Record<StationKey, Companion[]>> = {
   contact: [{ swing: 0.38, back: 1.8, rise: 1.6, look: [0.8, 0.6, -1], room: 3.9 }],
 };
 
-/** How far the page has moved the camera into each companion pose, 0..1 */
-function companionWeights(count: number, out: number[]) {
-  const focus = worldStore.sectionCount > 0 ? worldStore.sectionFocus : -1;
+/** How far the section being read (`focus`, -1 for none) moves the camera into each companion pose, 0..1 */
+function companionWeights(count: number, focus: number, out: number[]) {
   for (let i = 0; i < count; i++)
     out[i] = MathUtils.smoothstep(focus, i === 0 ? -0.7 : i - 0.3, i === 0 ? 0.2 : i + 0.3);
   return out;
@@ -280,14 +279,14 @@ const subject = new Vector3();
 /**
  * How far right (world units, along the camera's right axis) a wide layout
  * has to move the station for its framing box to clear the glass panels
- * at the reading line (worldStore.clearRight), from the eye `pos`
+ * at the reading line (`clear`, worldStore.clearRight), from the eye `pos`
  * before any shift, along the pose's axes (`forward` and `right`, set just
  * before); 0 when there is none. Stations the camera travels
  * through (the experience beam, the projects helix) clear the point it
  * frames, the rest their centre.
  */
-function clearRoom(key: StationKey, pos: Vector3, look: Vector3, aspect: number) {
-  if (worldStore.clearRight <= -1) return 0;
+function clearRoom(key: StationKey, pos: Vector3, look: Vector3, aspect: number, clear: number) {
+  if (clear <= -1) return 0;
   if (key === 'experience' || key === 'projects') subject.copy(look);
   else subject.set(0, 0, 0);
   subject.sub(pos);
@@ -296,7 +295,7 @@ function clearRoom(key: StationKey, pos: Vector3, look: Vector3, aspect: number)
   const lateral = subject.dot(right);
   // Half the view's width at the station's depth
   const half = depth * tanHalfFov * aspect;
-  const wanted = (worldStore.clearRight + clearMargin) * half + shots[key].halfWidth - lateral;
+  const wanted = (clear + clearMargin) * half + shots[key].halfWidth - lateral;
   return Math.min(wanted, clearMost * half - lateral);
 }
 
@@ -326,12 +325,11 @@ function orbitEye(k: number, distance: number, out: Vector3) {
 
 /**
  * Wide /skills: the eye's offset from the planet for the category at the
- * reading line (worldStore.skillFocus): the hero shot above the first
- * category, then each category's pose, moving to the next over the first
- * 30% of it. Below full motion it cuts from pose to pose instead.
+ * reading line (`focus`, worldStore.skillFocus): the hero shot above the
+ * first category, then each category's pose, moving to the next over the
+ * first 30% of it. Below full motion it cuts from pose to pose instead.
  */
-function skillsEye(distance: number, eyeY: number, out: Vector3) {
-  const focus = worldStore.skillFocus;
+function skillsEye(distance: number, eyeY: number, focus: number, out: Vector3) {
   const cut = motionLevel() !== 'full';
   let weight: number;
   if (focus < 0) {
@@ -354,6 +352,12 @@ function skillsEye(distance: number, eyeY: number, out: Vector3) {
  * Camera pose inside a station, in station-local space.
  * `progress` is page scroll 0..1, `screens` is viewport-heights scrolled,
  * `width` / `height` the canvas size in CSS pixels. Writes into `pos` / `look`.
+ * `reading` (the default) frames the page's own station as the page is
+ * read: the section, role, skills category and project at the reading line,
+ * its glass panels and its world windows. A tour stop, or the route a link
+ * previews, passes false and is framed from the top of its page instead:
+ * those measure the page on screen, which is hidden while touring and is
+ * another station's page for a preview
  */
 export function stationCamera(
   key: StationKey,
@@ -362,7 +366,8 @@ export function stationCamera(
   width: number,
   height: number,
   pos: Vector3,
-  look: Vector3
+  look: Vector3,
+  reading = true
 ) {
   const { zoom, lift } = stationFraming(key, width, height, framing);
   const { height: eyeY, distance } = shots[key];
@@ -386,8 +391,8 @@ export function stationCamera(
     case 'experience': {
       // Down the beam to the pod of the role being read on the page (each
       // pod sits (i + 0.6) / count of the way down), else with the scroll
-      const reading = worldStore.roleFocus > -0.99 && worldStore.roleCount > 0;
-      const depth = reading
+      const onRole = reading && worldStore.roleFocus > -0.99 && worldStore.roleCount > 0;
+      const depth = onRole
         ? MathUtils.clamp((worldStore.roleFocus + 0.6) / worldStore.roleCount, 0, 1)
         : progress;
       look.set(0, -depth * experienceDepth, 0);
@@ -401,13 +406,12 @@ export function stationCamera(
       // instead, further back
       const focus = riddenProjectFocus();
       const angle = focus * helix.turn;
-      const back = worldStore.projectAside ? asideDistance : 1;
+      const aside = reading && worldStore.projectAside;
+      const back = aside ? asideDistance : 1;
       // Past the last project it descends with the page, a viewport height
       // of drop per viewport height scrolled at the screen's distance, so the
       // last screen scrolls away with its copy rather than under the footer
-      const drop = worldStore.projectAside
-        ? 0
-        : worldStore.projectTail * 2 * distance * zoom * tanHalfFov;
+      const drop = aside ? 0 : worldStore.projectTail * 2 * distance * zoom * tanHalfFov;
       look.set(
         Math.sin(angle) * helix.radius,
         helixScreenY(focus) - drop,
@@ -415,8 +419,8 @@ export function stationCamera(
       );
       pos.set(Math.sin(angle) * distance * back, eyeY, Math.cos(angle) * distance * back);
       // At the top of the page it holds back on the whole yard, and comes in
-      // to the first screen as the page scrolls to it
-      const intro = projectIntro();
+      // to the first screen as the page scrolls to it (off the page, always)
+      const intro = reading ? projectIntro() : 1;
       if (intro > 0) {
         look.lerp(overviewLook.set(0, overview.lookY, 0), intro);
         pos.lerp(overviewEye.set(0, overview.height, overview.distance), intro);
@@ -428,7 +432,7 @@ export function stationCamera(
         // Beside the one-column grid: the planet stays in shot, the eye
         // turns to face the orbit of the category being read
         look.set(0, -progress * skillsDescent, 0);
-        skillsEye(distance, eyeY, pos);
+        skillsEye(distance, eyeY, reading ? worldStore.skillFocus : -1, pos);
         break;
       }
       const angle = progress * 0.9;
@@ -455,7 +459,8 @@ export function stationCamera(
     key === 'contact' && (worldStore.transmitting || performance.now() < worldStore.showcaseUntil);
   let room = 0;
   if (poses && !showcase) {
-    companionWeights(poses.length, weights);
+    const section = reading && worldStore.sectionCount > 0 ? worldStore.sectionFocus : -1;
+    companionWeights(poses.length, section, weights);
     poses.forEach((pose, i) => {
       const weight = weights[i];
       if (weight <= 0) return;
@@ -478,13 +483,18 @@ export function stationCamera(
   right.crossVectors(forward, up).normalize();
   // The skills constellation is wider than the other stations: give it more
   // room. On the projects page the screen is centred, with its copy around it
-  const centred = key === 'projects' && !worldStore.projectAside;
-  const intro = centred ? projectIntro() : 0;
+  const centred = key === 'projects' && !(reading && worldStore.projectAside);
+  const intro = centred ? (reading ? projectIntro() : 1) : 0;
   const roomy = (key === 'skills' ? 4.4 : centred ? overview.room * intro : 3.3) + room;
   // Further, if that leaves the station behind the glass panels at the
   // reading line (worldStore.clearRight)
   const shiftX = wide
-    ? Math.max(roomy, centred ? 0 : clearRoom(key, pos, look, width / height))
+    ? Math.max(
+        roomy,
+        centred
+          ? 0
+          : clearRoom(key, pos, look, width / height, reading ? worldStore.clearRight : -1)
+      )
     : 0;
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
@@ -495,7 +505,7 @@ export function stationCamera(
   }
 
   // Phones: into the world window passing the reading line, if there is one
-  const into = wide ? 0 : windowWeight(height);
+  const into = wide || !reading ? 0 : windowWeight(height);
   if (into > 0) {
     windowPose(key, width, height, windowEye, windowLook);
     pos.lerp(windowEye, into);
