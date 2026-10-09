@@ -135,12 +135,14 @@ const focusable = (el: Element | null): el is HTMLElement =>
  * started the mode, or failing that the free roam button, or the page
  * (#main-content, focusable but out of the tab order). After the mode
  * opened another page, the page itself. Without it focus is left on the
- * body, since the tour card or the HUD that had it is gone.
+ * body, since the tour card or the HUD that had it is gone. Only then:
+ * focus the visitor has since moved somewhere live stays put (the command
+ * palette, opened while the camera flew back, keeps its input)
  */
 export function restoreFocus() {
   const target = returnFocus;
   returnFocus = null;
-  if (!target || state.mode !== 'page') return;
+  if (!target || state.mode !== 'page' || focusable(document.activeElement)) return;
   const main = document.getElementById('main-content');
   const choices = target === 'page' ? [main] : [target, document.querySelector('.roam-fab'), main];
   for (const el of choices) {
