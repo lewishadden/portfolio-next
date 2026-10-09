@@ -155,7 +155,11 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
   const masking = useMemo(() => ({ bloom: chain.bloom, version: -1 }), [chain]);
   useFrame(() => {
     followMasks(masking);
-    updateOptics(chain.optics, camera, { fringes: top, shafts: top && theme === 'dark' });
+    updateOptics(chain.optics, camera, {
+      fringes: top,
+      shafts: top && theme === 'dark',
+      light: theme === 'light',
+    });
   });
 
   useEffect(() => {

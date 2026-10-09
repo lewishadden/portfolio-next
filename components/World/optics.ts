@@ -28,6 +28,7 @@ import type { Camera } from 'three';
 
 const opticsShader = /* glsl */ `
   uniform float uWarp;
+  uniform float uReach;
   uniform vec2 uFocus;
   uniform float uFringe;
   uniform vec2 uSun;
@@ -57,7 +58,7 @@ const opticsShader = /* glsl */ `
 
     if (uWarp > 0.001) {
       // Each pixel gathers the light from between it and the heading point
-      vec2 reach = (uv - uFocus) * uWarp * 0.065;
+      vec2 reach = (uv - uFocus) * uWarp * 0.065 * uReach;
       vec3 sum = vec3(0.0);
       for (int i = 0; i < 6; i++) {
         float t = (float(i) + jitter) / 6.0;
@@ -130,6 +131,7 @@ export class OpticsEffect extends Effect {
       blendFunction: BlendFunction.SRC,
       uniforms: new Map<string, Uniform>([
         ['uWarp', new Uniform(0)],
+        ['uReach', new Uniform(1)],
         ['uFocus', new Uniform(new Vector2(0.5, 0.5))],
         ['uFringe', new Uniform(0)],
         ['uSun', new Uniform(new Vector2(-1, -1))],
@@ -170,12 +172,14 @@ const outside = (u: number, v: number) =>
 /**
  * Per frame: the streak blur and fringes follow the camera's speed (fringes
  * only on the top tier, as before), aimed at the point it is heading for;
- * the shafts follow the sun on screen (top tier and the dark sky only)
+ * the shafts follow the sun on screen (top tier and the dark sky only). On
+ * the light sky the streaks reach about half as far: smeared over a bright
+ * frame, full-length streaks washed everything out
  */
 export function updateOptics(
   effect: OpticsEffect,
   camera: Camera,
-  { fringes, shafts }: { fringes: boolean; shafts: boolean }
+  { fringes, shafts, light }: { fringes: boolean; shafts: boolean; light: boolean }
 ) {
   const uniforms = effect.uniforms;
   const speed = cameraMotion.speed;
@@ -183,6 +187,7 @@ export function updateOptics(
   const warp =
     MathUtils.smoothstep(speed, 40, 140) * MathUtils.smoothstep(cameraMotion.ahead, 0.15, 0.6);
   uniforms.get('uWarp')!.value = warp;
+  uniforms.get('uReach')!.value = light ? 0.55 : 1;
   (uniforms.get('uFocus')!.value as Vector2).set(
     cameraMotion.focusX * 0.5 + 0.5,
     cameraMotion.focusY * 0.5 + 0.5

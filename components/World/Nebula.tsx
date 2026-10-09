@@ -186,11 +186,19 @@ const bakeFragment = /* glsl */ `
 
     // ----- Compose, back to front -----
     vec3 col = uBase;
+    // Daylight: the sky deepens a little and cools along the galactic plane,
+    // paling towards its poles, and warms on the sun's side
+    vec3 day = mix(uBase * vec3(0.93, 0.94, 0.985), mix(uBase, vec3(1.0), 0.4), smoothstep(0.0, 1.1, ab));
+    day += vec3(1.0, 0.82, 0.62) * pow(max(dot(dir, uSun), 0.0), 4.0) * 0.12;
+    col = mix(col, day, uLight);
     // A faint diffuse glow, so the deep sky is never flat
     col += uReflection * 0.07 * dark * smoothstep(-0.3, 0.8, fbm(dir * 0.9 + 17.0));
     // Kept under the bloom threshold: only the bulge's core is allowed to glow,
     // or the whole band blooms into a halo of fog
-    col += bandColour * band * 0.14 * (1.0 - uLight * 0.65);
+    col += bandColour * band * 0.14 * dark;
+    // In daylight the band is a soft wash of ink instead of light
+    float wash = clamp(disc * clouds * (0.5 + 0.5 * toCentre) + wings * 1.5 + bulge * 0.7, 0.0, 1.0);
+    col = mix(col, col * vec3(0.82, 0.83, 0.92), wash * 0.5 * uLight);
 
     // Faint stars, denser in the band
     float s = stars(dir, 420.0, 0.012 + 0.04 * disc) + stars(dir, 900.0, 0.02 + 0.06 * disc) * 0.6;
