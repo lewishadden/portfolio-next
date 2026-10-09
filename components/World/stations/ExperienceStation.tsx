@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import { easing } from 'maath';
 import { Group, MathUtils, Mesh, MeshStandardMaterial } from 'three';
@@ -16,6 +16,7 @@ import {
   easeInOut,
   stepReaction,
   trickProgress,
+  useRedrawOnPageHover,
   useReactionHandlers,
   useShowcase,
 } from '../reaction';
@@ -29,7 +30,7 @@ import {
   stationPositions,
 } from '../stations';
 import { palettes, setUniform } from '../utils';
-import { focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
+import { emitCue, focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import type { ThreeEvent } from '@react-three/fiber';
 import type { NavLight } from '../parts';
@@ -53,6 +54,87 @@ const tetherLights: NavLight[] = [
 
 /** Which pod the pointer is over (-1 for none): it lights as if it were being read */
 type Hovered = { current: number };
+
+/** The role whose card on the page is pointed at or focused (worldStore.targetHover), -1 for none */
+function pageRole(count: number) {
+  const target = worldStore.targetHover;
+  if (!target.startsWith('role:')) return -1;
+  const index = Number(target.slice('role:'.length));
+  return Number.isInteger(index) && index >= 0 && index < count ? index : -1;
+}
+
+/**
+ * The satellite's ping running along the beam: down past every pod after
+ * its trick, or to one pod when that role's card is pointed at on the
+ * page. Clock times in seconds; `to` is the height it runs to
+ */
+interface BeamPing {
+  at: number;
+  to: number;
+  duration: number;
+  /** The trick that started the last full run, so a new one is noticed */
+  trickAt: number;
+  /** The role pointed at on the page, -1 for none */
+  role: number;
+  /** When the ping cue last sounded, so a sweep across the cards doesn't chatter */
+  cueAt: number;
+}
+
+const createBeamPing = (): BeamPing => ({
+  at: -Infinity,
+  to: 0,
+  duration: 1,
+  trickAt: -Infinity,
+  role: -1,
+  cueAt: -Infinity,
+});
+
+/** The ping cue sounds at most this often (s) */
+const cueGap = 0.15;
+const podPoint: [number, number, number] = [0, 0, 0];
+
+/**
+ * Starts the beam's ping for a new trick (the whole beam) or a newly
+ * pointed-at role (its pod only, with the ping cue from the pod); returns
+ * how far through its run it is, or -1 when none is running
+ */
+function stepBeamPing(
+  ping: BeamPing,
+  trickAt: number,
+  role: number,
+  t: number,
+  fromY: number,
+  nodeYs: number[],
+  origin: { x: number; y: number; z: number },
+  still: boolean
+) {
+  if (trickAt !== ping.trickAt) {
+    ping.trickAt = trickAt;
+    ping.at = trickAt;
+    ping.to = -experienceDepth - 2;
+    ping.duration = pingTime;
+  }
+  if (role !== ping.role) {
+    ping.role = role;
+    if (role >= 0) {
+      // Nothing runs along the beam at the still level: the pod just lights
+      if (!still) {
+        ping.at = t;
+        ping.to = nodeYs[role];
+        ping.duration = MathUtils.clamp(0.35 + Math.abs(fromY - nodeYs[role]) * 0.05, 0.35, 1.2);
+      }
+      if (t - ping.cueAt >= cueGap) {
+        ping.cueAt = t;
+        podPoint[0] = origin.x;
+        podPoint[1] = origin.y + nodeYs[role];
+        podPoint[2] = origin.z;
+        emitCue('ping', { at: podPoint });
+      }
+    }
+  }
+  const since = t - ping.at;
+  return since >= 0 && since < ping.duration ? since / ping.duration : -1;
+}
 
 function hoverNode(
   e: ThreeEvent<PointerEvent>,
@@ -127,12 +209,15 @@ export function ExperienceStation({
   const nodesRef = useRef<Group>(null);
   const pingRef = useRef<Group>(null);
   const hovered = useRef(-1);
+  const beamPing = useRef(createBeamPing());
   const reaction = useRef(createReaction());
   const handlers = useReactionHandlers(reaction, satelliteTip, rollTime);
   useShowcase('experience', satelliteRef, reaction, rollTime);
   const materials = useThemedMaterials(buildMaterials, theme, 'experience');
   const palette = palettes[theme];
   const beamLength = experienceDepth + 10;
+  const still = useThree((s) => s.frameloop === 'demand');
+  useRedrawOnPageHover(true);
 
   const nodeYs = useMemo(
     () => Array.from({ length: count }, (_, i) => -((i + 0.6) / count) * experienceDepth),
@@ -172,17 +257,25 @@ export function ExperienceStation({
       satellite.scale.setScalar(1 + r.amount * 0.08);
     }
 
-    // The satellite's ping runs down the beam past every pod
+    // The satellite's ping runs down the beam past every pod after its
+    // trick, or to the pod of the role pointed at on the page
     const ping = pingRef.current;
+    const role = pageRole(count);
+    const fromY = satellite?.position.y ?? 1.6;
+    const run = stepBeamPing(
+      beamPing.current,
+      r.trickAt,
+      role,
+      t,
+      fromY,
+      nodeYs,
+      group.position,
+      still
+    );
     if (ping) {
-      const run = trickProgress(r, pingTime);
       ping.visible = run >= 0;
       if (run >= 0) {
-        ping.position.y = MathUtils.lerp(
-          satellite?.position.y ?? 1.6,
-          -experienceDepth - 2,
-          run * run
-        );
+        ping.position.y = MathUtils.lerp(fromY, beamPing.current.to, run * run);
         ping.scale.setScalar(0.9 + Math.sin(run * Math.PI) * 0.6);
       }
     }
@@ -197,8 +290,8 @@ export function ExperienceStation({
         reading > -0.99
           ? Math.max(0, 1 - Math.abs(i - reading) * 1.4)
           : Math.max(0, 1 - Math.abs(localCameraY - nodeYs[i]) / 5);
-      // Pointed at, or passed by the satellite's ping
-      const noticed = hovered.current === i ? 0.75 : 0;
+      // Pointed at (here, or its card on the page), or passed by the satellite's ping
+      const noticed = hovered.current === i || role === i ? 0.75 : 0;
       const pinged = Math.max(0, 1 - Math.abs(pingY - nodeYs[i]) / 1.6);
       lightNode(node as Group, Math.max(activation, noticed, pinged), charge, dt);
     });

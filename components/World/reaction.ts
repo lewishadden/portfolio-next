@@ -107,7 +107,7 @@ const showcasePoint = new Vector3();
 const answerTime = 1400;
 
 /** Asks for frames for `ms` (the still level draws on demand; elsewhere it costs nothing) */
-function keepDrawing(invalidate: () => void, ms: number) {
+export function keepDrawing(invalidate: () => void, ms: number) {
   const until = performance.now() + ms;
   const frame = () => {
     invalidate();
@@ -149,4 +149,24 @@ export function useShowcase(
       }),
     [station, target, state, duration, invalidate]
   );
+}
+
+/**
+ * The still level draws on demand: while `active`, pointing at or focusing
+ * page content (which can stand for something here, worldStore.targetHover)
+ * asks for a moment of frames, so what answers it lights up without waiting
+ * for a scroll
+ */
+export function useRedrawOnPageHover(active: boolean) {
+  const invalidate = useThree((s) => s.invalidate);
+  const onDemand = useThree((s) => s.frameloop === 'demand');
+  useEffect(() => {
+    if (!active || !onDemand) return;
+    const redraw = () => keepDrawing(invalidate, 500);
+    const events = ['pointerover', 'pointerout', 'focusin', 'focusout'] as const;
+    for (const type of events) document.addEventListener(type, redraw, { passive: true });
+    return () => {
+      for (const type of events) document.removeEventListener(type, redraw);
+    };
+  }, [active, onDemand, invalidate]);
 }
