@@ -565,6 +565,105 @@ html[data-flight='cruise'] .world__veil {
   &__keys {
     font-size: var(--fs-caption);
     color: var(--text-secondary);
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  /* After the coach: the key legend waits behind this */
+  &__controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+
+    &[aria-expanded='true'] {
+      color: var(--accent-secondary);
+      border-color: var(--accent-secondary);
+    }
+  }
+
+  /* The sound toggle in the bar, sized to its other buttons */
+  &__top .world-toggle {
+    width: 34px;
+    height: 34px;
+  }
+
+  /* The first free roam's coach, under the bar */
+  &__coach {
+    display: grid;
+    gap: 0.6rem;
+    justify-items: start;
+    max-width: min(30rem, calc(100vw - 32px));
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-lg);
+    background: var(--surface-strong);
+    pointer-events: auto;
+    animation: hud-rise 0.35s var(--ease-out) both;
+  }
+
+  &__coach-steps {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__coach-step {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: var(--fs-caption);
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+
+    &[aria-current='step'] {
+      color: var(--text-primary);
+    }
+
+    &[data-done] {
+      color: var(--text-secondary);
+      opacity: 0.75;
+    }
+  }
+
+  /* A ring for each step: lit for the current one, ticked once done */
+  &__coach-mark {
+    position: relative;
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 50%;
+
+    [aria-current='step'] > & {
+      border-color: var(--accent-secondary);
+      box-shadow: 0 0 10px -2px var(--glow-cyan);
+    }
+
+    [data-done] > & {
+      border-color: var(--status-ok);
+      background: var(--status-ok);
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 4px;
+        width: 3px;
+        height: 6px;
+        border: solid var(--bg-primary);
+        border-width: 0 1.5px 1.5px 0;
+        transform: rotate(45deg);
+      }
+    }
+  }
+
+  &__coach-done {
+    margin: 0;
+    font-size: var(--fs-caption);
+    color: var(--accent-secondary);
   }
 
   &__exit {
@@ -1427,8 +1526,13 @@ html[data-pointer-lock] {
     animation: none;
   }
 
-  .explore-hud__reticle {
+  .explore-hud__reticle,
+  .explore-hud__coach-step {
     transition: none;
+  }
+
+  .explore-hud__coach {
+    animation: none;
   }
 
   .waypoint--course .waypoint__mark,

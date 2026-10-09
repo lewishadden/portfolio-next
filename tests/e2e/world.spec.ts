@@ -403,6 +403,44 @@ test.describe('free roam controls', () => {
       await expect(page).toHaveURL(/\/$/);
     }
   );
+
+  test(
+    'the first free roam coaches, then keeps the keys behind a Controls button',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      const roam = page.getByRole('button', { name: 'Free roam' });
+      await roam.click();
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      await page.evaluate(() => document.exitPointerLock());
+
+      // Three steps, the first one current; the keys are listed meanwhile
+      const coach = hud.getByRole('region', { name: 'Flight training' });
+      await expect(coach.getByRole('listitem')).toHaveCount(3);
+      await expect(coach.getByRole('listitem').first()).toHaveAttribute('aria-current', 'step');
+      await expect(hud.getByText('autopilot', { exact: false }).first()).toBeVisible();
+
+      // Skipped, it is gone for good and the keys fold away behind Controls
+      await coach.getByRole('button', { name: 'Skip' }).click();
+      await expect(coach).toBeHidden();
+      const controls = hud.getByRole('button', { name: 'Controls', exact: true });
+      await expect(controls).toHaveAttribute('aria-expanded', 'false');
+      const legend = page.locator(`#${await controls.getAttribute('aria-controls')}`);
+      await expect(legend).toBeHidden();
+      await controls.click();
+      await expect(controls).toHaveAttribute('aria-expanded', 'true');
+      await expect(legend).toBeVisible();
+
+      await page.keyboard.press('Escape');
+      await expect(hud).toBeHidden();
+      await roam.click();
+      await expect(hud).toBeVisible();
+      await expect(hud.getByRole('region', { name: 'Flight training' })).toHaveCount(0);
+    }
+  );
 });
 
 test.describe('free roam on touch', () => {

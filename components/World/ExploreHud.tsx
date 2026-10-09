@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from '@iconify/react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { SoundToggle } from 'components/Sound/SoundToggle';
 
 import { canLockPointer, usePointerLocked } from './pointerLock';
 import { sectorCentre, sectorRadius, stationForPath, stationNames, stationPaths } from './routes';
+import { useFoundSignals } from './signalStore';
 import { SignalCard, SignalCount, SignalDetector } from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
@@ -20,6 +22,7 @@ import {
   worldStore,
 } from './worldStore';
 
+import type { ReactNode } from 'react';
 import type { StationKey } from './routes';
 import type { WorldContent } from './types';
 
@@ -380,6 +383,181 @@ function EdgeWarning() {
   );
 }
 
+/* ----------------- Learning to fly: the coach and the key legend ----------------- */
+
+/** localStorage: set once the visitor has been through (or skipped) the coach */
+const trainedKey = 'roam-trained';
+
+function readTrained() {
+  try {
+    return localStorage.getItem(trainedKey) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveTrained() {
+  try {
+    localStorage.setItem(trainedKey, '1');
+  } catch {
+    // Storage blocked: remembered for this visit
+  }
+}
+
+/** How the visitor flies: a locked mouse looks, a free one steers, touch has thumbsticks */
+type Pilot = 'lock' | 'steer' | 'touch';
+type CoachStep = 'look' | 'fly' | 'course';
+const coachSteps: CoachStep[] = ['look', 'fly', 'course'];
+
+/** Mouse travel (px, locked) that counts as having looked around */
+const lookTravel = 60;
+/** How long the coach says it is done before it goes (ms) */
+const coachOutro = 2600;
+
+const coachCopy: Record<CoachStep, Record<Pilot, ReactNode>> = {
+  look: {
+    lock: <>Look around: move the mouse</>,
+    steer: <>Steer: rest the mouse away from the middle</>,
+    touch: <>Look around: hold the right thumbstick over</>,
+  },
+  fly: {
+    lock: (
+      <>
+        Fly: <kbd>W</kbd>
+        <kbd>A</kbd>
+        <kbd>S</kbd>
+        <kbd>D</kbd>, <kbd>⇧</kbd> to boost
+      </>
+    ),
+    steer: (
+      <>
+        Fly: <kbd>W</kbd>
+        <kbd>A</kbd>
+        <kbd>S</kbd>
+        <kbd>D</kbd>, <kbd>⇧</kbd> to boost
+      </>
+    ),
+    touch: <>Fly: push the left thumbstick, out to its ring to boost</>,
+  },
+  course: {
+    lock: (
+      <>
+        Set a course: <kbd>0</kbd>–<kbd>5</kbd>, or find a hidden signal
+      </>
+    ),
+    steer: (
+      <>
+        Set a course: click a station or press <kbd>0</kbd>–<kbd>5</kbd>, or find a hidden signal
+      </>
+    ),
+    touch: <>Set a course: tap a station, or find a hidden signal</>,
+  },
+};
+
+const stepNames: Record<CoachStep, string> = {
+  look: 'look around',
+  fly: 'fly',
+  course: 'set a course',
+};
+
+/**
+ * The first free roam teaches itself: three steps, each ticked off as the
+ * visitor does it (looking round, flying or boosting, setting the
+ * autopilot or finding a signal), in words for how they fly. Done or
+ * skipped, it is remembered (localStorage `roam-trained`) and doesn't
+ * show again
+ */
+function Coach({ pilot, onDone }: { pilot: Pilot; onDone: () => void }) {
+  const [done, setDone] = useState<Record<CoachStep, boolean>>({
+    look: false,
+    fly: false,
+    course: false,
+  });
+  const found = useFoundSignals();
+  const [foundBefore] = useState(found.length);
+
+  useEffect(() => {
+    let frame = 0;
+    let travel = 0;
+    const mark = (step: CoachStep) =>
+      setDone((current) => (current[step] ? current : { ...current, [step]: true }));
+    const onMove = (e: PointerEvent) => {
+      if (!document.pointerLockElement) return;
+      travel += Math.abs(e.movementX) + Math.abs(e.movementY);
+      if (travel > lookTravel) mark('look');
+    };
+    const tick = () => {
+      frame = requestAnimationFrame(tick);
+      const input = exploreInput;
+      const steering = Math.max(Math.abs(input.steerX), Math.abs(input.steerY)) > 0.25;
+      const stick = Math.max(Math.abs(input.stickX), Math.abs(input.stickY)) > 0.3;
+      if (steering || stick || input.turn || input.pitch) mark('look');
+      if (input.forward || input.strafe || input.lift) mark('fly');
+      if (worldStore.autopilot) mark('course');
+    };
+    frame = requestAnimationFrame(tick);
+    window.addEventListener('pointermove', onMove, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('pointermove', onMove);
+    };
+  }, []);
+
+  const ticked = { ...done, course: done.course || found.length > foundBefore };
+  const current = coachSteps.find((step) => !ticked[step]);
+
+  useEffect(() => {
+    if (current) return;
+    const id = window.setTimeout(onDone, coachOutro);
+    return () => window.clearTimeout(id);
+  }, [current, onDone]);
+
+  return (
+    <section className="explore-hud__coach glass" aria-label="Flight training">
+      <ol className="explore-hud__coach-steps">
+        {coachSteps.map((step) => (
+          <li
+            key={step}
+            className="explore-hud__coach-step"
+            data-done={ticked[step] || undefined}
+            aria-current={step === current ? 'step' : undefined}
+          >
+            <span className="explore-hud__coach-mark" aria-hidden="true" />
+            <span>{coachCopy[step][pilot]}</span>
+            {ticked[step] && <span className="sr-only"> (done)</span>}
+          </li>
+        ))}
+      </ol>
+      {current ? (
+        <button type="button" className="explore-hud__exit" onClick={onDone}>
+          Skip
+        </button>
+      ) : (
+        <p className="explore-hud__coach-done">All set. The keys are under Controls.</p>
+      )}
+      <p className="sr-only" role="status">
+        {current ? `Next: ${stepNames[current]}` : 'Training done'}
+      </p>
+    </section>
+  );
+}
+
+/** Every control, for how the visitor flies */
+function KeyLegend({ pilot }: { pilot: Pilot }) {
+  if (pilot === 'touch') return <>Thumbsticks fly · tap a station for autopilot</>;
+  return (
+    <>
+      <kbd>W</kbd>
+      <kbd>A</kbd>
+      <kbd>S</kbd>
+      <kbd>D</kbd> fly · mouse {pilot === 'lock' ? 'looks' : 'steers'} · <kbd>Space</kbd>
+      <kbd>C</kbd> up/down · <kbd>R</kbd>
+      <kbd>V</kbd> pitch · <kbd>⇧</kbd> boost · <kbd>E</kbd> click · <kbd>0</kbd>–<kbd>5</kbd>{' '}
+      autopilot
+    </>
+  );
+}
+
 /**
  * Explore mode's heads-up display: how to fly, an exit, a marker for
  * every station (which sets the autopilot), the autopilot's status, a
@@ -407,6 +585,15 @@ export function ExploreHud({
   const locked = usePointerLocked();
   const targeting = useSyncExternalStore(subscribeHover, readHover, noLock);
   const regionRef = useRef<HTMLDivElement>(null);
+  const pilot: Pilot = touch ? 'touch' : lockable ? 'lock' : 'steer';
+  // Until the coach is done the key legend shows; after, it waits behind a button
+  const [trained, setTrained] = useState(readTrained);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const legendId = useId();
+  const finishTraining = useCallback(() => {
+    saveTrained();
+    setTrained(true);
+  }, []);
 
   // Keyboard focus moves into the HUD (the page under it is inert). The
   // region itself takes it, not a control in it: Enter is then the dock
@@ -495,26 +682,28 @@ export function ExploreHud({
             Explore mode
           </span>
           <SignalCount />
-          <span className="explore-hud__keys">
-            {touch ? (
-              'Thumbsticks fly · tap a station for autopilot'
-            ) : (
-              <>
-                <kbd>W</kbd>
-                <kbd>A</kbd>
-                <kbd>S</kbd>
-                <kbd>D</kbd> fly · mouse {lockable ? 'looks' : 'steers'} · <kbd>Space</kbd>
-                <kbd>C</kbd> up/down · <kbd>R</kbd>
-                <kbd>V</kbd> pitch · <kbd>⇧</kbd> boost · <kbd>E</kbd> click · <kbd>0</kbd>–
-                <kbd>5</kbd> autopilot
-              </>
-            )}
+          {trained && (
+            <button
+              type="button"
+              className="explore-hud__exit explore-hud__controls"
+              aria-expanded={legendOpen}
+              aria-controls={legendId}
+              onClick={() => setLegendOpen((open) => !open)}
+            >
+              <Icon icon="ph:keyboard" width={16} height={16} aria-hidden="true" />
+              Controls
+            </button>
+          )}
+          <span id={legendId} className="explore-hud__keys" hidden={trained && !legendOpen}>
+            <KeyLegend pilot={pilot} />
           </span>
+          <SoundToggle />
           <button type="button" className="explore-hud__exit" onClick={worldMode.exit}>
-            Exit <kbd>Esc</kbd>
+            Exit {!touch && <kbd>Esc</kbd>}
           </button>
         </div>
         <SignalDetector />
+        {!trained && <Coach pilot={pilot} onDone={finishTraining} />}
         {compact && status}
       </div>
 
