@@ -5,9 +5,16 @@ import { useFrame } from '@react-three/fiber';
 import { AdditiveBlending, Color, MathUtils, NormalBlending, ShaderMaterial, Vector3 } from 'three';
 
 import { cameraMotion } from './MotionProbe';
-import { inkOpacity, quadCorners, quadIndex, streakQuad, streakShape } from './Starfield';
+import {
+  inkOpacity,
+  quadCorners,
+  quadIndex,
+  streakQuad,
+  streakShape,
+  travelAmount,
+  warpAmount,
+} from './Starfield';
 import { palettes, seededRandom, setUniform } from './utils';
-import { worldStore } from './worldStore';
 
 import type { WorldTheme } from './utils';
 
@@ -79,11 +86,12 @@ function applyDustTheme(material: ShaderMaterial, theme: WorldTheme) {
 const trailTime = 0.045;
 
 /**
- * The camera's velocity and how long a trail it leaves, and the drawing
- * buffer's size in pixels; returns how far the motes trail (0..1)
+ * The camera's velocity and how long a trail it leaves (only travelling:
+ * Starfield's travelAmount), and the drawing buffer's size in pixels;
+ * returns how far the motes trail (0..1)
  */
-function trackTrails(material: ShaderMaterial, width: number, height: number) {
-  const trail = MathUtils.smoothstep(cameraMotion.speed, 15, 70);
+function trackTrails(material: ShaderMaterial, width: number, height: number, travel: number) {
+  const trail = MathUtils.smoothstep(cameraMotion.speed, 15, 70) * travel;
   setUniform(material, 'uVelocity', cameraMotion.velocity);
   setUniform(material, 'uTrail', trailTime * trail);
   const resolution = material.uniforms.uResolution.value as number[];
@@ -141,15 +149,17 @@ export function Dust({ count, theme }: { count: number; theme: WorldTheme }) {
 
   useEffect(() => () => material.dispose(), [material]);
 
-  useFrame(({ camera, clock, gl, size, viewport }) => {
+  useFrame(({ camera, clock, gl, size, viewport }, delta) => {
+    const travelling = travelAmount(clock.elapsedTime, delta);
     setUniform(material, 'uCamera', camera.position);
     setUniform(material, 'uTime', clock.elapsedTime);
     setUniform(material, 'uPixelRatio', viewport.dpr);
-    setUniform(material, 'uWarp', Math.min(worldStore.velocity / 40, 1.4));
+    setUniform(material, 'uWarp', warpAmount(travelling));
     const trail = trackTrails(
       material,
       size.width * gl.getPixelRatio(),
-      size.height * gl.getPixelRatio()
+      size.height * gl.getPixelRatio(),
+      travelling
     );
     if (theme === 'light') setUniform(material, 'uOpacity', inkOpacity(trail));
   });

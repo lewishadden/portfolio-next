@@ -6,6 +6,7 @@ import { AdditiveBlending, Color, MathUtils, NormalBlending, ShaderMaterial } fr
 
 import { cameraMotion } from './MotionProbe';
 import { palettes, seededRandom, setUniform } from './utils';
+import { worldMode } from './worldMode';
 import { worldStore } from './worldStore';
 
 import type { InstancedBufferGeometry } from 'three';
@@ -166,10 +167,36 @@ function applyStarTheme(material: ShaderMaterial, colors: Float32Array, theme: W
   }
 }
 
-/** How far the stars streak, 0..1: only at speed, and only heading into the view */
-export const streakAmount = () =>
+const travel = { value: 0, at: -1 };
+
+/**
+ * Whether the camera is travelling, 0..1: on a flight between stations (tour
+ * flights and the warp in included) or in free roam, eased out over 0.3s
+ * once that ends so the last streaks don't cut off. Following the page's
+ * scroll never counts: End on a long page moves the camera fast, but that
+ * is reading, not lightspeed. The optics' streak blur uses the same test.
+ * Worked out once a frame (`t`, the clock's time) however many ask
+ */
+export function travelAmount(t: number, delta: number) {
+  if (t !== travel.at) {
+    travel.at = t;
+    const travelling = worldStore.flight.active || worldMode.get().mode === 'explore';
+    travel.value = travelling ? 1 : Math.max(0, travel.value - Math.min(delta, 0.1) / 0.3);
+  }
+  return travel.value;
+}
+
+/**
+ * How far the stars streak, 0..1: only travelling (`travel`, see
+ * travelAmount), at speed and heading into the view
+ */
+export const streakAmount = (travel: number) =>
   MathUtils.smoothstep(cameraMotion.speed, 30, 120) *
-  MathUtils.smoothstep(cameraMotion.ahead, 0.15, 0.6);
+  MathUtils.smoothstep(cameraMotion.ahead, 0.15, 0.6) *
+  travel;
+
+/** How much the stars and dust swell with speed (worldStore.velocity), only travelling */
+export const warpAmount = (travel: number) => Math.min(worldStore.velocity / 40, 1.4) * travel;
 
 /**
  * Twinkling star shell enclosing every station. At speed the stars stream
@@ -230,14 +257,16 @@ export function Starfield({ count, theme }: { count: number; theme: WorldTheme }
 
   useEffect(() => () => material.dispose(), [material]);
 
-  useFrame(({ clock, gl, size, viewport }) => {
+  useFrame(({ clock, gl, size, viewport }, delta) => {
+    const travelling = travelAmount(clock.elapsedTime, delta);
     setUniform(material, 'uTime', clock.elapsedTime);
     setUniform(material, 'uPixelRatio', viewport.dpr);
-    setUniform(material, 'uWarp', Math.min(worldStore.velocity / 40, 1.4));
+    setUniform(material, 'uWarp', warpAmount(travelling));
     const streak = trackStreaks(
       material,
       size.width * gl.getPixelRatio(),
-      size.height * gl.getPixelRatio()
+      size.height * gl.getPixelRatio(),
+      travelling
     );
     if (theme === 'light') setUniform(material, 'uOpacity', inkOpacity(streak));
   });
@@ -260,8 +289,8 @@ export function Starfield({ count, theme }: { count: number; theme: WorldTheme }
  * Streak length and where they stream from, and the drawing buffer's size
  * in pixels; returns how far they streak (0..1)
  */
-function trackStreaks(material: ShaderMaterial, width: number, height: number) {
-  const streak = streakAmount();
+function trackStreaks(material: ShaderMaterial, width: number, height: number, travel: number) {
+  const streak = streakAmount(travel);
   setUniform(material, 'uStreak', streak);
   const focus = material.uniforms.uFocus.value as number[];
   focus[0] = cameraMotion.focusX;
@@ -392,10 +421,15 @@ export function BrightStars({ count, theme }: { count: number; theme: WorldTheme
   );
   useEffect(() => () => material.dispose(), [material]);
 
-  useFrame(({ clock, gl, size, viewport }) => {
+  useFrame(({ clock, gl, size, viewport }, delta) => {
     setUniform(material, 'uTime', clock.elapsedTime);
     setUniform(material, 'uPixelRatio', viewport.dpr);
-    trackStreaks(material, size.width * gl.getPixelRatio(), size.height * gl.getPixelRatio());
+    trackStreaks(
+      material,
+      size.width * gl.getPixelRatio(),
+      size.height * gl.getPixelRatio(),
+      travelAmount(clock.elapsedTime, delta)
+    );
   });
 
   // Daylight hides them
