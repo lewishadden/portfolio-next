@@ -229,7 +229,8 @@ export function GasClouds({
 
   return (
     <mesh material={material} frustumCulled={false} renderOrder={-2}>
-      <instancedBufferGeometry ref={geometryRef} instanceCount={placed}>
+      {/* New per count: three caps an instanced geometry at the count it first drew */}
+      <instancedBufferGeometry key={count} ref={geometryRef} instanceCount={placed}>
         <bufferAttribute attach="attributes-position" args={[quadCorners, 3]} />
         <bufferAttribute attach="index" args={[quadIndex, 1]} />
         <instancedBufferAttribute attach="attributes-aCentre" args={[centres, 3]} />
