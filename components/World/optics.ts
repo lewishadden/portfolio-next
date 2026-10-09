@@ -269,8 +269,9 @@ const floorFor = (text: string, ratio: number) => ratio * (luminanceOf(text) + 0
  * the violet accent (--accent-primary), the dimmest large text the
  * headings' gradient at #818cf8; on the light sky the lightest is the cyan
  * accent (--accent-secondary) in eyebrows and highlights. Muted text
- * (--text-muted) would need a black backdrop, so it isn't one of them: it
- * should only sit where it already reads (the station readout, small labels)
+ * (--text-muted) would need a near-black backdrop (luminance ~0.005), so it
+ * isn't one of them and must not sit inside a [data-reading] block: the
+ * station readout and the hero's stat labels use --text-secondary for that
  */
 const guardLimits: Record<WorldTheme, { ceiling: [number, number]; floor: [number, number] }> = {
   dark: {
