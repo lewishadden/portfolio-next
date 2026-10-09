@@ -724,6 +724,27 @@ class ScreenShots {
 }
 
 const corner = new Vector3();
+const centre = new Vector3();
+
+/**
+ * Whether a screen sits behind the page's heading block (worldStore.copy,
+ * -1..1 from the centre, y up), give or take a little: on a project page the
+ * screens other than the project's own dim there, so the copy reads
+ */
+function behindCopy(screen: Object3D, camera: Camera) {
+  const copy = worldStore.copy;
+  if (copy.right <= copy.left || copy.top <= copy.bottom) return false;
+  screen.getWorldPosition(centre).project(camera);
+  const margin = 0.08;
+  return (
+    centre.z < 1 &&
+    centre.x > copy.left - margin &&
+    centre.x < copy.right + margin &&
+    centre.y > copy.bottom - margin &&
+    centre.y < copy.top + margin
+  );
+}
+
 const cornerSigns = [
   [-1, -1],
   [1, -1],
@@ -1159,6 +1180,13 @@ export function ProjectsStation({
     // doesn't carry holds the screen where it is)
     const shot = worldStore.projectShot;
     let changing = false;
+    // A project named on the page that is pointed at or focused (an index
+    // link, a pager card): its screen lights up and goes live
+    const target = worldStore.targetHover;
+    const named = target.startsWith('project:') ? Number(target.slice('project:'.length)) : -1;
+    // On a project page, other screens behind its heading dim right down
+    const aside = worldStore.projectAside && front >= 0;
+    const spiral = helixRef.current;
     screenMaterials.forEach((material, i) => {
       const state = states[i];
       const images = screens[i].images;
@@ -1175,14 +1203,20 @@ export function ProjectsStation({
         i,
         t,
         dt,
-        i === live || i === hoveredRef.current,
+        i === live || i === hoveredRef.current || i === named,
         shots,
         sharpWidth > 0 && i === live && state.pin < 0
       );
       changing ||= state.next >= 0 || (state.pin >= 0 && state.pin !== state.index);
       const reveal = material.uniforms.uReveal.value as number;
       if (reveal < 1.1) setUniform(material, 'uReveal', snap ? 1.1 : reveal + dt * 0.8);
-      const dim = front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) * ride : 0;
+      const placed = spiral?.children[i];
+      const hidden =
+        aside && i !== Math.round(front) && !!placed && behindCopy(placed, camera) ? 1 : 0;
+      const dim = Math.max(
+        front >= 0 ? MathUtils.smoothstep(Math.abs(i - front), 0.3, 1) * ride : 0,
+        hidden
+      );
       const current = material.uniforms.uDim.value as number;
       setUniform(material, 'uDim', instant ? dim : approach(current, dim, 6, dt));
       // The screen in front is being read: solid, with faint scanlines
@@ -1191,7 +1225,6 @@ export function ProjectsStation({
       setUniform(material, 'uFocus', instant ? reading : approach(shown, reading, 6, dt));
     });
 
-    const spiral = helixRef.current;
     if (spiral) {
       // The camera rides the helix (stationCamera), so it holds still while a
       // project is in front; elsewhere it turns slowly with the page. Always

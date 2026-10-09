@@ -445,6 +445,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
                     href={projectPath(project.slug)}
                     prefetch={false}
                     className="projects__index-link"
+                    data-world-project={i}
                     aria-current={i === active ? 'true' : undefined}
                     onClick={(e) => {
                       if (!plainClick(e)) return;

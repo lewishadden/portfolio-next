@@ -47,6 +47,7 @@ const PagerLink = ({
       href={projectPath(project.slug)}
       rel={direction}
       className={`project-pager__link project-pager__link--${direction} glass spotlight`}
+      data-world-project={number - 1}
     >
       <span className="project-pager__dir">
         {!next && <Icon icon="ph:arrow-left-bold" width={14} height={14} aria-hidden="true" />}
