@@ -119,16 +119,24 @@ export interface Framing {
   lift: number;
 }
 
+/** A stretch of the screen to frame the station in, CSS px from the top */
+export interface Slot {
+  top: number;
+  height: number;
+}
+
 /**
  * Wide layouts frame every station as designed. Narrow ones pull the camera
- * back until the station fits the screen width and the stage slot, then drop
- * it so the station sits in that slot instead of spilling off the edges.
+ * back until the station fits the screen width and the stage slot (or the
+ * `slot` given: a world window further down the page), then drop it so the
+ * station sits in that slot instead of spilling off the edges.
  */
 export function stationFraming(
   key: StationKey,
   width: number,
   height: number,
-  out: Framing = { zoom: 1, lift: 0 }
+  out: Framing = { zoom: 1, lift: 0 },
+  slot?: Slot
 ) {
   if (isWideViewport(width, height)) {
     out.zoom = 1;
@@ -136,21 +144,65 @@ export function stationFraming(
     return out;
   }
   const shot = shots[key];
-  const slot = slotHeight(height);
+  const top = slot ? slot.top : slotTop;
+  const tall = slot ? slot.height : slotHeight(height);
   const aspect = width / Math.max(height, 1);
   const distance = Math.max(
     shot.distance,
     shot.halfWidth / (narrowFill * tanHalfFov * aspect),
-    shot.halfHeight / ((slot / height) * tanHalfFov)
+    shot.halfHeight / ((tall / height) * tanHalfFov)
   );
   // Slot centre in normalised device coordinates (1 = top of the screen)
-  const slotCentre = 1 - (2 * (slotTop + slot / 2)) / height;
+  const slotCentre = 1 - (2 * (top + tall / 2)) / height;
   out.zoom = distance / shot.distance;
   out.lift = slotCentre * distance * tanHalfFov - shot.offsetY;
   return out;
 }
 
 const framing: Framing = { zoom: 1, lift: 0 };
+const windowFraming: Framing = { zoom: 1, lift: 0 };
+const windowEye = new Vector3();
+const windowLook = new Vector3();
+
+/**
+ * Phones: the page leaves "windows" in its copy ([data-world-window],
+ * worldStore.worldWindow) where the station is framed again mid-page. As
+ * one passes the reading line the camera swings round the station by this
+ * much (radians), gently, and frames it inside the window instead of
+ * leaving it scrolled away above the copy
+ */
+const windowSwing = 0.35;
+/** How close to the reading line (share of the screen's height) a window starts and finishes taking the camera */
+const windowNear = 0.05;
+const windowFar = 0.4;
+
+/**
+ * How far the nearest world window has the camera, 0..1, from its distance
+ * to the reading line. The station comes back from wherever the page left
+ * it, so below full motion it cuts into the window halfway instead of
+ * sweeping in with the scroll
+ */
+function windowWeight(height: number) {
+  const view = worldStore.worldWindow;
+  if (view.height <= 0) return 0;
+  const line = height * 0.45;
+  const bottom = view.top + view.height;
+  const away = (view.top > line ? view.top - line : bottom < line ? line - bottom : 0) / height;
+  if (motionLevel() !== 'full') return away < (windowNear + windowFar) / 2 ? 1 : 0;
+  return 1 - MathUtils.smoothstep(away, windowNear, windowFar);
+}
+
+/** The pose that frames the station inside the nearest world window (station-local) */
+function windowPose(key: StationKey, width: number, height: number, pos: Vector3, look: Vector3) {
+  const { zoom, lift } = stationFraming(key, width, height, windowFraming, worldStore.worldWindow);
+  const { height: eyeY, distance } = shots[key];
+  look.set(0, 0, 0);
+  pos
+    .set(Math.sin(windowSwing) * distance, eyeY, Math.cos(windowSwing) * distance)
+    .multiplyScalar(zoom);
+  pos.y -= lift;
+  look.y -= lift;
+}
 
 /**
  * Station-local height of the point the camera frames, given the camera's own
@@ -440,5 +492,13 @@ export function stationCamera(
   if (centred && wide) {
     pos.addScaledVector(up, 0.19 * (1 - intro));
     look.addScaledVector(up, 0.19 * (1 - intro));
+  }
+
+  // Phones: into the world window passing the reading line, if there is one
+  const into = wide ? 0 : windowWeight(height);
+  if (into > 0) {
+    windowPose(key, width, height, windowEye, windowLook);
+    pos.lerp(windowEye, into);
+    look.lerp(windowLook, into);
   }
 }
