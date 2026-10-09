@@ -1,5 +1,7 @@
 import { expect, openHydrated, routes, test } from './fixtures';
 
+import type { Page } from '@playwright/test';
+
 test('sound is off by default, and turning it on is remembered', async ({ page }) => {
   await openHydrated(page, '/');
   const sound = page.getByRole('button', { name: 'Sound' });
@@ -53,4 +55,33 @@ test('every role on the experience page wears its mission patch', async ({ page 
   const roles = page.locator('.xp__list > li');
   await expect(page.locator('.xp__patch')).toHaveCount(await roles.count());
   await expect(page.locator('.xp__patch').first()).toContainText('MISSION');
+});
+
+test.describe('the footer manifest', () => {
+  const check = async (page: Page) => {
+    const nav = page.getByRole('navigation', { name: 'Footer navigation' });
+    const links = nav.getByRole('link');
+    await expect(links).toHaveCount(6);
+    // Numbered from 00 as the page eyebrows are, About 01
+    await expect(links.nth(0)).toContainText('00');
+    await expect(links.nth(0)).toContainText('Gateway hub');
+    await expect(links.nth(0)).toContainText(/\d+ km/);
+    await expect(links.nth(1)).toContainText('01');
+    await expect(links.nth(1)).toHaveAttribute('aria-current', 'page');
+    await expect(links.nth(1)).toContainText('Docked');
+    await expect(links.nth(1)).toHaveAccessibleName('About');
+  };
+
+  test('names each station, its range and where you are docked', async ({ page }) => {
+    await openHydrated(page, '/about');
+    await check(page);
+  });
+
+  test('is in the server HTML', async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto('/about');
+    await check(page);
+    await context.close();
+  });
 });
