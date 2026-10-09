@@ -1,40 +1,55 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import {
   AdditiveBlending,
   BufferGeometry,
   CanvasTexture,
   MathUtils,
   Color,
+  DataTexture,
   DoubleSide,
+  DynamicDrawUsage,
   Float32BufferAttribute,
   Group,
+  InstancedBufferAttribute,
+  InstancedMesh,
   LineBasicMaterial,
+  Matrix4,
   NormalBlending,
+  Quaternion,
   ShaderMaterial,
+  Sphere,
   SRGBColorSpace,
   Vector3,
 } from 'three';
 
+import { motionLevel } from '@/utils/motion';
+
 import { iconSvg, useIconCollections } from '../icons';
-import { asGlow, createFresnelMaterial, noiseGlsl } from '../materials';
+import { asGlow, chargeWith, createFresnelMaterial, noiseGlsl } from '../materials';
 import { NavLights, SolarArray, Spin } from '../parts';
 import { spawnPing } from '../Pings';
-import { StationScope } from '../power';
+import { StationScope, stationPower } from '../power';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
 import { orbitTilts } from '../skillsOrbit';
-import { setUniform } from '../utils';
-import { focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
+import { palettes, setUniform } from '../utils';
+import { queueUpload, useWarmupTask } from '../warmup';
+import { focusOnPage, onShowcase, setWorldHover, worldStore, worldTip } from '../worldStore';
 
-import type { Camera, LineSegments, Object3D, Sprite, SpriteMaterial } from 'three';
+import { repaintFor, useStillRepaint } from './stillFrames';
+
+import type { RefObject } from 'react';
+import type { IconifyJSON } from '@iconify/react';
+import type { ThreeEvent } from '@react-three/fiber';
+import type { Camera, Intersection, LineSegments, Object3D, Raycaster, Texture } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
 
-type SkillIcon = { name: string; icon: string; category: string };
+type SkillIcon = { name: string; icon: string; category: string; level: number };
 
 const planetFragment = /* glsl */ `
   uniform float uTime;
@@ -42,6 +57,7 @@ const planetFragment = /* glsl */ `
   uniform vec3 uColorB;
   uniform vec3 uColorC;
   uniform float uLight;
+  uniform float uCharge;
   varying vec3 vPos;
   varying vec3 vNormal;
   varying vec3 vView;
@@ -55,9 +71,12 @@ const planetFragment = /* glsl */ `
     col = mix(col, uColorC, storm * 0.6);
     float light = clamp(dot(normalize(vNormal), normalize(vec3(-0.6, 0.5, 0.8))), 0.0, 1.0);
     col *= mix(0.25, 1.15, light);
+    // The station's power: its bands glow dimly in standby, the rim goes out, and both surge on
+    float on = clamp(uCharge, 0.0, 1.0);
+    col *= mix(0.35, 1.0, on) * mix(1.0, max(uCharge, 1.0), 0.5);
     // Clamped: a head-on dot can round past 1, and pow() of a negative base is NaN
     float rim = pow(clamp(1.0 - dot(normalize(vNormal), normalize(vView)), 0.0, 1.0), 3.0);
-    col += uColorB * rim * mix(1.4, 0.6, uLight);
+    col += uColorB * rim * mix(1.4, 0.6, uLight) * on * max(uCharge, 1.0);
     gl_FragColor = vec4(col, 1.0);
   }
 `;
@@ -79,6 +98,7 @@ const ringFragment = /* glsl */ `
   uniform vec3 uColorA;
   uniform vec3 uColorB;
   uniform float uLight;
+  uniform float uCharge;
   varying vec2 vUv;
   varying float vRadius;
   void main() {
@@ -88,7 +108,10 @@ const ringFragment = /* glsl */ `
     float edge = smoothstep(0.0, 0.08, r) * smoothstep(1.0, 0.85, r);
     float alpha = edge * (0.25 + bands * 0.55) * (1.0 - gap * 0.85);
     vec3 col = mix(uColorA, uColorB, r);
-    gl_FragColor = vec4(col * mix(1.5, 1.0, uLight), alpha * mix(0.8, 0.7, uLight));
+    gl_FragColor = vec4(
+      col * mix(1.5, 1.0, uLight) * max(uCharge, 1.0),
+      alpha * mix(0.8, 0.7, uLight) * min(uCharge, 1.0)
+    );
   }
 `;
 
@@ -121,6 +144,7 @@ const buildMaterials = (p: WorldPalette) => ({
       uColorB: { value: new Color(p.cyan) },
       uColorC: { value: new Color(p.pink) },
       uLight: { value: 0 },
+      uCharge: { value: 1 },
     },
     defines: { OCTAVES: 4 },
     vertexShader: planetVertex,
@@ -135,6 +159,7 @@ const buildMaterials = (p: WorldPalette) => ({
         uInner: { value: ringInner },
         uOuter: { value: ringOuter },
         uLight: { value: 0 },
+        uCharge: { value: 1 },
       },
       vertexShader: ringVertex,
       fragmentShader: ringFragment,
@@ -144,139 +169,664 @@ const buildMaterials = (p: WorldPalette) => ({
       toneMapped: false,
     })
   ),
+  badges: createBadgeMaterial(p === palettes.dark),
 });
 
-/** Renders an Iconify icon from the offline bundle into a glowing badge texture */
-function drawBadge(svg: string | null, label: string, theme: WorldTheme) {
-  const size = 128;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  if (!ctx) return texture;
+/* ------------------------------------------------------------------
+   Skill badges. Every icon is drawn once into one atlas (one texture,
+   uploaded through queueUpload once its images have all decoded), and
+   every badge is an instance of one material: a quad turned to face the
+   camera, whose disc, gradient ring and monochrome icons are coloured by
+   uniforms, so a theme change recolours them without redrawing anything.
+   Two instanced meshes share it, the badges beyond the giant's centre and
+   the rest, so the giant's ring and atmosphere draw between them. The
+   meshes mount with the station (so its Precompiled pass compiles them)
+   on a 1×1 placeholder, and the icons fade in once the atlas is up. Two
+   draws, where there was a sprite (and a texture upload) per skill.
+   ------------------------------------------------------------------ */
 
-  const dark = theme === 'dark';
-  const gradient = ctx.createLinearGradient(0, 0, size, size);
-  gradient.addColorStop(0, dark ? '#a78bfa' : '#7c3aed');
-  gradient.addColorStop(1, dark ? '#22d3ee' : '#0e7490');
-  ctx.beginPath();
-  ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
-  ctx.fillStyle = dark ? 'rgba(12, 14, 32, 0.92)' : 'rgba(255, 255, 255, 0.95)';
-  ctx.fill();
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = gradient;
-  ctx.stroke();
+/** Atlas cell size in px, and cells per row */
+const atlasCell = 128;
+const atlasColumns = 8;
+/** An icon's inset in its cell, so mip levels don't bleed into its neighbours */
+const atlasPad = 8;
+/** Near white: icons drawn in it were monochrome (currentColor), inked by uniform */
+const monoInk = '#fffffe';
+/** Icons drawn into the atlas a frame */
+const atlasBatch = 6;
+const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+/** Share of the badge's width the icon's cell spans (the icon itself is 0.52, inside the inset) */
+const iconSpan = (0.52 * atlasCell) / (atlasCell - 2 * atlasPad);
 
-  const paintLabel = () => {
-    ctx.fillStyle = dark ? '#e0e7ff' : '#312e81';
-    ctx.font = '600 34px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label.slice(0, 2).toUpperCase(), size / 2, size / 2 + 2);
-    texture.needsUpdate = true;
-  };
-
-  if (!svg) {
-    paintLabel();
-    return texture;
+/** A transparent 1×1 stand-in until the atlas is up (the same sampler, so nothing recompiles) */
+let placeholder: DataTexture | null = null;
+function placeholderTexture() {
+  if (!placeholder) {
+    placeholder = new DataTexture(new Uint8Array(4), 1, 1);
+    placeholder.colorSpace = SRGBColorSpace;
+    placeholder.needsUpdate = true;
   }
-  const image = new Image();
-  image.onload = () => {
-    ctx.drawImage(image, size * 0.24, size * 0.24, size * 0.52, size * 0.52);
-    texture.needsUpdate = true;
-  };
-  image.onerror = paintLabel;
-  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  return texture;
+  return placeholder;
 }
 
+/**
+ * Draws every badge's icon (or, without one, its first two letters) into
+ * one canvas, a cell each in badge order, once all the icons have decoded.
+ * `mono` marks the cells to ink in the theme's colour
+ */
+async function drawAtlas(badges: { name: string; icon: string }[], collections: IconifyJSON[]) {
+  const rows = Math.max(1, Math.ceil(badges.length / atlasColumns));
+  const mono = new Float32Array(badges.length).fill(1);
+  const images = await Promise.all(
+    badges.map(async ({ icon }, i) => {
+      const svg = iconSvg(collections, icon, monoInk, atlasCell);
+      if (!svg) return null;
+      const image = new Image();
+      image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      try {
+        await image.decode();
+      } catch {
+        return null;
+      }
+      mono[i] = svg.includes(monoInk) ? 1 : 0;
+      return image;
+    })
+  );
+  const canvas = document.createElement('canvas');
+  canvas.width = atlasColumns * atlasCell;
+  canvas.height = rows * atlasCell;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `600 ${atlasCell / 2}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const inner = atlasCell - 2 * atlasPad;
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
+      const x = (i % atlasColumns) * atlasCell;
+      const y = Math.floor(i / atlasColumns) * atlasCell;
+      if (image) ctx.drawImage(image, x + atlasPad, y + atlasPad, inner, inner);
+      else
+        ctx.fillText(
+          badges[i].name.slice(0, 2).toUpperCase(),
+          x + atlasCell / 2,
+          y + atlasCell / 2
+        );
+      // An SVG rasterises as it is drawn: a few a frame, so a flight in never stalls on them
+      if (i % atlasBatch === atlasBatch - 1) await nextFrame();
+    }
+  }
+  return { canvas, rows, mono };
+}
+
+const badgeVertex = /* glsl */ `
+  attribute float aCell;
+  attribute float aMono;
+  attribute float aAlpha;
+  varying vec2 vUv;
+  varying float vCell;
+  varying float vMono;
+  varying float vAlpha;
+  void main() {
+    vUv = uv;
+    vCell = aCell;
+    vMono = aMono;
+    vAlpha = aAlpha;
+    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  }
+`;
+
+const badgeFragment = /* glsl */ `
+  uniform sampler2D uAtlas;
+  uniform vec2 uGrid;
+  uniform float uIcons;
+  uniform vec3 uFill;
+  uniform float uFillAlpha;
+  uniform vec3 uRingA;
+  uniform vec3 uRingB;
+  uniform vec3 uInk;
+  uniform float uCharge;
+  varying vec2 vUv;
+  varying float vCell;
+  varying float vMono;
+  varying float vAlpha;
+  // Colour c at alpha a laid over b (straight alpha)
+  vec4 over(vec3 c, float a, vec4 b) {
+    float o = a + b.a * (1.0 - a);
+    return vec4((c * a + b.rgb * b.a * (1.0 - a)) / max(o, 1e-4), o);
+  }
+  void main() {
+    float d = length(vUv - 0.5) * 2.0;
+    float aa = fwidth(d) + 0.004;
+    // The disc, and the ring round its edge (a gradient from top left to bottom right)
+    float disc = 1.0 - smoothstep(0.9375 - aa, 0.9375 + aa, d);
+    float ring = smoothstep(0.906 - aa, 0.906 + aa, d) * (1.0 - smoothstep(0.969 - aa, 0.969 + aa, d));
+    vec3 ringColour = mix(uRingA, uRingB, clamp((vUv.x + 1.0 - vUv.y) * 0.5, 0.0, 1.0));
+    vec4 badge = over(ringColour, ring, vec4(uFill, disc * uFillAlpha));
+    // The icon, from its cell (row 0 is the top of the canvas, which is v = 1)
+    vec2 q = (vUv - 0.5) / ${iconSpan.toFixed(4)} + 0.5;
+    float inside = step(0.0, q.x) * step(q.x, 1.0) * step(0.0, q.y) * step(q.y, 1.0);
+    float cell = floor(vCell + 0.5);
+    float row = floor(cell / uGrid.x);
+    float column = cell - row * uGrid.x;
+    q = clamp(q, 0.0, 1.0);
+    vec4 icon = texture2D(uAtlas, vec2((column + q.x) / uGrid.x, 1.0 - (row + 1.0 - q.y) / uGrid.y));
+    badge = over(mix(icon.rgb, uInk, vMono), icon.a * inside * uIcons, badge);
+    // The station's power: dark in standby, flickering and surging as it comes on
+    float alpha = badge.a * vAlpha * min(uCharge, 1.0);
+    if (alpha < 0.003) discard;
+    gl_FragColor = vec4(badge.rgb * max(uCharge, 1.0), alpha);
+  }
+`;
+
+function createBadgeMaterial(dark: boolean) {
+  return new ShaderMaterial({
+    uniforms: {
+      uAtlas: { value: placeholderTexture() },
+      uGrid: { value: [atlasColumns, 1] },
+      uIcons: { value: 0 },
+      uFill: { value: new Color(dark ? '#0c0e20' : '#ffffff') },
+      uFillAlpha: { value: dark ? 0.92 : 0.95 },
+      uRingA: { value: new Color(dark ? '#a78bfa' : '#7c3aed') },
+      uRingB: { value: new Color(dark ? '#22d3ee' : '#0e7490') },
+      uInk: { value: new Color(dark ? '#e0e7ff' : '#312e81') },
+      uCharge: { value: 1 },
+    },
+    vertexShader: badgeVertex,
+    fragmentShader: badgeFragment,
+    transparent: true,
+    depthWrite: false,
+    toneMapped: false,
+  });
+}
+
+/** An orbit's line: a circle, each point marked with how far round it is (0..1) */
 function orbitGeometry(radius: number) {
   const points: number[] = [];
+  const around: number[] = [];
   for (let i = 0; i <= 128; i++) {
     const a = (i / 128) * Math.PI * 2;
     points.push(Math.cos(a) * radius, 0, Math.sin(a) * radius);
+    around.push(i / 128);
   }
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
+  geometry.setAttribute('aAround', new Float32BufferAttribute(around, 1));
   return geometry;
 }
 
 /**
  * A category's constellation: lines from each badge to the one two along
- * (a star polygon, round the same circle the badges sit on), in the
+ * (a star polygon through the badges, `[angle, radius]` each), in the
  * badges' own frame so it turns with them
  */
-function constellationGeometry(count: number, radius: number, offset: number) {
+function constellationGeometry(stars: [number, number][]) {
   const points: number[] = [];
-  const at = (i: number) => {
-    const angle = (i / count) * Math.PI * 2 + offset;
-    return [Math.cos(angle) * radius, 0, Math.sin(angle) * radius];
-  };
+  const at = ([angle, radius]: [number, number]) => [
+    Math.cos(angle) * radius,
+    0,
+    Math.sin(angle) * radius,
+  ];
+  const count = stars.length;
   const step = count > 4 ? 2 : 1;
-  for (let i = 0; i < count; i++) points.push(...at(i), ...at((i + step) % count));
+  for (let i = 0; i < count; i++) points.push(...at(stars[i]), ...at(stars[(i + step) % count]));
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
   return geometry;
 }
 
-const badgePoint = new Vector3();
+/**
+ * A skill's level (0..100) in its badge: stronger skills are bigger
+ * badges, and orbit higher (further out from the giant), weaker ones
+ * smaller and lower
+ */
+const levelScale = (level: number) =>
+  0.32 + 0.16 * Math.pow(MathUtils.clamp(level, 0, 100) / 100, 1.5);
+const levelLift = (level: number) => MathUtils.clamp((level - 80) / 100, -0.45, 0.2) * 0.8;
+/** How much a pointed badge swells */
+const swell = 1.6;
+
+/*
+ * The orbit lines carry each category's average level as a lit arc, as
+ * long a share of the circle as the level (87% of it for an 87 average),
+ * centred on the bottom of the view: seen square on, as the camera sees
+ * the category being read, the orbit reads as a gauge open at the top.
+ * The category being read lights its arc fully
+ */
+const orbitVertex = /* glsl */ `
+  attribute float aAround;
+  varying float vAround;
+  void main() {
+    vAround = aAround;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const orbitFragment = /* glsl */ `
+  uniform vec3 uColor;
+  uniform vec3 uArc;
+  uniform float uOpacity;
+  uniform float uLevel;
+  uniform float uCentre;
+  uniform float uLit;
+  uniform float uLight;
+  uniform float uCharge;
+  varying float vAround;
+  void main() {
+    // 0 at the arc's centre, 1 at the far side of the orbit
+    float off = abs(fract(vAround - uCentre + 0.5) - 0.5) * 2.0;
+    float arc = 1.0 - smoothstep(uLevel - 0.015, uLevel, off);
+    vec3 colour = mix(uColor, uArc * mix(1.6, 1.0, uLight), arc * mix(0.55, 1.0, uLit));
+    float alpha = uOpacity * (1.0 + arc * mix(0.3, 1.2, uLit));
+    gl_FragColor = vec4(colour * max(uCharge, 1.0), min(alpha, 1.0) * min(uCharge, 1.0));
+  }
+`;
+
+function createOrbitMaterial(theme: WorldTheme, level: number) {
+  const dark = theme === 'dark';
+  const material = new ShaderMaterial({
+    uniforms: {
+      uColor: { value: new Color(dark ? '#8b5cf6' : '#6d28d9') },
+      uArc: { value: new Color(palettes[theme].cyan) },
+      uOpacity: { value: 0 },
+      uLevel: { value: level },
+      uCentre: { value: 0 },
+      uLit: { value: 0 },
+      uLight: { value: dark ? 0 : 1 },
+      uCharge: { value: 1 },
+    },
+    vertexShader: orbitVertex,
+    fragmentShader: orbitFragment,
+    transparent: true,
+    depthWrite: false,
+  });
+  material.userData.base = dark ? 0.3 : 0.25;
+  // The orbits follow the station's power, as its glows do
+  chargeWith(material, stationPower.skills.charge);
+  return material;
+}
+
+const viewDown = new Vector3();
+const orbitTurn = new Quaternion();
 
 /**
- * How visible a badge should be where it is on screen: faded right down
- * while it sits behind the page's heading block (worldStore.copy), so the
- * constellation never draws through the copy
+ * Eases an orbit's lit arc round to the bottom of the view (`down`, the
+ * camera's down in the orbit's own frame). Seen edge on, it holds
  */
-function clearOfCopy(badge: Object3D, camera: Camera) {
+function centreArc(material: ShaderMaterial, down: Vector3, dt: number) {
+  const across = Math.hypot(down.x, down.z);
+  const target = Math.atan2(down.z, down.x) / (Math.PI * 2);
+  const uniform = material.uniforms.uCentre;
+  if (!material.userData.centred) {
+    material.userData.centred = true;
+    uniform.value = target;
+    return;
+  }
+  const weight = MathUtils.smoothstep(across, 0.05, 0.3);
+  const turn = ((((target - uniform.value + 0.5) % 1) + 1) % 1) - 0.5;
+  uniform.value += turn * (1 - Math.exp(-2.5 * dt)) * weight;
+}
+
+/** A badge: its skill, its orbit (an index into the orbits) and where round it it sits */
+interface Badge {
+  name: string;
+  icon: string;
+  category: string;
+  orbit: number;
+  angle: number;
+  radius: number;
+  /** Its size at rest (from its level) */
+  size: number;
+}
+
+/** The badges' state between frames (a plain object: it changes every frame) */
+interface BadgeState {
+  /** Per badge: size, opacity, view depth and position (in the badge mesh's frame, x y z) */
+  scale: Float32Array;
+  alpha: Float32Array;
+  depth: Float32Array;
+  local: Float32Array;
+  /** Draw order, back to front: slot → badge */
+  order: Int32Array;
+  /** Slots before this are beyond the giant's centre (the far mesh's), the rest nearer (the near mesh's) */
+  split: number;
+  /** How far the icons have faded in, 0..1 */
+  icons: number;
+}
+
+/** The badge atlas once it is on the GPU: rows of cells, and which cells to ink */
+interface BadgeAtlas {
+  texture: Texture;
+  rows: number;
+  mono: Float32Array;
+}
+
+/** The badges' state, made (or remade, should the skills change) on first use */
+function badgeStateFor(ref: { current: BadgeState | null }, count: number) {
+  if (ref.current?.order.length !== count) {
+    ref.current = {
+      scale: new Float32Array(count).fill(0.44),
+      alpha: new Float32Array(count).fill(1),
+      depth: new Float32Array(count),
+      local: new Float32Array(count * 3),
+      order: Int32Array.from({ length: count }, (_, i) => i),
+      split: 0,
+      icons: 0,
+    };
+  }
+  return ref.current;
+}
+
+/** The icons fade in once the atlas is up (0..1) */
+function fadeIcons(state: BadgeState, atlas: BadgeAtlas | null, dt: number) {
+  state.icons = atlas ? Math.min(1, state.icons + dt / 0.4) : 0;
+  return state.icons;
+}
+
+/** Sets the badge material's atlas (or the placeholder) and how far its icons have faded in */
+function inkBadges(material: ShaderMaterial, atlas: BadgeAtlas | null, icons: number) {
+  material.uniforms.uAtlas.value = atlas?.texture ?? placeholderTexture();
+  const grid = material.uniforms.uGrid.value as number[];
+  grid[1] = atlas?.rows ?? 1;
+  material.uniforms.uIcons.value = atlas ? icons : 0;
+}
+
+const badgePoint = new Vector3();
+const badgeView = new Vector3();
+const badgesCentre = new Vector3();
+const badgeScale = new Vector3();
+const badgeMatrix = new Matrix4();
+const orbitMatrix = new Matrix4();
+const facing = new Quaternion();
+
+/**
+ * How visible a badge should be where it is on screen (`ndc`, -1..1): faded
+ * right down while it sits behind the page's heading block
+ * (worldStore.copy), so the constellation never draws through the copy
+ */
+function clearOfCopy(ndc: Vector3) {
   const copy = worldStore.copy;
   if (copy.right <= copy.left) return 1;
-  badge.getWorldPosition(badgePoint).project(camera);
   const margin = 0.06;
-  const dx = Math.max(copy.left - margin - badgePoint.x, badgePoint.x - copy.right - margin, 0);
-  const dy = Math.max(copy.bottom - margin - badgePoint.y, badgePoint.y - copy.top - margin, 0);
+  const dx = Math.max(copy.left - margin - ndc.x, ndc.x - copy.right - margin, 0);
+  const dy = Math.max(copy.bottom - margin - ndc.y, ndc.y - copy.top - margin, 0);
   return MathUtils.lerp(0.1, 1, MathUtils.smoothstep(Math.hypot(dx, dy), 0, 0.08));
 }
 
 /**
- * The badges respond to the page as well as the pointer: the skill a tile
- * is hovered or focused for (worldStore.skillHover) swells like a hovered
- * badge, the category being read (worldStore.skillCategory) stays bright
- * while the rest dim, and its constellation lights up
+ * R3F keys its hover state on a hit's instanceId, and the badges' instance
+ * slots are re-sorted every frame, so a hovered slot can come to hold
+ * another badge with no out or over. The raycast rewrites each hit's slot
+ * to its badge instead: hover follows badges, firing out and over exactly
+ * when the badge under the pointer changes, whatever the sort does. The
+ * near mesh's instances start at the split in the draw order
+ */
+function badgeRaycast(state: { current: BadgeState | null }, near: boolean) {
+  return function (this: InstancedMesh, raycaster: Raycaster, intersects: Intersection[]) {
+    const from = intersects.length;
+    InstancedMesh.prototype.raycast.call(this, raycaster, intersects);
+    const badges = state.current;
+    if (!badges) return;
+    const offset = near ? badges.split : 0;
+    for (let i = from; i < intersects.length; i++) {
+      const slot = intersects[i].instanceId;
+      if (slot !== undefined) intersects[i].instanceId = badges.order[offset + slot];
+    }
+  };
+}
+
+/** Sorts the draw order farthest first (an insertion sort: it is nearly sorted from the last frame) */
+function sortBackToFront(order: Int32Array, depth: Float32Array) {
+  for (let i = 1; i < order.length; i++) {
+    const badge = order[i];
+    let j = i - 1;
+    while (j >= 0 && depth[order[j]] > depth[badge]) {
+      order[j + 1] = order[j];
+      j -= 1;
+    }
+    order[j + 1] = badge;
+  }
+}
+
+/**
+ * Writes draw slots `from`..`to` into a badge mesh, in order, and moves its
+ * sort point (its bounding sphere's centre) to the middle of those badges:
+ * three sorts transparent objects by that point, so the mesh draws where
+ * its badges are, as the badges' own sprites were sorted. The sphere still
+ * holds every badge, for the raycast's first test
+ */
+function writeBadges(
+  mesh: InstancedMesh,
+  from: number,
+  to: number,
+  state: BadgeState,
+  atlas: BadgeAtlas | null,
+  reach: number
+) {
+  const geometry = mesh.geometry;
+  const cells = geometry.getAttribute('aCell') as InstancedBufferAttribute;
+  const mono = geometry.getAttribute('aMono') as InstancedBufferAttribute;
+  const alpha = geometry.getAttribute('aAlpha') as InstancedBufferAttribute;
+  badgesCentre.set(0, 0, 0);
+  for (let slot = from; slot < to; slot++) {
+    const i = state.order[slot];
+    const instance = slot - from;
+    badgePoint.fromArray(state.local, i * 3);
+    badgesCentre.add(badgePoint);
+    badgeScale.setScalar(state.scale[i]);
+    mesh.setMatrixAt(instance, badgeMatrix.compose(badgePoint, facing, badgeScale));
+    cells.setX(instance, i);
+    mono.setX(instance, atlas?.mono[i] ?? 1);
+    alpha.setX(instance, state.alpha[i]);
+  }
+  mesh.count = to - from;
+  if (to > from) badgesCentre.divideScalar(to - from);
+  mesh.boundingSphere ??= new Sphere();
+  mesh.boundingSphere.center.copy(badgesCentre);
+  mesh.boundingSphere.radius = reach + badgesCentre.length();
+  mesh.instanceMatrix.needsUpdate = true;
+  cells.needsUpdate = mono.needsUpdate = alpha.needsUpdate = true;
+}
+
+/**
+ * Places every badge round its orbit (as its spinner has turned), facing
+ * the camera, and writes them into the instanced meshes back to front, as
+ * transparent sprites were sorted. Badges beyond the giant's centre go in
+ * the far mesh and the rest in the near one, so the giant's ring and
+ * atmosphere (which three sorts at that centre) draw between them: over
+ * the badges behind the giant, under those in front. The badges respond to
+ * the page as well as the pointer: the skill a tile is hovered or focused
+ * for (worldStore.skillHover) swells like a hovered badge, and badges
+ * outside the category being read (worldStore.skillCategory) dim
+ */
+function placeBadges(
+  [far, near]: [InstancedMesh, InstancedMesh],
+  badges: Badge[],
+  state: BadgeState,
+  atlas: BadgeAtlas | null,
+  spinners: Object3D[],
+  named: string,
+  camera: Camera,
+  reach: number,
+  dt: number
+) {
+  const reading = worldStore.skillCategory;
+  // The camera's orientation in the meshes' frame (they share it): every badge faces it
+  far.parent?.getWorldQuaternion(facing).invert().multiply(camera.quaternion);
+  for (let i = 0; i < badges.length; i++) {
+    const badge = badges[i];
+    const spinner = spinners[badge.orbit];
+    if (!spinner?.parent) continue;
+    orbitMatrix.multiplyMatrices(spinner.parent.matrix, spinner.matrix);
+    badgePoint
+      .set(Math.cos(badge.angle) * badge.radius, 0, Math.sin(badge.angle) * badge.radius)
+      .applyMatrix4(orbitMatrix);
+    badgePoint.toArray(state.local, i * 3);
+    badgeView.copy(badgePoint).applyMatrix4(far.matrixWorld);
+    badgePoint.copy(badgeView).applyMatrix4(camera.matrixWorldInverse);
+    state.depth[i] = badgePoint.z;
+    const pointed = badge.name === named;
+    // The hovered badge swells
+    state.scale[i] = MathUtils.damp(state.scale[i], badge.size * (pointed ? swell : 1), 10, dt);
+    const dim = reading && reading !== badge.category && !pointed ? 0.35 : 1;
+    const clear = clearOfCopy(badgeView.project(camera));
+    state.alpha[i] = MathUtils.damp(state.alpha[i], dim * clear, 8, dt);
+  }
+  sortBackToFront(state.order, state.depth);
+  // The giant's centre (the meshes' origin) in view depth: farther badges sort first
+  const centre = badgePoint
+    .setFromMatrixPosition(far.matrixWorld)
+    .applyMatrix4(camera.matrixWorldInverse).z;
+  let split = 0;
+  while (split < badges.length && state.depth[state.order[split]] < centre) split += 1;
+  state.split = split;
+  writeBadges(far, 0, split, state, atlas, reach);
+  writeBadges(near, split, badges.length, state, atlas, reach);
+}
+
+/**
+ * An orbit's line and constellation: the category being read, or holding
+ * the hovered badge, stays bright (its level's arc brighter still) and its
+ * constellation (a star polygon through its badges) lights up
  */
 function stepOrbit(
   orbitGroup: Object3D,
-  category: string,
-  hovered: string | null,
+  lit: number,
+  flare: number,
   camera: Camera,
   t: number,
   dt: number
 ) {
   const [line, spinner] = orbitGroup.children as [Object3D, Object3D];
-  if (!spinner) return;
-  const reading = worldStore.skillCategory;
-  const named = hovered ?? worldStore.skillHover;
-  let lit = reading === category ? 1 : 0;
-  for (const child of spinner.children) {
-    if (!(child as Sprite).isSprite) continue;
-    const badge = child as Sprite;
-    const pointed = badge.name === named;
-    if (pointed) lit = 1;
-    // The hovered badge swells
-    const size = MathUtils.damp(badge.scale.x, pointed ? 0.7 : 0.44, 10, dt);
-    badge.scale.set(size, size, 1);
-    const material = badge.material as SpriteMaterial;
-    const dim = reading && reading !== category && !pointed ? 0.35 : 1;
-    material.opacity = MathUtils.damp(material.opacity, dim * clearOfCopy(badge, camera), 8, dt);
-  }
-  const constellation = spinner.children.find((child) => (child as LineSegments).isLineSegments);
+  const constellation = spinner?.children.find((child) => (child as LineSegments).isLineSegments);
   if (constellation) {
     const material = (constellation as LineSegments).material as LineBasicMaterial;
-    const target = lit * (0.55 + 0.15 * Math.sin(t * 3));
+    const power = Math.min(stationPower.skills.charge.value, 1);
+    const target = Math.max(lit * (0.55 + 0.15 * Math.sin(t * 3)), flare) * power;
     material.opacity = MathUtils.damp(material.opacity, target, 6, dt);
     constellation.visible = material.opacity > 0.01;
   }
-  const orbitLine = (line as LineSegments).material as LineBasicMaterial;
-  orbitLine.opacity = MathUtils.damp(orbitLine.opacity, orbitLine.userData.base * (1 + lit), 6, dt);
+  const orbitLine = (line as LineSegments).material as ShaderMaterial;
+  const { uOpacity, uLit } = orbitLine.uniforms;
+  const bright = Math.max(lit, flare);
+  uOpacity.value = MathUtils.damp(uOpacity.value, orbitLine.userData.base * (1 + bright), 6, dt);
+  uLit.value = MathUtils.damp(uLit.value, bright, 6, dt);
+  orbitGroup.getWorldQuaternion(orbitTurn).invert();
+  viewDown.set(0, -1, 0).applyQuaternion(camera.quaternion).applyQuaternion(orbitTurn);
+  centreArc(orbitLine, viewDown, dt);
+}
+
+/**
+ * The station's own clock and each orbit's turn, accumulated frame by
+ * frame rather than read off the clock, so an orbit can slow to a stop
+ * and pick up again where it was, and nothing jumps at `still`, where the
+ * world only draws now and then
+ */
+interface SpinState {
+  ambient: number;
+  phases: Float32Array;
+  /** Each orbit's speed, 0..1 of its own: it eases to 0 while held */
+  rates: Float32Array;
+}
+
+function spinFor(ref: { current: SpinState | null }, count: number) {
+  if (ref.current?.phases.length !== count) {
+    ref.current = {
+      ambient: ref.current?.ambient ?? 0,
+      phases: Float32Array.from({ length: count }, (_, k) => ref.current?.phases[k] ?? 0),
+      rates: new Float32Array(count).fill(1),
+    };
+  }
+  return ref.current;
+}
+
+/** Turns orbit `k` on by a frame (unless `held`, or at `still`) and returns its angle */
+function turnOrbit(
+  spin: SpinState,
+  k: number,
+  speed: number,
+  held: boolean,
+  still: boolean,
+  dt: number
+) {
+  spin.rates[k] = MathUtils.damp(spin.rates[k], held ? 0 : 1, 5, dt);
+  if (!still) spin.phases[k] += speed * spin.rates[k] * dt;
+  return spin.phases[k];
+}
+
+/** How bright a showcase's flare of every constellation is, `t` (clock time) after it began */
+function flareAt(show: { at: number }, t: number) {
+  const since = t - show.at;
+  if (since < 0 || since > 3) return 0;
+  return since < 0.2 ? since / 0.2 : Math.exp(-(since - 0.2) * 1.4);
+}
+
+const planetCentre = new Vector3();
+const towardsCamera = new Vector3();
+
+/**
+ * Asked to show off (a tour stop landing, or the visitor hailing it): every
+ * constellation flares and the planet pings. A tour's showcase waits for
+ * full motion; at `still` a hail is the ping alone
+ */
+function useShowcase(planet: RefObject<Group | null>, show: RefObject<{ at: number }>) {
+  const get = useThree((s) => s.get);
+  useEffect(
+    () =>
+      onShowcase((station, reason) => {
+        if (station !== 'skills') return;
+        const level = motionLevel();
+        if (reason === 'tour' && level !== 'full') return;
+        const { camera, clock, invalidate } = get();
+        const giant = planet.current;
+        if (giant) {
+          // On the planet's face, towards the camera
+          giant.getWorldPosition(planetCentre);
+          towardsCamera.subVectors(camera.position, planetCentre).setLength(1.9);
+          spawnPing(planetCentre.add(towardsCamera));
+        }
+        if (level === 'still') {
+          repaintFor(invalidate, 1000);
+          return;
+        }
+        show.current.at = clock.elapsedTime;
+      }),
+    [get, planet, show]
+  );
+}
+
+/** Builds the badge atlas once the icons are in, and uploads it (once) for the badges to sample */
+function useBadgeAtlas(badges: Badge[]) {
+  const gl = useThree((s) => s.gl);
+  const invalidate = useThree((s) => s.invalidate);
+  const track = useWarmupTask();
+  const collections = useIconCollections();
+  const atlasRef = useRef<BadgeAtlas | null>(null);
+
+  useEffect(() => {
+    if (!collections) return;
+    let active = true;
+    let texture: CanvasTexture | null = null;
+    const task = drawAtlas(badges, collections).then(async ({ canvas, rows, mono }) => {
+      if (!active) return;
+      texture = new CanvasTexture(canvas);
+      texture.colorSpace = SRGBColorSpace;
+      await queueUpload(gl, texture);
+      if (!active) return;
+      atlasRef.current = { texture, rows, mono };
+      // At `still` the world only draws on demand
+      invalidate();
+    });
+    track(task);
+    return () => {
+      active = false;
+      atlasRef.current = null;
+      texture?.dispose();
+    };
+  }, [badges, collections, gl, invalidate, track]);
+
+  return atlasRef;
 }
 
 /** `/skills` — a gas giant with the toolkit orbiting as a constellation of badges */
@@ -293,21 +843,34 @@ export function SkillsStation({
   const planetRef = useRef<Group>(null);
   const orbitsRef = useRef<Group>(null);
   const outpostRef = useRef<Group>(null);
-  const hoveredRef = useRef<string | null>(null);
+  /** The badges beyond the giant's centre, and the rest (see placeBadges) */
+  const farBadgesRef = useRef<InstancedMesh>(null);
+  const nearBadgesRef = useRef<InstancedMesh>(null);
+  /** The badge under the pointer (-1 for none) */
+  const hoveredRef = useRef({ badge: -1 });
   const materials = useThemedMaterials(buildMaterials, theme, 'skills');
-  const collections = useIconCollections();
+  const invalidate = useThree((s) => s.invalidate);
+  useStillRepaint();
 
   const orbits = useMemo(
     () =>
       categories.map((category, k) => {
         const members = skills.filter((s) => s.category === category);
         const radius = 3.9 + k * 0.5;
+        // Round the orbit in turn, each lifted by its level
+        const stars = members.map((skill, i): [number, number] => [
+          (i / members.length) * Math.PI * 2 + k,
+          radius + levelLift(skill.level),
+        ]);
+        const level = members.reduce((sum, skill) => sum + skill.level, 0) / (members.length || 1);
         return {
           category,
           members,
           radius,
+          stars,
+          level: MathUtils.clamp(level / 100, 0, 1),
           geometry: orbitGeometry(radius),
-          constellation: constellationGeometry(Math.max(members.length, 1), radius, k),
+          constellation: constellationGeometry(stars.length ? stars : [[k, radius]]),
           tilt: orbitTilts[k % 4],
         };
       }),
@@ -323,16 +886,53 @@ export function SkillsStation({
     [orbits]
   );
 
+  const badges = useMemo<Badge[]>(
+    () =>
+      orbits.flatMap((orbit, k) =>
+        orbit.members.map((skill, i) => ({
+          name: skill.name,
+          icon: skill.icon,
+          category: skill.category,
+          orbit: k,
+          angle: orbit.stars[i][0],
+          radius: orbit.stars[i][1],
+          size: levelScale(skill.level),
+        }))
+      ),
+    [orbits]
+  );
+  const badgeState = useRef<BadgeState | null>(null);
+  const spinRef = useRef<SpinState | null>(null);
+  /** When the last showcase began (clock time) */
+  const showRef = useRef({ at: -Infinity });
+  useShowcase(planetRef, showRef);
+  // Per-instance attributes for each badge mesh (each can hold every badge)
+  const badgeAttributes = useMemo(() => {
+    const attribute = () => {
+      const buffer = new InstancedBufferAttribute(new Float32Array(badges.length), 1);
+      buffer.setUsage(DynamicDrawUsage);
+      return buffer;
+    };
+    const set = () => ({ cell: attribute(), mono: attribute(), alpha: attribute() });
+    return [set(), set()];
+  }, [badges.length]);
+  const atlasRef = useBadgeAtlas(badges);
+  /** How far from the giant's centre any badge can be */
+  const reach = useMemo(() => Math.max(...orbits.map((orbit) => orbit.radius), 1) + 1, [orbits]);
+
+  // A hit names its badge rather than its draw slot
+  useEffect(() => {
+    [farBadgesRef.current, nearBadgesRef.current].forEach((mesh, near) => {
+      if (!mesh) return;
+      mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+      mesh.raycast = badgeRaycast(badgeState, near === 1);
+    });
+  }, [badges.length]);
+
   const lines = useMemo(() => {
     const dark = theme === 'dark';
-    const orbit = new LineBasicMaterial({
-      color: dark ? '#8b5cf6' : '#6d28d9',
-      transparent: true,
-      opacity: dark ? 0.3 : 0.25,
-    });
-    orbit.userData.base = orbit.opacity;
     return {
-      orbits: orbits.map(() => orbit.clone()),
+      orbits: orbits.map((orbit) => createOrbitMaterial(theme, orbit.level)),
       constellations: orbits.map(
         () =>
           new LineBasicMaterial({
@@ -368,25 +968,13 @@ export function SkillsStation({
     [skills]
   );
 
-  const textures = useMemo(() => {
-    if (!collections) return null;
-    const monochrome = theme === 'dark' ? '#e0e7ff' : '#312e81';
-    return orbits.map((orbit) =>
-      orbit.members.map((skill) =>
-        drawBadge(iconSvg(collections, skill.icon, monochrome), skill.name, theme)
-      )
-    );
-  }, [collections, orbits, theme]);
-
-  useEffect(
-    () => () => textures?.forEach((set) => set.forEach((texture) => texture.dispose())),
-    [textures]
-  );
-
   useFrame(({ camera, clock }, delta) => {
     if (!stationInRange(groupRef.current, camera, 'skills')) return;
-    const t = clock.elapsedTime;
-    const dt = Math.min(delta, 0.05);
+    // At `still` nothing moves on its own, and what answers the page snaps
+    const still = motionLevel() === 'still';
+    const dt = still ? 1 : Math.min(delta, 0.05);
+    const spin = spinFor(spinRef, orbits.length);
+    const t = (spin.ambient += still ? 0 : dt);
     setUniform(materials.planet, 'uTime', t);
 
     const planet = planetRef.current;
@@ -394,13 +982,72 @@ export function SkillsStation({
     // The research outpost keeps a slow, wide orbit around the giant
     if (outpostRef.current) outpostRef.current.rotation.y = -0.9 + t * 0.045;
 
+    const hovered = hoveredRef.current.badge;
+    const named = hovered >= 0 ? badges[hovered].name : worldStore.skillHover;
+    const flare = flareAt(showRef.current, clock.elapsedTime);
+    const spinners: Object3D[] = [];
     orbitsRef.current?.children.forEach((orbitGroup, k) => {
       const spinner = orbitGroup.children[1];
-      if (!spinner) return;
-      spinner.rotation.y = t * (0.05 + k * 0.018) * (k % 2 ? -1 : 1) + worldStore.scroll * 0.8;
-      stepOrbit(orbitGroup, orbits[k].category, hoveredRef.current, camera, t, dt);
+      if (!spinner || k >= orbits.length) return;
+      const namedHere = orbits[k].members.some((skill) => skill.name === named);
+      // An orbit holds still while one of its badges is pointed at, so it can be read and clicked
+      const speed = (0.05 + k * 0.018) * (k % 2 ? -1 : 1);
+      spinner.rotation.y =
+        turnOrbit(spin, k, speed, namedHere, still, dt) + worldStore.scroll * 0.8;
+      orbitGroup.updateMatrix();
+      spinner.updateMatrix();
+      spinners[k] = spinner;
+      const lit = worldStore.skillCategory === orbits[k].category || namedHere ? 1 : 0;
+      stepOrbit(orbitGroup, lit, flare, camera, t, dt);
     });
+
+    const far = farBadgesRef.current;
+    const near = nearBadgesRef.current;
+    const state = badgeStateFor(badgeState, badges.length);
+    const atlas = atlasRef.current;
+    if (far && near) {
+      placeBadges([far, near], badges, state, atlas, spinners, named, camera, reach, dt);
+    }
+    inkBadges(materials.badges, atlas, fadeIcons(state, atlas, dt));
   });
+
+  // The badge a hit names (badgeRaycast puts the badge, not its draw slot, in instanceId)
+  const badgeAt = (e: ThreeEvent<PointerEvent | MouseEvent>) =>
+    e.instanceId !== undefined && e.instanceId < badges.length ? e.instanceId : -1;
+
+  // Hover and click, shared by both badge meshes (a hit's instanceId is its badge)
+  const badgeHandlers = {
+    onPointerOver: (e: ThreeEvent<PointerEvent>) => {
+      e.stopPropagation();
+      const badge = badgeAt(e);
+      const hovered = hoveredRef.current;
+      if (badge < 0 || hovered.badge === badge) return;
+      if (hovered.badge >= 0) setWorldHover(false);
+      hovered.badge = badge;
+      setWorldHover(true);
+      worldTip.set(tips.get(badges[badge].name) ?? null);
+      invalidate();
+    },
+    onPointerOut: (e: ThreeEvent<PointerEvent>) => {
+      // Only when the pointer leaves the badge hovered
+      const hovered = hoveredRef.current;
+      if (hovered.badge < 0 || badgeAt(e) !== hovered.badge) return;
+      const tip = tips.get(badges[hovered.badge].name);
+      hovered.badge = -1;
+      setWorldHover(false);
+      if (worldTip.get() === tip) worldTip.set(null);
+      invalidate();
+    },
+    onClick: (e: ThreeEvent<MouseEvent>) => {
+      e.stopPropagation();
+      const badge = badgeAt(e);
+      if (badge < 0) return;
+      spawnPing(e.point);
+      // At `still` the world draws on demand: keep drawing while the ping plays
+      if (motionLevel() === 'still') repaintFor(invalidate, 1000);
+      focusOnPage(`skill:${badges[badge].name}`);
+    },
+  };
 
   return (
     <StationScope station="skills">
@@ -440,55 +1087,34 @@ export function SkillsStation({
           {orbits.map((orbit, k) => (
             <group key={orbit.category} rotation={[orbit.tilt[0], 0, orbit.tilt[1]]}>
               <lineLoop geometry={orbit.geometry} material={lines.orbits[k]} />
-              {/* Sprites mount only once their badge textures exist: a material compiled
-                without a map would not pick one up later */}
               <group>
                 <lineSegments
                   geometry={orbit.constellation}
                   material={lines.constellations[k]}
                   visible={false}
                 />
-                {textures?.[k]?.map((texture, i) => {
-                  const angle = (i / orbit.members.length) * Math.PI * 2 + k;
-                  return (
-                    <sprite
-                      key={orbit.members[i].name}
-                      name={orbit.members[i].name}
-                      position={[Math.cos(angle) * orbit.radius, 0, Math.sin(angle) * orbit.radius]}
-                      scale={0.44}
-                      onPointerOver={(e) => {
-                        e.stopPropagation();
-                        const name = orbit.members[i].name;
-                        if (hoveredRef.current === name) return;
-                        if (hoveredRef.current) setWorldHover(false);
-                        hoveredRef.current = name;
-                        setWorldHover(true);
-                        worldTip.set(tips.get(name) ?? null);
-                      }}
-                      onPointerOut={() => {
-                        const name = orbit.members[i].name;
-                        if (hoveredRef.current !== name) return;
-                        hoveredRef.current = null;
-                        setWorldHover(false);
-                        if (worldTip.get() === tips.get(name)) worldTip.set(null);
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        spawnPing(e.point);
-                        focusOnPage(`skill:${orbit.members[i].name}`);
-                      }}
-                    >
-                      <spriteMaterial
-                        map={texture}
-                        transparent
-                        depthWrite={false}
-                        toneMapped={false}
-                      />
-                    </sprite>
-                  );
-                })}
               </group>
             </group>
+          ))}
+          {/*
+            Every badge, in two draws (those beyond the giant's centre, then
+            the rest); placed each frame round its orbit, facing the camera
+          */}
+          {badgeAttributes.map((attributes, near) => (
+            <instancedMesh
+              key={`${near}-${badges.length}`}
+              ref={near ? nearBadgesRef : farBadgesRef}
+              args={[undefined, undefined, badges.length]}
+              material={materials.badges}
+              frustumCulled={false}
+              {...badgeHandlers}
+            >
+              <planeGeometry>
+                <primitive object={attributes.cell} attach="attributes-aCell" />
+                <primitive object={attributes.mono} attach="attributes-aMono" />
+                <primitive object={attributes.alpha} attach="attributes-aAlpha" />
+              </planeGeometry>
+            </instancedMesh>
           ))}
         </group>
       </group>
