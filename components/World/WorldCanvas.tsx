@@ -45,7 +45,16 @@ import { ProjectsStation } from './stations/ProjectsStation';
 import { Signals } from './Signals';
 import { Sparks } from './Sparks';
 import { SkillsStation } from './stations/SkillsStation';
-import { lowerTier, raiseTier, tierSettings } from './quality';
+import {
+  hasLostUltra,
+  loseUltra,
+  lowerTier,
+  raiseTier,
+  subscribeScreen,
+  tierRank,
+  tierSettings,
+  ultraFits,
+} from './quality';
 import { navigableStations } from './routes';
 import { LiteContext } from './stationHooks';
 import { baseFov } from './stations';
@@ -81,6 +90,9 @@ const notCovered = () => false;
 /** The station the visitor is about to fly to (worldStore.intent) */
 const readIntent = () => worldStore.intent;
 const noIntent = () => '' as const;
+
+/** The server never renders the canvas; ultra is a client question */
+const noUltra = () => false;
 
 /** Sets the clock's time (hook results are read-only in components) */
 function setClockTime(clock: Clock, time: number) {
@@ -201,16 +213,19 @@ const reversalMs = settleMs * 2;
  * falls back straight after a rise (within two judging windows) three times
  * stops rising rather than flapping between tiers (each change resizes the
  * canvas and the composer, a visible hitch). A fall long after a rise (a
- * heavy page, thermal throttling) is a fall, not a flap.
+ * heavy page, thermal throttling) is a fall, not a flap. A fall from ultra
+ * also ends ultra for the session (`onLoseUltra`): the device can't hold it.
  */
 function QualityGovernor({
   tier,
   ceiling,
   setTier,
+  onLoseUltra,
 }: {
   tier: QualityTier;
   ceiling: QualityTier;
   setTier: Dispatch<SetStateAction<QualityTier>>;
+  onLoseUltra: () => void;
 }) {
   const idle = useWarmupIdle();
   const frameloop = useThree((s) => s.frameloop);
@@ -247,6 +262,7 @@ function QualityGovernor({
         const state = watch.current;
         if (performance.now() - state.roseAt <= reversalMs) state.reversals++;
         state.roseAt = -Infinity;
+        if (tier === 'ultra') onLoseUltra();
         setTier(lowerTier(tier));
       }}
       onIncline={() => {
@@ -352,9 +368,19 @@ export default function WorldCanvas({
   const [roamed, setRoamed] = useState(false);
   if (mode === 'explore' && !roamed) setRoamed(true);
 
-  // Phones / touch devices start (and top out) one tier down
-  const ceiling: QualityTier = lite ? 'medium' : 'high';
-  const [tier, setTier] = useState<QualityTier>(ceiling);
+  // Phones / touch devices start (and top out) one tier down. Desktops start
+  // at high; a retina screen small enough to draw at 2x can incline to ultra,
+  // until the session first falls out of it (quality.ts)
+  const fitsUltra = useSyncExternalStore(subscribeScreen, ultraFits, noUltra);
+  const [lostUltra, setLostUltra] = useState(hasLostUltra);
+  const onLoseUltra = useCallback(() => {
+    loseUltra();
+    setLostUltra(true);
+  }, []);
+  const ceiling: QualityTier = lite ? 'medium' : fitsUltra && !lostUltra ? 'ultra' : 'high';
+  const [tier, setTier] = useState<QualityTier>(lite ? 'medium' : 'high');
+  // A resize that leaves ultra no room steps down at once (only an incline goes up)
+  if (tierRank(tier) > tierRank(ceiling)) setTier(ceiling);
   const { dpr } = tierSettings[tier];
 
   useEffect(() => {
@@ -433,7 +459,12 @@ export default function WorldCanvas({
         <LiteContext.Provider value={lite}>
           <color attach="background" args={[palette.background]} />
           <fog attach="fog" args={[palette.background, palette.fog[0], palette.fog[1]]} />
-          <QualityGovernor tier={tier} ceiling={ceiling} setTier={setTier} />
+          <QualityGovernor
+            tier={tier}
+            ceiling={ceiling}
+            setTier={setTier}
+            onLoseUltra={onLoseUltra}
+          />
           <CoverPause covered={covered} />
           {frameloop === 'demand' && (
             <DemandDriver station={station} theme={theme} focusProject={focusProject} />
