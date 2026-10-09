@@ -159,7 +159,10 @@ const packetFragment = /* glsl */ `
   varying float vFade;
   void main() {
     float d = length(gl_PointCoord - 0.5);
+    // A fade over 1 brightens an additive glow (dark theme). Blended normally
+    // (light theme) an alpha over 1 would subtract what is behind it: cap it
     float alpha = smoothstep(0.5, 0.0, d) * uActive * vFade;
+    alpha = mix(alpha, min(alpha, 1.0), uLight);
     gl_FragColor = vec4(mix(uFrom, uTo, vAlong) * mix(2.4, 1.1, uLight), alpha);
   }
 `;
