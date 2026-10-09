@@ -139,10 +139,20 @@ export function ProjectDetailsModal({
 
   // Closing: the world draws again, and a gallery that flew in flies back
   // into its screen (if it is still on screen) before the dialog goes
-  const closing = useRef(false);
+  const closing = useRef<{ back: Animation | null } | null>(null);
   useEffect(() => {
-    if (isPresent || closing.current) return;
-    closing.current = true;
+    if (isPresent) {
+      // Back before it had gone (Forward straight after Back): undo the close
+      const close = closing.current;
+      if (!close) return;
+      closing.current = null;
+      close.back?.cancel();
+      setChrome({ modalCover: window.matchMedia(sheetQuery).matches });
+      return;
+    }
+    if (closing.current) return;
+    const close: { back: Animation | null } = { back: null };
+    closing.current = close;
     setChrome({ modalCover: false });
     const stage = stageRef.current;
     const target = flip ? screenOrigin() : null;
@@ -151,16 +161,17 @@ export function ProjectDetailsModal({
       safeToRemove?.();
       return;
     }
-    const back = stage.animate(
+    close.back = stage.animate(
       [
         { transformOrigin: '0 0', transform: 'none' },
         { transformOrigin: '0 0', transform: flipTransform(from, target) },
       ],
       { duration: flipOut, easing: `cubic-bezier(${easeIn.join(', ')})`, fill: 'forwards' }
     );
-    back.finished.then(
+    // Cancelled when it comes back instead
+    close.back.finished.then(
       () => safeToRemove?.(),
-      () => safeToRemove?.()
+      () => undefined
     );
   }, [isPresent, flip, safeToRemove]);
 
@@ -169,14 +180,11 @@ export function ProjectDetailsModal({
   // it since, such as a navigation)
   const titled = useRef<{ previous: string; shown: string } | null>(null);
   useEffect(() => {
-    if (!documentTitle) return;
+    if (!documentTitle || !isPresent) return;
     titled.current = { previous: document.title, shown: documentTitle };
     document.title = documentTitle;
     return () => restoreTitle(titled);
-  }, [documentTitle]);
-  useEffect(() => {
-    if (!isPresent) restoreTitle(titled);
-  }, [isPresent]);
+  }, [documentTitle, isPresent]);
 
   // On a phone the dialog is a full-screen sheet: the world behind it stops
   // drawing while it is open
