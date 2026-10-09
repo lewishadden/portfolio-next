@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { easing } from 'maath';
 import { MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
@@ -15,13 +15,23 @@ import {
 } from './flight';
 import { isBooted } from './boot';
 import { applyShake } from './shake';
-import { baseFov, stationCamera, stationKeys, stationPositions } from './stations';
+import {
+  baseFov,
+  createRide,
+  holdPageCopy,
+  rideGoal,
+  rideProjectFocus,
+  stationCamera,
+  stationKeys,
+  stationPositions,
+  stepRide,
+} from './stations';
 import { worldMode } from './worldMode';
 import { emitFlight, worldStore } from './worldStore';
 
 import type { MotionLevel } from '@/utils/motion';
 import type { Flight, FlightView } from './flight';
-import type { StationKey } from './stations';
+import type { Ride, StationKey } from './stations';
 import type { WorldMode } from './worldMode';
 
 const target = new Vector3();
@@ -37,6 +47,9 @@ const bank = new Quaternion();
 const lockOn = new Vector3();
 const previewEye = new Vector3();
 const previewLook = new Vector3();
+const parallaxForward = new Vector3();
+const parallaxSide = new Vector3();
+const parallaxUp = new Vector3();
 const yAxis = new Vector3(0, 1, 0);
 const zAxis = new Vector3(0, 0, 1);
 const introOffset = new Vector3(-14, 10, 58);
@@ -60,6 +73,61 @@ interface RigState {
   arrivedAt: number;
   /** The station the route preview was last planned to ('' for none) */
   preview: string;
+  /** The projects focus the camera rides (stepRide, stations.ts) */
+  ride: Ride;
+  /** The camera cut (motion held back) to a new pose it should announce as an arrival */
+  arriving: boolean;
+  /** A dipped cut (D10): until when (performance.now(), ms) the camera holds before it cuts, 0 for none */
+  cutAt: number;
+  cutTimers: number[];
+  /** Where the settled camera is heading and looking, never faster than `followSpeed` */
+  follow: Vector3;
+  followLook: Vector3;
+}
+
+/**
+ * A cut below full motion (D10): the canvas fades out (html[data-world-cut]
+ * = 'out', World.scss), the view holds for `cutHold` ms while it does, then
+ * cuts and fades back in ('in', cleared after `cutIn` ms). Drawn on demand
+ * at `still`, so frames are asked for when the hold ends and once it is in
+ */
+const cutHold = 160;
+const cutIn = 300;
+
+function beginCut(rig: RigState, invalidate: () => void) {
+  rig.cutTimers.forEach((timer) => window.clearTimeout(timer));
+  rig.cutAt = performance.now() + cutHold;
+  document.documentElement.dataset.worldCut = 'out';
+  rig.cutTimers = [
+    window.setTimeout(invalidate, cutHold + 10),
+    window.setTimeout(invalidate, cutHold + cutIn + 20),
+  ];
+}
+
+function endCut(rig: RigState) {
+  rig.cutAt = 0;
+  const root = document.documentElement;
+  root.dataset.worldCut = 'in';
+  rig.cutTimers.push(
+    window.setTimeout(() => {
+      if (root.dataset.worldCut === 'in') delete root.dataset.worldCut;
+    }, cutIn)
+  );
+}
+
+/**
+ * Fastest the camera follows the page (units per second): a jump in scroll
+ * (End, Home, a long page's companion poses) glides the camera there rather
+ * than throwing it at lightspeed, which the streaks and FOV kick read from
+ * its speed. Flights aren't held to it
+ */
+const followSpeed = 35;
+
+/** Moves `point` towards `goal` by at most `step` */
+function approach(point: Vector3, goal: Vector3, step: number) {
+  const distance = point.distanceTo(goal);
+  if (distance <= step) point.copy(goal);
+  else point.lerp(goal, step / distance);
 }
 
 /**
@@ -86,9 +154,25 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     velocity: new Vector3(),
     arrivedAt: 0,
     preview: '',
+    ride: createRide(),
+    arriving: false,
+    cutAt: 0,
+    cutTimers: [],
+    follow: new Vector3(),
+    followLook: new Vector3(),
   });
 
-  useFrame(({ camera, clock, size }, delta) => {
+  // A cut under way when the world goes (switched off, a remount) leaves nothing behind
+  useEffect(() => {
+    const rig = state.current;
+    return () => {
+      rig.cutTimers.forEach((timer) => window.clearTimeout(timer));
+      delete document.documentElement.dataset.worldCut;
+      holdPageCopy(false);
+    };
+  }, []);
+
+  useFrame(({ camera, clock, size, frameloop, invalidate }, delta) => {
     const cam = camera as PerspectiveCamera;
     const dt = Math.min(delta, 1 / 20);
     const rig = state.current;
@@ -108,7 +192,8 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       return;
     }
 
-    // Tours ignore the page's scroll: each stop is framed from the top
+    // Tours ignore the page's scroll: each stop is framed from the top (nor
+    // does stationCamera read the rest of how the hidden page is read)
     const scrollTarget = mode === 'page' ? worldStore.scroll : 0;
     const screensTarget = mode === 'page' ? worldStore.screens : 0;
     const retarget = rig.station !== station || rig.mode !== mode;
@@ -129,7 +214,19 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       easing.damp(rig, 'screens', screensTarget, 0.14, dt);
     }
 
-    stationCamera(station, rig.progress, rig.screens, size.width, size.height, target, look);
+    // The projects ride: off it, nothing to ride
+    stepRide(rig.ride, rideGoal(rig.ride, dt), t, dt, snap);
+    rideProjectFocus(rig.ride.value, rig.ride.angle);
+    stationCamera(
+      station,
+      rig.progress,
+      rig.screens,
+      size.width,
+      size.height,
+      target,
+      look,
+      mode === 'page'
+    );
     origin.fromArray(stationPositions[station]);
     target.add(origin);
     look.add(origin);
@@ -141,9 +238,16 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       target.sub(look).applyAxisAngle(yAxis, angle).add(look);
     }
 
+    // Pointer parallax, along the pose's own sideways and up axes: in world
+    // x and y it pushed the camera towards or away from whatever it faced
+    // side on (the projects ride's screens face every way round the helix)
     if (!snap && mode === 'page') {
-      target.x += worldStore.pointerX * 0.45;
-      target.y += worldStore.pointerY * 0.28;
+      parallaxForward.subVectors(look, target).normalize();
+      parallaxSide.crossVectors(parallaxForward, yAxis).normalize();
+      parallaxUp.crossVectors(parallaxSide, parallaxForward);
+      target
+        .addScaledVector(parallaxSide, worldStore.pointerX * 0.45)
+        .addScaledVector(parallaxUp, worldStore.pointerY * 0.28);
     }
 
     // Out in deep space until the loading screen lifts, then warp in
@@ -167,22 +271,53 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
         startFlight(rig, cam, station);
       }
     } else if (retarget && !snap) {
-      startFlight(rig, cam, station);
+      startFlight(rig, cam, station, newPage);
+    } else if (retarget) {
+      // Motion held back: the camera cuts where it would fly, and arrives
+      // the way a flight does once it has (no 'start': nothing powers down).
+      // A new station dips the canvas out first, and back in after the cut
+      rig.arriving = true;
+      if (rig.station !== station) beginCut(rig, invalidate);
     }
     rig.station = station;
     rig.mode = mode;
 
     previous.copy(cam.position);
-    if (snap) {
+    if (rig.cutAt && (!snap || performance.now() >= rig.cutAt)) endCut(rig);
+    if (snap && rig.cutAt) {
+      // Dipped out: hold the old view until the canvas has faded
+    } else if (snap) {
+      const moved =
+        previous.distanceToSquared(target) > 1e-6 || lookCurrent.distanceToSquared(look) > 1e-6;
       cam.position.copy(target);
       lookCurrent.copy(look);
       cam.lookAt(lookCurrent);
+      // Drawn on demand (still), a frame asked for by a scroll can run before
+      // the page has measured where it is read (pageInputs measures in its
+      // own animation frame), and nothing would ask for the next: the pose
+      // stayed a measure behind (a whole jump behind after End or Home).
+      // While it still moves, ask for one more frame
+      if (moved && frameloop === 'demand') invalidate();
+      if (rig.arriving) {
+        rig.arriving = false;
+        rig.arrivedAt = t;
+        emitFlight('end', station);
+      }
     } else if (rig.flight) {
       fly(rig, cam, station, dt, t);
     } else {
-      easing.damp3(cam.position, target, 0.2, dt);
-      easing.damp3(lookCurrent, look, 0.16, dt);
+      approach(rig.follow, target, followSpeed * dt);
+      approach(rig.followLook, look, followSpeed * dt);
+      easing.damp3(cam.position, rig.follow, 0.2, dt);
+      easing.damp3(lookCurrent, rig.followLook, 0.16, dt);
       cam.lookAt(lookCurrent);
+    }
+    // Cut or flown there, the camera is where the page has it. Nor is a hop
+    // along the projects helix held to the cap: chasing a ride that outran
+    // it, the camera cut a chord across the helix, through its spine
+    if (snap || rig.flight || rig.ride.hopping) {
+      rig.follow.copy(target);
+      rig.followLook.copy(look);
     }
 
     // Snapped cameras (motion held back) jump between poses; that is not flight
@@ -201,7 +336,8 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
   return null;
 }
 
-function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey) {
+/** `toPage`: the flight brings a new page, whose copy waits for its final approach (PageTransition) */
+function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey, toPage = false) {
   // Plan from wherever the camera is and however it is turned: mid-flight,
   // banked, or wherever the visitor left it in explore mode. Ahead, it
   // locks onto the station itself on the way
@@ -209,6 +345,7 @@ function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey)
   const flight = planFlight(cam.position, cam.quaternion, target, look, rig.velocity, lockOn);
   rig.flight = flight;
   rig.approached = false;
+  holdPageCopy(toPage && !!flight);
   if (!flight) return;
   rig.view.started = false;
   rig.heading = null;
@@ -229,6 +366,7 @@ function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey)
 
 function endFlight(rig: RigState, station: StationKey, arrived: boolean) {
   rig.flight = null;
+  holdPageCopy(false);
   worldStore.flight.active = false;
   worldStore.flight.progress = arrived ? 1 : worldStore.flight.progress;
   if (arrived) emitFlight('end', station);
@@ -281,6 +419,7 @@ function fly(rig: RigState, cam: PerspectiveCamera, station: StationKey, dt: num
   if (!rig.approached && s >= approach) {
     rig.approached = true;
     worldStore.flight.approached = true;
+    holdPageCopy(false);
     emitFlight('approach', station);
   }
   if (s >= 1) {
@@ -301,7 +440,7 @@ function planPreview(rig: RigState, cam: PerspectiveCamera, width: number, heigh
   rig.preview = key;
   worldStore.previewPath = new Float32Array(0);
   if (!key || !stationKeys.includes(key) || rig.flight) return;
-  stationCamera(key, 0, 0, width, height, previewEye, previewLook);
+  stationCamera(key, 0, 0, width, height, previewEye, previewLook, false);
   origin.fromArray(stationPositions[key]);
   previewEye.add(origin);
   previewLook.add(origin);

@@ -16,6 +16,16 @@ export const worldStore = {
    */
   projectFocus: -1,
   /**
+   * The project the /projects page is gliding to (an index entry, a helix
+   * screen, a closed modal's project), -1 while it isn't gliding to one.
+   * The camera's ride heads straight there: re-aimed at each screen the
+   * glide passed instead, it chose its way round the helix before it knew
+   * where it was going, and turned one way, then back. The page sets it as
+   * the glide sets off and clears it when the glide ends or anything else
+   * takes the scroll over
+   */
+  projectRideTo: -1,
+  /**
    * How far the /projects page still is from its first project: 1 at the
    * top, where the camera holds back on the whole station beside the page
    * head, 0 once the ride down the helix has begun (and off that page)
@@ -120,8 +130,10 @@ export const worldStore = {
   /** How many of `readingRects` are in use, 0..6 */
   readingCount: 0,
   /**
-   * NDC x (-1..1) of the right edge of the widest `#main-content .glass`
-   * crossing the reading line, so the station can clear it; -1 when none
+   * NDC x (-1..1) of the right-most edge of the `#main-content .glass`
+   * panels at the reading line (or within a card gap of it), so the station
+   * can clear them; drawn in towards -1 as they move away from the line, -1
+   * when there are none
    */
   clearRight: -1,
   /** /skills: fractional index of the [data-world-category] at the reading line (-1 off /skills) */

@@ -1405,3 +1405,16 @@ html[data-pointer-lock] {
     animation: none;
   }
 }
+
+/* Below full motion a change of station cuts the camera rather than flying
+   it (CameraRig): the canvas dips out over 150ms, holds while the view cuts,
+   and comes back in over 300ms (html[data-world-cut]). A fade, so it plays
+   at calm and still too: hence !important over the reduced-motion rule */
+html[data-world-cut='out'] .world__canvas {
+  opacity: 0 !important;
+  transition: opacity 150ms ease-in !important;
+}
+
+html[data-world-cut='in'] .world__canvas {
+  transition: opacity 300ms ease-out !important;
+}

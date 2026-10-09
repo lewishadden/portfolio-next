@@ -76,7 +76,7 @@ export const About = ({
         sub={`Senior full stack engineer · ${location} · shipping production software since 2018.`}
       />
 
-      <div className="about__grid">
+      <div className="about__grid" data-world-section="bio">
         <Reveal className="about__media" y={60} scale={0.94}>
           <div className="about__frame" ref={portraitRef}>
             <div className="about__frame-inner">

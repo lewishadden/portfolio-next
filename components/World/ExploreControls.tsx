@@ -9,7 +9,7 @@ import { motionLevel } from '@/utils/motion';
 import { canLockPointer, lockPointer } from './pointerLock';
 import { navigableStations, stationForPath } from './routes';
 import { applyShake } from './shake';
-import { setViewRange, useLite } from './stationHooks';
+import { fogTarget, setViewRange, useLite } from './stationHooks';
 import { baseFov, beaconHeight, stationPositions } from './stations';
 import { worldMode } from './worldMode';
 import {
@@ -153,8 +153,10 @@ function reachOut(scene: Scene, exploring: boolean, lite: boolean, dt: number) {
     base = { near: fog.near, far: fog.far };
     fogBase.set(fog, base);
   }
-  const far = exploring ? (lite ? exploreFog.liteFar : exploreFog.far) : base.far;
-  const near = exploring ? exploreFog.near : base.near;
+  // Outside free roam: the fog's own, or drawn back while a flight is under way (fogTarget)
+  const settled = exploring ? null : fogTarget(base, lite);
+  const far = settled ? settled.far : lite ? exploreFog.liteFar : exploreFog.far;
+  const near = settled ? settled.near : exploreFog.near;
   if (Math.abs(fog.far - far) < 0.5 && Math.abs(fog.near - near) < 0.5) return;
   fog.far = MathUtils.damp(fog.far, far, 1.4, dt);
   fog.near = MathUtils.damp(fog.near, near, 1.4, dt);
