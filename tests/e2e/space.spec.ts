@@ -25,6 +25,22 @@ test('the skip link stays out of sight until it has focus', async ({ page }) => 
   expect((await skip.boundingBox())!.y).toBeGreaterThanOrEqual(0);
 });
 
+test('the skip link takes focus to the page content', async ({ page }) => {
+  await openHydrated(page, '/about');
+  await page.keyboard.press('Tab');
+  const skip = page.getByRole('link', { name: 'Skip to content' });
+  await expect(skip).toBeFocused();
+  await page.keyboard.press('Enter');
+  const main = page.locator('#main-content');
+  await expect(main).toBeFocused();
+  // Focusable from code only, with no ring round the whole page
+  await expect(main).toHaveAttribute('tabindex', '-1');
+  expect(await main.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('none');
+  // The next Tab goes on into the page, not back to the header
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => !!document.activeElement?.closest('#main-content'))).toBe(true);
+});
+
 test('every page says which station it is docked at', async ({ page }) => {
   for (const route of routes) {
     await openHydrated(page, route);

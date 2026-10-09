@@ -66,9 +66,11 @@ test.describe('with storage blocked', () => {
       const html = page.locator('html');
       const before = await html.getAttribute('data-theme');
       const next = before === 'light' ? 'dark' : 'light';
-      await page.getByRole('switch', { name: `Switch to ${next} mode` }).click();
+      const toggle = page.getByRole('switch', { name: 'Light theme' });
+      await expect(toggle).toHaveAttribute('aria-checked', String(before === 'light'));
+      await toggle.click();
       await expect(html).toHaveAttribute('data-theme', next);
-      await expect(page.getByRole('switch', { name: `Switch to ${before} mode` })).toBeVisible();
+      await expect(toggle).toHaveAttribute('aria-checked', String(next === 'light'));
       expect(errors).toEqual([]);
     });
   }
