@@ -280,8 +280,13 @@
 }
 
 /* Narrow (stacked) layouts: the screen holds the top of the stage and the
-   copy stacks below it, clear of the floating buttons */
-@media (max-width: 899px), (max-aspect-ratio: 11 / 10) {
+   copy stacks below it, clear of the floating buttons. Short landscape
+   screens of any width (a phone on its side, a short or zoomed desktop
+   window) start from this layout too, for its one-row index and clamped
+   summary: the short landscape block below then rearranges the stage */
+@media (max-width: 899px),
+  (max-aspect-ratio: 11 / 10),
+  (max-height: 520px) and (orientation: landscape) {
   .projects {
     --step: 45vh;
   }
@@ -391,11 +396,12 @@
   }
 }
 
-/* Short landscape (a phone on its side): the stacked layout doesn't fit
-   (View details fell off the bottom of the stage). The screen takes the
-   left half with the index under it; the copy takes the right half, the
-   actions beside the title and the summary clamped to two lines, all clear
-   of the floating buttons in the bottom right corner */
+/* Short landscape (a phone on its side, or a short desktop window): the
+   stacked layout doesn't fit (View details fell off the bottom of the
+   stage). Building on it (the block above matches here too), the screen
+   takes the left half with the index under it; the copy takes the right
+   half, the actions beside the title and the summary clamped to two lines,
+   all clear of the floating buttons in the bottom right corner */
 @media (max-height: 520px) and (orientation: landscape) {
   .projects__stage {
     grid-template-rows: minmax(0, 1fr) auto;
