@@ -625,6 +625,31 @@ html[data-flight='cruise'] .world__veil {
     transform: translateX(-50%);
   }
 
+  /* The edge of the world (EdgeWarning): a warning over the reticle while
+     the ship is turned back; empty (and unseen) otherwise */
+  &__edge {
+    position: absolute;
+    top: calc(50% - 10vmin - 2rem);
+    left: 50%;
+    margin: 0;
+    padding: 2px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--signal);
+    border: 1px solid color-mix(in oklab, var(--signal) 55%, transparent);
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--bg-primary) 70%, transparent);
+    transform: translateX(-50%);
+    animation: edge-blink 1.6s ease-in-out infinite;
+
+    &:empty {
+      visibility: hidden;
+    }
+  }
+
   /* Steering reticle: hold the mouse inside the ring to fly straight (a
      plain crosshair when the pointer is locked and the mouse looks) */
   &__reticle {
@@ -1357,6 +1382,12 @@ html[data-flight='cruise'] .world__veil {
   }
 }
 
+@keyframes edge-blink {
+  50% {
+    opacity: 0.55;
+  }
+}
+
 @keyframes autopilot-blink {
   50% {
     opacity: 0.35;
@@ -1401,6 +1432,7 @@ html[data-pointer-lock] {
   }
 
   .waypoint--course .waypoint__mark,
+  .explore-hud__edge,
   .explore-hud__autopilot-dot,
   .explore-hud__signal,
   .explore-hud__detector,

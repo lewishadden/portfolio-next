@@ -28,6 +28,13 @@ export const stationPositions: Record<StationKey, [number, number, number]> = {
   lost: [96, 44, 34],
 };
 
+/**
+ * Free roam's sector: the middle of the line of stations, and how far from
+ * it the ship can fly before it is turned back (the edge of the world)
+ */
+export const sectorCentre: [number, number, number] = [0, 0, -110];
+export const sectorRadius = 520;
+
 /** Distance between two stations, centre to centre, in whole world units (the HUD's "km") */
 export function rangeBetween(a: StationKey, b: StationKey) {
   const [ax, ay, az] = stationPositions[a];

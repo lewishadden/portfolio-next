@@ -1,16 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from '@iconify/react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 import { canLockPointer, usePointerLocked } from './pointerLock';
-import { stationForPath, stationNames, stationPaths } from './routes';
+import { sectorCentre, sectorRadius, stationForPath, stationNames, stationPaths } from './routes';
 import { SignalCard, SignalCount, SignalDetector } from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
 import {
+  emitCue,
   exploreInput,
   onDock,
   onDocking,
@@ -332,6 +333,53 @@ function HullContact() {
   );
 }
 
+/** The edge warning shows once worldStore.edge reaches this, and goes once it falls back below that */
+const edgeNear = 0.6;
+const edgeClear = 0.3;
+
+/** Where the ship meets the edge of the world: straight out from the sector's middle */
+function edgePoint(): [number, number, number] {
+  const { x, y, z } = worldStore.camera;
+  const [cx, cy, cz] = sectorCentre;
+  const length = Math.hypot(x - cx, y - cy, z - cz) || 1;
+  const k = sectorRadius / length;
+  return [cx + (x - cx) * k, cy + (y - cy) * k, cz + (z - cz) * k];
+}
+
+/**
+ * Nearing the edge of the world (worldStore.edge, as the shimmer shows
+ * it): a status line says the ship is being turned back, with the `edge`
+ * cue once per approach
+ */
+function EdgeWarning() {
+  const [near, setNear] = useState(false);
+
+  useEffect(() => {
+    let frame = 0;
+    let on = false;
+    const tick = () => {
+      frame = requestAnimationFrame(tick);
+      const edge = worldStore.edge;
+      if (!on && edge >= edgeNear) {
+        on = true;
+        setNear(true);
+        emitCue('edge', { at: edgePoint(), strength: edge });
+      } else if (on && edge <= edgeClear) {
+        on = false;
+        setNear(false);
+      }
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <p className="explore-hud__edge" role="status">
+      {near ? 'Sector edge · turning back' : ''}
+    </p>
+  );
+}
+
 /**
  * Explore mode's heads-up display: how to fly, an exit, a marker for
  * every station (which sets the autopilot), the autopilot's status, a
@@ -473,6 +521,7 @@ export function ExploreHud({
       <SignalCard cv={cv} onPage={onDockRequest} />
       <BoostStatus />
       <HullContact />
+      <EdgeWarning />
 
       {!touch && (
         <span

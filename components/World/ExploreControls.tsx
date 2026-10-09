@@ -10,7 +10,7 @@ import { colliderCount, contactWith, shipMargin } from './colliders';
 import { clickTarget, refreshPointer, releaseHover } from './interaction';
 import { spawnPing } from './Pings';
 import { canLockPointer, lockPointer } from './pointerLock';
-import { navigableStations, stationForPath } from './routes';
+import { navigableStations, sectorCentre, sectorRadius, stationForPath } from './routes';
 import { applyShake } from './shake';
 import { spawnSparks } from './Sparks';
 import { fogTarget, setViewRange, useLite } from './stationHooks';
@@ -51,7 +51,7 @@ import type { StationKey } from './routes';
    flies the last stretch in). Hulls, and simple solids standing in for
    the experience beam, the projects helix, the derelict and the signal
    craft (colliders.ts), push you back out rather than letting you clip
-   inside them.
+   inside them. The edge of the world (sectorRadius) turns you back.
    ------------------------------------------------------------------ */
 
 const keys = new Map<string, keyof typeof exploreInput>([
@@ -85,7 +85,8 @@ const goal = new Vector3();
 const aim = new Vector3();
 const point = new Vector3();
 const view = new Vector3();
-const centre = new Vector3(0, 0, -110);
+const centre = new Vector3(...sectorCentre);
+const outward = new Vector3();
 
 const dockRange = 18;
 /** Pointer locked: radians of turn per pixel the mouse moves */
@@ -107,7 +108,10 @@ const maxBank = 0.3;
 const bankPerRate = 0.13;
 /** Pitch keys: how fast they tip the nose (rad/s) */
 const pitchRate = 1.1;
-const worldRadius = 520;
+/** Past the edge of the world (sectorRadius): how hard the ship is pulled back in, per unit beyond it */
+const edgeSpring = 3;
+/** The edge shimmers into view (worldStore.edge) over this much of the way to it */
+const edgeWarning = 60;
 /** Fog in free roam: pushed out this far so the whole line of stations stays in sight */
 const exploreFog = { near: 70, far: 460, liteFar: 300 };
 /** Autopilot: parks this far in front of the station's face (pages frame it from +Z) */
@@ -527,6 +531,7 @@ export function ExploreControls() {
         setDocking('');
         stopAiming(root);
         trackCourse('', camera.position, state);
+        worldStore.edge = 0;
       }
       return;
     }
@@ -630,13 +635,16 @@ export function ExploreControls() {
         nearest = key;
       }
     }
+    // The edge of the world turns you back: nothing carries the ship further
+    // out, and a stiff spring draws it back in
     const fromCentre = cam.position.distanceTo(centre);
-    if (fromCentre > worldRadius) {
-      velocity.addScaledVector(
-        station.copy(centre).sub(cam.position).normalize(),
-        (fromCentre - worldRadius) * dt
-      );
+    if (fromCentre > sectorRadius) {
+      outward.subVectors(cam.position, centre).divideScalar(fromCentre);
+      const leaving = velocity.dot(outward);
+      if (leaving > 0) velocity.addScaledVector(outward, -leaving);
+      velocity.addScaledVector(outward, -(fromCentre - sectorRadius) * edgeSpring * dt);
     }
+    worldStore.edge = MathUtils.smoothstep(fromCentre, sectorRadius - edgeWarning, sectorRadius);
     setDock(nearestDistance < dockRange ? nearest : '');
 
     const speed = velocity.length();
