@@ -241,8 +241,12 @@ function createVisorMaterial(p: WorldPalette) {
 /** Page targets this station answers: the portrait scans onto the visor */
 const answersPortrait = (target: string) => target === 'about:portrait';
 
-/** What the visor is doing: the last click (clock time) and how far shown, 0..1 */
+/**
+ * What the visor is doing: the last click (clock time; a click is stamped
+ * on the next frame, `clicked` until then) and how far shown, 0..1
+ */
 interface VisorState {
+  clicked: boolean;
   clickAt: number;
   show: number;
 }
@@ -304,7 +308,7 @@ export function AboutStation({ theme, portrait }: { theme: WorldTheme; portrait:
   const baseHandlers = useReactionHandlers(reaction, helmetTip, spinTime);
   useShowcase('about', helmetRef, reaction, spinTime);
   const visorRef = useRef<Mesh>(null);
-  const visorState = useRef<VisorState>({ clickAt: -Infinity, show: 0 });
+  const visorState = useRef<VisorState>({ clicked: false, clickAt: -Infinity, show: 0 });
   const [visorShown, setVisorShown] = useState(false);
   const still = useThree((s) => s.frameloop === 'demand');
   const invalidate = useThree((s) => s.invalidate);
@@ -314,13 +318,13 @@ export function AboutStation({ theme, portrait }: { theme: WorldTheme; portrait:
     () => ({
       ...baseHandlers,
       onClick(e: ThreeEvent<MouseEvent>) {
+        // Stamped with the clock on the next frame (the click asks for one):
+        // on demand, the last frame drawn can be seconds old
         baseHandlers.onClick(e);
-        visorState.current.clickAt = reaction.current.now;
-        // On demand, one more frame takes it down again after the hold
-        if (still) window.setTimeout(invalidate, (scanIn + scanHold) * 1000 + 50);
+        visorState.current.clicked = true;
       },
     }),
-    [baseHandlers, still, invalidate]
+    [baseHandlers]
   );
 
   // The portrait, decoded off the main thread at 512 wide and uploaded on a frame of its own
@@ -414,11 +418,18 @@ export function AboutStation({ theme, portrait }: { theme: WorldTheme; portrait:
     placeMotes(motesRef.current, motes, t);
 
     // The helmet cam: nothing to draw until the portrait is in and asked for
-    const shown = stepVisor(visorState.current, t, Math.min(delta, 0.05), still) > 0;
+    const visor = visorState.current;
+    if (visor.clicked) {
+      visor.clicked = false;
+      visor.clickAt = t;
+      // On demand, one more frame takes it down again after the hold
+      if (still) window.setTimeout(invalidate, (scanIn + scanHold) * 1000 + 50);
+    }
+    const shown = stepVisor(visor, t, Math.min(delta, 0.05), still) > 0;
     const shell = visorRef.current;
     if (shell) shell.visible = shown && photo !== null;
     if (shown !== visorShown) setVisorShown(shown);
-    setUniform(materials.visor, 'uShow', visorState.current.show);
+    setUniform(materials.visor, 'uShow', visor.show);
     // Scanlines hold still at the still level
     if (!still) setUniform(materials.visor, 'uTime', t);
   });
