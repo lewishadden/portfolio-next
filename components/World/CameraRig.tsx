@@ -37,6 +37,9 @@ const bank = new Quaternion();
 const lockOn = new Vector3();
 const previewEye = new Vector3();
 const previewLook = new Vector3();
+const parallaxForward = new Vector3();
+const parallaxSide = new Vector3();
+const parallaxUp = new Vector3();
 const yAxis = new Vector3(0, 1, 0);
 const zAxis = new Vector3(0, 0, 1);
 const introOffset = new Vector3(-14, 10, 58);
@@ -141,9 +144,16 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       target.sub(look).applyAxisAngle(yAxis, angle).add(look);
     }
 
+    // Pointer parallax, along the pose's own sideways and up axes: in world
+    // x and y it pushed the camera towards or away from whatever it faced
+    // side on (the projects ride's screens face every way round the helix)
     if (!snap && mode === 'page') {
-      target.x += worldStore.pointerX * 0.45;
-      target.y += worldStore.pointerY * 0.28;
+      parallaxForward.subVectors(look, target).normalize();
+      parallaxSide.crossVectors(parallaxForward, yAxis).normalize();
+      parallaxUp.crossVectors(parallaxSide, parallaxForward);
+      target
+        .addScaledVector(parallaxSide, worldStore.pointerX * 0.45)
+        .addScaledVector(parallaxUp, worldStore.pointerY * 0.28);
     }
 
     // Out in deep space until the loading screen lifts, then warp in
