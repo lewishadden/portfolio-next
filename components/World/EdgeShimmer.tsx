@@ -25,7 +25,10 @@ import type { WorldTheme } from './utils';
    while it is near.
    ------------------------------------------------------------------ */
 
-/** World units across the patch, and how far beyond the edge it hangs (the ship never reaches it) */
+/**
+ * World units across the patch, and how far beyond the edge it hangs: the
+ * ship is never let more than 4 past the edge (ExploreControls), so never reaches it
+ */
 const size = 120;
 const beyond = 12;
 

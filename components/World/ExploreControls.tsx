@@ -118,8 +118,10 @@ const maxBank = 0.3;
 const bankPerRate = 0.13;
 /** Pitch keys: how fast they tip the nose (rad/s) */
 const pitchRate = 1.1;
-/** Past the edge of the world (sectorRadius): how hard the ship is pulled back in, per unit beyond it */
+/** Past the edge of the world (sectorRadius): how fast the ship is drawn back in, per unit beyond it (1/s) */
 const edgeSpring = 3;
+/** However it got there (a long frame, a hull pushing it out), the ship is never further past the edge than this */
+const edgeSlack = 4;
 /** The edge shimmers into view (worldStore.edge) over this much of the way to it */
 const edgeWarning = 60;
 /** Fog in free roam: pushed out this far so the whole line of stations stays in sight */
@@ -673,11 +675,30 @@ export function ExploreControls() {
     const bank = state.calm || worldStore.docking ? 0 : turnRate * bankPerRate - drift * 0.006;
     state.roll = MathUtils.damp(state.roll, MathUtils.clamp(bank, -maxBank, maxBank), 4, dt);
     cam.quaternion.setFromEuler(euler.set(state.pitch, state.yaw, state.roll, 'YXZ'));
+    // The edge of the world turns you back. Past it the ship only heads back
+    // in, the further out the faster. Done before it moves: thrust added
+    // this frame would otherwise carry it on out before being taken away
+    let fromCentre = cam.position.distanceTo(centre);
+    if (fromCentre > sectorRadius) {
+      outward.subVectors(cam.position, centre).divideScalar(fromCentre);
+      const leaving = velocity.dot(outward);
+      const allowed = -(fromCentre - sectorRadius) * edgeSpring;
+      if (leaving > allowed) velocity.addScaledVector(outward, allowed - leaving);
+    }
     cam.position.addScaledVector(velocity, dt);
 
     // Hulls (and the proxies round beams, helices and craft) push back: a
     // hard knock jolts the view, flashes the HUD and thuds
     collide(cam, clock.elapsedTime, state);
+    // A last stop just past the edge, well short of its shimmer (EdgeShimmer)
+    fromCentre = cam.position.distanceTo(centre);
+    if (fromCentre > sectorRadius + edgeSlack) {
+      outward.subVectors(cam.position, centre).divideScalar(fromCentre);
+      cam.position.copy(centre).addScaledVector(outward, sectorRadius + edgeSlack);
+      const leaving = velocity.dot(outward);
+      if (leaving > 0) velocity.addScaledVector(outward, -leaving);
+      fromCentre = sectorRadius + edgeSlack;
+    }
     let nearest = '';
     let nearestDistance = Infinity;
     for (const key of navigableStations) {
@@ -686,15 +707,6 @@ export function ExploreControls() {
         nearestDistance = distance;
         nearest = key;
       }
-    }
-    // The edge of the world turns you back: nothing carries the ship further
-    // out, and a stiff spring draws it back in
-    const fromCentre = cam.position.distanceTo(centre);
-    if (fromCentre > sectorRadius) {
-      outward.subVectors(cam.position, centre).divideScalar(fromCentre);
-      const leaving = velocity.dot(outward);
-      if (leaving > 0) velocity.addScaledVector(outward, -leaving);
-      velocity.addScaledVector(outward, -(fromCentre - sectorRadius) * edgeSpring * dt);
     }
     worldStore.edge = MathUtils.smoothstep(fromCentre, sectorRadius - edgeWarning, sectorRadius);
     setDock(nearestDistance < dockRange ? nearest : '');
