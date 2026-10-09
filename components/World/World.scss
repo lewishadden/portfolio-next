@@ -132,6 +132,9 @@ html[data-world='off'] {
    explore mode). An opaque panel, no backdrop blur: its small type keeps its
    contrast whatever flies behind it, and it costs no blur pass mid-flight */
 .nav-radar {
+  /* Free roam's signal colour (the HUD's), for the edge of the world */
+  --signal: #fbbf24;
+
   position: fixed;
   bottom: 24px;
   left: 24px;
@@ -149,6 +152,10 @@ html[data-world='off'] {
   transition:
     opacity 0.45s var(--ease-out),
     transform 0.45s var(--ease-out);
+
+  [data-theme='light'] & {
+    --signal: #92400e;
+  }
 
   &--on {
     opacity: 1;

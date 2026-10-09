@@ -20,7 +20,7 @@ import {
 
 import { asGlow, createFresnelMaterial } from './materials';
 import { Antenna, NavLights, partMaterials, SolarArray, Truss } from './parts';
-import { isFound, markFound, reportNearest, signals } from './signalStore';
+import { cometAt, isFound, markFound, reportNearest, setSignalTime, signals } from './signalStore';
 import { sunDirection } from './sky';
 import { useThemedMaterials } from './stationHooks';
 import { palettes } from './utils';
@@ -39,10 +39,7 @@ import type { WorldPalette, WorldTheme } from './utils';
    ------------------------------------------------------------------ */
 
 const amber: Record<WorldTheme, string> = { dark: '#fbbf24', light: '#b45309' };
-/** The comet's orbit: centre, radii and period (s) */
-const cometOrbit = { centre: new Vector3(0, 64, -112), x: 170, y: 24, z: 120, period: 150 };
 
-const position = new Vector3();
 const tailUp = new Vector3(0, 1, 0);
 const tailAway = new Vector3().copy(sunDirection).negate();
 
@@ -63,20 +60,6 @@ function glowTexture(color: string) {
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   return texture;
-}
-
-/** Where the comet is at time `t` */
-export function cometAt(t: number, out: Vector3) {
-  const angle = (t / cometOrbit.period) * Math.PI * 2;
-  return out
-    .copy(cometOrbit.centre)
-    .add(
-      position.set(
-        Math.cos(angle) * cometOrbit.x,
-        Math.sin(angle * 2) * cometOrbit.y,
-        Math.sin(angle) * cometOrbit.z
-      )
-    );
 }
 
 const tailVertex = /* glsl */ `
@@ -281,6 +264,8 @@ export function Signals({ theme }: { theme: WorldTheme }) {
     const dt = Math.min(delta, 0.05);
     const exploring = worldMode.get().mode === 'explore';
     let nearest = Infinity;
+    // The HUD and the sector map follow the comet by this clock
+    setSignalTime(t);
 
     signals.forEach((signal, i) => {
       const node = group.children[i] as Group | undefined;

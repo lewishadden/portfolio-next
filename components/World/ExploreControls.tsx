@@ -15,8 +15,7 @@ import {
   reticleFreed,
 } from './interaction';
 import { spawnPing } from './Pings';
-import { signals } from './signalStore';
-import { cometAt } from './Signals';
+import { cometAt, signals } from './signalStore';
 import { canLockPointer, lockPointer } from './pointerLock';
 import {
   navigableStations,

@@ -23,7 +23,7 @@ export interface Signal {
   id: 'probe' | 'derelict' | 'capsule' | 'relay' | 'comet';
   name: string;
   message: string;
-  /** Where it drifts (the comet orbits instead, see Signals.tsx) */
+  /** Where it drifts (the comet orbits round it instead, see cometAt) */
   position: [number, number, number];
   /** How close you have to fly to find it */
   reach: number;
@@ -75,6 +75,49 @@ export const signals: readonly Signal[] = [
 ];
 
 export const signalCount = signals.length;
+
+/** A point in the world: three's Vector3 is one, so canvas code can pass its own */
+export interface WorldPoint {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/** The comet's orbit round its signal's position: radii and period (s) */
+export const cometOrbit = { x: 170, y: 24, z: 120, period: 150 };
+const cometCentre = signals.find((signal) => signal.id === 'comet')!.position;
+
+/**
+ * Where the comet is at clock time `t` (the world canvas's clock: see
+ * `signalTime`), written into `out` (a fresh point by default)
+ */
+export function cometAt<T extends WorldPoint = WorldPoint>(
+  t: number,
+  out: T = { x: 0, y: 0, z: 0 } as T
+): T {
+  const angle = (t / cometOrbit.period) * Math.PI * 2;
+  out.x = cometCentre[0] + Math.cos(angle) * cometOrbit.x;
+  out.y = cometCentre[1] + Math.sin(angle * 2) * cometOrbit.y;
+  out.z = cometCentre[2] + Math.sin(angle) * cometOrbit.z;
+  return out;
+}
+
+/** The clock time the canvas last placed the signals at (Signals.tsx), for DOM code following the comet */
+let clockTime = 0;
+
+export function setSignalTime(t: number) {
+  clockTime = t;
+}
+
+/** The clock time the comet was last placed for: `cometAt(signalTime())` is where it is drawn */
+export const signalTime = () => clockTime;
+
+/** Where a signal is now (the comet moves along its orbit) */
+export function signalAt(signal: Signal, out: WorldPoint = { x: 0, y: 0, z: 0 }) {
+  if (signal.id === 'comet') return cometAt(clockTime, out);
+  [out.x, out.y, out.z] = signal.position;
+  return out;
+}
 
 /** What the last signal said once you have found them all */
 export const allFound: Pick<Signal, 'name' | 'message' | 'action'> = {
