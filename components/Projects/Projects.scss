@@ -44,9 +44,19 @@
     top: calc(var(--header-h) + 1rem);
     display: grid;
     grid-template-columns: 2.75rem minmax(0, 1fr);
+    /* The stage's own height: a tall index must not stretch the HUD (and
+       its actions) past the bottom of it */
+    grid-template-rows: minmax(0, 1fr);
     gap: clamp(1rem, 3vw, 2.5rem);
     align-items: center;
     height: var(--stage-h);
+  }
+
+  &__index {
+    /* A link's height on touch (see the coarse pointer rule): in this
+       column the stage's height shared out between the links, up to 44px.
+       The 0.1rem is the list's gap */
+    --tap-h: min(44px, calc((var(--stage-h) - (var(--steps) - 1) * 0.1rem) / var(--steps)));
   }
 
   &__index ol {
@@ -292,6 +302,7 @@
   }
 
   .projects__stage {
+    grid-template-rows: none;
     grid-template-columns: minmax(0, 1fr);
     gap: 0.5rem;
     align-items: end;
@@ -299,6 +310,8 @@
   }
 
   .projects__index {
+    --tap-h: 44px;
+
     order: 2;
   }
 
@@ -386,13 +399,16 @@
   }
 }
 
-/* Touch: every index link is a 44px target */
+/* Touch: every index link is a 44px target. In the desktop column (a
+   tablet held sideways) they share out the stage's height instead, up to
+   44px each: at 44px, 15 links outgrew a stage under about 790px tall and
+   pushed View details off the bottom of the screen */
 @media (pointer: coarse) {
   .projects__index-link {
     display: flex;
     align-items: center;
     min-width: 44px;
-    min-height: 44px;
+    min-height: var(--tap-h, 44px);
   }
 }
 
