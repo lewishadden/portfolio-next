@@ -372,6 +372,133 @@ test.describe('coming back from the tour and free roam', () => {
   );
 });
 
+test.describe('free roam controls', () => {
+  test.use({ world: 'on', reducedMotion: 'reduce' });
+
+  test(
+    'Enter on a station marker sets the autopilot, not a dock as well',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      await page.getByRole('button', { name: 'Free roam' }).click();
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      await page.evaluate(() => document.exitPointerLock());
+
+      // Free roam starts beside Home, close enough to dock: Enter anywhere
+      // but on a control docks
+      await expect(hud.getByRole('button', { name: /^Dock at Home/ })).toBeVisible({
+        timeout: 30_000,
+      });
+      const projects = hud
+        .getByRole('list', { name: 'Stations' })
+        .getByRole('button', { name: /^Autopilot to Projects/ });
+      await projects.focus();
+      await page.keyboard.press('Enter');
+      await expect(projects).toHaveAttribute('aria-pressed', 'true');
+      await page.waitForTimeout(600);
+      await expect(hud.getByText('Docking at')).toHaveCount(0);
+      await expect(page).toHaveURL(/\/$/);
+    }
+  );
+
+  test(
+    'Enter docks where a station marker clicked with the mouse flew the ship',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      await page.getByRole('button', { name: 'Free roam' }).click();
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      await page.evaluate(() => document.exitPointerLock());
+
+      // A mouse click focuses the marker in Chrome; the autopilot flies to
+      // About and parks there. The button itself has no size: its label is
+      // what the mouse lands on
+      const about = hud
+        .getByRole('list', { name: 'Stations' })
+        .getByRole('button', { name: /^Autopilot to About/ });
+      await about.locator('.waypoint__text').click();
+      await expect(about).toHaveAttribute('aria-pressed', 'true');
+      await expect(hud.getByRole('button', { name: /^Dock at About/ })).toBeVisible({
+        timeout: 90_000,
+      });
+      // Enter is the dock shortcut, not the marker's (which would only set course again)
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(/\/about$/, { timeout: 30_000 });
+    }
+  );
+
+  test(
+    'a click on something in 3D in free roam leaves the page where it was',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/skills');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      await page.getByRole('button', { name: 'Free roam' }).click();
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      const scrolled = await page.evaluate(() => window.scrollY);
+
+      // What a click on a skill badge asks for (focusOnPage): on the page it
+      // brings the skill's row into view, here (the last one) far below
+      await page.evaluate(() => {
+        const targets = document.querySelectorAll<HTMLElement>(
+          '#main-content [data-world-target^="skill:"]'
+        );
+        const id = targets[targets.length - 1].dataset.worldTarget;
+        window.dispatchEvent(new CustomEvent('world:focus', { detail: id }));
+      });
+      await page.waitForTimeout(800);
+      expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+      await expect(page.locator('#main-content .world-ping')).toHaveCount(0);
+    }
+  );
+
+  test(
+    'the first free roam coaches, then keeps the keys behind a Controls button',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      const roam = page.getByRole('button', { name: 'Free roam' });
+      await roam.click();
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      await page.evaluate(() => document.exitPointerLock());
+
+      // Three steps, the first one current; the keys are listed meanwhile
+      const coach = hud.getByRole('region', { name: 'Flight training' });
+      await expect(coach.getByRole('listitem')).toHaveCount(3);
+      await expect(coach.getByRole('listitem').first()).toHaveAttribute('aria-current', 'step');
+      await expect(hud.getByText('autopilot', { exact: false }).first()).toBeVisible();
+
+      // Skipped, it is gone for good and the keys fold away behind Controls
+      await coach.getByRole('button', { name: 'Skip' }).click();
+      await expect(coach).toBeHidden();
+      const controls = hud.getByRole('button', { name: 'Controls', exact: true });
+      await expect(controls).toHaveAttribute('aria-expanded', 'false');
+      const legend = page.locator(`#${await controls.getAttribute('aria-controls')}`);
+      await expect(legend).toBeHidden();
+      await controls.click();
+      await expect(controls).toHaveAttribute('aria-expanded', 'true');
+      await expect(legend).toBeVisible();
+
+      await page.keyboard.press('Escape');
+      await expect(hud).toBeHidden();
+      await roam.click();
+      await expect(hud).toBeVisible();
+      await expect(hud.getByRole('region', { name: 'Flight training' })).toHaveCount(0);
+    }
+  );
+});
+
 test.describe('free roam on touch', () => {
   test.use({
     world: 'on',

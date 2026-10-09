@@ -152,8 +152,11 @@ export const worldStore = {
   projectShot: { project: -1, image: -1 },
   /** The content image index each helix screen shows (-1 unknown) */
   screenShown: new Int8Array(16).fill(-1),
-  /** CSS px of the hovered 3D object's box as projected on screen (`on` false when nothing is) */
-  tipBox: { x0: 0, y0: 0, x1: 0, y1: 0, on: false },
+  /**
+   * CSS px of the hovered 3D object's box as projected on screen (`on` false
+   * when nothing is), and the tip it was measured for
+   */
+  tipBox: { x0: 0, y0: 0, x1: 0, y1: 0, on: false, tip: null as WorldTip | null },
   /** Home: the hero's role line as currently displayed (mid-decode included) */
   heroRole: '',
   /** /contact: how much of the message is written, its length over the limit, 0..1 */
@@ -481,6 +484,15 @@ export function setWorldHover(on: boolean, kind: 'point' | 'grab' = 'point') {
   else delete root.dataset.worldHover;
 }
 
+/**
+ * Nothing in 3D is hovered any more (free roam has let go of everything):
+ * the count starts again from nothing, however its overs and outs paired
+ */
+export function clearWorldHover() {
+  hovers = 0;
+  delete document.documentElement.dataset.worldHover;
+}
+
 export interface WorldTip {
   label: string;
   sub?: string;
@@ -514,6 +526,9 @@ export function focusOnPage(id: string) {
 /** Dispatched when free roam knocks into a hull (detail: strength, 0..1); the HUD flashes */
 export const worldBumpEvent = 'world:bump';
 
+/** Dispatched when the explorer asks for a sonar scan (free roam's F key) */
+export const worldScanEvent = 'world:scan';
+
 /** Dispatched to navigate from inside the canvas (World handles it with the router) */
 export const worldNavigateEvent = 'world:navigate';
 
@@ -527,6 +542,8 @@ export const exploreInput = {
   strafe: 0,
   lift: 0,
   turn: 0,
+  /** Nose up (+1) or down (-1) from the keys (R / V, PageUp / PageDown) */
+  pitch: 0,
   boost: false,
   /** Accumulated look deltas in radians from mouse movement, consumed each frame */
   lookX: 0,

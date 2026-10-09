@@ -211,31 +211,77 @@ html.world-dragging {
   cursor: grabbing;
 }
 
-/* Label following the pointer over interactive 3D objects */
+/* The label for an interactive 3D object (WorldTooltip): brackets round the
+   object's projected box (worldStore.tipBox) and a tag beside it, all placed
+   each frame by transform from the viewport's top left */
 .world-tip {
   position: fixed;
   top: 0;
   left: 0;
   z-index: 70;
-  display: grid;
-  gap: 0.1rem;
-  padding: 0.45rem 0.7rem;
-  border-radius: var(--radius-sm);
   pointer-events: none;
-  background: var(--surface-strong);
-  transform: translate3d(-200px, -200px, 0);
   animation: world-tip-in 0.18s ease-out both;
 
-  b {
-    font-size: var(--fs-caption);
-    color: var(--text-primary);
+  &__corner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 12px;
+    height: 12px;
+    margin: -1px;
+    border: 0 solid var(--accent-secondary);
+    filter: drop-shadow(0 0 4px var(--glow-cyan));
+    opacity: 0;
+    transition: opacity 0.15s ease;
+
+    &--tl {
+      border-width: 2px 0 0 2px;
+    }
+
+    &--tr {
+      margin-left: -11px;
+      border-width: 2px 2px 0 0;
+    }
+
+    &--bl {
+      margin-top: -11px;
+      border-width: 0 0 2px 2px;
+    }
+
+    &--br {
+      margin: -11px 0 0 -11px;
+      border-width: 0 2px 2px 0;
+    }
   }
 
-  span {
-    font-family: var(--font-mono);
-    font-size: var(--fs-tiny);
-    letter-spacing: 0.08em;
-    color: var(--accent-secondary);
+  &[data-boxed] &__corner {
+    opacity: 0.9;
+  }
+
+  &__tag {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    gap: 0.1rem;
+    width: max-content;
+    max-width: min(18rem, calc(100vw - 16px));
+    padding: 0.45rem 0.7rem;
+    border-radius: var(--radius-sm);
+    background: var(--surface-strong);
+    transform: translate3d(-200px, -200px, 0);
+
+    b {
+      font-size: var(--fs-caption);
+      color: var(--text-primary);
+    }
+
+    span {
+      font-family: var(--font-mono);
+      font-size: var(--fs-tiny);
+      letter-spacing: 0.08em;
+      color: var(--accent-secondary);
+    }
   }
 }
 
@@ -439,13 +485,6 @@ html[data-flight='cruise'] .world__veil {
   }
 }
 
-@keyframes jet-flicker {
-  to {
-    transform: scale(0.82, 1.12);
-    opacity: 0.85;
-  }
-}
-
 @keyframes hud-rise {
   from {
     opacity: 0;
@@ -468,8 +507,14 @@ html[data-flight='cruise'] .world__veil {
   z-index: 80;
   pointer-events: none;
 
+  /* Focused as free roam starts (ExploreHud), so keys reach the HUD */
+  &:focus {
+    outline: none;
+  }
+
+  /* Dark enough for its text to keep 4.5:1 over the light sky */
   [data-theme='light'] & {
-    --signal: #b45309;
+    --signal: #92400e;
   }
 
   /* The top bar with the signal detector under it, however tall the bar
@@ -521,6 +566,106 @@ html[data-flight='cruise'] .world__veil {
   &__keys {
     font-size: var(--fs-caption);
     color: var(--text-secondary);
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  /* After the coach: the key legend waits behind this */
+  &__controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+
+    &[aria-expanded='true'] {
+      color: var(--accent-secondary);
+      border-color: var(--accent-secondary);
+    }
+  }
+
+  /* The sound toggle in the bar, sized to its other buttons */
+  &__top .world-toggle {
+    width: 34px;
+    height: 34px;
+  }
+
+  /* The first free roam's coach, under the bar */
+  &__coach {
+    display: grid;
+    gap: 0.6rem;
+    justify-items: start;
+    max-width: min(30rem, calc(100vw - 32px));
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-lg);
+    background: var(--surface-strong);
+    pointer-events: auto;
+    animation: hud-rise 0.35s var(--ease-out) both;
+  }
+
+  &__coach-steps {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__coach-step {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: var(--fs-caption);
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+
+    &[aria-current='step'] {
+      color: var(--text-primary);
+    }
+
+    /* Dimmed a little, not so far as to fall under 4.5:1 */
+    &[data-done] {
+      color: var(--text-secondary);
+      opacity: 0.85;
+    }
+  }
+
+  /* A ring for each step: lit for the current one, ticked once done */
+  &__coach-mark {
+    position: relative;
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 50%;
+
+    [aria-current='step'] > & {
+      border-color: var(--accent-secondary);
+      box-shadow: 0 0 10px -2px var(--glow-cyan);
+    }
+
+    [data-done] > & {
+      border-color: var(--status-ok);
+      background: var(--status-ok);
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 4px;
+        width: 3px;
+        height: 6px;
+        border: solid var(--bg-primary);
+        border-width: 0 1.5px 1.5px 0;
+        transform: rotate(45deg);
+      }
+    }
+  }
+
+  &__coach-done {
+    margin: 0;
+    font-size: var(--fs-caption);
+    color: var(--accent-secondary);
   }
 
   &__exit {
@@ -581,6 +726,32 @@ html[data-flight='cruise'] .world__veil {
     transform: translateX(-50%);
   }
 
+  /* The edge of the world (EdgeWarning): a warning over the reticle while
+     the ship is turned back; empty (and unseen) otherwise. Its frame
+     blinks, never its text, which keeps 4.5:1 over whatever is behind */
+  &__edge {
+    position: absolute;
+    top: calc(50% - 10vmin - 2rem);
+    left: 50%;
+    margin: 0;
+    padding: 2px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--signal);
+    border: 1px solid color-mix(in oklab, var(--signal) 55%, transparent);
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--bg-primary) 88%, transparent);
+    transform: translateX(-50%);
+    animation: edge-blink 1.6s ease-in-out infinite;
+
+    &:empty {
+      visibility: hidden;
+    }
+  }
+
   /* Steering reticle: hold the mouse inside the ring to fly straight (a
      plain crosshair when the pointer is locked and the mouse looks) */
   &__reticle {
@@ -593,6 +764,10 @@ html[data-flight='cruise'] .world__veil {
     border-radius: 50%;
     transform: translate(-50%, -50%);
     opacity: 0.7;
+    transition:
+      scale 0.18s var(--ease-out),
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
 
     &::before,
     &::after {
@@ -620,6 +795,22 @@ html[data-flight='cruise'] .world__veil {
       border-style: solid;
       border-color: color-mix(in oklab, var(--accent-secondary) 55%, transparent);
       box-shadow: 0 0 14px -2px var(--glow-cyan);
+    }
+
+    /* On something interactive (html[data-world-hover]): E or a click picks it */
+    &--target {
+      border-style: solid;
+      border-color: var(--accent-tertiary);
+      box-shadow:
+        0 0 18px -2px var(--accent-tertiary),
+        inset 0 0 10px -4px var(--accent-tertiary);
+      opacity: 1;
+      scale: 1.2;
+
+      &::before,
+      &::after {
+        background: var(--accent-tertiary);
+      }
     }
   }
 
@@ -1042,69 +1233,6 @@ html[data-flight='cruise'] .world__veil {
       inset 0 0 18px -6px var(--glow-cyan);
   }
 
-  /* Boosting: a rocket jet fires under the middle of the view (BoostJet),
-     its flame longer the faster you go */
-  &__jet {
-    --thrust: 0;
-
-    position: absolute;
-    top: calc(50% + 60px);
-    left: 50%;
-    display: grid;
-    justify-items: center;
-    opacity: 0;
-    transform: translate(-50%, 8px) scale(0.9);
-    transition:
-      opacity 0.2s ease,
-      transform 0.25s var(--ease-out);
-
-    &[data-on] {
-      opacity: 1;
-      transform: translate(-50%, 0);
-    }
-  }
-
-  &__rocket {
-    position: relative;
-    z-index: 1;
-    filter: drop-shadow(0 0 6px var(--glow-violet));
-  }
-
-  &__rocket-window {
-    fill: var(--bg-primary);
-  }
-
-  &__flame {
-    width: 11px;
-    height: 34px;
-    margin-top: -3px;
-    border-radius: 50% / 25% 25% 75% 75%;
-    background: linear-gradient(
-      to bottom,
-      #fff 0%,
-      #a5f3fc 22%,
-      var(--accent-secondary) 48%,
-      color-mix(in oklab, var(--gradient-start) 70%, transparent) 78%,
-      transparent 100%
-    );
-    box-shadow: 0 0 16px 2px var(--glow-cyan);
-    transform-origin: top center;
-    scale: 1 calc(0.65 + var(--thrust) * 0.85);
-    animation: jet-flicker 0.11s ease-in-out infinite alternate;
-  }
-
-  &__jet-label {
-    position: absolute;
-    top: 7px;
-    left: calc(100% + 0.5rem);
-    font-family: var(--font-mono);
-    font-size: var(--fs-tiny);
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--accent-secondary);
-    text-shadow: 0 1px 8px var(--bg-primary);
-  }
-
   /* Rise and sink, stacked over the look stick's corner (centred on its
      rest, ExploreHud restInset), clear of the markers riding the edge */
   &__lift {
@@ -1356,6 +1484,12 @@ html[data-flight='cruise'] .world__veil {
   }
 }
 
+@keyframes edge-blink {
+  50% {
+    border-color: color-mix(in oklab, var(--signal) 12%, transparent);
+  }
+}
+
 @keyframes autopilot-blink {
   50% {
     opacity: 0.35;
@@ -1395,13 +1529,22 @@ html[data-pointer-lock] {
     animation: none;
   }
 
+  .explore-hud__reticle,
+  .explore-hud__coach-step {
+    transition: none;
+  }
+
+  .explore-hud__coach {
+    animation: none;
+  }
+
   .waypoint--course .waypoint__mark,
+  .explore-hud__edge,
   .explore-hud__autopilot-dot,
   .explore-hud__signal,
   .explore-hud__detector,
   .explore-hud__clamp,
-  .explore-hud__sweep,
-  .explore-hud__flame {
+  .explore-hud__sweep {
     animation: none;
   }
 }
