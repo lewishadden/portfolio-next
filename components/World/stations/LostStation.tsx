@@ -50,11 +50,13 @@ const beamReach = 0.6;
 /** Where the wreck sits, from the station's centre */
 const wreckAt = new Vector3(-3.2, 1.2, -6);
 
-/** Nudges so far, and when the tractor beam locked on (clock time, -1 while it hasn't) */
+/** Nudges so far, and when the tractor beam locked on (clock time, -Infinity while it hasn't) */
 interface Rescue {
   nudges: number;
   lockedAt: number;
 }
+
+const isLocked = (rescue: Rescue) => rescue.lockedAt > -Infinity;
 
 const tipFor = () => (worldMode.get().mode === 'explore' ? loggedTip : lockedTip);
 
@@ -64,7 +66,7 @@ const tipFor = () => (worldMode.get().mode === 'explore' ? loggedTip : lockedTip
  */
 function answerLocked(rescue: Rescue) {
   rescue.nudges = 0;
-  rescue.lockedAt = -1;
+  rescue.lockedAt = -Infinity;
   const tip = worldTip.get();
   if (tip === lockedTip || tip === loggedTip) worldTip.set(lostTip);
   if (worldMode.get().mode === 'explore') {
@@ -98,7 +100,7 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
   const baseHandlers = useReactionHandlers(reaction, lostTip, flailTime);
   useShowcase('lost', driftRef, reaction, flailTime);
   const beamRef = useRef<Group>(null);
-  const rescue = useRef<Rescue>({ nudges: 0, lockedAt: -1 });
+  const rescue = useRef<Rescue>({ nudges: 0, lockedAt: -Infinity });
   const invalidate = useThree((s) => s.invalidate);
 
   // Three nudges and the wreck locks a tractor beam on; the click after that heads home
@@ -106,7 +108,7 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
     () => ({
       onPointerOver(e: ThreeEvent<PointerEvent>) {
         baseHandlers.onPointerOver(e);
-        if (rescue.current.lockedAt >= 0) worldTip.set(tipFor());
+        if (isLocked(rescue.current)) worldTip.set(tipFor());
       },
       onPointerOut() {
         baseHandlers.onPointerOut();
@@ -115,7 +117,7 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
       },
       onClick(e: ThreeEvent<MouseEvent>) {
         const state = rescue.current;
-        if (state.lockedAt >= 0) {
+        if (isLocked(state)) {
           e.stopPropagation();
           spawnPing(e.point);
           answerLocked(state);
@@ -164,14 +166,15 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
 
     // The tractor beam reaches out from the wreck once locked (at once at the
     // still level). One locked before R3F restarted its clock (so stamped
-    // ahead of it) stays locked, and reaches out again if it has to
-    if (rescue.current.lockedAt > t) rescue.current.lockedAt = Math.max(t - beamReach, 0);
+    // ahead of it) stays locked, restamped as having already reached
+    if (rescue.current.lockedAt > t) rescue.current.lockedAt = t - beamReach;
     const beam = beamRef.current;
-    const lockedAt = rescue.current.lockedAt;
-    if (beam) beam.visible = lockedAt >= 0;
-    if (beam && lockedAt >= 0) {
+    const locked = isLocked(rescue.current);
+    if (beam) beam.visible = locked;
+    if (beam && locked) {
       const still = state.frameloop === 'demand';
-      const reach = still ? 1 : MathUtils.smootherstep(t - lockedAt, 0, beamReach);
+      const since = t - rescue.current.lockedAt;
+      const reach = still ? 1 : MathUtils.smootherstep(since, 0, beamReach);
       placeBeam(beam, drift.position, Math.max(reach, 0.02));
       setUniform(materials.tractor, 'uTime', ambient);
       setUniform(materials.tractorGlow, 'uTime', ambient);
