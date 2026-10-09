@@ -1,11 +1,20 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
-import { AdditiveBlending, Group, NormalBlending } from 'three';
+import {
+  AdditiveBlending,
+  Color,
+  Group,
+  InstancedBufferAttribute,
+  InstancedMesh,
+  Object3D,
+  ShaderMaterial,
+  SphereGeometry,
+} from 'three';
 
-import { createHaloMaterial, createRingMaterial } from '../materials';
+import { asGlow, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
 import { HabitatRing, NavLights, SolarArray, Spin } from '../parts';
 import { StationScope } from '../power';
@@ -19,7 +28,7 @@ import {
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { StationHull } from '../StationHull';
 import { stationModels, stationPositions } from '../stations';
-import { palettes, seededRandom, setUniform } from '../utils';
+import { seededRandom, setUniform } from '../utils';
 
 import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
@@ -37,6 +46,72 @@ const habitatLights: NavLight[] = [
 
 /** Seconds the helmet's spin takes */
 const spinTime = 1.3;
+
+/**
+ * The motes drifting up round the helmet, one instanced draw: cyan or
+ * violet each (`aTone`), and like the station's other glows they follow its
+ * power (`uCharge`)
+ */
+function createMoteMaterial(p: WorldPalette) {
+  return asGlow(
+    new ShaderMaterial({
+      uniforms: {
+        uColorA: { value: new Color(p.cyan) },
+        uColorB: { value: new Color(p.violet) },
+        uCharge: { value: 1 },
+        uLight: { value: 0 },
+      },
+      vertexShader: /* glsl */ `
+        attribute float aTone;
+        varying float vTone;
+        void main() {
+          vTone = aTone;
+          vec4 local = vec4(position, 1.0);
+          #ifdef USE_INSTANCING
+            local = instanceMatrix * local;
+          #endif
+          gl_Position = projectionMatrix * modelViewMatrix * local;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uColorA, uColorB;
+        uniform float uCharge, uLight;
+        varying float vTone;
+        void main() {
+          gl_FragColor = vec4(mix(uColorA, uColorB, vTone) * max(uCharge, 1.0), 0.85 * min(uCharge, 1.0));
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      toneMapped: false,
+    })
+  );
+}
+
+interface Mote {
+  angle: number;
+  radius: number;
+  speed: number;
+  offset: number;
+  size: number;
+}
+
+const moteCount = 26;
+const moteDummy = new Object3D();
+
+/** Places every mote for clock time `t`: each rises through the rings and starts again below */
+function placeMotes(mesh: InstancedMesh | null, motes: Mote[], t: number) {
+  if (!mesh) return;
+  motes.forEach((m, i) => {
+    const y = ((t * m.speed + m.offset) % 5) - 2.5;
+    moteDummy.position.set(Math.cos(m.angle + t * 0.1) * m.radius, y, Math.sin(m.angle) * m.radius);
+    moteDummy.scale.setScalar(m.size);
+    moteDummy.updateMatrix();
+    mesh.setMatrixAt(i, moteDummy.matrix);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+}
 
 const buildMaterials = (p: WorldPalette) => ({
   ringA: createRingMaterial({
@@ -59,6 +134,7 @@ const buildMaterials = (p: WorldPalette) => ({
   scan: createRingMaterial({ colorA: p.cyan, colorB: p.cyan, intensity: 3, speed: 0.2 }),
   scanDisc: createHaloMaterial({ color: p.cyan, intensity: 1.2, opacity: 0.4 }),
   halo: createHaloMaterial({ color: p.violet, intensity: 1.2, opacity: 0.55 }),
+  motes: createMoteMaterial(p),
 });
 
 /** `/about` — the helmet, circled by holographic data rings and a scanning plane */
@@ -67,15 +143,14 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
   const helmetRef = useRef<Group>(null);
   const ringsRef = useRef<Group>(null);
   const scanRef = useRef<Group>(null);
-  const motesRef = useRef<Group>(null);
+  const motesRef = useRef<InstancedMesh>(null);
   const materials = useThemedMaterials(buildMaterials, theme, 'about');
-  const palette = palettes[theme];
   const reaction = useRef(createReaction());
   const handlers = useReactionHandlers(reaction, helmetTip, spinTime);
 
-  const motes = useMemo(() => {
+  const motes = useMemo<Mote[]>(() => {
     const random = seededRandom(41);
-    return Array.from({ length: 26 }, () => ({
+    return Array.from({ length: moteCount }, () => ({
       angle: random() * Math.PI * 2,
       radius: 1.8 + random() * 1.6,
       speed: 0.25 + random() * 0.5,
@@ -83,6 +158,14 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
       size: 0.025 + random() * 0.04,
     }));
   }, []);
+  // Every third mote is violet, the rest cyan
+  const moteGeometry = useMemo(() => {
+    const geometry = new SphereGeometry(1, 8, 8);
+    const tones = Float32Array.from({ length: moteCount }, (_, i) => (i % 3 ? 0 : 1));
+    geometry.setAttribute('aTone', new InstancedBufferAttribute(tones, 1));
+    return geometry;
+  }, []);
+  useEffect(() => () => moteGeometry.dispose(), [moteGeometry]);
 
   useFrame(({ camera, clock }, delta) => {
     if (!stationInRange(groupRef.current, camera, 'about')) return;
@@ -116,12 +199,7 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
     const scan = scanRef.current;
     if (scan) scan.position.y = Math.sin(t * 0.7) * 1.35;
 
-    motesRef.current?.children.forEach((child, i) => {
-      const m = motes[i];
-      if (!m) return;
-      const y = ((t * m.speed + m.offset) % 5) - 2.5;
-      child.position.set(Math.cos(m.angle + t * 0.1) * m.radius, y, Math.sin(m.angle) * m.radius);
-    });
+    placeMotes(motesRef.current, motes, t);
   });
 
   return (
@@ -173,20 +251,12 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
           </mesh>
         </group>
 
-        <group ref={motesRef}>
-          {motes.map((m, i) => (
-            <mesh key={i} scale={m.size}>
-              <sphereGeometry args={[1, 8, 8]} />
-              <meshBasicMaterial
-                color={i % 3 ? palette.cyan : palette.violet}
-                transparent
-                opacity={0.85}
-                blending={theme === 'light' ? NormalBlending : AdditiveBlending}
-                toneMapped={false}
-              />
-            </mesh>
-          ))}
-        </group>
+        <instancedMesh
+          ref={motesRef}
+          args={[moteGeometry, materials.motes, moteCount]}
+          frustumCulled={false}
+          onUpdate={(mesh) => placeMotes(mesh, motes, 0)}
+        />
 
         <group ref={helmetRef} {...handlers}>
           <Model url={stationModels.about!} height={2.8} theme={theme} />

@@ -166,7 +166,8 @@ export function createRingMaterial({
 }
 
 /* ------------------------------------------------------------------
-   Fresnel rim — atmospheres, holographic shells
+   Fresnel rim — atmospheres, holographic shells. Like the other glows it
+   follows its station's power (`uCharge`, wired by useThemedMaterials)
    ------------------------------------------------------------------ */
 export function createFresnelMaterial({
   color,
@@ -187,6 +188,7 @@ export function createFresnelMaterial({
         uIntensity: { value: intensity },
         uLight: { value: 0 },
         uBackSide: { value: backSide ? 1 : 0 },
+        uCharge: { value: 1 },
       },
       vertexShader: /* glsl */ `
       varying vec3 vNormal;
@@ -202,7 +204,7 @@ export function createFresnelMaterial({
       varying vec3 vNormal;
       varying vec3 vView;
       uniform vec3 uColor;
-      uniform float uPower, uIntensity, uLight;
+      uniform float uPower, uIntensity, uLight, uCharge;
       uniform float uBackSide;
       void main() {
         float facing = dot(normalize(vNormal), normalize(vView));
@@ -213,7 +215,10 @@ export function createFresnelMaterial({
         float f = uBackSide > 0.5
           ? pow(clamp(-facing, 0.0, 1.0), uPower)
           : pow(clamp(1.0 - abs(facing), 0.0, 1.0), uPower);
-        gl_FragColor = vec4(uColor * mix(uIntensity, 1.0, uLight), f * mix(1.0, 0.7, uLight));
+        gl_FragColor = vec4(
+          uColor * mix(uIntensity, 1.0, uLight) * max(uCharge, 1.0),
+          f * mix(1.0, 0.7, uLight) * min(uCharge, 1.0)
+        );
       }
     `,
       transparent: true,

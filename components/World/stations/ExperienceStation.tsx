@@ -10,7 +10,7 @@ import { createBeamMaterial, createHaloMaterial, createRingMaterial } from '../m
 import { Model } from '../Model';
 import { Antenna, NavLights, SolarArray, Spin } from '../parts';
 import { spawnPing } from '../Pings';
-import { StationScope } from '../power';
+import { StationScope, stationPower } from '../power';
 import {
   createReaction,
   easeInOut,
@@ -86,12 +86,13 @@ const buildMaterials = (p: WorldPalette) => ({
   topHalo: createHaloMaterial({ color: p.violet, intensity: 1.2, opacity: 0.5 }),
 });
 
-function lightNode(node: Group, activation: number, dt: number) {
+/** Lights a pod by how strongly it is read, pointed at or pinged; its glow follows the station's power */
+function lightNode(node: Group, activation: number, charge: number, dt: number) {
   const [core, ring, halo] = node.children as Mesh[];
   easing.damp(node.scale, 'x', 0.8 + activation * 0.5, 0.25, dt);
   node.scale.y = node.scale.z = node.scale.x;
   const material = core.material as MeshStandardMaterial;
-  material.emissiveIntensity = 0.4 + activation * 3.2;
+  material.emissiveIntensity = (0.4 + activation * 3.2) * charge;
   ring.rotation.z += dt * (0.3 + activation * 1.4);
   halo.visible = activation > 0.05;
   halo.scale.setScalar(2.4 + activation * 2.4);
@@ -188,6 +189,7 @@ export function ExperienceStation({
     // tour, free roam) whichever pods the camera passes
     const reading = worldStore.roleFocus;
     const pingY = ping?.visible ? ping.position.y : Infinity;
+    const charge = stationPower.experience.charge.value;
     nodesRef.current?.children.forEach((node, i) => {
       const activation =
         reading > -0.99
@@ -196,7 +198,7 @@ export function ExperienceStation({
       // Pointed at, or passed by the satellite's ping
       const noticed = hovered.current === i ? 0.75 : 0;
       const pinged = Math.max(0, 1 - Math.abs(pingY - nodeYs[i]) / 1.6);
-      lightNode(node as Group, Math.max(activation, noticed, pinged), dt);
+      lightNode(node as Group, Math.max(activation, noticed, pinged), charge, dt);
     });
   });
 
