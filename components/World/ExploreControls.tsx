@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
 import { motionLevel } from '@/utils/motion';
 
+import { clickTarget, refreshPointer, releaseHover } from './interaction';
 import { canLockPointer, lockPointer } from './pointerLock';
 import { navigableStations, stationForPath } from './routes';
 import { applyShake } from './shake';
@@ -22,6 +23,7 @@ import {
   worldStore,
 } from './worldStore';
 
+import type { RootState } from '@react-three/fiber';
 import type { Scene } from 'three';
 import type { StationKey } from './routes';
 
@@ -105,6 +107,9 @@ const autoBrake = 16;
 const autoTurn = 1.7;
 /** Mouse travel (px, locked) that takes the controls back from the autopilot */
 const takeOver = 80;
+/** Free roam: how far ahead the reticle picks things out (world units), and every how many frames it looks */
+const reach = 60;
+const aimEvery = 3;
 
 /** Shortest signed angle from `a` to `b` */
 const wrap = (angle: number) => MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
@@ -198,6 +203,25 @@ interface LookState {
   bumpedAt: number;
   /** Motion below full (calm or still): no banking, no jolts */
   calm: boolean;
+  /** Frames since free roam began, for looking again under the reticle every few */
+  frames: number;
+}
+
+/**
+ * What is under the pointer is looked at again every few frames as the
+ * ship flies (under the reticle when the pointer is locked), no further
+ * than `reach`; outside free roam the raycaster reaches as far as it can
+ */
+function aimReticle(state: RootState, look: LookState) {
+  if (state.raycaster.far !== reach) state.raycaster.far = reach;
+  look.frames++;
+  if (look.frames % aimEvery === 0) refreshPointer(state);
+}
+
+/** Free roam is over: hovers made under the reticle end, and the raycaster reaches as far as it can */
+function stopAiming(state: RootState) {
+  state.raycaster.far = Infinity;
+  releaseHover(state);
 }
 
 /** A knock against a hull, `speed` units a second into it: a jolt, a flash of the HUD and a thud */
@@ -271,8 +295,10 @@ export function ExploreControls() {
     since: 0,
     bumpedAt: -Infinity,
     calm: false,
+    frames: 0,
   });
   const lite = useLite();
+  const get = useThree((s) => s.get);
 
   // Keyboard: held keys set the axes; digits set course; Escape leaves
   useEffect(() => {
@@ -298,6 +324,11 @@ export function ExploreControls() {
         return;
       }
       if (e.key === 'Shift') exploreInput.boost = true;
+      // E clicks what the reticle (or the free pointer) is on
+      if (e.code === 'KeyE' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (clickTarget(get())) e.preventDefault();
+        return;
+      }
       const course = digit.exec(e.code);
       if (course && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
@@ -327,7 +358,7 @@ export function ExploreControls() {
       window.removeEventListener('keyup', upKey);
       window.removeEventListener('blur', blur);
     };
-  }, []);
+  }, [get]);
 
   // The mouse looks (locked) or steers by where it rests. Touch is the
   // thumbsticks' (ExploreHud), which steer through the same input
@@ -379,7 +410,8 @@ export function ExploreControls() {
     };
   }, []);
 
-  useFrame(({ camera, clock, scene }, delta) => {
+  useFrame((root, delta) => {
+    const { camera, clock, scene } = root;
     const state = look.current;
     const yawBefore = state.yaw;
     const dt = Math.min(delta, 1 / 20);
@@ -392,6 +424,7 @@ export function ExploreControls() {
         setDock('');
         setAutopilot('');
         setDocking('');
+        stopAiming(root);
       }
       return;
     }
@@ -507,6 +540,7 @@ export function ExploreControls() {
     cam.updateProjectionMatrix();
     applyShake(cam, clock.elapsedTime, dt, state.calm);
     publishWaypoints(cam);
+    aimReticle(root, state);
   });
 
   return null;

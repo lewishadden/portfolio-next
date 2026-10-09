@@ -644,6 +644,10 @@ html[data-flight='cruise'] .world__veil {
     border-radius: 50%;
     transform: translate(-50%, -50%);
     opacity: 0.7;
+    transition:
+      scale 0.18s var(--ease-out),
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
 
     &::before,
     &::after {
@@ -671,6 +675,22 @@ html[data-flight='cruise'] .world__veil {
       border-style: solid;
       border-color: color-mix(in oklab, var(--accent-secondary) 55%, transparent);
       box-shadow: 0 0 14px -2px var(--glow-cyan);
+    }
+
+    /* On something interactive (html[data-world-hover]): E or a click picks it */
+    &--target {
+      border-style: solid;
+      border-color: var(--accent-tertiary);
+      box-shadow:
+        0 0 18px -2px var(--accent-tertiary),
+        inset 0 0 10px -4px var(--accent-tertiary);
+      opacity: 1;
+      scale: 1.2;
+
+      &::before,
+      &::after {
+        background: var(--accent-tertiary);
+      }
     }
   }
 
@@ -1444,6 +1464,10 @@ html[data-pointer-lock] {
   .explore-hud__dock,
   .explore-hud__autopilot {
     animation: none;
+  }
+
+  .explore-hud__reticle {
+    transition: none;
   }
 
   .waypoint--course .waypoint__mark,

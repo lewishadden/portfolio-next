@@ -290,6 +290,17 @@ const noLock = () => false;
 const subscribeNothing = () => () => {};
 const readDocking = () => worldStore.docking;
 
+/** Something interactive in 3D is pointed at (html[data-world-hover], setWorldHover) */
+const subscribeHover = (listener: () => void) => {
+  const observer = new MutationObserver(listener);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-world-hover'],
+  });
+  return () => observer.disconnect();
+};
+const readHover = () => document.documentElement.hasAttribute('data-world-hover');
+
 /**
  * Docking: clamps close in from the edges, a light sweeps the view and a
  * bar fills while the camera settles (ExploreControls), then the page opens
@@ -366,6 +377,7 @@ export function ExploreHud({
   const compact = useMediaQuery('(pointer: coarse) and (max-width: 599px)');
   const lockable = useSyncExternalStore(subscribeNothing, canLockPointer, noLock);
   const locked = usePointerLocked();
+  const targeting = useSyncExternalStore(subscribeHover, readHover, noLock);
   const regionRef = useRef<HTMLDivElement>(null);
 
   // Keyboard focus moves into the HUD (the page under it is inert). The
@@ -464,7 +476,8 @@ export function ExploreHud({
                 <kbd>A</kbd>
                 <kbd>S</kbd>
                 <kbd>D</kbd> fly · mouse {lockable ? 'looks' : 'steers'} · <kbd>Space</kbd>
-                <kbd>C</kbd> up/down · <kbd>⇧</kbd> boost · <kbd>0</kbd>–<kbd>5</kbd> autopilot
+                <kbd>C</kbd> up/down · <kbd>⇧</kbd> boost · <kbd>E</kbd> click · <kbd>0</kbd>–
+                <kbd>5</kbd> autopilot
               </>
             )}
           </span>
@@ -482,7 +495,13 @@ export function ExploreHud({
 
       {!touch && (
         <span
-          className={`explore-hud__reticle${lockable ? ' explore-hud__reticle--locked' : ''}`}
+          className={[
+            'explore-hud__reticle',
+            lockable && 'explore-hud__reticle--locked',
+            targeting && 'explore-hud__reticle--target',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           aria-hidden="true"
         />
       )}

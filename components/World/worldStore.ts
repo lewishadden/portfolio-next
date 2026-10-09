@@ -481,6 +481,15 @@ export function setWorldHover(on: boolean, kind: 'point' | 'grab' = 'point') {
   else delete root.dataset.worldHover;
 }
 
+/**
+ * Nothing in 3D is hovered any more (free roam has let go of everything):
+ * the count starts again from nothing, however its overs and outs paired
+ */
+export function clearWorldHover() {
+  hovers = 0;
+  delete document.documentElement.dataset.worldHover;
+}
+
 export interface WorldTip {
   label: string;
   sub?: string;

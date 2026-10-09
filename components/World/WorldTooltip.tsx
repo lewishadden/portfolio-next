@@ -20,6 +20,13 @@ const stiffness = 26;
 /** Brackets and tag snap rather than spring after a pause this long (ms) */
 const stale = 120;
 
+/** Free roam's reticle aims: how far below the middle of the screen its tag sits (px) */
+const underReticle = 58;
+
+/** Free roam with the pointer locked (interaction.ts aims from the reticle then) */
+const aimingReticle = () =>
+  !!document.pointerLockElement && document.documentElement.dataset.worldMode === 'explore';
+
 /** Corners in order: top left, top right, bottom left, bottom right */
 const corners = ['tl', 'tr', 'bl', 'br'] as const;
 
@@ -168,8 +175,11 @@ export function WorldTooltip() {
       brackets.forEach((el, i) => {
         if (el) el.style.transform = `translate3d(${xs[i]}px, ${ys[i]}px, 0)`;
       });
-      const drawn = { left: x0, top: y0, right: x1, bottom: y1 };
-      const [x, y] = placeTag(drawn, tagW, tagH, width, height);
+      // Free roam with the pointer locked: the reticle aims, and the tag
+      // sits under it (and under its hint), where the eye already is
+      const [x, y] = aimingReticle()
+        ? [(width - tagW) / 2, height / 2 + underReticle]
+        : placeTag({ left: x0, top: y0, right: x1, bottom: y1 }, tagW, tagH, width, height);
       tag.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     };
 
