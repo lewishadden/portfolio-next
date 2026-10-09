@@ -254,7 +254,7 @@ const screenPowerTime = 0.6;
 /**
  * A screen flickers as it powers up at most this often (seconds): riding
  * fast past several screens would otherwise flash more than three times a
- * second; in between, they only ramp up
+ * second; in between, they only swell
  */
 const flickerGap = 1;
 
@@ -262,17 +262,18 @@ const flickerGap = 1;
  * The edge light's power `s` seconds into a screen coming to the front:
  * power.tsx's charge curve (two false starts, a surge past full, then it
  * settles) compressed so the surge peaks at `screenPowerTime`. Without the
- * flicker it ramps straight up
+ * flicker it swells smoothly from full into the surge, never dimming: any
+ * drop (one dipped back to the dim floor a quarter-second in) is a flash
  */
 function screenPowerAt(s: number, flicker: boolean) {
   const x = (s * 0.95) / screenPowerTime;
-  if (x < 0.42 && !flicker) return MathUtils.lerp(0.22, 1, x / 0.42);
+  if (x >= 0.95) return 1 + 0.4 * Math.exp(-(x - 0.95) * 3.2);
+  if (!flicker) return MathUtils.lerp(1, 1.4, smootherstep(x / 0.95));
   if (x < 0.1) return 0.55;
   if (x < 0.2) return 0.12;
   if (x < 0.3) return 0.8;
   if (x < 0.42) return 0.22;
-  if (x < 0.95) return MathUtils.lerp(0.22, 1.4, smootherstep((x - 0.42) / 0.53));
-  return 1 + 0.4 * Math.exp(-(x - 0.95) * 3.2);
+  return MathUtils.lerp(0.22, 1.4, smootherstep((x - 0.42) / 0.53));
 }
 
 /** Optimised (and cached) through the Next.js image endpoint, at the next width it serves */
