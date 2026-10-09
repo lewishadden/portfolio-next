@@ -14,6 +14,7 @@ import {
   Float32BufferAttribute,
   Group,
   InstancedBufferAttribute,
+  InstancedMesh,
   LineBasicMaterial,
   Matrix4,
   NormalBlending,
@@ -44,7 +45,7 @@ import { repaintFor, useStillRepaint } from './stillFrames';
 import type { RefObject } from 'react';
 import type { IconifyJSON } from '@iconify/react';
 import type { ThreeEvent } from '@react-three/fiber';
-import type { Camera, InstancedMesh, LineSegments, Object3D, Texture } from 'three';
+import type { Camera, Intersection, LineSegments, Object3D, Raycaster, Texture } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
 
@@ -547,6 +548,25 @@ function clearOfCopy(ndc: Vector3) {
   return MathUtils.lerp(0.1, 1, MathUtils.smoothstep(Math.hypot(dx, dy), 0, 0.08));
 }
 
+/**
+ * R3F keys its hover state on a hit's instanceId, and the badges' instance
+ * slots are re-sorted every frame, so a hovered slot can come to hold
+ * another badge with no out or over. The raycast rewrites each hit's slot
+ * to its badge instead: hover follows badges, firing out and over exactly
+ * when the badge under the pointer changes, whatever the sort does
+ */
+function badgeRaycast(state: { current: BadgeState | null }) {
+  return function (this: InstancedMesh, raycaster: Raycaster, intersects: Intersection[]) {
+    const from = intersects.length;
+    InstancedMesh.prototype.raycast.call(this, raycaster, intersects);
+    const order = state.current?.order;
+    for (let i = from; i < intersects.length; i++) {
+      const slot = intersects[i].instanceId;
+      if (slot !== undefined && order) intersects[i].instanceId = order[slot];
+    }
+  };
+}
+
 /** Sorts the draw order farthest first (an insertion sort: it is nearly sorted from the last frame) */
 function sortBackToFront(order: Int32Array, depth: Float32Array) {
   for (let i = 1; i < order.length; i++) {
@@ -777,8 +797,8 @@ export function SkillsStation({
   const orbitsRef = useRef<Group>(null);
   const outpostRef = useRef<Group>(null);
   const badgesRef = useRef<InstancedMesh>(null);
-  /** The badge under the pointer and the instance slot it was hovered in (-1 for none) */
-  const hoveredRef = useRef({ badge: -1, slot: -1 });
+  /** The badge under the pointer (-1 for none) */
+  const hoveredRef = useRef({ badge: -1 });
   const materials = useThemedMaterials(buildMaterials, theme, 'skills');
   const invalidate = useThree((s) => s.invalidate);
   useStillRepaint();
@@ -847,13 +867,15 @@ export function SkillsStation({
   }, [badges.length]);
   const atlasRef = useBadgeAtlas(badges);
 
-  // Badges orbit inside this sphere (the raycast's first test; it never needs recomputing)
+  // Badges orbit inside this sphere (the raycast's first test; it never needs recomputing),
+  // and a hit names its badge rather than its draw slot
   useEffect(() => {
     const mesh = badgesRef.current;
     if (!mesh) return;
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     const reach = Math.max(...orbits.map((orbit) => orbit.radius), 1) + 1;
     mesh.boundingSphere = new Sphere(new Vector3(), reach);
+    mesh.raycast = badgeRaycast(badgeState);
   }, [orbits, badges.length]);
 
   const lines = useMemo(() => {
@@ -935,10 +957,9 @@ export function SkillsStation({
     inkBadges(materials.badges, atlas, fadeIcons(state, atlas, dt));
   });
 
+  // The badge a hit names (badgeRaycast puts the badge, not its draw slot, in instanceId)
   const badgeAt = (e: ThreeEvent<PointerEvent | MouseEvent>) =>
-    e.instanceId === undefined
-      ? -1
-      : (badgeStateFor(badgeState, badges.length).order[e.instanceId] ?? -1);
+    e.instanceId !== undefined && e.instanceId < badges.length ? e.instanceId : -1;
 
   return (
     <StationScope station="skills">
@@ -997,10 +1018,8 @@ export function SkillsStation({
             onPointerOver={(e) => {
               e.stopPropagation();
               const badge = badgeAt(e);
-              if (badge < 0) return;
               const hovered = hoveredRef.current;
-              hovered.slot = e.instanceId ?? -1;
-              if (hovered.badge === badge) return;
+              if (badge < 0 || hovered.badge === badge) return;
               if (hovered.badge >= 0) setWorldHover(false);
               hovered.badge = badge;
               setWorldHover(true);
@@ -1008,11 +1027,11 @@ export function SkillsStation({
               invalidate();
             }}
             onPointerOut={(e) => {
-              // The slot it was hovered in: the draw order may have changed since
+              // Only when the pointer leaves the badge hovered
               const hovered = hoveredRef.current;
-              if (hovered.badge < 0 || e.instanceId !== hovered.slot) return;
+              if (hovered.badge < 0 || badgeAt(e) !== hovered.badge) return;
               const tip = tips.get(badges[hovered.badge].name);
-              hovered.badge = hovered.slot = -1;
+              hovered.badge = -1;
               setWorldHover(false);
               if (worldTip.get() === tip) worldTip.set(null);
               invalidate();
