@@ -61,6 +61,8 @@ uniform float uLockPing;
 uniform vec3 uLine;
 uniform vec3 uFillColour;
 uniform float uFill;
+uniform vec4 uRows[2];
+uniform float uFloor;
 uniform float uGlow;
 uniform float uMotion;
 uniform float uLineAlpha;
@@ -79,6 +81,11 @@ float rectDist(vec2 p, vec4 r) {
   vec2 c = r.xy + r.zw * 0.5;
   vec2 q = abs(p - c) - r.zw * 0.5;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+}
+
+/** 1 inside a box, feathered to 0 a few pixels outside it */
+float within(vec2 p, vec4 r) {
+  return smoothstep(6.0, 0.0, rectDist(p, r));
 }
 
 /** Corner brackets round a box: its outline, only near the ends */
@@ -197,7 +204,10 @@ void main() {
   float inside = step(rectDist(p, vec4(0.0, 0.0, uSize)), 0.0);
   float row = 0.5 + 0.5 * exp(-pow((p.y - uSize.y * 0.5) / (uSize.y * 0.3), 2.0));
   float ripple = 0.92 + 0.08 * sin(p.y * 0.9 + p.x * 0.05 - t * 3.0);
-  float fill = uFill * inside * row * ripple * smoothstep(0.35, 0.8, uBoot);
+  // Never thinner than uFloor over the row of links and buttons themselves,
+  // so a lit hull or the hero's name behind the bar can't swallow them
+  float targets = max(within(p, uRows[0]), within(p, uRows[1]));
+  float fill = max(uFill * row * ripple, uFloor * targets) * inside * smoothstep(0.35, 0.8, uBoot);
   // Premultiplied; with uLineAlpha under 1 the lines add light to what's behind
   gl_FragColor = vec4(colour + uFillColour * fill * (1.0 - a), a * uLineAlpha + glowAlpha + fill * (1.0 - a));
 }
@@ -218,7 +228,9 @@ const rgb = (hex: string): Rgb => {
  * The hologram per theme. It's see-through: `clear` is its tint over open
  * space and `dense` once the page is under it (thickest along the row of
  * links, so they stay readable; no backdrop blur, which is costly under a
- * bar that moves every frame and glitched on Android). `lineAlpha` below 1
+ * bar that moves every frame and glitched on Android). `floor` is the least
+ * it ever is over the links and buttons themselves, so a lit hull or the
+ * hero's name behind the bar never swallows them. `lineAlpha` below 1
  * makes its lines add light to what's behind, like a projection
  */
 const palettes = {
@@ -227,6 +239,7 @@ const palettes = {
     fill: rgb('#05091a'),
     clear: 0.05,
     dense: 0.78,
+    floor: 0.35,
     glow: 1,
     lineAlpha: 0.55,
   },
@@ -235,6 +248,7 @@ const palettes = {
     fill: rgb('#f2f6fc'),
     clear: 0.08,
     dense: 0.84,
+    floor: 0.35,
     glow: 0.45,
     lineAlpha: 1,
   },
@@ -251,6 +265,8 @@ interface Frame {
   fill: number;
   motion: number;
   hover: Box;
+  /** The row of links and the row of buttons (each one box round them all), as 8 floats */
+  rows: Float32Array;
   /** 0..1: how far the brackets have closed on a hovered link to another station */
   aim: number;
   lock: Box;
@@ -286,6 +302,8 @@ const uniformNames = [
   'uLine',
   'uFillColour',
   'uFill',
+  'uRows',
+  'uFloor',
   'uGlow',
   'uMotion',
   'uLineAlpha',
@@ -382,6 +400,8 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
       gl.uniform3fv(u.uLine, palette.line);
       gl.uniform3fv(u.uFillColour, palette.fill);
       gl.uniform1f(u.uFill, palette.clear + (palette.dense - palette.clear) * f.fill);
+      gl.uniform4fv(u.uRows, f.rows);
+      gl.uniform1f(u.uFloor, palette.floor);
       gl.uniform1f(u.uGlow, palette.glow);
       gl.uniform1f(u.uMotion, f.motion);
       gl.uniform1f(u.uLineAlpha, palette.lineAlpha);
@@ -414,6 +434,16 @@ function boxIn(node: HTMLElement, bar: HTMLElement): Box {
     n = n.offsetParent as HTMLElement | null;
   }
   return [x, y, node.offsetWidth, node.offsetHeight];
+}
+
+/** One box round all of these (none for none) */
+function around(list: Box[]): Box {
+  if (!list.length) return none;
+  const x0 = Math.min(...list.map((b) => b[0]));
+  const y0 = Math.min(...list.map((b) => b[1]));
+  const x1 = Math.max(...list.map((b) => b[0] + b[2]));
+  const y1 = Math.max(...list.map((b) => b[1] + b[3]));
+  return [x0, y0, x1 - x0, y1 - y0];
 }
 
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -679,6 +709,8 @@ export function HeaderHud({
     const root = document.documentElement;
     let elements: HTMLElement[] = [];
     let boxes: Box[] = [];
+    /** One box round the links and one round the buttons, for the fill's floor */
+    const rows = new Float32Array([...none, ...none]);
     let hover = -1;
     let fill = props.current.dense ? 1 : 0;
     const sway = createSway();
@@ -695,6 +727,9 @@ export function HeaderHud({
       [bar.querySelector<HTMLElement>('.header__logo'), ...elements].forEach((el, i) =>
         el?.style.setProperty('--hud-i', String(i))
       );
+      const isLink = elements.map((el) => el.classList.contains('header__link'));
+      rows.set(around(boxes.filter((box, i) => isLink[i] && box[2] > 0)), 0);
+      rows.set(around(boxes.filter((box, i) => !isLink[i] && box[2] > 0)), 4);
       const active = elements.findIndex((el) => el.getAttribute('aria-current') === 'page');
       aimLock(lock, active, active >= 0 ? boxes[active] : none, seconds(), props.current.still);
       hud.resize(bar.offsetWidth, bar.offsetHeight, Math.min(window.devicePixelRatio || 1, 2));
@@ -794,6 +829,7 @@ export function HeaderHud({
           fill,
           motion: 0,
           hover: hoverBox,
+          rows,
           aim,
           lock: lock.at,
           lockOpen: 0,
@@ -833,6 +869,7 @@ export function HeaderHud({
         fill,
         motion: 1,
         hover: hoverBox,
+        rows,
         aim,
         lock: lock.at,
         lockOpen: open + shut,
