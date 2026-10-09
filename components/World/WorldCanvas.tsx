@@ -506,7 +506,7 @@ export default function WorldCanvas({
 
           <Beacons theme={theme} current={station} />
           <CourseLine theme={theme} />
-          <HeadingProjector theme={theme} station={station} />
+          <HeadingProjector theme={theme} />
           <DockingBeam theme={theme} />
           <EdgeShimmer theme={theme} />
           <Pings theme={theme} />

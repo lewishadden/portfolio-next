@@ -16,6 +16,7 @@ import {
 import { motionLevel } from '@/utils/motion';
 
 import { asGlow } from './materials';
+import { stationPower } from './power';
 import { stationKeys, stationPositions } from './routes';
 import { useThemedMaterials } from './stationHooks';
 import { setUniform } from './utils';
@@ -35,7 +36,9 @@ import type { WorldPalette, WorldTheme } from './utils';
    heading; on the high tier a faint cone fills between them. It lasts
    1.4s and follows the station's power-on, so it flickers with its false
    starts. Page flights at full motion only; drawn only while it plays,
-   mounted always so it compiles in warm-up.
+   mounted always so it compiles in warm-up. Its materials are built per
+   theme only, never per station: rebuilding them on a navigation would
+   delete the warmed-up program and link it again on the approach frame.
    ------------------------------------------------------------------ */
 
 /** Seconds the projection lasts */
@@ -234,11 +237,10 @@ function project(state: Projection, event: string, to: string) {
 }
 
 /** The station projects the page heading into space as the camera arrives */
-export function HeadingProjector({ theme, station }: { theme: WorldTheme; station: StationKey }) {
+export function HeadingProjector({ theme }: { theme: WorldTheme }) {
   const groupRef = useRef<Group>(null);
   const coneRef = useRef<Group>(null);
-  // The station's power: the projection flickers with its power-on
-  const materials = useThemedMaterials(buildMaterials, theme, station);
+  const materials = useThemedMaterials(buildMaterials, theme);
   const projection = useRef(createProjection());
   const beams = useMemo(() => createGeometry(beamVertices, beamAlphas), []);
   const cone = useMemo(() => createGeometry(coneVertices, coneAlphas), []);
@@ -265,11 +267,15 @@ export function HeadingProjector({ theme, station }: { theme: WorldTheme; statio
     placeEmitter(state.station);
     placeCorners(camera);
     writeBeams(beams);
+    // It flickers with the power-on of the station it comes from
+    const charge = stationPower[state.station].charge.value;
     setUniform(materials.beams, 'uEnvelope', strength);
+    setUniform(materials.beams, 'uCharge', charge);
     if (coneRef.current) coneRef.current.visible = state.cone;
     if (state.cone) {
       writeCone(cone);
       setUniform(materials.cone, 'uEnvelope', strength);
+      setUniform(materials.cone, 'uCharge', charge);
     }
   });
 
