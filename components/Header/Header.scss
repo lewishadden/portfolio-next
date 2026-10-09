@@ -236,6 +236,11 @@
     animation-delay: calc(450ms + var(--hud-i, 0) * 55ms);
   }
 
+  /* Under the lifting loading screen the logo is the mark flying in */
+  &[data-hud-boot='docked'] .header__logo {
+    animation: none;
+  }
+
   .header__links {
     border-color: transparent;
     background: none;

@@ -651,7 +651,7 @@ function spring(a: Axis, target: number, dt: number) {
  * the flight is when you're watching). Springs bring it home; it then holds
  * still
  */
-function stepSway(s: Sway, dt: number, t: number) {
+function stepSway(s: Sway, dt: number, t: number, hold: boolean) {
   const cam = worldStore.camera;
   const pitch = Math.asin(clamp(cam.fy, -1, 1));
   const last = s.camera;
@@ -684,7 +684,10 @@ function stepSway(s: Sway, dt: number, t: number) {
   last.heading = cam.heading;
   last.pitch = pitch;
 
-  s.flying += (Number(worldStore.flight.active) - s.flying) * (1 - Math.exp(-5 * dt));
+  // Held still while the loading screen's mark flies into the logo slot
+  // (the warp in is a flight): it eases in once the screen has gone
+  const following = worldStore.flight.active && !hold;
+  s.flying += (Number(following) - s.flying) * (1 - Math.exp(-5 * dt));
   if (s.flying < 0.001) s.flying = 0;
   const f = s.flying;
   const shake = clamp(worldStore.velocity / 180, 0, 1) * f;
@@ -938,10 +941,14 @@ export function HeaderHud({
     if (header) mutations.observe(header, { attributes: true, attributeFilter: ['class'] });
     document.fonts?.ready.then(measure);
 
-    /** Nothing to draw while the header is out of sight: tour, free roam, the loading screen */
+    /**
+     * Nothing to draw while the header is out of sight: tour, free roam,
+     * the loading screen while it covers the page. As it lifts the HUD
+     * powers on, under the mark flying into its logo slot
+     */
     const away = () =>
       (root.dataset.worldMode !== undefined && root.dataset.worldMode !== 'page') ||
-      root.hasAttribute('data-boot');
+      root.dataset.boot === 'loading';
 
     /** Shows the course label under the lock's box ('' hides it) */
     const showLabel = (text: string, box?: Box) => {
@@ -979,7 +986,9 @@ export function HeaderHud({
         if (!calm) {
           emitCue('hud-boot');
           if (header) {
-            header.dataset.hudBoot = '';
+            // Powering on under the loading screen's mark as it docks: the
+            // logo arrives with the mark rather than flickering on
+            header.dataset.hudBoot = root.dataset.boot === 'leaving' ? 'docked' : '';
             bootTimer = window.setTimeout(
               () => delete header.dataset.hudBoot,
               bootTime * 1000 + 700
@@ -1045,7 +1054,7 @@ export function HeaderHud({
       const aimWas = aim;
       aim += (aimTarget - aim) * (1 - Math.exp(-10 * dt));
       if (Math.abs(aim - aimWas) > 0.002) dirty.current = true;
-      stepSway(sway, dt, now);
+      stepSway(sway, dt, now, root.dataset.boot === 'leaving');
       bar.style.transform = swayTransform(sway);
       const open = stepLock(lock, now);
       const swinging = swing(sway);

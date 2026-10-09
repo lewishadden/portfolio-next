@@ -14,6 +14,7 @@ import {
   onBoot,
   useBootPhase,
 } from 'components/World/boot';
+import { motionLevel } from '@/utils/motion';
 
 import './BootScreen.scss';
 
@@ -22,6 +23,27 @@ const giveUp = 20_000;
 /** Pause on a full bar before lifting, and how long the lift takes (BootScreen.scss) (ms) */
 const fullHold = 280;
 const liftTime = 1_000;
+
+/**
+ * Lifting at full motion, the big mark flies into the header's logo slot
+ * (BootScreen.scss, `boot-dock`, 0.8s): where it has to go, as offsets of
+ * its centre and a scale, or null if there's no slot to fly to
+ */
+function dockOffsets(root: HTMLElement) {
+  const mark = root.querySelector<SVGSVGElement>('.boot__mark');
+  const slot =
+    document.querySelector<Element>('.header__logo-mark .brand-mark-live__svg') ??
+    document.querySelector<Element>('.header__logo-mark');
+  if (!mark || !slot) return null;
+  const from = mark.getBoundingClientRect();
+  const to = slot.getBoundingClientRect();
+  if (!from.height || !to.height) return null;
+  return {
+    x: to.left + to.width / 2 - (from.left + from.width / 2),
+    y: to.top + to.height / 2 - (from.top + from.height / 2),
+    scale: to.height / from.height,
+  };
+}
 
 // True once hydrated: what only works with the app shows from then on
 const subscribeNothing = () => () => {};
@@ -66,6 +88,19 @@ export function BootScreen() {
   useEffect(() => {
     if (phase === 'gone') return;
     if (phase === 'leaving') {
+      // Below full motion there's no lift to watch: straight to the page
+      if (motionLevel() !== 'full') {
+        clearBoot();
+        return;
+      }
+      const root = rootRef.current;
+      const dock = root && dockOffsets(root);
+      if (root && dock) {
+        root.style.setProperty('--dock-x', `${dock.x.toFixed(1)}px`);
+        root.style.setProperty('--dock-y', `${dock.y.toFixed(1)}px`);
+        root.style.setProperty('--dock-scale', dock.scale.toFixed(4));
+        root.classList.add('boot--docking');
+      }
       const id = window.setTimeout(clearBoot, liftTime);
       return () => window.clearTimeout(id);
     }
