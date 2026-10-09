@@ -23,6 +23,18 @@ const aboutImageLoader: ImageLoader = ({ src, width, quality }) => {
   return `/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=${quality || 75}`;
 };
 
+/* The portrait's rendered width, kept in step with About.scss. Wide layouts
+   (its min-aspect-ratio block) shrink it to about 17.5vw - 22px, at most 236px
+   once the grid reaches its 54rem cap; the grid splits at 901px, as its
+   max-width: 900px block wins at exactly 900. Elsewhere the frame caps it at
+   460px, and phones fill the width */
+const portraitSizes = [
+  '(min-width: 1490px) and (min-aspect-ratio: 11/10) 236px',
+  '(min-width: 901px) and (min-aspect-ratio: 11/10) calc(17.5vw - 22px)',
+  '(min-width: 508px) 460px',
+  'calc(100vw - 48px)',
+].join(', ');
+
 const HighlightCard = ({ highlight }: { highlight: Highlight }) => {
   const ref = usePointerGlow<HTMLDivElement>({ tilt: 6 });
   return (
@@ -75,7 +87,7 @@ export const About = ({
                 height={image.size.height}
                 alt={`Portrait of ${name}`}
                 loader={aboutImageLoader}
-                sizes="(min-width: 900px) 460px, calc(100vw - 48px)"
+                sizes={portraitSizes}
                 priority
               />
               <span className="about__scan" aria-hidden="true" />
