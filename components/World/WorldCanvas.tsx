@@ -298,12 +298,25 @@ export default function WorldCanvas({
     if (!intent || !booted) return;
     const w = window as IdleWindow;
     let idle = 0;
-    // A transition, so a click that comes in the meantime cuts in
-    const warm = () => startTransition(() => setWarming(intent));
-    const timer = window.setTimeout(() => {
+    let timer = 0;
+    const warm = () => {
+      idle = 0;
+      // Never mid-flight (the page nav can be in view as a page arrives):
+      // compiling a station then would hitch the flight, so it waits until
+      // the camera has landed
+      if (worldStore.flight.active) {
+        timer = window.setTimeout(schedule, 250);
+        return;
+      }
+      // A transition, so a click that comes in the meantime cuts in
+      startTransition(() => setWarming(intent));
+    };
+    const schedule = () => {
+      timer = 0;
       if (w.requestIdleCallback) idle = w.requestIdleCallback(warm, { timeout: 1000 });
       else warm();
-    }, intentSettle);
+    };
+    timer = window.setTimeout(schedule, intentSettle);
     return () => {
       window.clearTimeout(timer);
       if (idle) w.cancelIdleCallback?.(idle);
