@@ -290,6 +290,17 @@ test.describe('leaving the tour for a page', () => {
         'returning',
         'page',
       ]);
+      // However the copy arrived, it settles with no transform or filter left
+      // on its wrapper (either would trap the page's fixed elements)
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const wrapper = document.querySelector('#main-content > div:not(.page-sweep)')!;
+            const { transform, filter } = getComputedStyle(wrapper);
+            return [transform, filter];
+          })
+        )
+        .toEqual(['none', 'none']);
     }
   );
 });
