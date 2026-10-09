@@ -269,6 +269,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             navItems={content.global.navItems}
             available={content.global.openToWork}
           />
+          {/* Fixed bottom right, but early in the tab order: free roam is a
+              few tab stops in, not after the whole page */}
+          <RoamButton />
           <main id="main-content">
             <PageTransition>{children}</PageTransition>
           </main>
@@ -276,7 +279,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Cursor />
           <CommandPalette data={paletteData} />
           <StatsOverlay />
-          <RoamButton />
         </ClientProviders>
         <JsonLd />
         <GoogleAnalyticsDeferred gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />

@@ -299,7 +299,8 @@ export function World({ content }: { content: WorldContent }) {
 
   // Touring or exploring hides the page (html[data-world-mode]) and takes it
   // out of the tab order and the accessibility tree until you come back (and
-  // the camera has, 'returning'); so does the loading screen until it lifts
+  // the camera has, 'returning'); so does the loading screen until it lifts.
+  // The skip link goes too while the page is hidden: it leads into it
   const away = active && mode !== 'page';
   const hidden = away || (active && returning);
   useEffect(() => {
@@ -308,6 +309,7 @@ export function World({ content }: { content: WorldContent }) {
     for (const el of document.querySelectorAll('#main-content, .header, .footer')) {
       el.toggleAttribute('inert', hidden || !booted);
     }
+    document.querySelector('.skip-link')?.toggleAttribute('inert', hidden);
   }, [away, hidden, mode, booted]);
 
   // The page is back: keyboard focus returns where it was, once inert has

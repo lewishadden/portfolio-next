@@ -48,6 +48,19 @@ test('no loading screen holds the page when the world is off', async ({ page }) 
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 });
 
+test('free roam is a few tab stops in, not after the whole page', async ({ page }) => {
+  await openHydrated(page, '/');
+  // Its label depends on whether the world is on: the button itself is what counts
+  const roam = page.locator('.roam-fab');
+  await expect(roam).toBeVisible();
+  let stops = 0;
+  while (stops < 15 && !(await roam.evaluate((el) => el === document.activeElement))) {
+    await page.keyboard.press('Tab');
+    stops++;
+  }
+  await expect(roam).toBeFocused();
+});
+
 test.describe('3D effects toggle', () => {
   // Reduced motion renders on demand, so software WebGL isn't redrawing all the time
   test.use({ world: 'on', reducedMotion: 'reduce' });
