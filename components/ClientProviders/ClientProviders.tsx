@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useSyncExternalStore } from 'react';
 import { LazyMotion, MotionConfig, domAnimation } from 'framer-motion';
 import { ReactLenis } from 'lenis/react';
+
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { IconifyLoader } from 'components/IconifyLoader/IconifyLoader';
 import { motionLevel, subscribeMotion } from '@/utils/motion';
@@ -10,9 +11,12 @@ import { motionLevel, subscribeMotion } from '@/utils/motion';
 import type { MotionLevel } from '@/utils/motion';
 
 /**
- * The motion level while hydrating: MotionConfig renders no markup of its
- * own, so it can take the level ThemeScript has already set, and entrances
- * that start as the page hydrates are held back from the first frame
+ * The motion level while hydrating, read from the attribute ThemeScript has
+ * already set rather than the server's 'full', so entrances that start as
+ * the page hydrates are held back from the first frame. Safe only because
+ * the one reader, MotionConfig, renders no markup of its own: never render
+ * anything from this value here, or hydration won't match the server HTML
+ * (components use useMotionLevel(), whose server snapshot is 'full')
  */
 function hydratingLevel(): MotionLevel {
   if (typeof document === 'undefined') return 'full';

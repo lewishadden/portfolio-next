@@ -153,6 +153,9 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       record(cam);
       return;
     }
+    // Motion held back mid-flight (or mid warp in): the camera cuts, and the
+    // flight it was on arrives at its station (still rig.station here)
+    if (snap && rig.flight) cutFlight(rig, rig.station ?? station, t);
     if (!rig.started) {
       // First frame: start out in deep space and warp in
       rig.started = true;
@@ -228,6 +231,22 @@ function endFlight(rig: RigState, station: StationKey, arrived: boolean) {
   worldStore.flight.active = false;
   worldStore.flight.progress = arrived ? 1 : worldStore.flight.progress;
   if (arrived) emitFlight('end', station);
+}
+
+/**
+ * Ends a flight the camera cut short (the motion level dropped below full
+ * on the way) the way a flight ends: on approach (the station powers back
+ * on, the page's copy is let through) and then arrived, so nothing is left
+ * waiting on it, and a return to full motion doesn't resume a stale path
+ */
+function cutFlight(rig: RigState, station: StationKey, t: number) {
+  if (!rig.approached) {
+    rig.approached = true;
+    worldStore.flight.approached = true;
+    emitFlight('approach', station);
+  }
+  rig.arrivedAt = t;
+  endFlight(rig, station, true);
 }
 
 function fly(rig: RigState, cam: PerspectiveCamera, station: StationKey, dt: number, t: number) {

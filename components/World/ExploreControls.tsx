@@ -194,7 +194,7 @@ interface LookState {
   since: number;
   /** Clock time of the last bump into a hull */
   bumpedAt: number;
-  /** Reduced motion: no banking, no jolts */
+  /** Motion below full (calm or still): no banking, no jolts */
   calm: boolean;
 }
 
@@ -400,7 +400,6 @@ export function ExploreControls() {
     if (!state.active) {
       state.active = true;
       state.since = clock.elapsedTime;
-      state.calm = motionLevel() !== 'full';
       euler.setFromQuaternion(cam.quaternion, 'YXZ');
       state.yaw = euler.y;
       state.pitch = euler.x;
@@ -411,6 +410,9 @@ export function ExploreControls() {
       exploreInput.lookX = 0;
       exploreInput.lookY = 0;
     }
+
+    // Read every frame, so a change of level applies mid-flight
+    state.calm = motionLevel() !== 'full';
 
     // Any hand on the controls takes over from the autopilot
     const manual =

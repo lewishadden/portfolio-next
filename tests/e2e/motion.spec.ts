@@ -81,6 +81,64 @@ test.describe('motion levels', () => {
   });
 });
 
+test.describe('motion levels in the world', () => {
+  // Nothing saved and the OS asking for reduced motion: still, so software
+  // WebGL draws on demand while the world loads, and there is no warp in
+  test.use({ world: 'on', reducedMotion: 'reduce' });
+
+  const openWorld = async (page: Page) => {
+    await openHydrated(page, '/');
+    await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+    await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+    await expect(page.locator('html')).toHaveAttribute('data-motion', 'still');
+  };
+
+  test('a flight the level cuts short still arrives', { tag: '@webgl' }, async ({ page }) => {
+    await openWorld(page);
+    // Stats for nerds says when the camera is in flight
+    await page.keyboard.press('Alt+Shift+KeyS');
+    const stats = page.getByRole('complementary', { name: 'Rendering statistics' });
+    await expect(stats).toContainText(/camera\s/);
+
+    // Full motion: a link flies the camera to its station
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await expect(page.locator('html')).toHaveAttribute('data-motion', 'full');
+    await page
+      .getByRole('navigation', { name: 'Main navigation' })
+      .getByRole('link', { name: 'About' })
+      .click();
+    await expect(stats).toContainText(/flight \d+%/);
+
+    // Motion held back mid-flight: the camera cuts to the station, and the
+    // flight is over (it used to stay in the air, the sector map with it)
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(page.locator('html')).toHaveAttribute('data-motion', 'still');
+    await expect(stats).not.toContainText(/flight \d+%/);
+    await expect(page.locator('.nav-radar')).not.toHaveClass(/nav-radar--on/);
+  });
+
+  test('free roam keeps flying at still', { tag: '@webgl' }, async ({ page }) => {
+    await openWorld(page);
+    await page.getByRole('button', { name: 'Free roam' }).click();
+    const hud = page.getByRole('region', { name: 'Explore mode' });
+    await expect(hud).toBeVisible();
+
+    // The autopilot flies on by itself, all the way in: only the canvas's own
+    // frames move it. Drawn on demand, it stalled within a few seconds, once
+    // free roam's stations had mounted and nothing else asked for a frame
+    const projects = hud
+      .getByRole('list', { name: 'Stations' })
+      .getByRole('button', { name: /^Autopilot to Projects/ });
+    const range = projects.locator('[data-km]');
+    await expect(range).toHaveText(/^\d+ km$/);
+    const km = async () => parseInt((await range.textContent()) ?? '', 10);
+    const start = await km();
+    await page.keyboard.press('Digit3');
+    await expect(projects).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(km, { timeout: 90_000 }).toBeLessThan(start / 2);
+  });
+});
+
 // Without JavaScript there is no level: the OS setting decides in CSS
 plain.describe('motion without JavaScript', () => {
   plain.use({ javaScriptEnabled: false });

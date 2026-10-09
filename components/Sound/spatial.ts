@@ -1,4 +1,5 @@
 import { liteQuery, stationForPath, stationKeys, stationPositions } from 'components/World/routes';
+import { worldMode } from 'components/World/worldMode';
 import { worldStore } from 'components/World/worldStore';
 import { motionLevel } from '@/utils/motion';
 
@@ -265,8 +266,7 @@ export function listen(space: Space, ctx: AudioContext, dt: number) {
   // there is none, or it cuts from station to station: below full motion,
   // except in free roam, where the visitor flies it at every level
   const { ear } = space;
-  const flown =
-    live && (motionLevel() === 'full' || document.documentElement.dataset.worldMode === 'explore');
+  const flown = live && (motionLevel() === 'full' || worldMode.get().mode === 'explore');
   const time = flown ? followTime : glideTime;
   const k = ear.primed ? 1 - Math.exp(-dt / time) : 1;
   ear.primed = true;
