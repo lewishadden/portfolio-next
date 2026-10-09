@@ -91,15 +91,17 @@ const dotFragment = /* glsl */ `
   uniform vec3 uColorA;
   uniform vec3 uColorB;
   uniform float uLight;
+  uniform float uCharge;
   varying float vFacing;
   varying float vLat;
   varying float vTwinkle;
   void main() {
     if (vFacing < -0.05) discard;
     float d = length(gl_PointCoord - 0.5);
-    float alpha = smoothstep(0.5, 0.2, d) * smoothstep(-0.05, 0.35, vFacing) * vTwinkle;
+    // The station's power: the land goes dark in standby, and flickers and surges on
+    float alpha = smoothstep(0.5, 0.2, d) * smoothstep(-0.05, 0.35, vFacing) * vTwinkle * min(uCharge, 1.0);
     vec3 col = mix(uColorA, uColorB, smoothstep(-0.2, 0.9, vLat));
-    gl_FragColor = vec4(col * mix(1.6, 1.0, uLight), alpha);
+    gl_FragColor = vec4(col * mix(1.6, 1.0, uLight) * max(uCharge, 1.0), alpha);
   }
 `;
 
@@ -179,6 +181,7 @@ const buildMaterials = (p: WorldPalette) => ({
         uColorA: { value: new Color(p.violet) },
         uColorB: { value: new Color(p.cyan) },
         uLight: { value: 0 },
+        uCharge: { value: 1 },
       },
       vertexShader: dotVertex,
       fragmentShader: dotFragment,

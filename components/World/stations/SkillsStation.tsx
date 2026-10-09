@@ -27,10 +27,10 @@ import {
 import { motionLevel } from '@/utils/motion';
 
 import { iconSvg, useIconCollections } from '../icons';
-import { asGlow, createFresnelMaterial, noiseGlsl } from '../materials';
+import { asGlow, chargeWith, createFresnelMaterial, noiseGlsl } from '../materials';
 import { NavLights, SolarArray, Spin } from '../parts';
 import { spawnPing } from '../Pings';
-import { StationScope } from '../power';
+import { StationScope, stationPower } from '../power';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
@@ -55,6 +55,7 @@ const planetFragment = /* glsl */ `
   uniform vec3 uColorB;
   uniform vec3 uColorC;
   uniform float uLight;
+  uniform float uCharge;
   varying vec3 vPos;
   varying vec3 vNormal;
   varying vec3 vView;
@@ -68,9 +69,12 @@ const planetFragment = /* glsl */ `
     col = mix(col, uColorC, storm * 0.6);
     float light = clamp(dot(normalize(vNormal), normalize(vec3(-0.6, 0.5, 0.8))), 0.0, 1.0);
     col *= mix(0.25, 1.15, light);
+    // The station's power: its bands glow dimly in standby, the rim goes out, and both surge on
+    float on = clamp(uCharge, 0.0, 1.0);
+    col *= mix(0.35, 1.0, on) * mix(1.0, max(uCharge, 1.0), 0.5);
     // Clamped: a head-on dot can round past 1, and pow() of a negative base is NaN
     float rim = pow(clamp(1.0 - dot(normalize(vNormal), normalize(vView)), 0.0, 1.0), 3.0);
-    col += uColorB * rim * mix(1.4, 0.6, uLight);
+    col += uColorB * rim * mix(1.4, 0.6, uLight) * on * max(uCharge, 1.0);
     gl_FragColor = vec4(col, 1.0);
   }
 `;
@@ -92,6 +96,7 @@ const ringFragment = /* glsl */ `
   uniform vec3 uColorA;
   uniform vec3 uColorB;
   uniform float uLight;
+  uniform float uCharge;
   varying vec2 vUv;
   varying float vRadius;
   void main() {
@@ -101,7 +106,10 @@ const ringFragment = /* glsl */ `
     float edge = smoothstep(0.0, 0.08, r) * smoothstep(1.0, 0.85, r);
     float alpha = edge * (0.25 + bands * 0.55) * (1.0 - gap * 0.85);
     vec3 col = mix(uColorA, uColorB, r);
-    gl_FragColor = vec4(col * mix(1.5, 1.0, uLight), alpha * mix(0.8, 0.7, uLight));
+    gl_FragColor = vec4(
+      col * mix(1.5, 1.0, uLight) * max(uCharge, 1.0),
+      alpha * mix(0.8, 0.7, uLight) * min(uCharge, 1.0)
+    );
   }
 `;
 
@@ -134,6 +142,7 @@ const buildMaterials = (p: WorldPalette) => ({
       uColorB: { value: new Color(p.cyan) },
       uColorC: { value: new Color(p.pink) },
       uLight: { value: 0 },
+      uCharge: { value: 1 },
     },
     defines: { OCTAVES: 4 },
     vertexShader: planetVertex,
@@ -148,6 +157,7 @@ const buildMaterials = (p: WorldPalette) => ({
         uInner: { value: ringInner },
         uOuter: { value: ringOuter },
         uLight: { value: 0 },
+        uCharge: { value: 1 },
       },
       vertexShader: ringVertex,
       fragmentShader: ringFragment,
@@ -266,6 +276,7 @@ const badgeFragment = /* glsl */ `
   uniform vec3 uRingA;
   uniform vec3 uRingB;
   uniform vec3 uInk;
+  uniform float uCharge;
   varying vec2 vUv;
   varying float vCell;
   varying float vMono;
@@ -292,9 +303,10 @@ const badgeFragment = /* glsl */ `
     q = clamp(q, 0.0, 1.0);
     vec4 icon = texture2D(uAtlas, vec2((column + q.x) / uGrid.x, 1.0 - (row + 1.0 - q.y) / uGrid.y));
     badge = over(mix(icon.rgb, uInk, vMono), icon.a * inside * uIcons, badge);
-    float alpha = badge.a * vAlpha;
+    // The station's power: dark in standby, flickering and surging as it comes on
+    float alpha = badge.a * vAlpha * min(uCharge, 1.0);
     if (alpha < 0.003) discard;
-    gl_FragColor = vec4(badge.rgb, alpha);
+    gl_FragColor = vec4(badge.rgb * max(uCharge, 1.0), alpha);
   }
 `;
 
@@ -309,6 +321,7 @@ function createBadgeMaterial(dark: boolean) {
       uRingA: { value: new Color(dark ? '#a78bfa' : '#7c3aed') },
       uRingB: { value: new Color(dark ? '#22d3ee' : '#0e7490') },
       uInk: { value: new Color(dark ? '#e0e7ff' : '#312e81') },
+      uCharge: { value: 1 },
     },
     vertexShader: badgeVertex,
     fragmentShader: badgeFragment,
@@ -388,6 +401,7 @@ const orbitFragment = /* glsl */ `
   uniform float uCentre;
   uniform float uLit;
   uniform float uLight;
+  uniform float uCharge;
   varying float vAround;
   void main() {
     // 0 at the arc's centre, 1 at the far side of the orbit
@@ -395,7 +409,7 @@ const orbitFragment = /* glsl */ `
     float arc = 1.0 - smoothstep(uLevel - 0.015, uLevel, off);
     vec3 colour = mix(uColor, uArc * mix(1.6, 1.0, uLight), arc * mix(0.55, 1.0, uLit));
     float alpha = uOpacity * (1.0 + arc * mix(0.3, 1.2, uLit));
-    gl_FragColor = vec4(colour, min(alpha, 1.0));
+    gl_FragColor = vec4(colour * max(uCharge, 1.0), min(alpha, 1.0) * min(uCharge, 1.0));
   }
 `;
 
@@ -410,6 +424,7 @@ function createOrbitMaterial(theme: WorldTheme, level: number) {
       uCentre: { value: 0 },
       uLit: { value: 0 },
       uLight: { value: dark ? 0 : 1 },
+      uCharge: { value: 1 },
     },
     vertexShader: orbitVertex,
     fragmentShader: orbitFragment,
@@ -417,6 +432,8 @@ function createOrbitMaterial(theme: WorldTheme, level: number) {
     depthWrite: false,
   });
   material.userData.base = dark ? 0.3 : 0.25;
+  // The orbits follow the station's power, as its glows do
+  chargeWith(material, stationPower.skills.charge);
   return material;
 }
 
@@ -604,7 +621,8 @@ function stepOrbit(orbitGroup: Object3D, lit: number, camera: Camera, t: number,
   const constellation = spinner?.children.find((child) => (child as LineSegments).isLineSegments);
   if (constellation) {
     const material = (constellation as LineSegments).material as LineBasicMaterial;
-    const target = lit * (0.55 + 0.15 * Math.sin(t * 3));
+    const power = Math.min(stationPower.skills.charge.value, 1);
+    const target = lit * (0.55 + 0.15 * Math.sin(t * 3)) * power;
     material.opacity = MathUtils.damp(material.opacity, target, 6, dt);
     constellation.visible = material.opacity > 0.01;
   }
