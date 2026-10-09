@@ -15,7 +15,11 @@ const ExploreCard = ({ item, index }: { item: ExploreItem; index: number }) => {
   const ref = usePointerGlow<HTMLAnchorElement>({ tilt: 7 });
   return (
     <RevealItem as="li" className="explore__cell">
-      <Link href={item.href} className="explore__card glass spotlight" ref={ref}>
+      {/* The glass is painted by a layer inside the card: glass (backdrop
+          blur, clipping) flattens 3D, and the card keeps its children in 3D
+          so the icon lifts off it as the card tilts */}
+      <Link href={item.href} className="explore__card" ref={ref}>
+        <span className="explore__glass glass spotlight" aria-hidden="true" />
         <span className="explore__top">
           <span className="explore__icon" aria-hidden="true">
             <Icon icon={item.icon} width={26} height={26} />

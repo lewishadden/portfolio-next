@@ -31,19 +31,39 @@
     height: 100%;
   }
 
+  /* A 3D context (usePointerGlow tilts it), so the icon can lift off it */
   &__card {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.9rem;
     height: 100%;
     min-height: 17rem;
     padding: 1.5rem;
-    transition:
-      transform 0.45s var(--ease-out),
-      border-color var(--dur-med) ease;
+    border-radius: var(--radius-lg);
+    transform-style: preserve-3d;
+    transition: transform 0.45s var(--ease-out);
 
-    &:hover {
+    /* Its glass, painted behind its content (glass and spotlight flatten 3D,
+       so they can't be on the card itself). Two classes deep to outrank .glass */
+    .explore__glass {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      transition: border-color var(--dur-med) ease;
+      pointer-events: none;
+    }
+
+    &:hover .explore__glass {
       border-color: var(--border-strong);
+    }
+
+    /* The spotlight follows the card's own hover and focus (the glass sits behind its content) */
+    &:hover .explore__glass::before,
+    &:hover .explore__glass::after,
+    &:focus-visible .explore__glass::before,
+    &:focus-visible .explore__glass::after {
+      opacity: 1;
     }
 
     &:hover .explore__icon {
