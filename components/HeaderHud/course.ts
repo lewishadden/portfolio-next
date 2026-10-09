@@ -1,4 +1,9 @@
-import { rangeBetween, stationForPath, stationKeys } from 'components/World/routes';
+import {
+  rangeBetween,
+  stationForPath,
+  stationKeys,
+  stationPositions,
+} from 'components/World/routes';
 import { onFlight, worldStore } from 'components/World/worldStore';
 
 import type { StationKey } from 'components/World/routes';
@@ -10,11 +15,13 @@ import type { StationKey } from 'components/World/routes';
    runs until the first call.
    ------------------------------------------------------------------ */
 
-const course: { docked: StationKey | ''; from: StationKey | ''; to: StationKey | '' } = {
-  docked: '',
-  from: '',
-  to: '',
-};
+const course: {
+  docked: StationKey | '';
+  from: StationKey | '';
+  to: StationKey | '';
+  /** The whole flight's range (km) */
+  span: number;
+} = { docked: '', from: '', to: '', span: 0 };
 let watching = false;
 
 const isStation = (key: string): key is StationKey => stationKeys.includes(key as StationKey);
@@ -39,6 +46,14 @@ export function watchCourse() {
       // Turning round mid-flight still counts from where it left
       if (course.to !== to || !worldStore.flight.active) course.from = course.docked;
       course.to = to;
+      // Station to station; or, flying in to where it already is (the warp
+      // in under the lifting loading screen), from where the camera starts
+      const { x, y, z } = worldStore.camera;
+      const [sx, sy, sz] = stationPositions[to];
+      course.span =
+        course.from && course.from !== to
+          ? rangeBetween(course.from, to)
+          : Math.round(Math.hypot(x - sx, y - sy, z - sz));
     } else if (event === 'end') {
       course.docked = to;
     }
@@ -47,12 +62,13 @@ export function watchCourse() {
 
 /**
  * The flight under way: where to and the range still to go in whole km,
- * counting down from the range between the two stations (rangeBetween) to
- * 0 on arrival in step with the camera; null when there's no flight
+ * counting down from the range between the two stations (rangeBetween; for
+ * the warp in, the camera's distance as it set off) to 0 on arrival, in
+ * step with the camera; null when there's no flight
  */
 export function rangeToGo(): { to: StationKey; km: number } | null {
   const { flight } = worldStore;
-  if (!flight.active || !course.from || !course.to || course.to !== flight.to) return null;
-  const km = Math.round(rangeBetween(course.from, course.to) * (1 - smootherstep(flight.progress)));
+  if (!flight.active || !course.to || course.to !== flight.to) return null;
+  const km = Math.round(course.span * (1 - smootherstep(flight.progress)));
   return { to: course.to, km };
 }
