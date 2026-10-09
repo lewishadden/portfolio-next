@@ -82,7 +82,9 @@ const vertexShader = /* glsl */ `
     vec4 clip = projectionMatrix * mv;
     vTwinkle = 0.55 + 0.45 * sin(uTime * (0.4 + aPhase * 1.6) + aPhase * 6.2831);
     vColor = aColor;
-    float radius = 0.5 * aSize * uPixelRatio * (1.0 + 0.3 * uWarp) * (340.0 / -mv.z);
+    // Never more than a few pixels: free roam can fly within a few units of
+    // the shell, where a star would otherwise swell into a disc
+    float radius = min(0.5 * aSize * uPixelRatio * (1.0 + 0.3 * uWarp) * (340.0 / -mv.z), 6.0 * uPixelRatio);
     // At speed every star streams out from the point the camera is heading
     // for, the further out the longer its streak
     vec2 halfSize = 0.5 * uResolution;
