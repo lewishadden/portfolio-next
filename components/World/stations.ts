@@ -166,19 +166,21 @@ interface Companion {
   room: number;
 }
 
+// Rooms clear the left-hand column of cards and panels wide layouts keep the
+// copy in (at most min(46rem, 58vw) wide, about 0.23 in NDC)
 const companions: Partial<Record<StationKey, Companion[]>> = {
   home: [
-    { swing: 0.42, back: 1.75, rise: 2.2, look: [0, 0.3, 0], room: 1.5 },
-    { swing: 0.13, back: 5.5, rise: 5.8, look: [-6, -2, -46], room: 0.4 },
+    { swing: 0.5, back: 2.4, rise: 2.6, look: [0, 0.3, 0], room: 4.4 },
+    { swing: 0.13, back: 5.5, rise: 5.8, look: [-6, -2, -46], room: 3.5 },
   ],
   about: [
     // The bio (About.tsx's grid): swung round so the habitat, 15 units behind
     // the helmet, comes out from behind the copy, and further right and up,
     // clear of the bio's column before it reaches the reading line
-    { swing: 0.5, back: 2.1, rise: 1.4, look: [0, -0.8, 0], room: 4.9 },
-    { swing: 0.5, back: 1.9, rise: 1.6, look: [0, 0.3, 0], room: 2.4 },
+    { swing: 0.5, back: 2.1, rise: 1.4, look: [0, -0.8, 0], room: 5.2 },
+    { swing: 0.5, back: 1.9, rise: 1.6, look: [0, 0.3, 0], room: 3.2 },
   ],
-  contact: [{ swing: 0.38, back: 1.65, rise: 1.6, look: [0.8, 0.6, -1], room: 1.4 }],
+  contact: [{ swing: 0.38, back: 1.8, rise: 1.6, look: [0.8, 0.6, -1], room: 3.9 }],
 };
 
 /** How far the page has moved the camera into each companion pose, 0..1 */
@@ -189,6 +191,35 @@ function companionWeights(count: number, out: number[]) {
   return out;
 }
 const weights: number[] = [];
+
+/** NDC kept between the widest glass panel at the reading line and the station's framing box */
+const clearMargin = 0.06;
+/** Furthest right (NDC) the station's centre is pushed to clear the glass: it stays in shot */
+const clearMost = 0.62;
+const subject = new Vector3();
+
+/**
+ * How far right (world units, along the camera's right axis) a wide layout
+ * has to move the station for its framing box to clear the widest glass
+ * panel at the reading line (worldStore.clearRight), from the eye `pos`
+ * before any shift, along the pose's axes (`forward` and `right`, set just
+ * before); 0 when there is none. Stations the camera travels
+ * through (the experience beam, the projects helix) clear the point it
+ * frames, the rest their centre.
+ */
+function clearRoom(key: StationKey, pos: Vector3, look: Vector3, aspect: number) {
+  if (worldStore.clearRight <= -1) return 0;
+  if (key === 'experience' || key === 'projects') subject.copy(look);
+  else subject.set(0, 0, 0);
+  subject.sub(pos);
+  const depth = subject.dot(forward);
+  if (depth < 1) return 0;
+  const lateral = subject.dot(right);
+  // Half the view's width at the station's depth
+  const half = depth * tanHalfFov * aspect;
+  const wanted = (worldStore.clearRight + clearMargin) * half + shots[key].halfWidth - lateral;
+  return Math.min(wanted, clearMost * half - lateral);
+}
 
 /**
  * Camera pose inside a station, in station-local space.
@@ -313,7 +344,11 @@ export function stationCamera(
   const centred = key === 'projects' && !worldStore.projectAside;
   const intro = centred ? projectIntro() : 0;
   const roomy = (key === 'skills' ? 4.4 : centred ? overview.room * intro : 3.3) + room;
-  const shiftX = wide ? roomy : 0;
+  // Further, if that leaves the station behind the widest glass panel at the
+  // reading line (worldStore.clearRight)
+  const shiftX = wide
+    ? Math.max(roomy, centred ? 0 : clearRoom(key, pos, look, width / height))
+    : 0;
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   // Centred in the space below the header, not the whole viewport

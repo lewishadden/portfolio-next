@@ -91,7 +91,7 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     preview: '',
   });
 
-  useFrame(({ camera, clock, size }, delta) => {
+  useFrame(({ camera, clock, size, frameloop, invalidate }, delta) => {
     const cam = camera as PerspectiveCamera;
     const dt = Math.min(delta, 1 / 20);
     const rig = state.current;
@@ -184,9 +184,17 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
 
     previous.copy(cam.position);
     if (snap) {
+      const moved =
+        previous.distanceToSquared(target) > 1e-6 || lookCurrent.distanceToSquared(look) > 1e-6;
       cam.position.copy(target);
       lookCurrent.copy(look);
       cam.lookAt(lookCurrent);
+      // Drawn on demand (still), a frame asked for by a scroll can run before
+      // the page has measured where it is read (pageInputs measures in its
+      // own animation frame), and nothing would ask for the next: the pose
+      // stayed a measure behind (a whole jump behind after End or Home).
+      // While it still moves, ask for one more frame
+      if (moved && frameloop === 'demand') invalidate();
     } else if (rig.flight) {
       fly(rig, cam, station, dt, t);
     } else {
