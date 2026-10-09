@@ -20,6 +20,7 @@ import {
   setDock,
   setDocking,
   worldBumpEvent,
+  worldScanEvent,
   worldStore,
 } from './worldStore';
 
@@ -29,7 +30,8 @@ import type { StationKey } from './routes';
 
 /* ------------------------------------------------------------------
    Free flight. While the world is in explore mode the visitor flies the
-   camera: keys or the on-screen pad to move, and the mouse steers. The
+   camera: keys or the on-screen pad to move, and the mouse steers (R / V
+   and PageUp / PageDown tip the nose too). The
    pointer is locked, so the cursor stays in the middle of the screen and
    every movement turns the view at once, like a flight sim (Esc frees
    the mouse for the HUD; a click takes it back). Where the pointer can't
@@ -57,8 +59,12 @@ const keys = new Map<string, keyof typeof exploreInput>([
   ['ArrowRight', 'turn'],
   ['Space', 'lift'],
   ['KeyC', 'lift'],
+  ['KeyR', 'pitch'],
+  ['PageUp', 'pitch'],
+  ['KeyV', 'pitch'],
+  ['PageDown', 'pitch'],
 ]);
-const negative = new Set(['KeyS', 'ArrowDown', 'KeyA', 'ArrowLeft', 'KeyC']);
+const negative = new Set(['KeyS', 'ArrowDown', 'KeyA', 'ArrowLeft', 'KeyC', 'KeyV', 'PageDown']);
 /** Digit keys set course: 0 is Home, as on the beacons and the HUD */
 const digit = /^(?:Digit|Numpad)(\d)$/;
 
@@ -94,6 +100,8 @@ const gentle = 3;
 /** Steepest bank into a turn (radians), and how much each radian a second of turning banks */
 const maxBank = 0.3;
 const bankPerRate = 0.13;
+/** Pitch keys: how fast they tip the nose (rad/s) */
+const pitchRate = 1.1;
 const worldRadius = 520;
 /** Fog in free roam: pushed out this far so the whole line of stations stays in sight */
 const exploreFog = { near: 70, far: 460, liteFar: 300 };
@@ -308,6 +316,7 @@ export function ExploreControls() {
       exploreInput.strafe = 0;
       exploreInput.lift = 0;
       exploreInput.turn = 0;
+      exploreInput.pitch = 0;
       for (const code of held) {
         const axis = keys.get(code);
         if (axis && axis !== 'boost' && axis !== 'lookX' && axis !== 'lookY') {
@@ -324,13 +333,20 @@ export function ExploreControls() {
         return;
       }
       if (e.key === 'Shift') exploreInput.boost = true;
+      const plain = !e.metaKey && !e.ctrlKey && !e.altKey;
       // E clicks what the reticle (or the free pointer) is on
-      if (e.code === 'KeyE' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (clickTarget(get())) e.preventDefault();
+      if (e.code === 'KeyE' && plain) {
+        if (!e.repeat && clickTarget(get())) e.preventDefault();
+        return;
+      }
+      // F asks for a sonar scan (the signals listen for it)
+      if (e.code === 'KeyF' && plain) {
+        e.preventDefault();
+        if (!e.repeat) window.dispatchEvent(new CustomEvent(worldScanEvent));
         return;
       }
       const course = digit.exec(e.code);
-      if (course && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (course && plain) {
         e.preventDefault();
         setCourse(Number(course[1]));
         return;
@@ -451,7 +467,11 @@ export function ExploreControls() {
 
     // Any hand on the controls takes over from the autopilot
     const manual =
-      exploreInput.forward || exploreInput.strafe || exploreInput.lift || exploreInput.turn;
+      exploreInput.forward ||
+      exploreInput.strafe ||
+      exploreInput.lift ||
+      exploreInput.turn ||
+      exploreInput.pitch;
     if (manual && worldStore.autopilot) setAutopilot('');
     if (worldStore.docking) {
       exploreInput.lookX = 0;
@@ -464,12 +484,16 @@ export function ExploreControls() {
       (steering(exploreInput.steerX) * maxYawRate + stickTurn(exploreInput.stickX) * stickYawRate) *
         ease +
       exploreInput.turn * 1.6;
-    const pitchRate =
+    const steerPitch =
       (steering(exploreInput.steerY) * maxPitchRate +
         stickTurn(exploreInput.stickY) * stickPitchRate) *
       ease;
     state.yaw -= exploreInput.lookX + yawRate * dt;
-    state.pitch = MathUtils.clamp(state.pitch - exploreInput.lookY - pitchRate * dt, -1.35, 1.35);
+    state.pitch = MathUtils.clamp(
+      state.pitch - exploreInput.lookY - steerPitch * dt + exploreInput.pitch * pitchRate * dt,
+      -1.35,
+      1.35
+    );
     exploreInput.lookX = 0;
     exploreInput.lookY = 0;
 

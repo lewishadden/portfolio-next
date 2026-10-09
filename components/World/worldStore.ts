@@ -523,6 +523,9 @@ export function focusOnPage(id: string) {
 /** Dispatched when free roam knocks into a hull (detail: strength, 0..1); the HUD flashes */
 export const worldBumpEvent = 'world:bump';
 
+/** Dispatched when the explorer asks for a sonar scan (free roam's F key) */
+export const worldScanEvent = 'world:scan';
+
 /** Dispatched to navigate from inside the canvas (World handles it with the router) */
 export const worldNavigateEvent = 'world:navigate';
 
@@ -536,6 +539,8 @@ export const exploreInput = {
   strafe: 0,
   lift: 0,
   turn: 0,
+  /** Nose up (+1) or down (-1) from the keys (R / V, PageUp / PageDown) */
+  pitch: 0,
   boost: false,
   /** Accumulated look deltas in radians from mouse movement, consumed each frame */
   lookX: 0,

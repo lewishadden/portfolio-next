@@ -476,7 +476,8 @@ export function ExploreHud({
                 <kbd>A</kbd>
                 <kbd>S</kbd>
                 <kbd>D</kbd> fly · mouse {lockable ? 'looks' : 'steers'} · <kbd>Space</kbd>
-                <kbd>C</kbd> up/down · <kbd>⇧</kbd> boost · <kbd>E</kbd> click · <kbd>0</kbd>–
+                <kbd>C</kbd> up/down · <kbd>R</kbd>
+                <kbd>V</kbd> pitch · <kbd>⇧</kbd> boost · <kbd>E</kbd> click · <kbd>0</kbd>–
                 <kbd>5</kbd> autopilot
               </>
             )}
