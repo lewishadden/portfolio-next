@@ -2,41 +2,79 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { usePathname } from 'next/navigation';
 
-import { stationNames, stationPaths } from './routes';
-import { navigateFromMode, tourStops, useWorldMode, worldMode } from './worldMode';
-import { onFlight } from './worldStore';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { motionLevel } from '@/utils/motion';
 
+import { stationForPath, stationNames, stationPaths } from './routes';
+import { launchWorldMode, navigateFromMode, tourStops, useWorldMode, worldMode } from './worldMode';
+import { onFlight, worldStore } from './worldStore';
+
+import type { CSSProperties } from 'react';
 import type { WorldContent } from './types';
 
-/** How long the tour lingers at each stop once the camera has arrived */
-const dwell = 6500;
-/** Arrive anyway if no flight reports in (already there, or reduced motion) */
+/**
+ * How long the tour lingers at a stop once the camera has arrived: time to
+ * read its caption, within bounds (ms)
+ */
+const dwellFor = (text: string) => Math.min(10000, Math.max(5500, 3500 + 45 * text.length));
+/** Arrive anyway if no flight reports in (ms) */
 const arrivalFallback = 5000;
 
+/** A touch screen taps where a mouse clicks or hovers */
+const pointerVerbs = /\b(click|hover)(s|ed|ing)?\b/gi;
+const tapping: Record<string, string> = { '': 'tap', s: 'taps', ed: 'tapped', ing: 'tapping' };
+function forTouch(text: string) {
+  return text.replace(pointerVerbs, (word: string, _verb: string, ending = '') => {
+    const tap = tapping[ending.toLowerCase()] ?? 'tap';
+    return word[0] === word[0].toUpperCase() ? tap[0].toUpperCase() + tap.slice(1) : tap;
+  });
+}
+
+/** Arrow keys and Space belong to these, not the tour */
+const ownKeys = (target: EventTarget | null) =>
+  target instanceof Element &&
+  !!target.closest('input, textarea, select, [contenteditable], [role="dialog"]');
+
 /**
- * The guided tour: the camera flies station to station on its own while a
- * caption card tells the story. Next skips ahead, Visit jumps to that
- * station's page, Escape (or Exit) ends it and returns to the page.
+ * The guided tour: the camera flies station to station on its own, starting
+ * from where it is, while a caption card tells the story. Next / → and
+ * Previous / ← step through the stops, Pause (or Space on the card) holds
+ * the countdown, Visit opens that station's page, Escape (or Exit) ends it
+ * and returns to the page. After the last stop a closing card offers the
+ * contact page, free roam from there, or the way back.
  */
 export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
-  const { mode, tourStop } = useWorldMode();
+  const { mode, tourStop, tourStep } = useWorldMode();
+  const pathname = usePathname();
+  const touch = useMediaQuery('(hover: none), (pointer: coarse)');
   const touring = mode === 'tour';
+  const finale = tourStep >= tourStops.length;
   const station = tourStops[tourStop];
   const caption = captions.find((c) => c.station === station);
-  const [arrivedAt, setArrivedAt] = useState<string | null>(null);
+  const dwell = dwellFor(caption?.text ?? '');
+  const [landedAt, setLandedAt] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
+  // A new tour starts afresh: not landed, not paused
+  if (!touring && (landedAt !== null || paused)) {
+    setLandedAt(null);
+    setPaused(false);
+  }
   const panelRef = useRef<HTMLDivElement>(null);
-  const arrived = arrivedAt === `${tourStop}`;
+  const landed = landedAt === `${tourStep}`;
 
   // Wait for the camera to land, linger, then move on. The countdown holds
-  // while the pointer is over the card or a control in it has keyboard
-  // focus, so nobody loses the stop they are reading (WCAG 2.2.2).
+  // while the tour is paused, the pointer is over the card or a control in
+  // it has keyboard focus, so nobody loses the stop they are reading
+  // (WCAG 2.2.2). The closing card stays until the visitor chooses.
   useEffect(() => {
-    if (!touring) return;
+    if (!touring || finale) return;
     const panel = panelRef.current;
     let fallback = 0;
     let advance = 0;
     let check = 0;
+    let frame = 0;
     // Time left at this stop; -1 until the camera has arrived
     let remaining = -1;
     let startedAt = 0;
@@ -44,6 +82,7 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
       if (!panel) return false;
       const focused = document.activeElement;
       return (
+        panel.hasAttribute('data-paused') ||
         panel.matches(':hover') ||
         (focused !== panel && panel.contains(focused) && !!focused?.matches(':focus-visible'))
       );
@@ -76,8 +115,9 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
     };
     const land = () => {
       window.clearTimeout(fallback);
+      cancelAnimationFrame(frame);
       if (remaining >= 0) return;
-      setArrivedAt(`${tourStop}`);
+      setLandedAt(`${tourStep}`);
       remaining = dwell;
       run();
     };
@@ -85,33 +125,115 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
     const stop = onFlight((event, to) => {
       if (event === 'end' && to === station) land();
     });
-    fallback = window.setTimeout(land, arrivalFallback);
+    if (motionLevel() === 'full') {
+      // The camera plans its flight on its next frame: none on its way here
+      // by the frame after, and it is already here (a step back from the
+      // closing card, or the tour starting where the camera was)
+      let frames = 0;
+      const look = () => {
+        if (++frames < 3) frame = requestAnimationFrame(look);
+        else if (!(worldStore.flight.active && worldStore.flight.to === station)) land();
+      };
+      frame = requestAnimationFrame(look);
+      fallback = window.setTimeout(land, arrivalFallback);
+    } else {
+      // Below full motion the camera cuts to each stop: it is there already
+      fallback = window.setTimeout(land, 0);
+    }
     const events = ['pointerenter', 'pointerleave', 'focusin', 'focusout'] as const;
     events.forEach((type) => panel?.addEventListener(type, update));
+    const pausing = new MutationObserver(update);
+    if (panel) pausing.observe(panel, { attributeFilter: ['data-paused'] });
     return () => {
       stop();
       events.forEach((type) => panel?.removeEventListener(type, update));
+      pausing.disconnect();
+      cancelAnimationFrame(frame);
       window.clearTimeout(fallback);
       window.clearTimeout(advance);
       window.clearTimeout(check);
     };
-  }, [touring, tourStop, station]);
+  }, [touring, finale, tourStep, station, dwell]);
 
+  // Keys: Escape ends the tour, ← / → step through it, Space on the card pauses
   useEffect(() => {
     if (!touring) return;
-    panelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') worldMode.exit();
+      if (e.key === 'Escape') {
+        worldMode.exit();
+        return;
+      }
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || ownKeys(e.target)) return;
+      if (e.key === 'ArrowRight') worldMode.advanceTour();
+      else if (e.key === 'ArrowLeft') worldMode.backTour();
+      else if (e.key === ' ' && e.target === panelRef.current) setPaused((on) => !on);
+      else return;
+      e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [touring]);
 
-  if (!touring || !caption) return null;
+  // The card takes focus as the tour starts, and back whenever the control
+  // that had it goes (the closing card's buttons replace the stop's)
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (touring && panel && !panel.contains(document.activeElement)) {
+      panel.focus({ preventScroll: true });
+    }
+  }, [touring, finale]);
+
+  if (!touring || (!finale && !caption)) return null;
+  const here = stationForPath(pathname);
+
+  if (finale) {
+    return (
+      <div
+        ref={panelRef}
+        className="tour glass"
+        role="region"
+        aria-label="Guided tour"
+        aria-live="polite"
+        tabIndex={-1}
+      >
+        <p className="tour__step">
+          <span className="tour__dot" aria-hidden="true" />
+          Guided tour · Complete
+        </p>
+        <h2 className="tour__title">That was the tour</h2>
+        <p className="tour__text">
+          Six stations, one career. Say hello, take the controls and fly the world yourself, or head
+          back to {stationNames[here].page}.
+        </p>
+        <div className="tour__actions">
+          {here !== 'contact' && (
+            <button
+              type="button"
+              className="btn btn--primary tour__btn"
+              onClick={() => navigateFromMode(stationPaths.contact)}
+            >
+              <span>Open Contact</span>
+              <Icon icon="ph:arrow-right-bold" width={15} height={15} aria-hidden="true" />
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn--ghost tour__btn"
+            onClick={() => launchWorldMode('explore', () => undefined)}
+          >
+            <Icon icon="ph:rocket-launch-bold" width={15} height={15} aria-hidden="true" />
+            Fly freely from here
+          </button>
+          <button type="button" className="tour__exit" onClick={worldMode.exit}>
+            Back to {stationNames[here].page} <kbd>Esc</kbd>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const names = stationNames[station];
-  // Stays in the tour until the page has arrived, so the camera flies there
-  // as one move and the page waits for it (World's 'returning')
-  const visit = () => navigateFromMode(stationPaths[station]);
+  const first = tourStep === 0;
 
   return (
     <div
@@ -121,30 +243,61 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
       aria-label="Guided tour"
       aria-live="polite"
       tabIndex={-1}
+      data-paused={paused || undefined}
+      style={{ '--tour-dwell': `${dwell}ms` } as CSSProperties}
     >
       <p className="tour__step">
         <span className="tour__dot" aria-hidden="true" />
-        Guided tour · {String(tourStop + 1).padStart(2, '0')} /{' '}
+        Guided tour · {String(tourStep + 1).padStart(2, '0')} /{' '}
         {String(tourStops.length).padStart(2, '0')}
       </p>
       <h2 className="tour__title">
-        {caption.title} <span>· {names.page}</span>
+        {caption!.title} <span>· {names.page}</span>
       </h2>
-      <p className="tour__text">{caption.text}</p>
+      <p className="tour__text">{touch ? forTouch(caption!.text) : caption!.text}</p>
       <span className="tour__bar" aria-hidden="true">
         <span
-          key={arrivedAt ?? 'flying'}
-          className={arrived ? 'tour__fill tour__fill--run' : 'tour__fill'}
+          key={landedAt ?? 'flying'}
+          className={landed ? 'tour__fill tour__fill--run' : 'tour__fill'}
         />
       </span>
       <div className="tour__actions">
-        <button type="button" className="btn btn--primary tour__btn" onClick={visit}>
+        <button
+          type="button"
+          className="btn btn--primary tour__btn"
+          onClick={() => navigateFromMode(stationPaths[station])}
+        >
           <span>Visit {names.page}</span>
           <Icon icon="ph:arrow-right-bold" width={15} height={15} aria-hidden="true" />
         </button>
         <button type="button" className="btn btn--ghost tour__btn" onClick={worldMode.advanceTour}>
-          {tourStop < tourStops.length - 1 ? 'Next stop' : 'Finish'}
+          {tourStep < tourStops.length - 1 ? 'Next stop' : 'Finish'}
         </button>
+        <span className="tour__controls">
+          <button
+            type="button"
+            className="tour__icon"
+            aria-label="Previous stop"
+            aria-disabled={first || undefined}
+            onClick={worldMode.backTour}
+          >
+            <Icon icon="ph:caret-left-bold" width={16} height={16} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="tour__icon"
+            aria-label="Pause the tour"
+            aria-pressed={paused}
+            onClick={() => setPaused((on) => !on)}
+          >
+            <Icon
+              icon={paused ? 'ph:play-bold' : 'ph:pause-bold'}
+              width={16}
+              height={16}
+              aria-hidden="true"
+            />
+          </button>
+        </span>
         <button type="button" className="tour__exit" onClick={worldMode.exit}>
           Exit <kbd>Esc</kbd>
         </button>

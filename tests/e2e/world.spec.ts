@@ -163,6 +163,67 @@ test.describe('tour and explore modes', () => {
   });
 });
 
+test.describe('the guided tour', () => {
+  test.use({ world: 'on', reducedMotion: 'reduce' });
+
+  test(
+    'starts where you are and steps with the keyboard to a closing card',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/skills');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+
+      await page.keyboard.press('ControlOrMeta+k');
+      const palette = page.getByRole('dialog', { name: 'Command palette' });
+      await palette.getByRole('combobox', { name: 'Command' }).fill('guided tour');
+      await page.keyboard.press('Enter');
+      const tour = page.getByRole('region', { name: 'Guided tour' });
+      const title = tour.getByRole('heading', { level: 2 });
+
+      // The first stop is the station on show, and still reads 01
+      await expect(tour).toContainText('01 / 06');
+      await expect(title).toContainText('Skills');
+      await expect(tour).toBeFocused();
+
+      // Space on the card pauses it; the button says so
+      await page.keyboard.press('Space');
+      await expect(tour.getByRole('button', { name: 'Pause the tour' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+
+      // → and ← step through the stops, round from where it started
+      await page.keyboard.press('ArrowRight');
+      await expect(tour).toContainText('02 / 06');
+      await expect(title).toContainText('Contact');
+      await page.keyboard.press('ArrowLeft');
+      await expect(tour).toContainText('01 / 06');
+      await expect(title).toContainText('Skills');
+      await page.keyboard.press('ArrowLeft');
+      await expect(tour).toContainText('01 / 06');
+
+      // Past the last stop, a closing card waits for a choice
+      for (const stop of ['02', '03', '04', '05', '06']) {
+        await page.keyboard.press('ArrowRight');
+        await expect(tour).toContainText(`${stop} / 06`);
+      }
+      await expect(title).toContainText('Projects');
+      await page.keyboard.press('ArrowRight');
+      await expect(tour).toContainText('Complete');
+      await expect(tour.getByRole('button', { name: 'Open Contact' })).toBeVisible();
+      await expect(tour.getByRole('button', { name: 'Fly freely from here' })).toBeVisible();
+      await page.keyboard.press('ArrowLeft');
+      await expect(tour).toContainText('06 / 06');
+      await page.keyboard.press('ArrowRight');
+      await tour.getByRole('button', { name: /^Back to Skills/ }).click();
+      await expect(tour).toBeHidden();
+      await expect(page).toHaveURL(/\/skills$/);
+      await expect(page.locator('#main-content')).not.toHaveAttribute('inert');
+    }
+  );
+});
+
 test.describe('leaving the tour for a page', () => {
   // Full motion: the camera flies, and the page you leave would fly off with it
   test.use({ world: 'on' });

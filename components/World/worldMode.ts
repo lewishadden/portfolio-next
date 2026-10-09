@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 
 import { lockPointer, unlockPointer } from './pointerLock';
-import { navigableStations } from './routes';
+import { navigableStations, stationForPath } from './routes';
 import { emitCue, navigateTo } from './worldStore';
 
 import type { StationKey } from './routes';
@@ -18,13 +18,19 @@ export type WorldMode = 'page' | 'tour' | 'explore';
 
 export interface WorldModeState {
   mode: WorldMode;
-  /** Index into tourStops while touring */
+  /** Index into tourStops of the stop on show while touring */
   tourStop: number;
+  /**
+   * How many stops the tour has shown before this one (0 for the first,
+   * which reads 01 whichever station it is). `tourStops.length` once the
+   * last stop is done: the closing card, still at the last stop
+   */
+  tourStep: number;
 }
 
 export const tourStops: readonly StationKey[] = navigableStations;
 
-const initial: WorldModeState = { mode: 'page', tourStop: 0 };
+const initial: WorldModeState = { mode: 'page', tourStop: 0, tourStep: 0 };
 let state = initial;
 /** The page a tour or free roam is opening, until it has arrived ('' for none) */
 let pending = '';
@@ -34,7 +40,7 @@ function set(next: Partial<WorldModeState>) {
   const previous = state;
   state = { ...state, ...next };
   if (state.mode !== previous.mode) emitCue(state.mode === 'page' ? 'blip' : 'select');
-  else if (state.tourStop !== previous.tourStop) emitCue('blip');
+  else if (state.tourStep !== previous.tourStep) emitCue('blip');
   listeners.forEach((listener) => listener());
 }
 
@@ -46,17 +52,39 @@ export const worldMode = {
       listeners.delete(listener);
     };
   },
-  startTour: () => set({ mode: 'tour', tourStop: 0 }),
-  /** Moves to the next stop, or ends the tour after the last one */
-  advanceTour: () =>
-    state.tourStop < tourStops.length - 1
-      ? set({ tourStop: state.tourStop + 1 })
-      : set({ mode: 'page', tourStop: 0 }),
+  /**
+   * Starts the tour at `from` (by default the station on show), so the
+   * camera sets off from where it is, and visits every stop from there,
+   * round to the one before it
+   */
+  startTour: (from?: StationKey) => {
+    const at = tourStops.indexOf(from ?? stationForPath(window.location.pathname));
+    set({ mode: 'tour', tourStop: Math.max(0, at), tourStep: 0 });
+  },
+  /** Moves to the next stop, or after the last one to the closing card */
+  advanceTour: () => {
+    const { mode, tourStop, tourStep } = state;
+    if (mode !== 'tour' || tourStep >= tourStops.length) return;
+    if (tourStep === tourStops.length - 1) set({ tourStep: tourStep + 1 });
+    else set({ tourStop: (tourStop + 1) % tourStops.length, tourStep: tourStep + 1 });
+  },
+  /** Back to the stop before (from the closing card, the last stop) */
+  backTour: () => {
+    const { mode, tourStop, tourStep } = state;
+    if (mode !== 'tour' || tourStep === 0) return;
+    if (tourStep === tourStops.length) set({ tourStep: tourStep - 1 });
+    else {
+      set({
+        tourStop: (tourStop - 1 + tourStops.length) % tourStops.length,
+        tourStep: tourStep - 1,
+      });
+    }
+  },
   startExplore: () => set({ mode: 'explore' }),
   exit: () => {
     pending = '';
     unlockPointer();
-    set({ mode: 'page', tourStop: 0 });
+    set({ mode: 'page', tourStop: 0, tourStep: 0 });
   },
 };
 
@@ -94,7 +122,7 @@ const worldReady = () =>
  * waiting for it to appear) if the visitor had switched it off.
  */
 export function launchWorldMode(mode: 'tour' | 'explore', enableWorld: () => void) {
-  const start = mode === 'tour' ? worldMode.startTour : worldMode.startExplore;
+  const start = () => (mode === 'tour' ? worldMode.startTour() : worldMode.startExplore());
   if (worldReady()) {
     start();
     // Still inside the click or key press that asked for it, which the lock needs

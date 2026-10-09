@@ -271,14 +271,16 @@ html[data-world-mode='returning'] .header-scrim {
     transform: scaleX(0);
     transform-origin: left;
 
+    /* --tour-dwell: the stop's dwell, from its caption's length (TourOverlay) */
     &--run {
-      animation: tour-fill 6.5s linear forwards;
+      animation: tour-fill var(--tour-dwell, 6.5s) linear forwards;
     }
   }
 
   /* Holding the tour (TourOverlay) freezes the countdown too */
   &:hover &__fill--run,
-  &:has(:focus-visible) &__fill--run {
+  &:has(:focus-visible) &__fill--run,
+  &[data-paused] &__fill--run {
     animation-play-state: paused;
   }
 
@@ -292,6 +294,41 @@ html[data-world-mode='returning'] .header-scrim {
 
   &__btn {
     min-height: 40px;
+  }
+
+  /* Previous stop and pause: small round buttons */
+  &__controls {
+    display: inline-flex;
+    gap: 0.35rem;
+  }
+
+  &__icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    transition:
+      color var(--dur-fast) ease,
+      border-color var(--dur-fast) ease;
+
+    &:hover {
+      border-color: var(--accent-secondary);
+      color: var(--accent-secondary);
+    }
+
+    &[aria-disabled='true'] {
+      opacity: 0.45;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    &[aria-pressed='true'] {
+      border-color: var(--accent-secondary);
+      color: var(--accent-secondary);
+    }
   }
 
   &__exit {
