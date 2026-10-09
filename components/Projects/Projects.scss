@@ -342,6 +342,63 @@
   }
 }
 
+/* Short landscape (a phone on its side): the stacked layout doesn't fit
+   (View details fell off the bottom of the stage). The screen takes the
+   left half with the index under it; the copy takes the right half, the
+   actions beside the title and the summary clamped to two lines, all clear
+   of the floating buttons in the bottom right corner */
+@media (max-height: 520px) and (orientation: landscape) {
+  .projects__stage {
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'hud hud'
+      'index .';
+    gap: 0.4rem clamp(1rem, 3vw, 2rem);
+    align-items: stretch;
+    padding-bottom: 0.5rem;
+  }
+
+  .projects__index {
+    grid-area: index;
+    order: 0;
+  }
+
+  .proj-hud {
+    grid-area: hud;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      'screen head actions'
+      'screen tech tech'
+      'screen desc desc';
+    gap: 0.4rem clamp(0.75rem, 2vw, 1.25rem);
+    height: 100%;
+  }
+
+  .proj-hud__title {
+    font-size: clamp(1.1rem, 5.5vh, 1.6rem);
+  }
+
+  .proj-hud__actions {
+    flex-direction: column;
+    align-items: flex-end;
+    align-self: start;
+    justify-self: end;
+    gap: 0.35rem;
+  }
+
+  .proj-hud__desc {
+    align-self: start;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .proj-hud__screen {
+    align-self: stretch;
+  }
+}
+
 /* Without the 3D world the ride is the same: the shot sits where the screen
    would, as large as the screen's cell allows */
 [data-world='off'] {
