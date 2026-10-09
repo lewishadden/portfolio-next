@@ -211,31 +211,77 @@ html.world-dragging {
   cursor: grabbing;
 }
 
-/* Label following the pointer over interactive 3D objects */
+/* The label for an interactive 3D object (WorldTooltip): brackets round the
+   object's projected box (worldStore.tipBox) and a tag beside it, all placed
+   each frame by transform from the viewport's top left */
 .world-tip {
   position: fixed;
   top: 0;
   left: 0;
   z-index: 70;
-  display: grid;
-  gap: 0.1rem;
-  padding: 0.45rem 0.7rem;
-  border-radius: var(--radius-sm);
   pointer-events: none;
-  background: var(--surface-strong);
-  transform: translate3d(-200px, -200px, 0);
   animation: world-tip-in 0.18s ease-out both;
 
-  b {
-    font-size: var(--fs-caption);
-    color: var(--text-primary);
+  &__corner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 12px;
+    height: 12px;
+    margin: -1px;
+    border: 0 solid var(--accent-secondary);
+    filter: drop-shadow(0 0 4px var(--glow-cyan));
+    opacity: 0;
+    transition: opacity 0.15s ease;
+
+    &--tl {
+      border-width: 2px 0 0 2px;
+    }
+
+    &--tr {
+      margin-left: -11px;
+      border-width: 2px 2px 0 0;
+    }
+
+    &--bl {
+      margin-top: -11px;
+      border-width: 0 0 2px 2px;
+    }
+
+    &--br {
+      margin: -11px 0 0 -11px;
+      border-width: 0 2px 2px 0;
+    }
   }
 
-  span {
-    font-family: var(--font-mono);
-    font-size: var(--fs-tiny);
-    letter-spacing: 0.08em;
-    color: var(--accent-secondary);
+  &[data-boxed] &__corner {
+    opacity: 0.9;
+  }
+
+  &__tag {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    gap: 0.1rem;
+    width: max-content;
+    max-width: min(18rem, calc(100vw - 16px));
+    padding: 0.45rem 0.7rem;
+    border-radius: var(--radius-sm);
+    background: var(--surface-strong);
+    transform: translate3d(-200px, -200px, 0);
+
+    b {
+      font-size: var(--fs-caption);
+      color: var(--text-primary);
+    }
+
+    span {
+      font-family: var(--font-mono);
+      font-size: var(--fs-tiny);
+      letter-spacing: 0.08em;
+      color: var(--accent-secondary);
+    }
   }
 }
 
