@@ -55,5 +55,61 @@ test.describe('mobile menu', () => {
       await expect(page).toHaveURL(/\/skills$/);
       await expect(menu).toBeHidden();
     });
+
+    test(
+      'the world stops drawing while the menu covers it',
+      { tag: '@webgl' },
+      async ({ page }) => {
+        // Counts the world canvas's draw calls (the header HUD and the menu's
+        // hologram draw on canvases of their own)
+        await page.addInitScript(() => {
+          const counter = window as Window & { worldDraws?: number };
+          counter.worldDraws = 0;
+          const names = [
+            'drawElements',
+            'drawArrays',
+            'drawElementsInstanced',
+            'drawArraysInstanced',
+          ];
+          for (const proto of [WebGL2RenderingContext.prototype, WebGLRenderingContext.prototype]) {
+            const calls = proto as unknown as Record<string, (...args: unknown[]) => unknown>;
+            for (const name of names) {
+              const draw = calls[name];
+              if (typeof draw !== 'function') continue;
+              calls[name] = function (this: WebGLRenderingContext, ...args: unknown[]) {
+                const canvas = this.canvas;
+                if (canvas instanceof HTMLCanvasElement && canvas.closest('.world')) {
+                  counter.worldDraws = (counter.worldDraws ?? 0) + 1;
+                }
+                return draw.apply(this, args);
+              };
+            }
+          }
+        });
+        const drawsOver = async (ms: number) => {
+          const count = () =>
+            page.evaluate(() => (window as Window & { worldDraws?: number }).worldDraws ?? 0);
+          const before = await count();
+          await page.waitForTimeout(ms);
+          return (await count()) - before;
+        };
+
+        await openHydrated(page, '/about');
+        await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+        await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+        expect(await drawsOver(1500)).toBeGreaterThan(0);
+
+        const menu = page.locator('#mobile-menu');
+        await page.getByRole('button', { name: 'Open navigation menu' }).click();
+        await expect(menu).toBeVisible();
+        // The frame already on its way may still land
+        await page.waitForTimeout(500);
+        expect(await drawsOver(1500)).toBe(0);
+
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+        await expect.poll(() => drawsOver(1000)).toBeGreaterThan(0);
+      }
+    );
   });
 });

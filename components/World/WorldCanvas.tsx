@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
 
@@ -52,9 +59,11 @@ import {
   useWarmupIdle,
 } from './warmup';
 import { tourStops, useWorldMode } from './worldMode';
-import { worldStore } from './worldStore';
+import { chrome, onChrome, worldStore } from './worldStore';
 
 import type { Dispatch, SetStateAction } from 'react';
+import type { RootState } from '@react-three/fiber';
+import type { Clock } from 'three';
 import type { MotionLevel } from '@/utils/motion';
 import type { QualityTier } from './quality';
 import type { StationKey } from './stations';
@@ -63,6 +72,56 @@ import type { WorldTheme } from './utils';
 
 /** Everywhere free roam can reach: every station, and the 404 derelict as a hidden signal */
 const roamable: StationKey[] = [...navigableStations, 'lost'];
+
+/** Page chrome covers the whole world (the mobile menu, a full-screen modal) */
+const isCovered = () => chrome.menuOpen || chrome.modalCover;
+const notCovered = () => false;
+
+/** Sets the clock's time (hook results are read-only in components) */
+function setClockTime(clock: Clock, time: number) {
+  clock.elapsedTime = time;
+}
+
+/** Drops the frames R3F still has queued (hook results are read-only in components) */
+function dropQueuedFrames(state: RootState) {
+  state.internal.frames = 0;
+}
+
+/**
+ * The canvas stops drawing while page chrome covers it. R3F restarts its
+ * clock at 0 whenever the frameloop changes, which would throw everything
+ * timed by it (the rocket's launch, the tour's sway, shader time) back to
+ * the start: when the cover lifts, the world's time carries on from where
+ * it stopped instead, and a frame is asked for. A frame R3F still had
+ * queued as it paused would draw once more with its "never" mode's own
+ * timing (the clock set to the raw frame timestamp, a delta of the page's
+ * whole life), so the queue is dropped as the cover goes up.
+ */
+function CoverPause({ covered }: { covered: boolean }) {
+  const get = useThree((s) => s.get);
+  const frameloop = useThree((s) => s.frameloop);
+  const time = useRef(0);
+  const paused = useRef(false);
+
+  useFrame((state) => {
+    if (state.frameloop !== 'never') time.current = state.clock.elapsedTime;
+  });
+
+  useLayoutEffect(() => {
+    const state = get();
+    if (covered) {
+      paused.current = true;
+      dropQueuedFrames(state);
+      return;
+    }
+    if (!paused.current || frameloop === 'never') return;
+    paused.current = false;
+    setClockTime(state.clock, time.current);
+    state.invalidate();
+  }, [covered, frameloop, get]);
+
+  return null;
+}
 
 /** With frameloop="demand" (the still motion level), repaint on scroll, resize and route changes */
 function DemandDriver({
@@ -128,10 +187,17 @@ function QualityGovernor({
 }) {
   const idle = useWarmupIdle();
   const frameloop = useThree((s) => s.frameloop);
-  const watch = useRef({ busyUntil: 0, roseAt: -Infinity, reversals: 0 });
+  const watch = useRef({ busyUntil: 0, roseAt: -Infinity, reversals: 0, lastFrame: 0 });
 
   useFrame(() => {
-    if (!idle || worldStore.velocity > 12) watch.current.busyUntil = performance.now() + settleMs;
+    const now = performance.now();
+    const state = watch.current;
+    // A pause (the menu covering the world, a hidden tab) reads as one very
+    // slow frame in the monitor's samples: not the device's doing either
+    if (!idle || worldStore.velocity > 12 || now - state.lastFrame > 250) {
+      state.busyUntil = now + settleMs;
+    }
+    state.lastFrame = now;
   });
 
   const judging = () => frameloop === 'always' && performance.now() >= watch.current.busyUntil;
@@ -262,13 +328,12 @@ export default function WorldCanvas({
     return () => window.clearInterval(id);
   }, [tracker, warm]);
 
+  // Paused while page chrome covers the world (it is opaque: nothing to see).
   // Still: drawn only when something changes, except in free roam, where the
   // visitor flies the camera (and the autopilot needs every frame)
-  const frameloop = !warm
-    ? 'never'
-    : motion === 'still' && mode !== 'explore'
-      ? 'demand'
-      : 'always';
+  const covered = useSyncExternalStore(onChrome, isCovered, notCovered);
+  const frameloop =
+    !warm || covered ? 'never' : motion === 'still' && mode !== 'explore' ? 'demand' : 'always';
 
   return (
     <Canvas
@@ -294,6 +359,7 @@ export default function WorldCanvas({
           <color attach="background" args={[palette.background]} />
           <fog attach="fog" args={[palette.background, palette.fog[0], palette.fog[1]]} />
           <QualityGovernor tier={tier} ceiling={ceiling} setTier={setTier} />
+          <CoverPause covered={covered} />
           {frameloop === 'demand' && (
             <DemandDriver station={station} theme={theme} focusProject={focusProject} />
           )}

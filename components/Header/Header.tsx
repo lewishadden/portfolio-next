@@ -13,6 +13,7 @@ import { HeaderMark } from 'components/BrandMark/HeaderMark';
 import { ScrambleText } from 'components/Motion/ScrambleText';
 import { MobileMenu } from 'components/MobileMenu/MobileMenu';
 import { HeaderHud } from 'components/HeaderHud/HeaderHud';
+import { setChrome } from 'components/World/worldStore';
 
 import { useTheme } from '@/contexts/ThemeContext';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -131,9 +132,12 @@ export const Header = ({
     };
     document.addEventListener('keydown', handleKeyDown);
     document.documentElement.classList.add('menu-open');
+    // The menu is opaque and covers the world: it stops drawing until it closes
+    setChrome({ menuOpen: true });
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.documentElement.classList.remove('menu-open');
+      setChrome({ menuOpen: false });
     };
   }, [mobileOpen]);
 
