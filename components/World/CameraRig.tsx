@@ -18,6 +18,7 @@ import { applyShake } from './shake';
 import {
   baseFov,
   createRide,
+  holdPageCopy,
   pageProjectFocus,
   rideProjectFocus,
   stationCamera,
@@ -167,6 +168,7 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     return () => {
       rig.cutTimers.forEach((timer) => window.clearTimeout(timer));
       delete document.documentElement.dataset.worldCut;
+      holdPageCopy(false);
     };
   }, []);
 
@@ -270,7 +272,7 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
         startFlight(rig, cam, station);
       }
     } else if (retarget && !snap) {
-      startFlight(rig, cam, station);
+      startFlight(rig, cam, station, newPage);
     } else if (retarget) {
       // Motion held back: the camera cuts where it would fly, and arrives
       // the way a flight does once it has (no 'start': nothing powers down).
@@ -335,7 +337,8 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
   return null;
 }
 
-function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey) {
+/** `toPage`: the flight brings a new page, whose copy waits for its final approach (PageTransition) */
+function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey, toPage = false) {
   // Plan from wherever the camera is and however it is turned: mid-flight,
   // banked, or wherever the visitor left it in explore mode. Ahead, it
   // locks onto the station itself on the way
@@ -343,6 +346,7 @@ function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey)
   const flight = planFlight(cam.position, cam.quaternion, target, look, rig.velocity, lockOn);
   rig.flight = flight;
   rig.approached = false;
+  holdPageCopy(toPage && !!flight);
   if (!flight) return;
   rig.view.started = false;
   rig.heading = null;
@@ -363,6 +367,7 @@ function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey)
 
 function endFlight(rig: RigState, station: StationKey, arrived: boolean) {
   rig.flight = null;
+  holdPageCopy(false);
   worldStore.flight.active = false;
   worldStore.flight.progress = arrived ? 1 : worldStore.flight.progress;
   if (arrived) emitFlight('end', station);
@@ -415,6 +420,7 @@ function fly(rig: RigState, cam: PerspectiveCamera, station: StationKey, dt: num
   if (!rig.approached && s >= approach) {
     rig.approached = true;
     worldStore.flight.approached = true;
+    holdPageCopy(false);
     emitFlight('approach', station);
   }
   if (s >= 1) {

@@ -260,6 +260,25 @@ export function stepRide(ride: Ride, goal: number, t: number, dt: number, snap: 
  */
 export const riddenProjectFocus = () => (ridden >= 0 ? ridden : pageProjectFocus());
 
+/** A flight to a new page is short of its final approach, where PageTransition shows that page's copy */
+let copyHeld = false;
+
+/** CameraRig marks a flight to a new page, from its start to its final approach */
+export function holdPageCopy(held: boolean) {
+  copyHeld = held;
+}
+
+/**
+ * Whether the page's heading block (worldStore.copy) is really on screen,
+ * for things that keep out of its way. Not while touring or exploring, or
+ * while the page waits for the camera to bring it back (whenever
+ * html[data-world-mode] isn't 'page'), nor during a flight to a new page
+ * before its final approach. The block is measured all the same, at
+ * opacity 0: the course line had a hole cut in it over empty space
+ */
+export const pageCopyShown = () =>
+  !copyHeld && document.documentElement.dataset.worldMode === 'page';
+
 /** Wide layouts push the station's hero object to the right of the copy */
 export const isWideViewport = (width: number, height: number) =>
   width >= 900 && width / height > 1.1;

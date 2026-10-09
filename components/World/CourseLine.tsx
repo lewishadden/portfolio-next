@@ -17,6 +17,7 @@ import {
 import { motionLevel } from '@/utils/motion';
 
 import { asGlow } from './materials';
+import { pageCopyShown } from './stations';
 import { palettes } from './utils';
 import { worldMode } from './worldMode';
 import { worldStore } from './worldStore';
@@ -35,8 +36,8 @@ import type { WorldTheme } from './utils';
    the stretch already flown falls away, so the line shortens as the
    camera flies it. It starts a little in front of the camera, fades into
    the station at the far end, and never shows behind the page's heading
-   block (worldStore.copy). Nothing marches below full motion (a still
-   line), and at `still` there is none.
+   block (worldStore.copy) while that is on screen. Nothing marches below
+   full motion (a still line), and at `still` there is none.
 
    The geometry is allocated once (64 segments) and rewritten only when
    the path changes. Always mounted, drawn in the warm-up so its program
@@ -263,12 +264,15 @@ function step(
   uniforms.uMarch.value = line.march;
   uniforms.uLength.value = line.length;
   uniforms.uFlown.value = line.source === 'preview' ? 0 : flown(geometry, camera);
+  // Kept out of the heading block only while it shows: touring, exploring
+  // and flying to a new page, it is measured at opacity 0
   const copy = worldStore.copy;
+  const shown = pageCopyShown();
   const rect = uniforms.uCopy.value as number[];
-  rect[0] = copy.left;
-  rect[1] = copy.right;
-  rect[2] = copy.top;
-  rect[3] = copy.bottom;
+  rect[0] = shown ? copy.left : 0;
+  rect[1] = shown ? copy.right : 0;
+  rect[2] = shown ? copy.top : 0;
+  rect[3] = shown ? copy.bottom : 0;
   (uniforms.uResolution.value as Vector2).copy(gl.getDrawingBufferSize(drawingSize));
 }
 
