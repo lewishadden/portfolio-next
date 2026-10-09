@@ -52,13 +52,6 @@
     height: var(--stage-h);
   }
 
-  &__index {
-    /* A link's height on touch (see the coarse pointer rule): in this
-       column the stage's height shared out between the links, up to 44px.
-       The 0.1rem is the list's gap */
-    --tap-h: min(44px, calc((var(--stage-h) - (var(--steps) - 1) * 0.1rem) / var(--steps)));
-  }
-
   &__index ol {
     display: grid;
     gap: 0.1rem;
@@ -289,6 +282,30 @@
   }
 }
 
+/* Touch: every index link is a 44px target. In the desktop column (a
+   tablet held sideways) the links sit two to a row: one to a row, 15 of
+   them outgrew a stage under about 790px tall and pushed View details off
+   the bottom of the screen. Eight rows (about 363px) fit the shortest
+   stage this layout gets (about 412px). The stacked layout below resets
+   both grids, for its one-row index */
+@media (pointer: coarse) {
+  .projects__stage {
+    grid-template-columns: calc(88px + 0.25rem) minmax(0, 1fr);
+  }
+
+  .projects__index ol {
+    grid-template-columns: repeat(2, 44px);
+    column-gap: 0.25rem;
+  }
+
+  .projects__index-link {
+    display: flex;
+    align-items: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 /* Narrow (stacked) layouts: the screen holds the top of the stage and the
    copy stacks below it, clear of the floating buttons. Short landscape
    screens of any width (a phone on its side, a short or zoomed desktop
@@ -310,8 +327,6 @@
   }
 
   .projects__index {
-    --tap-h: 44px;
-
     order: 2;
   }
 
@@ -396,19 +411,6 @@
   .proj-hud__desc {
     -webkit-line-clamp: 2;
     line-clamp: 2;
-  }
-}
-
-/* Touch: every index link is a 44px target. In the desktop column (a
-   tablet held sideways) they share out the stage's height instead, up to
-   44px each: at 44px, 15 links outgrew a stage under about 790px tall and
-   pushed View details off the bottom of the screen */
-@media (pointer: coarse) {
-  .projects__index-link {
-    display: flex;
-    align-items: center;
-    min-width: 44px;
-    min-height: var(--tap-h, 44px);
   }
 }
 
