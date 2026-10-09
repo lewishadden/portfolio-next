@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { EffectComposer } from '@react-three/postprocessing';
 import {
@@ -35,6 +35,28 @@ const grades: Record<WorldTheme, { knee: number; grain: number }> = {
 /** Bloom's working resolution, as a share of the screen: resizes its buffers, nothing else */
 function setBloomScale(effect: SelectiveBloomEffect, scale: number) {
   if (effect.resolution.scale !== scale) effect.resolution.scale = scale;
+}
+
+interface Chain {
+  bloom: SelectiveBloomEffect;
+  optics: OpticsEffect;
+  rolloff: HighlightRolloffEffect;
+  vignette: VignetteEffect;
+  grain: GrainEffect;
+  passes: EffectPass[];
+}
+
+/**
+ * The theme's grade, set in place: bloom strength and threshold, the
+ * vignette, the tone curve's knee and the grain. All uniforms, so a theme
+ * change neither rebuilds a pass nor recompiles a shader
+ */
+function themeChain(chain: Chain, theme: WorldTheme) {
+  const palette = palettes[theme];
+  chain.bloom.intensity = palette.bloom;
+  chain.bloom.luminanceMaterial.threshold = palette.bloomThreshold;
+  chain.vignette.darkness = palette.vignette;
+  tuneGrade(chain.rolloff, chain.grain, grades[theme]);
 }
 
 /**
@@ -84,9 +106,10 @@ function composerReady(ref: { current: EffectComposerImpl | null }) {
  * The tiers differ in cost only: the pixel ratio (WorldCanvas), bloom's
  * internal resolution (a quarter on low, set through the effect so nothing
  * is recreated), and fringes and sun shafts held at zero below high.
+ * The chain is built once: a theme change sets its grade in place
+ * (themeChain), so the passes keep their keys and nothing recompiles.
  */
 export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier }) {
-  const palette = palettes[theme];
   const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera);
   const scene = useThree((s) => s.scene);
@@ -94,11 +117,12 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
   const composerRef = useRef<EffectComposerImpl>(null);
   const top = tier === 'high';
 
-  const chain = useMemo(() => {
+  // Built once: a theme change retunes it in place (themeChain)
+  const chain = useMemo<Chain>(() => {
     const bloom = new SelectiveBloomEffect(scene, camera, {
       mipmapBlur: true,
-      intensity: palette.bloom,
-      luminanceThreshold: palette.bloomThreshold,
+      intensity: palettes.dark.bloom,
+      luminanceThreshold: palettes.dark.bloomThreshold,
       luminanceSmoothing: 0.25,
       radius: 0.75,
     });
@@ -106,13 +130,14 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
     bloom.selection.layer = bloomMaskLayer;
     const optics = new OpticsEffect();
     const rolloff = new HighlightRolloffEffect({ knee: grades.dark.knee });
-    const vignette = new VignetteEffect({ darkness: palette.vignette, offset: 0.28 });
+    const vignette = new VignetteEffect({ darkness: palettes.dark.vignette, offset: 0.28 });
     const smaa = new SMAAEffect({ preset: SMAAPreset.MEDIUM });
     const grain = new GrainEffect({ amount: grades.dark.grain });
     return {
       bloom,
       optics,
       rolloff,
+      vignette,
       grain,
       passes: [
         new EffectPass(camera, bloom),
@@ -120,11 +145,12 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
         new EffectPass(camera, smaa, grain),
       ],
     };
-  }, [scene, camera, palette.bloom, palette.bloomThreshold, palette.vignette]);
+  }, [scene, camera]);
   // Disposing a pass disposes its effects
   useEffect(() => () => chain.passes.forEach((pass) => pass.dispose()), [chain]);
 
-  useEffect(() => tuneGrade(chain.rolloff, chain.grain, grades[theme]), [chain, theme]);
+  // Before the first frame draws, and before the next one after a change
+  useLayoutEffect(() => themeChain(chain, theme), [chain, theme]);
 
   const masking = useMemo(() => ({ bloom: chain.bloom, version: -1 }), [chain]);
   useFrame(() => {
@@ -136,8 +162,7 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
     setBloomScale(chain.bloom, tier === 'low' ? 0.25 : 0.5);
   }, [chain, tier]);
 
-  // Precompile the passes whenever the pass list is (re)built: on mount and
-  // on a theme change (new bloom threshold)
+  // Precompile the passes when the chain is built (once)
   useEffect(() => {
     track(
       composerReady(composerRef).then((composer) => precompileComposer(gl, composer, camera, scene))
@@ -147,7 +172,7 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
   return (
     <EffectComposer ref={composerRef} multisampling={0}>
       {chain.passes.map((pass, i) => (
-        <primitive key={`${theme}-${i}`} object={pass} />
+        <primitive key={i} object={pass} />
       ))}
     </EffectComposer>
   );

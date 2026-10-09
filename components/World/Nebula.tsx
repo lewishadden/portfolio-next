@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
   BackSide,
+  BufferGeometry,
   Color,
   DataTexture,
   HalfFloatType,
@@ -11,6 +12,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   OrthographicCamera,
+  PerspectiveCamera,
   PlaneGeometry,
   PMREMGenerator,
   RepeatWrapping,
@@ -21,6 +23,8 @@ import {
   Vector4,
   WebGLRenderTarget,
 } from 'three';
+
+import { motionLevel } from '@/utils/motion';
 
 import { noiseGlsl } from './materials';
 import { galacticCentre, galacticEast, galacticNormal, nebulae, sunDirection } from './sky';
@@ -242,8 +246,12 @@ const domeVertex = /* glsl */ `
 // B-spline (four bilinear taps) keeps the sky smooth, and the band gets
 // the fine grain of unresolved stars added at screen resolution (the
 // bake's alpha says where), so it never reads as a soft smear up close.
+// A theme change crossfades from one bake (uMapA) to the next (uMapB):
+// only while uMix is between 0 and 1 does it read both.
 const domeFragment = /* glsl */ `
-  uniform sampler2D uMap;
+  uniform sampler2D uMapA;
+  uniform sampler2D uMapB;
+  uniform float uMix;
   uniform sampler2D uGrainMap;
   uniform vec2 uSize;
   uniform float uGrain;
@@ -258,7 +266,7 @@ const domeFragment = /* glsl */ `
     return vec4(x, y, z, 6.0 - x - y - z) * (1.0 / 6.0);
   }
 
-  vec4 bicubic(vec2 uv) {
+  vec4 bicubic(sampler2D map, vec2 uv) {
     uv = uv * uSize - 0.5;
     vec2 f = fract(uv);
     uv -= f;
@@ -267,10 +275,10 @@ const domeFragment = /* glsl */ `
     vec4 c = uv.xxyy + vec2(-0.5, 1.5).xyxy;
     vec4 s = vec4(xc.xz + xc.yw, yc.xz + yc.yw);
     vec4 o = (c + vec4(xc.yw, yc.yw) / s) / uSize.xxyy;
-    vec4 s0 = texture2D(uMap, o.xz);
-    vec4 s1 = texture2D(uMap, o.yz);
-    vec4 s2 = texture2D(uMap, o.xw);
-    vec4 s3 = texture2D(uMap, o.yw);
+    vec4 s0 = texture2D(map, o.xz);
+    vec4 s1 = texture2D(map, o.yz);
+    vec4 s2 = texture2D(map, o.xw);
+    vec4 s3 = texture2D(map, o.yw);
     float sx = s.x / (s.x + s.y);
     float sy = s.z / (s.z + s.w);
     return mix(mix(s3, s2, sx), mix(s1, s0, sx), sy);
@@ -281,7 +289,8 @@ const domeFragment = /* glsl */ `
     float lon = atan(dir.z, dir.x);
     float lat = asin(clamp(dir.y, -1.0, 1.0));
     vec2 uv = vec2(fract(lon / 6.2831853 + 0.5), lat / 3.1415926 + 0.5);
-    vec4 sky = bicubic(uv);
+    vec4 sky = bicubic(uMapA, uv);
+    if (uMix > 0.0) sky = mix(sky, bicubic(uMapB, uv), uMix);
     vec3 col = sky.rgb;
     if (uGrain > 0.0 && sky.a > 0.003) {
       // Random texels, bilinear between them: value noise at ~4px and ~12px on screen
@@ -308,30 +317,39 @@ function createGrainMap() {
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-/** Strips per bake: each is one frame's work, so no single draw stalls the GPU */
-const stripsFor = (height: number) => Math.max(8, Math.round(height / 128));
+/**
+ * Strips per bake, each one frame's work, so no single draw holds the GPU
+ * for long: about 1.2M pixels each (four for the desktop's 3072 bake). Not
+ * smaller: on an M3 the whole desktop bake is ~12ms of GPU work, but every
+ * extra render into the bake target cost a dropped frame while the world was
+ * on show (24 strips of 200k pixels dropped 20 frames on a theme change,
+ * 4 strips none), whatever its size
+ */
+const stripsFor = (width: number, height: number) =>
+  Math.max(1, Math.round((width * height) / 1_200_000));
 
-/** Compiles the (heavy) bake shader in the background, then renders the sky a strip per frame */
-async function bakeNebula(
-  renderer: WebGLRenderer,
-  target: WebGLRenderTarget,
-  theme: WorldTheme,
-  octaves: number,
-  isCurrent: () => boolean
-) {
-  const palette = palettes[theme];
+/** Seconds the dome takes to crossfade from one theme's sky to the next */
+const crossfade = 0.9;
+
+/** The bake: one material for the canvas's life, compiled once, its uniforms set per theme */
+interface Bake {
+  material: ShaderMaterial;
+  geometry: PlaneGeometry;
+  scene: Scene;
+  camera: OrthographicCamera;
+}
+
+function createBake(octaves: number): Bake {
   const material = new ShaderMaterial({
     uniforms: {
-      uStrength: { value: palette.nebulaStrength },
-      uLight: { value: theme === 'light' ? 1 : 0 },
-      uBase: { value: new Color(palette.background) },
-      // The three gases: reflection violet, oxygen teal, hydrogen pink. They glow
-      // on the dark sky (the accents) and tint the light one (its pastels)
-      uReflection: { value: new Color(theme === 'light' ? palette.nebula[0] : palette.violet) },
-      uOxygen: { value: new Color(theme === 'light' ? palette.nebula[1] : palette.cyan) },
-      uHydrogen: { value: new Color(theme === 'light' ? palette.nebula[2] : palette.pink) },
-      uDust: { value: new Color(theme === 'light' ? '#d4cde6' : '#120b0a') },
-      uMilky: { value: new Color(theme === 'light' ? '#ffffff' : '#cfd3ff') },
+      uStrength: { value: 0 },
+      uLight: { value: 0 },
+      uBase: { value: new Color() },
+      uReflection: { value: new Color() },
+      uOxygen: { value: new Color() },
+      uHydrogen: { value: new Color() },
+      uDust: { value: new Color() },
+      uMilky: { value: new Color() },
       uSun: { value: sunDirection },
       uGalactic: { value: galacticNormal },
       uCentre: { value: galacticCentre },
@@ -352,44 +370,92 @@ async function bakeNebula(
   const geometry = new PlaneGeometry(2, 2);
   const scene = new Scene();
   scene.add(new Mesh(geometry, material));
-  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  return { material, geometry, scene, camera: new OrthographicCamera(-1, 1, 1, -1, 0, 1) };
+}
 
+/** The bake's colours for a theme */
+function themeBake(bake: Bake, theme: WorldTheme) {
+  const palette = palettes[theme];
+  const light = theme === 'light';
+  const uniforms = bake.material.uniforms;
+  uniforms.uStrength.value = palette.nebulaStrength;
+  uniforms.uLight.value = light ? 1 : 0;
+  (uniforms.uBase.value as Color).set(palette.background);
+  // The three gases: reflection violet, oxygen teal, hydrogen pink. They glow
+  // on the dark sky (the accents) and tint the light one (its pastels)
+  (uniforms.uReflection.value as Color).set(light ? palette.nebula[0] : palette.violet);
+  (uniforms.uOxygen.value as Color).set(light ? palette.nebula[1] : palette.cyan);
+  (uniforms.uHydrogen.value as Color).set(light ? palette.nebula[2] : palette.pink);
+  (uniforms.uDust.value as Color).set(light ? '#d4cde6' : '#120b0a');
+  (uniforms.uMilky.value as Color).set(light ? '#ffffff' : '#cfd3ff');
+}
+
+/**
+ * Renders a theme's sky into `target` a strip per frame, so no single draw
+ * stalls the GPU. The first call compiles the bake shader in the background;
+ * later ones find it compiled. Resolves true once the whole sky is baked,
+ * false if a newer request took over on the way
+ */
+async function bakeSky(
+  renderer: WebGLRenderer,
+  bake: Bake,
+  theme: WorldTheme,
+  target: WebGLRenderTarget,
+  isCurrent: () => boolean
+) {
+  themeBake(bake, theme);
   const previous = renderer.getRenderTarget();
   renderer.setRenderTarget(target);
-  const compiled = renderer.compileAsync(scene, camera);
+  const compiled = renderer.compileAsync(bake.scene, bake.camera);
   renderer.setRenderTarget(previous);
   await compiled;
 
   const { width, height } = target;
-  const strips = stripsFor(height);
-  for (let i = 0; i < strips && isCurrent(); i++) {
+  const strips = stripsFor(width, height);
+  for (let i = 0; i < strips; i++) {
+    if (!isCurrent()) return false;
+    // Another bake may have set the uniforms for its theme between strips
+    themeBake(bake, theme);
     const restore = renderer.getRenderTarget();
     renderer.setRenderTarget(target);
     const y = Math.floor((i * height) / strips);
     const h = Math.floor(((i + 1) * height) / strips) - y;
     target.scissor.set(0, y, width, h);
     target.scissorTest = true;
-    renderer.render(scene, camera);
+    renderer.render(bake.scene, bake.camera);
     target.scissorTest = false;
     renderer.setRenderTarget(restore);
     await nextFrame();
   }
-
-  geometry.dispose();
-  material.dispose();
+  return isCurrent();
 }
 
 /**
- * Filters the baked sky (plus a bright panel where the sun is) into the
- * environment map, so metal and painted hulls reflect the sky they sit in.
+ * What the environment map is filtered from: the baked sky on a small dome,
+ * plus a bright panel where the sun is and a soft bounce opposite it, so
+ * metal and painted hulls reflect the sky they sit in. One generator and one
+ * set of materials for the canvas's life: a fresh PMREMGenerator compiles
+ * its filter shaders again, which stalled every theme change
  */
-function buildEnvironment(renderer: WebGLRenderer, sky: WebGLRenderTarget, theme: WorldTheme) {
+interface EnvironmentKit {
+  generator: PMREMGenerator;
+  scene: Scene;
+  dome: ShaderMaterial;
+  sun: MeshBasicMaterial;
+  bounce: MeshBasicMaterial;
+  geometries: BufferGeometry[];
+}
+
+function createEnvironmentKit(renderer: WebGLRenderer, size: Vector2): EnvironmentKit {
   const scene = new Scene();
   const domeGeometry = new SphereGeometry(10, 48, 24);
-  const domeMaterial = new ShaderMaterial({
+  const dome = new ShaderMaterial({
     uniforms: {
-      uMap: { value: sky.texture },
-      uSize: { value: new Vector2(sky.width, sky.height) },
+      uMapA: { value: null },
+      uMapB: { value: null },
+      uMix: { value: 0 },
+      uGrainMap: { value: null },
+      uSize: { value: size },
       uGrain: { value: 0 },
     },
     vertexShader: domeVertex,
@@ -397,42 +463,270 @@ function buildEnvironment(renderer: WebGLRenderer, sky: WebGLRenderTarget, theme
     side: BackSide,
     depthWrite: false,
   });
-  scene.add(new Mesh(domeGeometry, domeMaterial));
-
-  // The sun as a bright disc, and a soft bounce from the opposite side
+  scene.add(new Mesh(domeGeometry, dome));
   const panelGeometry = new SphereGeometry(1, 16, 8);
-  const sunMaterial = new MeshBasicMaterial({
-    color: new Color('#fff1dc').multiplyScalar(theme === 'light' ? 22 : 34),
-  });
-  const sun = new Mesh(panelGeometry, sunMaterial);
-  sun.position.copy(sunDirection).multiplyScalar(8);
-  sun.scale.setScalar(1.1);
-  scene.add(sun);
-  const bounceMaterial = new MeshBasicMaterial({
-    color: new Color(theme === 'light' ? '#c9d4ff' : '#4b3b9a').multiplyScalar(
-      theme === 'light' ? 1.2 : 2
-    ),
-  });
-  const bounce = new Mesh(panelGeometry, bounceMaterial);
-  bounce.position.copy(sunDirection).multiplyScalar(-8);
-  bounce.scale.setScalar(3.5);
-  scene.add(bounce);
+  const sun = new MeshBasicMaterial();
+  const sunPanel = new Mesh(panelGeometry, sun);
+  sunPanel.position.copy(sunDirection).multiplyScalar(8);
+  sunPanel.scale.setScalar(1.1);
+  scene.add(sunPanel);
+  const bounce = new MeshBasicMaterial();
+  const bouncePanel = new Mesh(panelGeometry, bounce);
+  bouncePanel.position.copy(sunDirection).multiplyScalar(-8);
+  bouncePanel.scale.setScalar(3.5);
+  scene.add(bouncePanel);
+  return {
+    generator: new PMREMGenerator(renderer),
+    scene,
+    dome,
+    sun,
+    bounce,
+    geometries: [domeGeometry, panelGeometry],
+  };
+}
 
-  const generator = new PMREMGenerator(renderer);
-  const target = generator.fromScene(scene, 0, 0.1, 30);
-  generator.dispose();
-  domeGeometry.dispose();
-  domeMaterial.dispose();
-  panelGeometry.dispose();
-  sunMaterial.dispose();
-  bounceMaterial.dispose();
+/** Filters a baked sky into a new environment map (the caller applies it and retires the old one) */
+function buildEnvironment(kit: EnvironmentKit, sky: Texture, theme: WorldTheme) {
+  const light = theme === 'light';
+  kit.dome.uniforms.uMapA.value = sky;
+  kit.dome.uniforms.uMapB.value = sky;
+  kit.sun.color.set('#fff1dc').multiplyScalar(light ? 22 : 34);
+  kit.bounce.color.set(light ? '#c9d4ff' : '#4b3b9a').multiplyScalar(light ? 1.2 : 2);
+  return kit.generator.fromScene(kit.scene, 0, 0.1, 30);
+}
+
+function disposeEnvironmentKit(kit: EnvironmentKit) {
+  kit.generator.dispose();
+  kit.dome.dispose();
+  kit.sun.dispose();
+  kit.bounce.dispose();
+  kit.geometries.forEach((geometry) => geometry.dispose());
+}
+
+function createSkyTarget(size: number) {
+  // Half-float keeps the dark, linear-space gradients free of banding
+  const target = new WebGLRenderTarget(size, size / 2, {
+    type: HalfFloatType,
+    minFilter: LinearFilter,
+    magFilter: LinearFilter,
+    generateMipmaps: false,
+    depthBuffer: false,
+  });
+  // Wraps round the seam, so the filter's outer taps meet up
+  target.texture.wrapS = RepeatWrapping;
   return target;
+}
+
+/**
+ * The deep sky's state: two bake targets (the second made on the first
+ * theme change), which theme each holds, the one on show (`front`) and how
+ * far the dome has faded towards the other (`mix`, heading for `goal`).
+ * A theme change bakes into the back target while the front stays on show,
+ * fades the dome across, then swaps them and only then rebuilds the
+ * environment map from the new sky, retiring the old map a frame after the
+ * new one is applied, so hulls never draw a frame without reflections.
+ * Plain data changed only through the functions below (never in render)
+ */
+interface Sky {
+  size: number;
+  bake: Bake;
+  kit: EnvironmentKit;
+  dome: ShaderMaterial;
+  grainMap: DataTexture;
+  targets: [WebGLRenderTarget, WebGLRenderTarget | null];
+  holds: [WorldTheme | null, WorldTheme | null];
+  front: 0 | 1;
+  mix: number;
+  goal: 0 | 1;
+  /** Bumped by every request, so a bake a newer request overtook stops */
+  generation: number;
+  environment: WebGLRenderTarget | null;
+  environmentTheme: WorldTheme | null;
+  /** Environment maps replaced this frame, disposed on the next */
+  retired: WebGLRenderTarget[];
+}
+
+function createSky(renderer: WebGLRenderer, size: number, octaves: number): Sky {
+  const front = createSkyTarget(size);
+  const uSize = new Vector2(front.width, front.height);
+  const grainMap = createGrainMap();
+  const dome = new ShaderMaterial({
+    uniforms: {
+      uMapA: { value: front.texture },
+      uMapB: { value: front.texture },
+      uMix: { value: 0 },
+      uGrainMap: { value: grainMap },
+      uSize: { value: uSize },
+      uGrain: { value: 1 },
+    },
+    vertexShader: domeVertex,
+    fragmentShader: domeFragment,
+    side: BackSide,
+    depthWrite: false,
+    fog: false,
+  });
+  return {
+    size,
+    bake: createBake(octaves),
+    kit: createEnvironmentKit(renderer, uSize),
+    dome,
+    grainMap,
+    targets: [front, null],
+    holds: [null, null],
+    front: 0,
+    mix: 0,
+    goal: 0,
+    generation: 0,
+    environment: null,
+    environmentTheme: null,
+    retired: [],
+  };
+}
+
+function disposeSky(sky: Sky) {
+  sky.generation++;
+  if (skyMap.value === sky.targets[0].texture || skyMap.value === sky.targets[1]?.texture) {
+    skyMap.value = null;
+  }
+  sky.targets.forEach((target) => target?.dispose());
+  sky.bake.material.dispose();
+  sky.bake.geometry.dispose();
+  disposeEnvironmentKit(sky.kit);
+  sky.dome.dispose();
+  sky.grainMap.dispose();
+  sky.environment?.dispose();
+  sky.retired.forEach((target) => target.dispose());
+}
+
+/**
+ * Points the dome at the front bake (and the back one to fade to), and
+ * shares the front as skyMap. A target still being baked is never bound:
+ * drawing with a texture bound that is also being rendered into, even
+ * unread, made the GPU synchronise on every strip (ANGLE on Metal), which
+ * cost each strip of a theme change's bake a dropped frame or two
+ */
+function bindSky(sky: Sky) {
+  const front = sky.targets[sky.front]!;
+  const back = (sky.holds[1 - sky.front] && sky.targets[1 - sky.front]) || front;
+  sky.dome.uniforms.uMapA.value = front.texture;
+  sky.dome.uniforms.uMapB.value = back.texture;
+  sky.dome.uniforms.uMix.value = sky.mix;
+  skyMap.value = front.texture;
+}
+
+/** Rebuilds the environment map from the sky on show and applies it */
+function refreshEnvironment(sky: Sky, scene: Scene, theme: WorldTheme) {
+  const next = buildEnvironment(sky.kit, sky.targets[sky.front]!.texture, theme);
+  applyEnvironment(scene, next.texture);
+  if (sky.environment) sky.retired.push(sky.environment);
+  sky.environment = next;
+  sky.environmentTheme = theme;
+}
+
+/**
+ * A same-sized stand-in environment, so everything compiles against the
+ * final environment's shader variant before the bake finishes. Filtering it
+ * compiles the generator's own shaders, and the environment scene's
+ * materials are compiled alongside, all during warm-up
+ */
+function installPlaceholder(sky: Sky, renderer: WebGLRenderer, scene: Scene) {
+  if (sky.environment) return null;
+  sky.environment = sky.kit.generator.fromScene(new Scene(), 0, 0.1, 30);
+  applyEnvironment(scene, sky.environment.texture);
+  // Compiled as it will be drawn: into a half-float target
+  const previous = renderer.getRenderTarget();
+  renderer.setRenderTarget(sky.targets[0]);
+  const compiled = renderer.compileAsync(sky.kit.scene, new PerspectiveCamera());
+  renderer.setRenderTarget(previous);
+  return compiled;
+}
+
+/**
+ * Asks for a theme's sky. The first bakes straight into the front target
+ * and builds the environment at once (it runs during warm-up); later ones
+ * bake into the back target and leave the crossfade to stepSky. Returns
+ * the bake, for warm-up tracking, or null when the sky is already baked
+ */
+function requestSky(
+  sky: Sky,
+  renderer: WebGLRenderer,
+  scene: Scene,
+  theme: WorldTheme,
+  invalidate: () => void
+) {
+  const generation = ++sky.generation;
+  const isCurrent = () => sky.generation === generation;
+  const front = sky.front;
+  const back = (1 - front) as 0 | 1;
+
+  if (sky.holds[front] === theme || sky.holds[back] === theme) {
+    sky.goal = sky.holds[front] === theme ? 0 : 1;
+    invalidate();
+    return null;
+  }
+
+  if (sky.holds[front] === null) {
+    return bakeSky(renderer, sky.bake, theme, sky.targets[front]!, isCurrent).then((done) => {
+      if (!done) return;
+      sky.holds[front] = theme;
+      sky.mix = 0;
+      sky.goal = 0;
+      bindSky(sky);
+      refreshEnvironment(sky, scene, theme);
+      invalidate();
+    });
+  }
+
+  // Bake the new theme behind the one on show (never while it's fading in)
+  sky.goal = 0;
+  sky.mix = 0;
+  sky.holds[back] = null;
+  bindSky(sky);
+  const target = sky.targets[back] ?? createSkyTarget(sky.size);
+  sky.targets[back] = target;
+  return bakeSky(renderer, sky.bake, theme, target, isCurrent).then((done) => {
+    if (!done) return;
+    sky.holds[back] = theme;
+    sky.goal = 1;
+    bindSky(sky);
+    invalidate();
+  });
+}
+
+/**
+ * Per frame: disposes environment maps replaced last frame (that frame drew
+ * with the new one), moves the crossfade on (at once when nothing may move),
+ * swaps the targets when it completes, and rebuilds the environment from
+ * the sky on show once the fade has settled
+ */
+function stepSky(sky: Sky, scene: Scene, delta: number, invalidate: () => void) {
+  if (sky.retired.length) {
+    sky.retired.forEach((target) => target.dispose());
+    sky.retired.length = 0;
+  }
+  if (sky.mix === sky.goal) return;
+  const step = motionLevel() === 'still' ? 1 : Math.min(delta, 0.1) / crossfade;
+  sky.mix =
+    sky.goal > sky.mix ? Math.min(sky.goal, sky.mix + step) : Math.max(sky.goal, sky.mix - step);
+  if (sky.mix >= 1) {
+    sky.front = (1 - sky.front) as 0 | 1;
+    sky.mix = 0;
+    sky.goal = 0;
+  }
+  bindSky(sky);
+  const shown = sky.holds[sky.front];
+  if (sky.mix === sky.goal && shown && shown !== sky.environmentTheme) {
+    refreshEnvironment(sky, scene, shown);
+  }
+  // A frame to dispose what was retired (rendering on demand, none would come)
+  invalidate();
 }
 
 /**
  * The baked sky (an equirectangular half-float texture, longitude round x),
  * shared as a uniform for anything that shows the sky through itself, bent
- * (the home portal). Empty until the dome is mounted
+ * (the home portal). Empty until the first bake; it moves to the new bake
+ * once a theme change's crossfade completes
  */
 export const skyMap: { value: Texture | null } = { value: null };
 
@@ -449,94 +743,33 @@ export function Nebula({
   const meshRef = useRef<Mesh>(null);
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
+  const invalidate = useThree((s) => s.invalidate);
   const track = useWarmupTask();
 
-  const target = useMemo(() => {
-    // Half-float keeps the dark, linear-space gradients free of banding
-    const target = new WebGLRenderTarget(size, size / 2, {
-      type: HalfFloatType,
-      minFilter: LinearFilter,
-      magFilter: LinearFilter,
-      generateMipmaps: false,
-      depthBuffer: false,
-    });
-    // Wraps round the seam, so the filter's outer taps meet up
-    target.texture.wrapS = RepeatWrapping;
-    return target;
-  }, [size]);
+  const sky = useMemo(() => createSky(gl, size, octaves), [gl, size, octaves]);
+  useEffect(() => () => disposeSky(sky), [sky]);
 
-  const grainMap = useMemo(() => createGrainMap(), []);
-  const material = useMemo(
-    () =>
-      new ShaderMaterial({
-        uniforms: {
-          uMap: { value: target.texture },
-          uGrainMap: { value: grainMap },
-          uSize: { value: new Vector2(target.width, target.height) },
-          uGrain: { value: 1 },
-        },
-        vertexShader: domeVertex,
-        fragmentShader: domeFragment,
-        side: BackSide,
-        depthWrite: false,
-        fog: false,
-      }),
-    [target, grainMap]
-  );
-
-  // A same-sized stand-in, so everything compiles against the final
-  // environment's shader variant before the bake finishes
+  // Before WarmupGate's precompile (an earlier sibling's effects run first)
   useEffect(() => {
-    if (scene.environment) return;
-    const generator = new PMREMGenerator(gl);
-    const placeholder = generator.fromScene(new Scene(), 0, 0.1, 30);
-    generator.dispose();
-    applyEnvironment(scene, placeholder.texture);
-  }, [gl, scene]);
+    const compiled = installPlaceholder(sky, gl, scene);
+    if (compiled) track(compiled);
+  }, [sky, gl, scene, track]);
 
   useEffect(() => {
-    let current = true;
-    let environment: WebGLRenderTarget | null = null;
-    track(
-      bakeNebula(gl, target, theme, octaves, () => current).then(() => {
-        if (!current) return;
-        environment = buildEnvironment(gl, target, theme);
-        applyEnvironment(scene, environment.texture);
-      })
-    );
-    return () => {
-      current = false;
-      environment?.dispose();
-    };
-  }, [gl, scene, target, theme, octaves, track]);
+    const bake = requestSky(sky, gl, scene, theme, invalidate);
+    if (bake) track(bake);
+  }, [sky, gl, scene, theme, invalidate, track]);
 
-  useEffect(() => shareSky(target.texture), [target]);
-
-  useEffect(
-    () => () => {
-      material.dispose();
-      target.dispose();
-      grainMap.dispose();
-    },
-    [material, target, grainMap]
-  );
-
-  useFrame(({ camera }) => {
+  useFrame(({ camera }, delta) => {
     meshRef.current?.position.copy(camera.position);
+    stepSky(sky, scene, delta, invalidate);
   });
 
   return (
-    <mesh ref={meshRef} material={material} renderOrder={-10} frustumCulled={false}>
+    <mesh ref={meshRef} material={sky.dome} renderOrder={-10} frustumCulled={false}>
       <sphereGeometry args={[900, 48, 32]} />
     </mesh>
   );
-}
-
-function shareSky(texture: Texture) {
-  skyMap.value = texture;
-  return () => {
-    if (skyMap.value === texture) skyMap.value = null;
-  };
 }
 
 function applyEnvironment(scene: Scene, texture: Texture) {
