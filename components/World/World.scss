@@ -468,6 +468,11 @@ html[data-flight='cruise'] .world__veil {
   z-index: 80;
   pointer-events: none;
 
+  /* Focused as free roam starts (ExploreHud), so keys reach the HUD */
+  &:focus {
+    outline: none;
+  }
+
   [data-theme='light'] & {
     --signal: #b45309;
   }

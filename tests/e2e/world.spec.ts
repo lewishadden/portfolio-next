@@ -372,6 +372,39 @@ test.describe('coming back from the tour and free roam', () => {
   );
 });
 
+test.describe('free roam controls', () => {
+  test.use({ world: 'on', reducedMotion: 'reduce' });
+
+  test(
+    'Enter on a station marker sets the autopilot, not a dock as well',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      await page.getByRole('button', { name: 'Free roam' }).click();
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      await page.evaluate(() => document.exitPointerLock());
+
+      // Free roam starts beside Home, close enough to dock: Enter anywhere
+      // but on a control docks
+      await expect(hud.getByRole('button', { name: /^Dock at Home/ })).toBeVisible({
+        timeout: 30_000,
+      });
+      const projects = hud
+        .getByRole('list', { name: 'Stations' })
+        .getByRole('button', { name: /^Autopilot to Projects/ });
+      await projects.focus();
+      await page.keyboard.press('Enter');
+      await expect(projects).toHaveAttribute('aria-pressed', 'true');
+      await page.waitForTimeout(600);
+      await expect(hud.getByText('Docking at')).toHaveCount(0);
+      await expect(page).toHaveURL(/\/$/);
+    }
+  );
+});
+
 test.describe('free roam on touch', () => {
   test.use({
     world: 'on',

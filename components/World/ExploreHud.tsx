@@ -36,6 +36,15 @@ const restInset = { x: 96, y: 112 };
 /** A touch this short (ms) and still (px) is a tap, passed on to the station marker under it */
 const tap = { time: 300, slop: 10 };
 
+/** Controls that act on Enter themselves */
+const enterTargets =
+  'button, a[href], input, textarea, select, [role="button"], [contenteditable]:not([contenteditable="false"])';
+
+/** Enter pressed here belongs to the focused control, not to the HUD's dock shortcut */
+function ownsEnter(target: EventTarget | null) {
+  return target instanceof Element && !!target.closest(enterTargets);
+}
+
 interface Stick {
   el: HTMLElement;
   /** The pointer holding it, -1 when free */
@@ -357,11 +366,14 @@ export function ExploreHud({
   const compact = useMediaQuery('(pointer: coarse) and (max-width: 599px)');
   const lockable = useSyncExternalStore(subscribeNothing, canLockPointer, noLock);
   const locked = usePointerLocked();
-  const exitRef = useRef<HTMLButtonElement>(null);
+  const regionRef = useRef<HTMLDivElement>(null);
 
+  // Keyboard focus moves into the HUD (the page under it is inert). The
+  // region itself takes it, not a control in it: Enter is then the dock
+  // shortcut, and Space flies up rather than pressing a button
   useEffect(() => {
     if (!exploring) return;
-    exitRef.current?.focus({ preventScroll: true });
+    regionRef.current?.focus({ preventScroll: true });
   }, [exploring]);
 
   // The cursor ring hides while the pointer is locked (World.scss)
@@ -373,10 +385,11 @@ export function ExploreHud({
     // Not while the autopilot is flying somewhere else, or already docking
     if (!exploring || !dock || course || docking) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !(e.target instanceof HTMLInputElement)) {
-        e.preventDefault();
-        onDockRequest(stationPaths[dock]);
-      }
+      // Enter on a focused control is that control's (a station marker sets
+      // the autopilot), never a dock as well
+      if (e.key !== 'Enter' || ownsEnter(e.target)) return;
+      e.preventDefault();
+      onDockRequest(stationPaths[dock]);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -424,7 +437,13 @@ export function ExploreHud({
   );
 
   return (
-    <div className="explore-hud" role="region" aria-label="Explore mode">
+    <div
+      ref={regionRef}
+      className="explore-hud"
+      role="region"
+      aria-label="Explore mode"
+      tabIndex={-1}
+    >
       <Waypoints />
       {/* Over the markers, under the rest of the HUD */}
       {touch && <TouchSticks />}
@@ -449,12 +468,7 @@ export function ExploreHud({
               </>
             )}
           </span>
-          <button
-            ref={exitRef}
-            type="button"
-            className="explore-hud__exit"
-            onClick={worldMode.exit}
-          >
+          <button type="button" className="explore-hud__exit" onClick={worldMode.exit}>
             Exit <kbd>Esc</kbd>
           </button>
         </div>
