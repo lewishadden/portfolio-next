@@ -440,8 +440,8 @@ export default function WorldCanvas({
           )}
 
           <CameraRig station={station} motion={motion} />
-          <TipProbe />
           <ExploreControls />
+          <TipProbe />
           <MotionProbe motion={motion} />
           <Cockpit theme={theme} />
           <Sparks theme={theme} />

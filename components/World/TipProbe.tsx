@@ -157,13 +157,16 @@ function step(state: RootState, probe: Probe) {
     tip.on = false;
     return;
   }
-  // The rig has moved the camera this frame; the renderer only updates its
-  // matrices as it draws
+  // The rig (or free roam) has moved the camera this frame; the renderer
+  // only updates its matrices as it draws
   state.camera.updateMatrixWorld();
   tip.on = project(target.object, probe.box, state.camera, state.size.width, state.size.height);
 }
 
-/** Keeps worldStore.tipBox on the hovered object (see above). Mount after CameraRig */
+/**
+ * Keeps worldStore.tipBox on the hovered object (see above). Mount after
+ * everything that moves the camera: CameraRig, and ExploreControls in free roam
+ */
 export function TipProbe() {
   const probe = useRef<Probe>({ object: null, instance: -1, box: new Box3(), scrolledAt: 0 });
 
