@@ -145,29 +145,25 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
         sub={tagline}
       />
 
+      {/* One column: the intro, the channels, the form, then the map. On wide
+          layouts it keeps to the left, so the station has the right side */}
       <div className="contact__grid" data-world-section="message">
-        <aside className="contact__side">
-          <Reveal className="contact__intro">
-            <h2 className="contact__intro-title">{contactInfo.title}</h2>
-            <p className="contact__intro-text">{contactInfo.description}</p>
-            <p className="contact__sla">
-              <span className="contact__sla-dot" aria-hidden="true" />
-              Usually replies within a working day
-            </p>
-          </Reveal>
+        <Reveal className="contact__intro">
+          <h2 className="contact__intro-title">{contactInfo.title}</h2>
+          <p className="contact__intro-text">{contactInfo.description}</p>
+          <p className="contact__sla">
+            <span className="contact__sla-dot" aria-hidden="true" />
+            Usually replies within a working day
+          </p>
+        </Reveal>
 
-          <address>
-            <RevealGroup as="ul" className="contact__list" stagger={0.08}>
-              {contactInfo.items.map((info) => (
-                <ContactCard key={info.name} info={info} />
-              ))}
-            </RevealGroup>
-          </address>
-
-          <Reveal delay={0.2}>
-            <LocationMap location="Peterborough, UK" />
-          </Reveal>
-        </aside>
+        <address>
+          <RevealGroup as="ul" className="contact__list" stagger={0.08}>
+            {contactInfo.items.map((info) => (
+              <ContactCard key={info.name} info={info} />
+            ))}
+          </RevealGroup>
+        </address>
 
         <Reveal
           className={`contact__panel glass${submitted ? ' contact__panel--submitted' : ''}`}
@@ -239,6 +235,10 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
               </m.div>
             )}
           </AnimatePresence>
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <LocationMap location="Peterborough, UK" />
         </Reveal>
       </div>
 

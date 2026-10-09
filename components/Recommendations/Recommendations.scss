@@ -160,6 +160,13 @@
   }
 }
 
+/* Wide layouts: in the copy's column, clear of the station on the right */
+@media (min-width: 900px) and (min-aspect-ratio: 11 / 10) {
+  .recs {
+    max-width: min(46rem, 58vw);
+  }
+}
+
 @include reduced-motion {
   .recs__signal-dot {
     animation: none;

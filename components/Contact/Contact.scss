@@ -1,17 +1,12 @@
 .contact {
+  /* One column: intro, channels, form, map */
   &__grid {
     display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    gap: clamp(1.5rem, 4vw, 3.5rem);
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(1.75rem, 3.5vw, 2.5rem);
   }
 
-  /* ---------- Side column ---------- */
-  &__side {
-    display: grid;
-    gap: 1.75rem;
-  }
-
+  /* ---------- Intro and channels ---------- */
   &__intro {
     display: grid;
     gap: 0.75rem;
@@ -393,9 +388,10 @@
   }
 }
 
-@media (max-width: 960px) {
+/* Wide layouts: the column keeps to the left, so the station has the right side */
+@media (min-width: 900px) and (min-aspect-ratio: 11 / 10) {
   .contact__grid {
-    grid-template-columns: 1fr;
+    max-width: min(46rem, 58vw);
   }
 }
 

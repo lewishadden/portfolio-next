@@ -368,6 +368,13 @@ body {
   margin-top: clamp(4rem, 10vh, 6rem);
 }
 
+/* Wide layouts: under the copy's column, clear of the station on the right */
+@media (min-width: 900px) and (min-aspect-ratio: 11 / 10) {
+  .page-nav {
+    justify-content: flex-start;
+  }
+}
+
 /* =============================================================
    Static renders shown when WebGL is unavailable
    (World sets html[data-world='off']). Positioned where the
