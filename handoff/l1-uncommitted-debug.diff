@@ -1,0 +1,23 @@
+diff --git a/components/Projects/Projects.tsx b/components/Projects/Projects.tsx
+index e07ad5c..d07342c 100644
+--- a/components/Projects/Projects.tsx
++++ b/components/Projects/Projects.tsx
+@@ -289,7 +289,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
+       }
+       const y = lane.docked + lane.step * index;
+       const reduce = motionLevel() !== 'full';
+-      if (lenis) lenis.scrollTo(y, { immediate: reduce });
++      if (lenis) { if (!reduce && (window as unknown as { __publish?: boolean }).__publish !== false) worldStore.projectRideTo = index; lenis.scrollTo(y, { immediate: reduce, onComplete: () => { if (worldStore.projectRideTo === index) worldStore.projectRideTo = -1; } }); } // __l1tmp
+       else window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
+     },
+     [lenis, runway]
+diff --git a/components/World/stations.ts b/components/World/stations.ts
+index 5182c96..303ff69 100644
+--- a/components/World/stations.ts
++++ b/components/World/stations.ts
+@@ -776,3 +776,5 @@ export function stationCamera(
+     look.lerp(windowLook, into);
+   }
+ }
++import * as l1Store from './worldStore'; // __l1tmp
++if (typeof window !== 'undefined') Object.assign(window, { __ride: () => [ridden, riddenAngle], __wsm: l1Store }); // __l1tmp
