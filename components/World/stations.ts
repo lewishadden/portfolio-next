@@ -184,9 +184,11 @@ function retarget(ride: Ride, goal: number, t: number, jump: number) {
   const onward = Math.sign(goal - ride.to) === Math.sign(ride.to - ride.origin);
   if (u < 0.5 && (drift || onward)) {
     const angleTo = ride.angle + wrapAngle(goal * helix.turn - ride.angle);
+    // Timed for where it is going now (a glide passing four screens on its
+    // way to ten wanted longer), but never so short it is past halfway
     ride.duration = Math.max(
-      ride.duration,
-      hopDuration(Math.abs(goal - ride.origin), angleTo - ride.angleOrigin)
+      hopDuration(Math.abs(goal - ride.origin), angleTo - ride.angleOrigin),
+      (t - ride.start) / 0.5
     );
     const at = (t - ride.start) / ride.duration;
     const eased = ease(at);
