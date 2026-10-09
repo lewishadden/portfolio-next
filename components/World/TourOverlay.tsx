@@ -68,6 +68,13 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
     setLandedAt(null);
     setPaused(false);
   }
+  // Every step waits for its own landing, even back at a stop that had
+  // landed before (a quick → then ←): the bar fills only once the camera is in
+  const [stepSeen, setStepSeen] = useState(tourStep);
+  if (stepSeen !== tourStep) {
+    setStepSeen(tourStep);
+    setLandedAt(null);
+  }
   const panelRef = useRef<HTMLDivElement>(null);
   const landed = landedAt === `${tourStep}`;
 
