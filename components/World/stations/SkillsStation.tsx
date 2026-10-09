@@ -24,6 +24,8 @@ import {
   Vector3,
 } from 'three';
 
+import { motionLevel } from '@/utils/motion';
+
 import { iconSvg, useIconCollections } from '../icons';
 import { asGlow, createFresnelMaterial, noiseGlsl } from '../materials';
 import { NavLights, SolarArray, Spin } from '../parts';
@@ -36,6 +38,8 @@ import { orbitTilts } from '../skillsOrbit';
 import { palettes, setUniform } from '../utils';
 import { queueUpload, useWarmupTask } from '../warmup';
 import { focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
+
+import { useStillRepaint } from './stillFrames';
 
 import type { IconifyJSON } from '@iconify/react';
 import type { ThreeEvent } from '@react-three/fiber';
@@ -613,9 +617,48 @@ function stepOrbit(orbitGroup: Object3D, lit: number, camera: Camera, t: number,
   centreArc(orbitLine, viewDown, dt);
 }
 
+/**
+ * The station's own clock and each orbit's turn, accumulated frame by
+ * frame rather than read off the clock, so an orbit can slow to a stop
+ * and pick up again where it was, and nothing jumps at `still`, where the
+ * world only draws now and then
+ */
+interface SpinState {
+  ambient: number;
+  phases: Float32Array;
+  /** Each orbit's speed, 0..1 of its own: it eases to 0 while held */
+  rates: Float32Array;
+}
+
+function spinFor(ref: { current: SpinState | null }, count: number) {
+  if (ref.current?.phases.length !== count) {
+    ref.current = {
+      ambient: ref.current?.ambient ?? 0,
+      phases: Float32Array.from({ length: count }, (_, k) => ref.current?.phases[k] ?? 0),
+      rates: new Float32Array(count).fill(1),
+    };
+  }
+  return ref.current;
+}
+
+/** Turns orbit `k` on by a frame (unless `held`, or at `still`) and returns its angle */
+function turnOrbit(
+  spin: SpinState,
+  k: number,
+  speed: number,
+  held: boolean,
+  still: boolean,
+  dt: number
+) {
+  spin.rates[k] = MathUtils.damp(spin.rates[k], held ? 0 : 1, 5, dt);
+  if (!still) spin.phases[k] += speed * spin.rates[k] * dt;
+  return spin.phases[k];
+}
+
 /** Builds the badge atlas once the icons are in, and uploads it (once) for the badges to sample */
 function useBadgeAtlas(badges: Badge[]) {
   const gl = useThree((s) => s.gl);
+  const invalidate = useThree((s) => s.invalidate);
   const track = useWarmupTask();
   const collections = useIconCollections();
   const atlasRef = useRef<BadgeAtlas | null>(null);
@@ -629,7 +672,10 @@ function useBadgeAtlas(badges: Badge[]) {
       texture = new CanvasTexture(canvas);
       texture.colorSpace = SRGBColorSpace;
       await queueUpload(gl, texture);
-      if (active) atlasRef.current = { texture, rows, mono };
+      if (!active) return;
+      atlasRef.current = { texture, rows, mono };
+      // At `still` the world only draws on demand
+      invalidate();
     });
     track(task);
     return () => {
@@ -637,7 +683,7 @@ function useBadgeAtlas(badges: Badge[]) {
       atlasRef.current = null;
       texture?.dispose();
     };
-  }, [badges, collections, gl, track]);
+  }, [badges, collections, gl, invalidate, track]);
 
   return atlasRef;
 }
@@ -660,6 +706,8 @@ export function SkillsStation({
   /** The badge under the pointer and the instance slot it was hovered in (-1 for none) */
   const hoveredRef = useRef({ badge: -1, slot: -1 });
   const materials = useThemedMaterials(buildMaterials, theme, 'skills');
+  const invalidate = useThree((s) => s.invalidate);
+  useStillRepaint();
 
   const orbits = useMemo(
     () =>
@@ -711,6 +759,7 @@ export function SkillsStation({
     [orbits]
   );
   const badgeState = useRef<BadgeState | null>(null);
+  const spinRef = useRef<SpinState | null>(null);
   const badgeAttributes = useMemo(() => {
     const attribute = () => {
       const buffer = new InstancedBufferAttribute(new Float32Array(badges.length), 1);
@@ -769,10 +818,13 @@ export function SkillsStation({
     [skills]
   );
 
-  useFrame(({ camera, clock }, delta) => {
+  useFrame(({ camera }, delta) => {
     if (!stationInRange(groupRef.current, camera, 'skills')) return;
-    const t = clock.elapsedTime;
-    const dt = Math.min(delta, 0.05);
+    // At `still` nothing moves on its own, and what answers the page snaps
+    const still = motionLevel() === 'still';
+    const dt = still ? 1 : Math.min(delta, 0.05);
+    const spin = spinFor(spinRef, orbits.length);
+    const t = (spin.ambient += still ? 0 : dt);
     setUniform(materials.planet, 'uTime', t);
 
     const planet = planetRef.current;
@@ -786,11 +838,14 @@ export function SkillsStation({
     orbitsRef.current?.children.forEach((orbitGroup, k) => {
       const spinner = orbitGroup.children[1];
       if (!spinner || k >= orbits.length) return;
-      spinner.rotation.y = t * (0.05 + k * 0.018) * (k % 2 ? -1 : 1) + worldStore.scroll * 0.8;
+      const namedHere = orbits[k].members.some((skill) => skill.name === named);
+      // An orbit holds still while one of its badges is pointed at, so it can be read and clicked
+      const speed = (0.05 + k * 0.018) * (k % 2 ? -1 : 1);
+      spinner.rotation.y =
+        turnOrbit(spin, k, speed, namedHere, still, dt) + worldStore.scroll * 0.8;
       orbitGroup.updateMatrix();
       spinner.updateMatrix();
       spinners[k] = spinner;
-      const namedHere = orbits[k].members.some((skill) => skill.name === named);
       const lit = worldStore.skillCategory === orbits[k].category || namedHere ? 1 : 0;
       stepOrbit(orbitGroup, lit, camera, t, dt);
     });
@@ -872,6 +927,7 @@ export function SkillsStation({
               hovered.badge = badge;
               setWorldHover(true);
               worldTip.set(tips.get(badges[badge].name) ?? null);
+              invalidate();
             }}
             onPointerOut={(e) => {
               // The slot it was hovered in: the draw order may have changed since
@@ -881,6 +937,7 @@ export function SkillsStation({
               hovered.badge = hovered.slot = -1;
               setWorldHover(false);
               if (worldTip.get() === tip) worldTip.set(null);
+              invalidate();
             }}
             onClick={(e) => {
               e.stopPropagation();
