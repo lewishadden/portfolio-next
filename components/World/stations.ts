@@ -103,6 +103,9 @@ export interface Ride {
   page: number;
   pageWay: number;
   pageStill: number;
+  /** The project the page last named (worldStore.projectRideTo), and for how long (seconds) */
+  named: number;
+  namedFor: number;
 }
 
 export const createRide = (): Ride => ({
@@ -123,6 +126,8 @@ export const createRide = (): Ride => ({
   page: NaN,
   pageWay: 0,
   pageStill: 0,
+  named: -1,
+  namedFor: 0,
 });
 
 /**
@@ -131,6 +136,13 @@ export const createRide = (): Ride => ({
  * event, and the end of a long glide moves less than a pixel a frame
  */
 const pageRest = 0.25;
+/**
+ * How long (seconds) a project the page named counts for: its glides take
+ * 1.2s (Lenis's duration), so one named for longer was left set after the
+ * glide was taken over the same way, and would send the ride ahead of the
+ * page whenever the page next moved towards it
+ */
+const namedLimit = 2.5;
 
 /**
  * Where the ride heads this frame (-1 off the projects pages): the project
@@ -139,10 +151,10 @@ const pageRest = 0.25;
  * instead, a ride set off towards the first and took the short way round
  * to each in turn, so a glide past half a turn of the helix (five screens)
  * turned the view one way, then back. On its way: last moving towards it,
- * and not held still for `pageRest`, so a destination the page leaves set
- * after something else took the scroll is let go (the ride comes back to
- * the page) rather than kept until the ride arrives, which sent it back and
- * forth between the two
+ * not held still for `pageRest` and named no longer than `namedLimit` ago,
+ * so a destination the page leaves set after something else took the
+ * scroll is let go (the ride comes back to the page) rather than kept until
+ * the ride arrives, which sent it back and forth between the two
  */
 export function rideGoal(ride: Ride, dt: number) {
   const page = worldStore.projectFocus;
@@ -152,9 +164,18 @@ export function rideGoal(ride: Ride, dt: number) {
     ride.pageWay = Math.sign(moved);
     ride.pageStill = 0;
   } else ride.pageStill += dt;
+  const named = worldStore.projectRideTo;
+  if (named !== ride.named) {
+    ride.named = named;
+    ride.namedFor = 0;
+  } else ride.namedFor += dt;
   if (page < 0) return -1;
-  const to = Math.min(worldStore.projectRideTo, helix.screens - 1);
-  const onItsWay = to >= 0 && ride.pageStill < pageRest && (to - page) * ride.pageWay > 0;
+  const to = Math.min(named, helix.screens - 1);
+  const onItsWay =
+    to >= 0 &&
+    ride.namedFor < namedLimit &&
+    ride.pageStill < pageRest &&
+    (to - page) * ride.pageWay > 0;
   return onItsWay ? to : pageProjectFocus();
 }
 
