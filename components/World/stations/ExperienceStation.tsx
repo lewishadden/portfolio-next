@@ -1,14 +1,25 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import { easing } from 'maath';
-import { Group, MathUtils, Mesh, MeshStandardMaterial } from 'three';
+import {
+  CanvasTexture,
+  DataTexture,
+  Group,
+  MathUtils,
+  Mesh,
+  MeshStandardMaterial,
+  PlaneGeometry,
+  ShaderMaterial,
+  SRGBColorSpace,
+} from 'three';
 
 import { createBeamMaterial, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
 import { Antenna, NavLights, SolarArray, Spin } from '../parts';
+import { drawPatchAtlas, patchColumns } from '../patches';
 import { spawnPing } from '../Pings';
 import { StationScope, stationPower } from '../power';
 import {
@@ -30,9 +41,11 @@ import {
   stationPositions,
 } from '../stations';
 import { palettes, setUniform } from '../utils';
+import { queueUpload, useWarmupTask } from '../warmup';
 import { emitCue, focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import type { ThreeEvent } from '@react-three/fiber';
+import type { Object3D, Texture } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldTip } from '../worldStore';
 import type { WorldContent } from '../types';
@@ -155,6 +168,81 @@ function hoverNode(
   }
 }
 
+/** Stands in for the patch atlas until it is drawn (nothing shows: patches wait for it) */
+const noPatches = new DataTexture(new Uint8Array(4), 1, 1);
+noPatches.needsUpdate = true;
+
+/**
+ * A role's mission patch beside its pod: a cell of the patch atlas
+ * (patches.ts, one texture for every role, drawn after the page's fonts
+ * load). Not a glow: it follows the station's power like one, though
+ */
+function createPatchMaterial() {
+  return new ShaderMaterial({
+    uniforms: {
+      uMap: { value: noPatches },
+      uCharge: { value: 1 },
+      uLight: { value: 0 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D uMap;
+      uniform float uCharge, uLight;
+      varying vec2 vUv;
+      void main() {
+        // (not "patch": a reserved word in GLSL ES 3.00)
+        vec4 badge = texture2D(uMap, vUv);
+        if (badge.a < 0.01) discard;
+        gl_FragColor = vec4(
+          badge.rgb * mix(0.9, 1.0, uLight) * max(uCharge, 1.0),
+          badge.a * min(uCharge, 1.0)
+        );
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    toneMapped: false,
+  });
+}
+
+/** A plane showing role `index`'s cell of the patch atlas */
+function patchGeometry(index: number, rows: number) {
+  const geometry = new PlaneGeometry(1, 1);
+  const column = index % patchColumns;
+  const row = Math.floor(index / patchColumns);
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i++) {
+    // The atlas's first row is at its top, where the texture's v is 1
+    uv.setXY(i, (column + uv.getX(i)) / patchColumns, 1 - (row + 1 - uv.getY(i)) / rows);
+  }
+  return geometry;
+}
+
+/** World units across a patch at full size, and the pod light it shows from */
+const patchWidth = 0.9;
+const patchFrom = 0.15;
+
+/**
+ * A pod's patch tilts upright and grows as the pod lights (eased with the
+ * pod's own swell), sewn on crooked as the page's are until it is lit; it
+ * isn't drawn below `patchFrom`
+ */
+function showPatch(patch: Object3D | undefined, lit: number, ready: boolean) {
+  const plane = patch?.children[0];
+  if (!patch || !plane) return;
+  patch.visible = ready && lit >= patchFrom;
+  if (!patch.visible) return;
+  const a = MathUtils.smoothstep(lit, patchFrom, 1);
+  plane.scale.setScalar(MathUtils.lerp(0.45, 1, a) * patchWidth);
+  plane.rotation.set(MathUtils.lerp(-1.05, 0, a), 0, MathUtils.lerp(-0.16, 0, a));
+}
+
 const buildMaterials = (p: WorldPalette) => ({
   core: createBeamMaterial({ color: p.cyan, intensity: 3, speed: 0.6 }),
   glow: createBeamMaterial({ color: p.violet, intensity: 1.3, opacity: 0.24, speed: 0.25 }),
@@ -167,10 +255,15 @@ const buildMaterials = (p: WorldPalette) => ({
   }),
   halo: createHaloMaterial({ color: p.cyan, intensity: 1.2, opacity: 0.5 }),
   topHalo: createHaloMaterial({ color: p.violet, intensity: 1.2, opacity: 0.5 }),
+  patch: createPatchMaterial(),
 });
 
-/** Lights a pod by how strongly it is read, pointed at or pinged; its glow follows the station's power */
-function lightNode(node: Group, activation: number, charge: number, dt: number) {
+/**
+ * Lights a pod by how strongly it is read, pointed at or pinged; its glow
+ * follows the station's power. Its children: core, ring, halo, the
+ * pointer's target, then its patch
+ */
+function lightNode(node: Group, activation: number, charge: number, patches: boolean, dt: number) {
   const [core, ring, halo] = node.children as Mesh[];
   easing.damp(node.scale, 'x', 0.8 + activation * 0.5, 0.25, dt);
   node.scale.y = node.scale.z = node.scale.x;
@@ -179,6 +272,7 @@ function lightNode(node: Group, activation: number, charge: number, dt: number) 
   ring.rotation.z += dt * (0.3 + activation * 1.4);
   halo.visible = activation > 0.05;
   halo.scale.setScalar(2.4 + activation * 2.4);
+  showPatch(node.children[4], (node.scale.x - 0.8) / 0.5, patches);
 }
 
 /**
@@ -218,6 +312,42 @@ export function ExperienceStation({
   const beamLength = experienceDepth + 10;
   const still = useThree((s) => s.frameloop === 'demand');
   useRedrawOnPageHover(true);
+
+  // Every role's mission patch in one texture, drawn once the page's fonts
+  // are in, then uploaded on a frame of its own. Redrawn for a new theme;
+  // the old one stays on until the new one is up
+  const gl = useThree((s) => s.gl);
+  const track = useWarmupTask();
+  const [patchAtlas, setPatchAtlas] = useState<Texture | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const task = drawPatchAtlas(roles, theme).then(async ({ canvas }) => {
+      if (!alive) return;
+      const texture = new CanvasTexture(canvas);
+      texture.colorSpace = SRGBColorSpace;
+      texture.anisotropy = 4;
+      await queueUpload(gl, texture);
+      if (alive) setPatchAtlas(texture);
+      else texture.dispose();
+    });
+    track(task);
+    return () => {
+      alive = false;
+    };
+  }, [gl, roles, theme, track]);
+  useEffect(() => () => patchAtlas?.dispose(), [patchAtlas]);
+  useEffect(
+    () => setUniform(materials.patch, 'uMap', patchAtlas ?? noPatches),
+    [materials, patchAtlas]
+  );
+  const patchGeometries = useMemo(() => {
+    const rows = Math.max(1, Math.ceil(count / patchColumns));
+    return Array.from({ length: count }, (_, i) => patchGeometry(i, rows));
+  }, [count]);
+  useEffect(
+    () => () => patchGeometries.forEach((geometry) => geometry.dispose()),
+    [patchGeometries]
+  );
 
   const nodeYs = useMemo(
     () => Array.from({ length: count }, (_, i) => -((i + 0.6) / count) * experienceDepth),
@@ -285,6 +415,7 @@ export function ExperienceStation({
     const reading = worldStore.roleFocus;
     const pingY = ping?.visible ? ping.position.y : Infinity;
     const charge = stationPower.experience.charge.value;
+    const patches = patchAtlas !== null;
     nodesRef.current?.children.forEach((node, i) => {
       const activation =
         reading > -0.99
@@ -293,7 +424,7 @@ export function ExperienceStation({
       // Pointed at (here, or its card on the page), or passed by the satellite's ping
       const noticed = hovered.current === i || role === i ? 0.75 : 0;
       const pinged = Math.max(0, 1 - Math.abs(pingY - nodeYs[i]) / 1.6);
-      lightNode(node as Group, Math.max(activation, noticed, pinged), charge, dt);
+      lightNode(node as Group, Math.max(activation, noticed, pinged), charge, patches, dt);
     });
   });
 
@@ -368,6 +499,10 @@ export function ExperienceStation({
               >
                 <sphereGeometry args={[0.8, 12, 8]} />
               </mesh>
+              {/* Its mission patch, on the copy's side; shown as it lights */}
+              <Billboard position={[-1.25, 0.15, 0.3]} visible={false}>
+                <mesh geometry={patchGeometries[i]} material={materials.patch} />
+              </Billboard>
             </group>
           ))}
         </group>
