@@ -73,6 +73,9 @@ interface RigState {
   ride: Ride;
   /** The camera cut (motion held back) to a new pose it should announce as an arrival */
   arriving: boolean;
+  /** Where the settled camera is heading and looking, never faster than `followSpeed` */
+  follow: Vector3;
+  followLook: Vector3;
 }
 
 /**
@@ -91,6 +94,21 @@ interface Ride {
   duration: number;
   /** The hop crosses a screen or more: it sounded on the way and locks on arrival */
   long: boolean;
+}
+
+/**
+ * Fastest the camera follows the page (units per second): a jump in scroll
+ * (End, Home, a long page's companion poses) glides the camera there rather
+ * than throwing it at lightspeed, which the streaks and FOV kick read from
+ * its speed. Flights aren't held to it
+ */
+const followSpeed = 35;
+
+/** Moves `point` towards `goal` by at most `step` */
+function approach(point: Vector3, goal: Vector3, step: number) {
+  const distance = point.distanceTo(goal);
+  if (distance <= step) point.copy(goal);
+  else point.lerp(goal, step / distance);
 }
 
 /** Jumps smaller than this pass straight through, so the runway is as responsive as ever */
@@ -122,6 +140,8 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     preview: '',
     ride: { value: -1, hopping: false, from: 0, to: 0, start: 0, duration: 0, long: false },
     arriving: false,
+    follow: new Vector3(),
+    followLook: new Vector3(),
   });
 
   useFrame(({ camera, clock, size, frameloop, invalidate }, delta) => {
@@ -243,9 +263,16 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     } else if (rig.flight) {
       fly(rig, cam, station, dt, t);
     } else {
-      easing.damp3(cam.position, target, 0.2, dt);
-      easing.damp3(lookCurrent, look, 0.16, dt);
+      approach(rig.follow, target, followSpeed * dt);
+      approach(rig.followLook, look, followSpeed * dt);
+      easing.damp3(cam.position, rig.follow, 0.2, dt);
+      easing.damp3(lookCurrent, rig.followLook, 0.16, dt);
       cam.lookAt(lookCurrent);
+    }
+    // Cut or flown there, the camera is where the page has it
+    if (snap || rig.flight) {
+      rig.follow.copy(target);
+      rig.followLook.copy(look);
     }
 
     // Snapped cameras (motion held back) jump between poses; that is not flight
