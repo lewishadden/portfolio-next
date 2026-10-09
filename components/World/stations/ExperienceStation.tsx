@@ -28,8 +28,8 @@ import {
   easeInOut,
   stepReaction,
   trickProgress,
-  useRedrawOnPageHover,
   useReactionHandlers,
+  useRedrawOnTargetHover,
   useShowcase,
 } from '../reaction';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
@@ -68,6 +68,9 @@ const tetherLights: NavLight[] = [
 
 /** Which pod the pointer is over (-1 for none): it lights as if it were being read */
 type Hovered = { current: number };
+
+/** Page targets this station answers: a role's card lights its pod */
+const answersRole = (target: string) => target.startsWith('role:');
 
 /** The role whose card on the page is pointed at or focused (worldStore.targetHover), -1 for none */
 function pageRole(count: number) {
@@ -262,15 +265,25 @@ const buildMaterials = (p: WorldPalette) => ({
 /**
  * Lights a pod by how strongly it is read, pointed at or pinged; its glow
  * follows the station's power. Its children: core, ring, halo, the
- * pointer's target, then its patch
+ * pointer's target, then its patch. At the still level (frames on demand)
+ * it lights at once and its ring holds still
  */
-function lightNode(node: Group, activation: number, charge: number, patches: boolean, dt: number) {
+function lightNode(
+  node: Group,
+  activation: number,
+  charge: number,
+  patches: boolean,
+  dt: number,
+  still: boolean
+) {
   const [core, ring, halo] = node.children as Mesh[];
-  easing.damp(node.scale, 'x', 0.8 + activation * 0.5, 0.25, dt);
+  const size = 0.8 + activation * 0.5;
+  if (still) node.scale.x = size;
+  else easing.damp(node.scale, 'x', size, 0.25, dt);
   node.scale.y = node.scale.z = node.scale.x;
   const material = core.material as MeshStandardMaterial;
   material.emissiveIntensity = (0.4 + activation * 3.2) * charge;
-  ring.rotation.z += dt * (0.3 + activation * 1.4);
+  if (!still) ring.rotation.z += dt * (0.3 + activation * 1.4);
   halo.visible = activation > 0.05;
   halo.scale.setScalar(2.4 + activation * 2.4);
   showPatch(node.children[4], (node.scale.x - 0.8) / 0.5, patches);
@@ -312,7 +325,7 @@ export function ExperienceStation({
   const palette = palettes[theme];
   const beamLength = experienceDepth + 10;
   const still = useThree((s) => s.frameloop === 'demand');
-  useRedrawOnPageHover(true);
+  useRedrawOnTargetHover(answersRole);
 
   // Every role's mission patch in one texture, drawn once the page's fonts
   // are in, then uploaded on a frame of its own. Redrawn for a new theme;
@@ -432,7 +445,7 @@ export function ExperienceStation({
       // Pointed at (here, or its card on the page), or passed by the satellite's ping
       const noticed = hovered.current === i || role === i ? 0.75 : 0;
       const pinged = Math.max(0, 1 - Math.abs(pingY - nodeYs[i]) / 1.6);
-      lightNode(node as Group, Math.max(activation, noticed, pinged), charge, patches, dt);
+      lightNode(node as Group, Math.max(activation, noticed, pinged), charge, patches, dt, still);
     });
   });
 

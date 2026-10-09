@@ -158,21 +158,39 @@ export function useShowcase(
 }
 
 /**
- * The still level draws on demand: while `active`, pointing at or focusing
- * page content (which can stand for something here, worldStore.targetHover)
- * asks for a moment of frames, so what answers it lights up without waiting
- * for a scroll
+ * The still level draws on demand: when the page element pointed at or
+ * focused (worldStore.targetHover) changes to or from one this station
+ * answers (`answers`, a stable module-level test), it asks for one frame,
+ * so the answer shows without waiting for a scroll. Any other pointer or
+ * focus move on the page draws nothing: every frame drawn moves the
+ * world's ambient motion on, and at the still level nothing should move
+ * on its own
  */
-export function useRedrawOnPageHover(active: boolean) {
+export function useRedrawOnTargetHover(answers: (target: string) => boolean) {
   const invalidate = useThree((s) => s.invalidate);
   const onDemand = useThree((s) => s.frameloop === 'demand');
   useEffect(() => {
-    if (!active || !onDemand) return;
-    const redraw = () => keepDrawing(invalidate, 500);
-    const events = ['pointerover', 'pointerout', 'focusin', 'focusout'] as const;
-    for (const type of events) document.addEventListener(type, redraw, { passive: true });
-    return () => {
-      for (const type of events) document.removeEventListener(type, redraw);
+    if (!onDemand) return;
+    let seen = worldStore.targetHover;
+    let frame = 0;
+    // Compared a frame later: pageInputs sets targetHover from these same
+    // events, and its listeners may run after these ones
+    const compare = () => {
+      frame = 0;
+      const target = worldStore.targetHover;
+      if (target === seen) return;
+      const was = seen;
+      seen = target;
+      if (answers(target) || answers(was)) invalidate();
     };
-  }, [active, onDemand, invalidate]);
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(compare);
+    };
+    const events = ['pointerover', 'pointerout', 'focusin', 'focusout'] as const;
+    for (const type of events) document.addEventListener(type, schedule, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      for (const type of events) document.removeEventListener(type, schedule);
+    };
+  }, [answers, onDemand, invalidate]);
 }

@@ -30,8 +30,8 @@ import {
   easeInOut,
   stepReaction,
   trickProgress,
-  useRedrawOnPageHover,
   useReactionHandlers,
+  useRedrawOnTargetHover,
   useShowcase,
 } from '../reaction';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
@@ -238,6 +238,9 @@ function createVisorMaterial(p: WorldPalette) {
   );
 }
 
+/** Page targets this station answers: the portrait scans onto the visor */
+const answersPortrait = (target: string) => target === 'about:portrait';
+
 /** What the visor is doing: the last click (clock time) and how far shown, 0..1 */
 interface VisorState {
   clickAt: number;
@@ -305,7 +308,7 @@ export function AboutStation({ theme, portrait }: { theme: WorldTheme; portrait:
   const [visorShown, setVisorShown] = useState(false);
   const still = useThree((s) => s.frameloop === 'demand');
   const invalidate = useThree((s) => s.invalidate);
-  useRedrawOnPageHover(true);
+  useRedrawOnTargetHover(answersPortrait);
   // A click spins the helmet and scans the portrait onto its visor
   const handlers = useMemo(
     () => ({
