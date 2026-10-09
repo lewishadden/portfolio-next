@@ -109,8 +109,10 @@ select:focus-visible,
   outline-offset: 2px;
 }
 
-/* Reduced motion support: the calm and still levels (app/_motion.scss) */
-html {
+/* Reduced motion support: the calm and still levels (app/_motion.scss).
+   `:where(html)` adds no specificity, so these weigh what `*` did (which
+   covered <html> itself too) */
+:where(html) {
   @include reduced-motion {
     &,
     *,
