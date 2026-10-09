@@ -150,3 +150,28 @@ test.describe('hailing the station', () => {
     });
   });
 });
+
+test.describe('the scene for screen readers', () => {
+  test('is left out with 3D effects off', async ({ page }) => {
+    await openHydrated(page, '/');
+    await expect(page.locator('#main-content .station-readout__scene')).toBeHidden();
+    await expect(page.locator('#main-content .station-readout').first()).not.toContainText(
+      'In view:',
+      { useInnerText: true }
+    );
+  });
+
+  test.describe('with the world on', () => {
+    test.use({ world: 'on', reducedMotion: 'reduce' });
+
+    test('each station describes what the canvas shows', { tag: '@webgl' }, async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await expect(page.locator('#main-content .station-readout').first()).toContainText(
+        'In view: An astronaut with a laptop floats before a swirling portal.'
+      );
+      await expect(page.locator('#main-content .station-readout__scene')).toBeAttached();
+      await expect(page.locator('html')).toHaveAttribute('data-world', 'on');
+    });
+  });
+});

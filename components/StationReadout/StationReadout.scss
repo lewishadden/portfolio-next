@@ -37,6 +37,11 @@
     display: none;
   }
 
+  /* The scene, for screen readers: only while the world is on */
+  html:not([data-world='on']) &__scene {
+    display: none;
+  }
+
   /* Hail: only once the world is up to hear it (3D on, the canvas drawing) */
   &__hail {
     display: none;

@@ -17,6 +17,21 @@ import './StationReadout.scss';
 /** How long what a hail did stays on screen (ms) */
 const answerFor = 4500;
 
+/**
+ * What the 3D world shows at each station, in a line, for screen readers
+ * (the canvas itself is aria-hidden). Only while the world is on: the 2D
+ * render that stands in for it otherwise keeps its own alt text
+ */
+const scenes: Record<StationKey, string> = {
+  home: 'An astronaut with a laptop floats before a swirling portal.',
+  about: "A spacesuit helmet turns slowly inside the crew habitat's rings.",
+  experience: 'A satellite hangs over a long beam lit with a pod for each role.',
+  projects: "A helix of floating screens, one for each project, winds round the yard's spine.",
+  skills: 'Skill badges orbit a giant ringed planet, a constellation for each category.',
+  contact: 'A rocket stands by a dish array that beams messages to a globe.',
+  lost: 'A lost astronaut tumbles past a drifting wreck.',
+};
+
 /** What the readout says, docked or on the way */
 const wording = (key: StationKey, enRoute: boolean) => ({
   lead: enRoute ? 'En route to the' : key === 'lost' ? 'Adrift near the' : 'Docked at the',
@@ -125,6 +140,7 @@ export function StationReadout({ className = '' }: { className?: string }) {
         <span ref={tailRef}>{words.tail}</span>
       </span>
       {key === 'home' && <span className="station-readout__port">Home port</span>}
+      <span className="station-readout__scene sr-only">In view: {scenes[key]}</span>
       {answersHail(key) && (
         <>
           {/* Shown only once the world is up to hear it (StationReadout.scss) */}
