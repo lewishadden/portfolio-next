@@ -373,6 +373,9 @@ function holdSelection() {
 /** Pixels a press may wander and still count as a click (which pings), not a drag or a scroll */
 const clickSlop = 6;
 
+/** Screen pixels past which the first move a touch sends decides it (see `globeTouch`) */
+const firstMoveSlop = 2.5;
+
 /**
  * A touch that starts on the globe and runs sideways is the drag's; one
  * that runs up or down is still the page's to scroll (pan-y, for that touch
@@ -381,17 +384,23 @@ const clickSlop = 6;
  * starts, before any handler can change touch-action, so while the globe is
  * in view listeners decide instead. The globe's pointerdown (which the
  * browser dispatches just before touchstart) marks the touch, touchstart
- * notes where it began, and its first cancelable move past `clickSlop`
- * either claims it, cancelling the scroll on every move from then on, or
- * lets it go. Waiting out the slop keeps a thumb's first pixel of roll
- * (iOS sends every one) from deciding the swipe, and stays under both
- * browsers' own scroll slop, so the deciding move can still be cancelled
- * (Chrome holds moves back until past its slop, then that one decides).
- * Only a clearly sideways swipe (within about 34° of level) is claimed: a
- * diagonal one scrolls. A second finger (a pinch) is the page's too. Away
- * from /contact nothing listens
+ * notes where it began, and a cancelable move then either claims it,
+ * cancelling the scroll on every move from then on, or lets it go. Which
+ * move decides differs by browser. iOS sends every move from the first
+ * pixel, so a thumb's first pixel or two of roll must not decide the swipe:
+ * later moves wait until the touch is `clickSlop` out, still short of
+ * iOS's own pan. Chrome holds moves back until the touch is past its own
+ * slop (8 dp on Android), then sends that one as its only cancelable move,
+ * so the first move the page sees decides once it is clearly past a roll
+ * (`firstMoveSlop`) rather than waiting for `clickSlop`: both slops are in
+ * screen pixels, so page zoom shrinks Chrome's in CSS pixels (to 2.7 at
+ * 300%) and the page can't tell. Distances are scaled by the visual
+ * viewport's scale, so pinch zoom doesn't shrink the gates. Only a clearly
+ * sideways swipe (within about 34° of level) is claimed: a diagonal one
+ * scrolls. A second finger (a pinch) is the page's too. Away from /contact
+ * nothing listens
  */
-const globeTouch = { pending: false, claimed: false, armed: false, id: -1, x: 0, y: 0 };
+const globeTouch = { pending: false, claimed: false, armed: false, id: -1, x: 0, y: 0, moves: 0 };
 
 function noteTouch(event: TouchEvent) {
   if (!globeTouch.pending) return;
@@ -403,6 +412,7 @@ function noteTouch(event: TouchEvent) {
   globeTouch.id = touch.identifier;
   globeTouch.x = touch.clientX;
   globeTouch.y = touch.clientY;
+  globeTouch.moves = 0;
 }
 
 function claimTouch(event: TouchEvent) {
@@ -423,7 +433,9 @@ function claimTouch(event: TouchEvent) {
   }
   const across = Math.abs(touch.clientX - globeTouch.x);
   const down = Math.abs(touch.clientY - globeTouch.y);
-  if (Math.hypot(across, down) < clickSlop) return;
+  const travel = Math.hypot(across, down) * (window.visualViewport?.scale ?? 1);
+  const first = globeTouch.moves++ === 0;
+  if (travel < (first ? firstMoveSlop : clickSlop)) return;
   globeTouch.pending = false;
   if (across > down * 1.5) {
     globeTouch.claimed = true;
@@ -495,12 +507,14 @@ function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>, repaint: () => void)
   const end = (event: PointerEvent) => {
     if (event.pointerId !== pointer) return;
     spin.dragging = false;
+    // A touch claimed for the drag is a drag however short (its first move may claim it under `clickSlop`)
+    const dragged = touch && globeTouch.claimed;
     globeTouch.pending = globeTouch.claimed = false;
     release();
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', end);
     window.removeEventListener('pointercancel', end);
-    if (event.type === 'pointerup' && wandered < clickSlop) {
+    if (event.type === 'pointerup' && wandered < clickSlop && !dragged) {
       spin.velocity = 0;
       spawnPing(pressPoint);
       // At `still` one repaint would freeze the ping's first frame: keep drawing while it plays
