@@ -52,7 +52,7 @@ import { palettes, setUniform } from '../utils';
 import { queueUpload } from '../warmup';
 import { prefetch } from '../routes';
 import { worldMode } from '../worldMode';
-import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
+import { emitCue, navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import type { RefObject } from 'react';
 import type { BufferGeometry, Camera, InstancedMesh, Mesh, Object3D, WebGLRenderer } from 'three';
@@ -1268,6 +1268,8 @@ export function ProjectsStation({
   const hull = useRef({ since: -1, shown: false });
   /** The screen last brought to the front, and when a power-up last flickered */
   const powering = useRef({ live: -1, flickerAt: -Infinity });
+  /** The screen the ride last settled on (its detent's tick), -1 off the ride */
+  const ticked = useRef(-1);
   const opened = focus >= 0 && focus < screens.length ? focus : -1;
   useHullTimings(groupRef, hubRef);
 
@@ -1408,6 +1410,18 @@ export function ProjectsStation({
         // Screens orbit with the helix but always turn to face the viewer
         screen.lookAt(camera.position);
       });
+      // A detent: the ride settling on another screen ticks, from that
+      // screen (not as the station first draws)
+      const settledOn = live >= 0 && Math.abs(front - live) < 0.02 ? live : -1;
+      if (live < 0) ticked.current = -1;
+      else if (settledOn >= 0 && settledOn !== ticked.current) {
+        if (!instant) {
+          spiral.children[settledOn]?.getWorldPosition(centre);
+          emitCue('tick', { at: [centre.x, centre.y, centre.z] });
+        }
+        ticked.current = settledOn;
+      }
+
       // Where the screen in front is on the page, for the project modal
       const inFront = front >= 0 ? spiral.children[Math.round(front)] : undefined;
       if (worldStore.projectFocus >= 0 && inFront)
