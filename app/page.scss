@@ -44,6 +44,9 @@ body {
 .page-head {
   position: relative;
   display: grid;
+  /* Each line only as wide as its text: the world's readability guard dims
+     what is behind [data-reading] boxes, and these sit beside the station */
+  justify-items: start;
   gap: 1.25rem;
   max-width: 44rem;
   margin-bottom: clamp(3rem, 8vh, 5.5rem);
@@ -83,6 +86,7 @@ body {
 
   .page-head__stage {
     display: block;
+    justify-self: stretch;
     height: clamp(11rem, 30svh, 18rem);
     margin-top: calc(-1 * clamp(1.5rem, 5vh, 3rem));
   }
@@ -366,6 +370,30 @@ body {
   justify-content: center;
   gap: 1rem;
   margin-top: clamp(4rem, 10vh, 6rem);
+}
+
+/* Wide layouts: under the copy's column, clear of the station on the right */
+@media (min-width: 900px) and (min-aspect-ratio: 11 / 10) {
+  .page-nav {
+    justify-content: flex-start;
+  }
+}
+
+/* =============================================================
+   World windows (components/WorldWindow): on narrow, stacked layouts
+   the copy covers the screen, so these gaps let the camera bring the
+   station back into view as they scroll past. Only when the world will
+   run: never without JavaScript, nor with the world off.
+   ============================================================= */
+.world-window {
+  display: none;
+}
+
+@media (max-width: 899px), (max-aspect-ratio: 11 / 10) {
+  html[data-world-expected]:not([data-world='off']) .world-window {
+    display: block;
+    height: clamp(11rem, 32svh, 18rem);
+  }
 }
 
 /* =============================================================

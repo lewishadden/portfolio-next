@@ -9,6 +9,8 @@
   margin-top: clamp(3rem, 7vw, 5rem);
 
   &__title {
+    /* As wide as its text (the world dims what is behind it, beside the station) */
+    justify-self: start;
     font-family: var(--font-display);
     font-size: clamp(1.6rem, 3.2vw, 2.4rem);
     font-weight: var(--fw-bold);
@@ -157,6 +159,13 @@
 @keyframes recs-pulse {
   50% {
     opacity: 0.35;
+  }
+}
+
+/* Wide layouts: in the copy's column, clear of the station on the right */
+@media (min-width: 900px) and (min-aspect-ratio: 11 / 10) {
+  .recs {
+    max-width: min(46rem, 58vw);
   }
 }
 
