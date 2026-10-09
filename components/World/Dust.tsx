@@ -9,6 +9,7 @@ import {
   inkOpacity,
   quadCorners,
   quadIndex,
+  skyTime,
   streakQuad,
   streakShape,
   travelAmount,
@@ -152,7 +153,7 @@ export function Dust({ count, theme }: { count: number; theme: WorldTheme }) {
   useFrame(({ camera, clock, gl, size, viewport }, delta) => {
     const travelling = travelAmount(clock.elapsedTime, delta);
     setUniform(material, 'uCamera', camera.position);
-    setUniform(material, 'uTime', clock.elapsedTime);
+    setUniform(material, 'uTime', skyTime(clock));
     setUniform(material, 'uPixelRatio', viewport.dpr);
     setUniform(material, 'uWarp', warpAmount(travelling));
     const trail = trackTrails(

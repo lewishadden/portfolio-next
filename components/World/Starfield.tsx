@@ -287,7 +287,7 @@ export function Starfield({ count, theme }: { count: number; theme: WorldTheme }
 
   useFrame(({ clock, gl, size, viewport }, delta) => {
     const travelling = travelAmount(clock.elapsedTime, delta);
-    setUniform(material, 'uTime', clock.elapsedTime);
+    setUniform(material, 'uTime', skyTime(clock));
     setUniform(material, 'uPixelRatio', viewport.dpr);
     setUniform(material, 'uWarp', warpAmount(travelling));
     const streak = trackStreaks(
@@ -450,7 +450,7 @@ export function BrightStars({ count, theme }: { count: number; theme: WorldTheme
   useEffect(() => () => material.dispose(), [material]);
 
   useFrame(({ clock, gl, size, viewport }, delta) => {
-    setUniform(material, 'uTime', clock.elapsedTime);
+    setUniform(material, 'uTime', skyTime(clock));
     setUniform(material, 'uPixelRatio', viewport.dpr);
     trackStreaks(
       material,
