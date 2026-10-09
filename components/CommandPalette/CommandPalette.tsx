@@ -48,8 +48,14 @@ interface Command {
   keywords?: string;
   /** The station a page or project lives at: selecting the row previews the course there */
   station?: StationKey;
-  /** The page you're on (it reads "Docked", and isn't where the selection starts) */
+  /** The page you're on (it isn't where the selection starts) */
   current?: boolean;
+  /**
+   * At the station docked at: the hint reads "Docked" (the Projects row
+   * too on a project page, where it isn't the current page but the way back
+   * to the list)
+   */
+  docked?: boolean;
   /** Return true to keep the palette open */
   run: () => boolean | void;
 }
@@ -393,8 +399,10 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     const go = (href: string) => () => navigate(href);
     const worldHint = !supported ? 'Unavailable' : enabled ? undefined : 'Turns 3D on';
     /** Where a station is from here: its craft and range, or docked */
-    const bearing = (station: StationKey, current: boolean) =>
-      current ? 'Docked' : `${stationNames[station].craft} · ${rangeBetween(here, station)} km`;
+    const bearing = (station: StationKey) =>
+      station === here
+        ? 'Docked'
+        : `${stationNames[station].craft} · ${rangeBetween(here, station)} km`;
     return [
       ...data.pages.map((page) => {
         const station = stationForPath(page.href);
@@ -404,9 +412,10 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           group: 'Navigate' as const,
           label: page.label,
           icon: 'ph:arrow-elbow-down-right-bold',
-          hint: bearing(station, current),
+          hint: bearing(station),
           station,
           current,
+          docked: station === here,
           run: go(page.href),
         };
       }),
@@ -545,6 +554,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           hint: current ? 'Docked' : km ? `${km} km` : undefined,
           station: 'projects' as const,
           current,
+          docked: current,
           run: go(href),
         };
       }),
@@ -754,7 +764,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
                   <span className="palette__label">{command.label}</span>
                   {command.hint && (
                     <span
-                      className={`palette__hint${command.current ? ' palette__hint--docked' : ''}`}
+                      className={`palette__hint${command.docked ? ' palette__hint--docked' : ''}`}
                     >
                       {command.hint}
                     </span>

@@ -88,6 +88,17 @@ test.describe('the palette and the world', () => {
     await expect(about).toHaveAttribute('aria-selected', 'true');
   });
 
+  test('on a project page the Projects row reads docked, not 0 km', async ({ page }) => {
+    await openHydrated(page, '/projects/drive-king');
+    const { dialog } = await openPalette(page);
+    const projects = dialog.getByRole('option', { name: /^Projects\b/ });
+    await expect(projects).toContainText('Docked');
+    await expect(projects).not.toContainText('0 km');
+    // Still the way back to the list
+    await projects.click();
+    await expect(page).toHaveURL(/\/projects$/);
+  });
+
   test('a wheel over the open palette leaves the page where it was', async ({ page }) => {
     await openHydrated(page, '/experience');
     await page.mouse.move(40, 400);
