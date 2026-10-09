@@ -225,8 +225,15 @@ function normaliseScene(
 
 const bounds = new Box3();
 
-/** Sweeps the scan line up through the model, measured as it stands (it may be moving) */
+/**
+ * Sweeps the scan line up through the model, measured as it stands (it may
+ * be moving). Its world matrices are brought up to date first: the frame it
+ * first shows in runs before the renderer updates them, and measured at the
+ * origin instead, the whole model was cut away (for good at the still
+ * level, where it is measured just once)
+ */
 function stepReveal(model: Object3D, reveal: Reveal, progress: number) {
+  model.updateWorldMatrix(true, false);
   bounds.setFromObject(model);
   reveal.uRevealBottom.value = bounds.min.y;
   reveal.uRevealHeight.value = Math.max(bounds.max.y - bounds.min.y, 1e-3);
@@ -282,9 +289,16 @@ function GltfModel({
   }, [gl, world, camera, model, track, onReady, url]);
 
   // Scan in once it's on show
+  const invalidate = useThree((s) => s.invalidate);
   useFrame((_, delta) => {
     const state = scan.current;
     if (preparedFor !== model) return;
+    // Not in the scene yet: measure it on the next frame (asked for, as the
+    // still level draws on demand)
+    if (!model.parent) {
+      invalidate();
+      return;
+    }
     if (state.for !== model) {
       state.for = model;
       state.progress = scanIn ? 0 : 1;
