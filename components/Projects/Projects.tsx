@@ -517,7 +517,10 @@ export const Projects = ({
       >
         <div ref={stageRef} className="projects__stage">
           <nav className="projects__index" aria-label="Projects">
-            <ol ref={indexRef}>
+            {/* In narrow layouts a row that scrolls sideways: sideways swipes
+                scroll it natively (Lenis took any with a little vertical
+                drift for the page), vertical ones still ride the page */}
+            <ol ref={indexRef} data-lenis-prevent-horizontal>
               {items.map((project, i) => (
                 <li key={project.slug}>
                   <Link
