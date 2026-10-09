@@ -370,6 +370,9 @@ function holdSelection() {
   };
 }
 
+/** Pixels a press may wander and still count as a click (which pings), not a drag or a scroll */
+const clickSlop = 6;
+
 /**
  * A touch that starts on the globe and runs sideways is the drag's; one
  * that runs up or down is still the page's to scroll (pan-y, for that touch
@@ -378,9 +381,15 @@ function holdSelection() {
  * starts, before any handler can change touch-action, so while the globe is
  * in view listeners decide instead. The globe's pointerdown (which the
  * browser dispatches just before touchstart) marks the touch, touchstart
- * notes where it began, and its first cancelable move either claims it,
- * cancelling the scroll on every move from then on, or lets it go. A second
- * finger (a pinch) is the page's too. Away from /contact nothing listens
+ * notes where it began, and its first cancelable move past `clickSlop`
+ * either claims it, cancelling the scroll on every move from then on, or
+ * lets it go. Waiting out the slop keeps a thumb's first pixel of roll
+ * (iOS sends every one) from deciding the swipe, and stays under both
+ * browsers' own scroll slop, so the deciding move can still be cancelled
+ * (Chrome holds moves back until past its slop, then that one decides).
+ * Only a clearly sideways swipe (within about 34° of level) is claimed: a
+ * diagonal one scrolls. A second finger (a pinch) is the page's too. Away
+ * from /contact nothing listens
  */
 const globeTouch = { pending: false, claimed: false, armed: false, id: -1, x: 0, y: 0 };
 
@@ -414,9 +423,9 @@ function claimTouch(event: TouchEvent) {
   }
   const across = Math.abs(touch.clientX - globeTouch.x);
   const down = Math.abs(touch.clientY - globeTouch.y);
-  if (across === down) return;
+  if (Math.hypot(across, down) < clickSlop) return;
   globeTouch.pending = false;
-  if (across > down) {
+  if (across > down * 1.5) {
     globeTouch.claimed = true;
     event.preventDefault();
   }
@@ -435,8 +444,6 @@ function armTouch(on: boolean) {
   }
 }
 
-/** Pixels a press may wander and still count as a click (which pings), not a drag */
-const clickSlop = 6;
 const pressPoint = new Vector3();
 
 /**
