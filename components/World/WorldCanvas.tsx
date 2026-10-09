@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  startTransition,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -13,7 +14,7 @@ import { PerformanceMonitor } from '@react-three/drei';
 
 import { Asteroids } from './Asteroids';
 import { Beacons } from './Beacons';
-import { bootState, readyBoot, reportBoot } from './boot';
+import { bootState, readyBoot, reportBoot, useBooted } from './boot';
 import { downloads } from './downloads';
 import { CameraRig } from './CameraRig';
 import { Cockpit } from './Cockpit';
@@ -59,7 +60,7 @@ import {
   useWarmupIdle,
 } from './warmup';
 import { tourStops, useWorldMode } from './worldMode';
-import { chrome, onChrome, worldStore } from './worldStore';
+import { chrome, intentSettle, onChrome, onIntent, worldStore } from './worldStore';
 
 import type { Dispatch, SetStateAction } from 'react';
 import type { RootState } from '@react-three/fiber';
@@ -73,9 +74,18 @@ import type { WorldTheme } from './utils';
 /** Everywhere free roam can reach: every station, and the 404 derelict as a hidden signal */
 const roamable: StationKey[] = [...navigableStations, 'lost'];
 
+type IdleWindow = Window & {
+  requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+  cancelIdleCallback?: (id: number) => void;
+};
+
 /** Page chrome covers the whole world (the mobile menu, a full-screen modal) */
 const isCovered = () => chrome.menuOpen || chrome.modalCover;
 const notCovered = () => false;
+
+/** The station the visitor is about to fly to (worldStore.intent) */
+const readIntent = () => worldStore.intent;
+const noIntent = () => '' as const;
 
 /** Sets the clock's time (hook results are read-only in components) */
 function setClockTime(clock: Clock, time: number) {
@@ -250,12 +260,36 @@ export default function WorldCanvas({
   const { mode, tourStop } = useWorldMode();
   const station = mode === 'tour' ? tourStops[tourStop] : pageStation;
 
+  // The station the visitor is about to fly to mounts (and warms) ahead of
+  // the click, once the page is idle: not while the loading screen is up,
+  // and only once the intent has stood a moment (see intentSettle)
+  const intent = useSyncExternalStore(onIntent, readIntent, noIntent);
+  const booted = useBooted();
+  const [warming, setWarming] = useState<StationKey | ''>('');
+  useEffect(() => {
+    if (!intent || !booted) return;
+    const w = window as IdleWindow;
+    let idle = 0;
+    // A transition, so a click that comes in the meantime cuts in
+    const warm = () => startTransition(() => setWarming(intent));
+    const timer = window.setTimeout(() => {
+      if (w.requestIdleCallback) idle = w.requestIdleCallback(warm, { timeout: 1000 });
+      else warm();
+    }, intentSettle);
+    return () => {
+      window.clearTimeout(timer);
+      if (idle) w.cancelIdleCallback?.(idle);
+    };
+  }, [intent, booted]);
+
   // Stations mount the first time they are visited and stay mounted so flights
   // back to them are seamless; unvisited stations cost nothing. The tour
-  // warms the next stop while it lingers at this one.
+  // warms the next stop while it lingers at this one; a page, the station
+  // the visitor is about to fly to.
   const [visited, setVisited] = useState<StationKey[]>([station]);
   const wanted =
     mode === 'tour' ? [station, tourStops[(tourStop + 1) % tourStops.length]] : [station];
+  if (warming) wanted.push(warming);
   const missing = wanted.filter((key) => !visited.includes(key));
   if (missing.length) setVisited([...visited, ...missing]);
 

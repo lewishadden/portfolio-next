@@ -239,3 +239,57 @@ test.describe('free roam on touch', () => {
     }
   );
 });
+
+test.describe('warming the next station on a phone', () => {
+  test.use({
+    world: 'on',
+    reducedMotion: 'reduce',
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+
+  test(
+    'a station mounts before the tap that flies to it lands',
+    { tag: '@webgl' },
+    async ({ page, context }) => {
+      // A station's hull is fetched once to prefetch it, and again by the
+      // loader when the station mounts (from the HTTP cache)
+      const requests: string[] = [];
+      page.on('request', (request) => requests.push(new URL(request.url()).pathname));
+      const loads = (station: string) =>
+        requests.filter((path) => path === `/static/models/stations/sd/${station}.glb`).length;
+
+      await openHydrated(page, '/about');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      expect(loads('experience')).toBe(0);
+
+      // Phones never hover. Reading on to the page's way on (its page nav)
+      // warms the station its first link leads to
+      await page.locator('#main-content .page-nav').scrollIntoViewIfNeeded();
+      await expect.poll(() => loads('experience'), { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
+
+      // A finger landing on a link warms its station before it lifts. Held
+      // while the loads are counted (and then let go of without a click,
+      // as a long press is), so nothing else can have mounted it
+      const link = page.locator('#main-content a[href="/contact"]').first();
+      await link.scrollIntoViewIfNeeded();
+      const box = (await link.boundingBox())!;
+      const cdp = await context.newCDPSession(page);
+      const touch = (type: 'touchStart' | 'touchCancel', points: number[][]) =>
+        cdp.send('Input.dispatchTouchEvent', {
+          type,
+          touchPoints: points.map(([x, y], id) => ({ x, y, id })),
+        });
+      expect(loads('contact')).toBe(0);
+      await touch('touchStart', [[box.x + box.width / 2, box.y + box.height / 2]]);
+      await expect.poll(() => loads('contact'), { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
+      await expect(page).toHaveURL(/\/about$/);
+      await touch('touchCancel', []);
+
+      await link.tap();
+      await expect(page).toHaveURL(/\/contact$/);
+    }
+  );
+});

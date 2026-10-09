@@ -363,6 +363,14 @@ export function onShowcase(listener: ShowcaseListener) {
 
 const intentListeners = new Set<() => void>();
 
+/**
+ * How long an intent has to stand before the world warms its station (ms):
+ * a tap's click lands within it (and clears it), as does the cancel of a
+ * touch the browser takes for a scroll, and warming then would only compete
+ * with the route change or the scroll
+ */
+export const intentSettle = 300;
+
 /** Sets worldStore.intent ('' to clear): the world warms that station ahead of the click */
 export function setIntent(station: StationKey | '') {
   if (worldStore.intent === station) return;

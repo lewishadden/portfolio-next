@@ -22,9 +22,10 @@ import { TourOverlay } from './TourOverlay';
 import { WorldTooltip } from './WorldTooltip';
 import { liteQuery, prefetchStationModel, stationForPath } from './routes';
 import { arrivedAt, navigateFromMode, useWorldMode, worldMode } from './worldMode';
-import { setDocking, worldNavigateEvent, worldStore } from './worldStore';
+import { intentSettle, setDocking, setIntent, worldNavigateEvent, worldStore } from './worldStore';
 
 import type { ReactNode } from 'react';
+import type { StationKey } from './routes';
 import type { WorldContent } from './types';
 
 import './World.scss';
@@ -80,6 +81,93 @@ function useModelPrefetch(active: boolean) {
   }, [active]);
 }
 
+/** The station a link leads to, when it is one to fly to other than the station on show */
+function stationOfLink(link: Element | null): StationKey | null {
+  if (!(link instanceof HTMLAnchorElement) || link.hasAttribute('download')) return null;
+  if (link.origin !== window.location.origin) return null;
+  // Paths that aren't pages (a download, a typo) belong to the 404 derelict
+  const station = stationForPath(link.pathname);
+  if (station === 'lost') return null;
+  return station === stationForPath(window.location.pathname) ? null : station;
+}
+
+/**
+ * The station the visitor is about to fly to (worldStore.intent), so the
+ * world mounts and warms it before the click lands: a finger or button
+ * going down on a link to it (phones never hover, so the hover prefetch
+ * never fires there), or the page's way on (its page nav) scrolling into
+ * view. Its models start downloading too. The click itself clears it (the
+ * flight is on its way), and so does a touch the browser takes for a
+ * scroll, back to the page's way on if that has been seen. Cleared on
+ * every route change.
+ */
+function useStationIntent(active: boolean, routeKey: string) {
+  useEffect(() => {
+    if (!active) return;
+    /** The page's way on, once it has come into view */
+    let onward: StationKey | '' = '';
+    let downAt = -Infinity;
+    const intend = (link: Element | null) => {
+      const station = stationOfLink(link);
+      if (!station) return false;
+      prefetchStationModel((link as HTMLAnchorElement).pathname);
+      setIntent(station);
+      return true;
+    };
+    const linkOf = (e: Event) =>
+      e.target instanceof Element ? e.target.closest('a[href^="/"]') : null;
+    const onDown = (e: Event) => {
+      if (intend(linkOf(e))) downAt = performance.now();
+    };
+    const onClick = (e: Event) => {
+      if (stationOfLink(linkOf(e))) setIntent('');
+    };
+    // A scroll that started on a link: not a choice (a finger resting on
+    // one, a long press, still is)
+    const onCancel = () => {
+      if (performance.now() - downAt < intentSettle) setIntent(onward);
+      downAt = -Infinity;
+    };
+    document.addEventListener('pointerdown', onDown, { capture: true, passive: true });
+    document.addEventListener('touchstart', onDown, { capture: true, passive: true });
+    document.addEventListener('pointercancel', onCancel, true);
+    document.addEventListener('click', onClick, true);
+
+    // The page's way on, the first time it comes into view: its first link
+    // (the main way on) when several arrive together
+    const observer = new IntersectionObserver((entries) => {
+      const seen = entries.filter((entry) => entry.isIntersecting).map((entry) => entry.target);
+      seen.forEach((link) => observer.unobserve(link));
+      seen.sort((a, b) =>
+        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+      );
+      const first = seen.find(intend);
+      if (first) onward = stationOfLink(first) ?? '';
+    });
+    const watched = new Set<Element>();
+    const watch = () => {
+      for (const link of document.querySelectorAll('#main-content .page-nav a[href^="/"]')) {
+        if (watched.has(link)) continue;
+        watched.add(link);
+        observer.observe(link);
+      }
+    };
+    watch();
+    // Again once the new page has settled, in case it was still arriving
+    const settle = window.setTimeout(watch, 1200);
+
+    return () => {
+      document.removeEventListener('pointerdown', onDown, { capture: true });
+      document.removeEventListener('touchstart', onDown, { capture: true });
+      document.removeEventListener('pointercancel', onCancel, true);
+      document.removeEventListener('click', onClick, true);
+      window.clearTimeout(settle);
+      observer.disconnect();
+      setIntent('');
+    };
+  }, [active, routeKey]);
+}
+
 /** Feeds scroll + pointer into the world store without touching React state */
 function useWorldInputs() {
   useEffect(() => {
@@ -126,6 +214,7 @@ export function World({ content }: { content: WorldContent }) {
 
   useWorldInputs();
   useModelPrefetch(active);
+  useStationIntent(active, routeKey);
   useWorldFocus();
   useRoutePreview(active && ready);
   usePageReading(active, routeKey);
