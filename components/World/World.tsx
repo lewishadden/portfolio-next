@@ -4,7 +4,7 @@ import { Component, useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 
-import { copyHeldFor, snapshotPage } from '@/components/PageTransition/pageSnapshot';
+import { copyHeldFor, onCopyHold, snapshotPage } from '@/components/PageTransition/pageSnapshot';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useMotionLevel } from '@/hooks/useMotion';
@@ -319,7 +319,9 @@ export function World({ content }: { content: WorldContent }) {
   // so there is none to keep legible, the veil lifts and the view is clear.
   // Short hops keep it, and so does any flight the copy isn't waiting for:
   // the warp in whenever the canvas starts (as the site loads, or switched
-  // back on after a navigation), whose page is already showing
+  // back on after a navigation), whose page is already showing. It ends
+  // whenever the copy stops waiting on that flight, however that comes
+  // about (on approach, the longest hold, a camera found already there)
   useEffect(() => {
     if (!active) return;
     const root = document.documentElement;
@@ -335,8 +337,13 @@ export function World({ content }: { content: WorldContent }) {
       if (cruise) root.dataset.flight = 'cruise';
       else clear();
     });
+    const unhold = onCopyHold(() => {
+      const { active: flying, to } = worldStore.flight;
+      if (!flying || to !== copyHeldFor()) clear();
+    });
     return () => {
       stop();
+      unhold();
       clear();
     };
   }, [active, mode]);

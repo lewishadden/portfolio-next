@@ -70,13 +70,24 @@ let pending: Snapshot | null = null;
 let shown: StationKey | null = null;
 /** The station whose page's copy is held back for the camera (PageTransition), if any */
 let waiting: StationKey | null = null;
+const holdListeners = new Set<() => void>();
 
 /**
  * PageTransition holds the new page's copy until the camera flying to
  * `station` is on approach (null: it shows, or never waited)
  */
 export function holdCopy(station: StationKey | null) {
+  if (waiting === station) return;
   waiting = station;
+  holdListeners.forEach((listener) => listener());
+}
+
+/** Calls `listener` whenever the copy held back changes; returns the unsubscribe */
+export function onCopyHold(listener: () => void) {
+  holdListeners.add(listener);
+  return () => {
+    holdListeners.delete(listener);
+  };
 }
 
 /**
