@@ -7,6 +7,8 @@
 
   &__head {
     display: grid;
+    /* As wide as its text (the world dims what is behind it, beside the station) */
+    justify-items: start;
     gap: 1rem;
     margin-bottom: 2.5rem;
   }

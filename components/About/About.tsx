@@ -106,6 +106,7 @@ export const About = ({
         <div className="about__body">
           <Reveal
             className="about__copy"
+            data-reading
             delay={0.1}
             dangerouslySetInnerHTML={{ __html: description }}
           />

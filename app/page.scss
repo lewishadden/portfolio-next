@@ -44,6 +44,9 @@ body {
 .page-head {
   position: relative;
   display: grid;
+  /* Each line only as wide as its text: the world's readability guard dims
+     what is behind [data-reading] boxes, and these sit beside the station */
+  justify-items: start;
   gap: 1.25rem;
   max-width: 44rem;
   margin-bottom: clamp(3rem, 8vh, 5.5rem);
@@ -83,6 +86,7 @@ body {
 
   .page-head__stage {
     display: block;
+    justify-self: stretch;
     height: clamp(11rem, 30svh, 18rem);
     margin-top: calc(-1 * clamp(1.5rem, 5vh, 3rem));
   }

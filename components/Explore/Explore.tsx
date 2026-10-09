@@ -46,11 +46,11 @@ export const Explore = ({
 }) => (
   <section className="explore" aria-labelledby="explore-heading" data-world-section="explore">
     <Reveal className="explore__head">
-      <p className="eyebrow">
+      <p className="eyebrow" data-reading>
         <span className="eyebrow__line" aria-hidden="true" />
         <ScrambleText text={label} />
       </p>
-      <h2 id="explore-heading" className="explore__heading">
+      <h2 id="explore-heading" className="explore__heading" data-reading="large">
         {title}
       </h2>
     </Reveal>

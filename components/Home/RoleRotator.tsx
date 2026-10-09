@@ -18,7 +18,7 @@ export function RoleRotator({ titles, interval = 3200 }: { titles: string[]; int
   }, [titles.length, interval, reducedMotion]);
 
   return (
-    <p className="hero__role">
+    <p className="hero__role" data-reading>
       <span className="sr-only">{titles.join(', ')}</span>
       <span className="hero__role-line" aria-hidden="true">
         <span className="hero__role-prompt">&gt;_</span>

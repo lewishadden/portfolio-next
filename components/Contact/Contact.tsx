@@ -150,8 +150,12 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
           layouts it keeps to the left, so the station has the right side */}
       <div className="contact__grid" data-world-section="message">
         <Reveal className="contact__intro">
-          <h2 className="contact__intro-title">{contactInfo.title}</h2>
-          <p className="contact__intro-text">{contactInfo.description}</p>
+          <h2 className="contact__intro-title" data-reading="large">
+            {contactInfo.title}
+          </h2>
+          <p className="contact__intro-text" data-reading>
+            {contactInfo.description}
+          </p>
           <p className="contact__sla">
             <span className="contact__sla-dot" aria-hidden="true" />
             Usually replies within a working day
