@@ -91,6 +91,8 @@ const judgeSamples = 10;
 const settleMs = sampleMs * judgeSamples * 1.25;
 /** After this many falls straight after a rise, the tier stops rising: the device sits on the edge */
 const maxReversals = 3;
+/** A fall counts as straight after a rise within the next judging window or the one after */
+const reversalMs = settleMs * 2;
 
 /**
  * Adapts the quality tier to the device. The monitor stays mounted for the
@@ -101,8 +103,10 @@ const maxReversals = 3;
  * drops the tier for good. Nor do they count while the canvas renders on
  * demand: sparse frames aren't a frame rate. A device always above the upper
  * bound keeps inclining at the ceiling, which is no change at all; one that
- * falls back after every rise stops rising rather than flapping between tiers
- * (each change resizes the canvas and the composer, a visible hitch).
+ * falls back straight after a rise (within two judging windows) three times
+ * stops rising rather than flapping between tiers (each change resizes the
+ * canvas and the composer, a visible hitch). A fall long after a rise (a
+ * heavy page, thermal throttling) is a fall, not a flap.
  */
 function QualityGovernor({
   tier,
@@ -115,7 +119,7 @@ function QualityGovernor({
 }) {
   const idle = useWarmupIdle();
   const frameloop = useThree((s) => s.frameloop);
-  const watch = useRef({ busyUntil: 0, rose: false, reversals: 0 });
+  const watch = useRef({ busyUntil: 0, roseAt: -Infinity, reversals: 0 });
 
   useFrame(() => {
     if (!idle || worldStore.velocity > 12) watch.current.busyUntil = performance.now() + settleMs;
@@ -128,14 +132,14 @@ function QualityGovernor({
       onDecline={() => {
         if (!judging() || tier === 'low') return;
         const state = watch.current;
-        if (state.rose) state.reversals++;
-        state.rose = false;
+        if (performance.now() - state.roseAt <= reversalMs) state.reversals++;
+        state.roseAt = -Infinity;
         setTier(lowerTier(tier));
       }}
       onIncline={() => {
         const state = watch.current;
         if (!judging() || tier === ceiling || state.reversals >= maxReversals) return;
-        state.rose = true;
+        state.roseAt = performance.now();
         setTier(raiseTier(tier, ceiling));
       }}
       // Judge over four seconds, and only step for a clear and sustained change
