@@ -318,8 +318,10 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       easing.damp3(lookCurrent, rig.followLook, 0.16, dt);
       cam.lookAt(lookCurrent);
     }
-    // Cut or flown there, the camera is where the page has it
-    if (snap || rig.flight) {
+    // Cut or flown there, the camera is where the page has it. Nor is a hop
+    // along the projects helix held to the cap: chasing a ride that outran
+    // it, the camera cut a chord across the helix, through its spine
+    if (snap || rig.flight || rig.ride.hopping) {
       rig.follow.copy(target);
       rig.followLook.copy(look);
     }
