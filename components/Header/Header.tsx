@@ -52,6 +52,14 @@ export const Header = ({
   }, []);
 
   const pathname = usePathname();
+  // A new page closes the menu, whatever opened it: its own links close it
+  // as they're tapped, but the logo stays in reach above it, and so do the
+  // command palette and the browser's back button
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (menuPath !== pathname) {
+    setMenuPath(pathname);
+    setMobileOpen(false);
+  }
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 
@@ -130,12 +138,21 @@ export const Header = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMobileOpen(false);
     };
+    // The menu only shows on narrow screens (MobileMenu.scss): widened past
+    // them (a tablet turned to landscape) it closes, rather than stay open
+    // unseen and out of reach, holding the page and the world still
+    const wide = window.matchMedia('(min-width: 901px)');
+    const handleWiden = () => {
+      if (wide.matches) setMobileOpen(false);
+    };
     document.addEventListener('keydown', handleKeyDown);
+    wide.addEventListener('change', handleWiden);
     document.documentElement.classList.add('menu-open');
     // The menu is opaque and covers the world: it stops drawing until it closes
     setChrome({ menuOpen: true });
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      wide.removeEventListener('change', handleWiden);
       document.documentElement.classList.remove('menu-open');
       setChrome({ menuOpen: false });
     };

@@ -101,15 +101,36 @@ function dropQueuedFrames(state: RootState) {
  * queued as it paused would draw once more with its "never" mode's own
  * timing (the clock set to the raw frame timestamp, a delta of the page's
  * whole life), so the queue is dropped as the cover goes up.
+ *
+ * This leans on R3F internals, as of @react-three/fiber 9.8.0: the store's
+ * `setFrameloop` zeroes `clock.elapsedTime`, its render loop keeps going
+ * while `internal.frames > 0`, and a frame rendered in "never" mode sets
+ * the clock from the frame's timestamp. Recheck all three after upgrading
+ * it (in development a frame that runs while covered, or a clock that
+ * doesn't carry on once the cover lifts, is logged)
  */
 function CoverPause({ covered }: { covered: boolean }) {
   const get = useThree((s) => s.get);
   const frameloop = useThree((s) => s.frameloop);
   const time = useRef(0);
   const paused = useRef(false);
+  const resumed = useRef(false);
 
   useFrame((state) => {
-    if (state.frameloop !== 'never') time.current = state.clock.elapsedTime;
+    if (state.frameloop === 'never') {
+      if (process.env.NODE_ENV !== 'production' && paused.current) {
+        console.warn('CoverPause: a frame ran while the world was covered (see its R3F note)');
+      }
+      return;
+    }
+    if (process.env.NODE_ENV !== 'production' && resumed.current) {
+      resumed.current = false;
+      const gap = state.clock.elapsedTime - time.current;
+      if (gap < 0 || gap > 1) {
+        console.warn(`CoverPause: the world's clock jumped ${gap.toFixed(2)}s across a pause`);
+      }
+    }
+    time.current = state.clock.elapsedTime;
   });
 
   useLayoutEffect(() => {
@@ -121,6 +142,7 @@ function CoverPause({ covered }: { covered: boolean }) {
     }
     if (!paused.current || frameloop === 'never') return;
     paused.current = false;
+    resumed.current = true;
     setClockTime(state.clock, time.current);
     state.invalidate();
   }, [covered, frameloop, get]);
@@ -192,18 +214,29 @@ function QualityGovernor({
 }) {
   const idle = useWarmupIdle();
   const frameloop = useThree((s) => s.frameloop);
-  const watch = useRef({ busyUntil: 0, roseAt: -Infinity, reversals: 0, lastFrame: 0 });
+  const watch = useRef({ busyUntil: 0, roseAt: -Infinity, reversals: 0 });
 
   useFrame(() => {
-    const now = performance.now();
-    const state = watch.current;
-    // A pause (the menu covering the world, a hidden tab) reads as one very
-    // slow frame in the monitor's samples: not the device's doing either
-    if (!idle || worldStore.velocity > 12 || now - state.lastFrame > 250) {
-      state.busyUntil = now + settleMs;
-    }
-    state.lastFrame = now;
+    if (!idle || worldStore.velocity > 12) watch.current.busyUntil = performance.now() + settleMs;
   });
+
+  // A pause reads as one very slow frame in the monitor's samples, which is
+  // not the device's doing: the canvas stopping and starting again (page
+  // chrome covering the world, a change of frameloop) or the tab coming
+  // back into view. Each is marked as it happens, before the next frame,
+  // so the judging window it lands in doesn't count. A slow device's
+  // frames, however slow, still do
+  useLayoutEffect(() => {
+    const rest = () => {
+      watch.current.busyUntil = performance.now() + settleMs;
+    };
+    rest();
+    const onVisibility = () => {
+      if (!document.hidden) rest();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [frameloop]);
 
   const judging = () => frameloop === 'always' && performance.now() >= watch.current.busyUntil;
 

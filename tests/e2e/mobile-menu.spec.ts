@@ -32,6 +32,37 @@ test.describe('mobile menu', () => {
     await expect(menu).toBeHidden();
   });
 
+  test('closes when the window widens past it (a tablet turned to landscape)', async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await openHydrated(page, '/about');
+    await page.getByRole('button', { name: 'Open navigation menu' }).click();
+    await expect(page.locator('html')).toHaveClass(/menu-open/);
+
+    // Wide, the menu and its button aren't shown: it mustn't stay open unseen
+    await page.setViewportSize({ width: 1180, height: 820 });
+    await expect(page.locator('html')).not.toHaveClass(/menu-open/);
+
+    // Turned back, it's closed
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await expect(page.getByRole('button', { name: 'Open navigation menu' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    await expect(page.locator('#mobile-menu')).toBeHidden();
+  });
+
+  test('closes when the page changes from the header', async ({ page }) => {
+    await openHydrated(page, '/about');
+    await page.getByRole('button', { name: 'Open navigation menu' }).click();
+    const menu = page.locator('#mobile-menu');
+    await expect(menu).toBeVisible();
+    // The header stays on top of the menu: its logo goes home
+    await page.locator('header .header__logo').click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(menu).toBeHidden();
+    await expect(page.locator('html')).not.toHaveClass(/menu-open/);
+  });
+
   test.describe('with 3D effects on', () => {
     test.use({ world: 'on' });
 
@@ -94,6 +125,8 @@ test.describe('mobile menu', () => {
           return (await count()) - before;
         };
 
+        // A tablet held upright: narrow enough for the menu
+        await page.setViewportSize({ width: 820, height: 1180 });
         await openHydrated(page, '/about');
         await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
         await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
@@ -109,6 +142,16 @@ test.describe('mobile menu', () => {
         await page.keyboard.press('Escape');
         await expect(menu).toBeHidden();
         await expect.poll(() => drawsOver(1000)).toBeGreaterThan(0);
+
+        // Turned to landscape, wider than the menu shows, it closes and the
+        // world draws again: nothing is left covering it
+        await page.getByRole('button', { name: 'Open navigation menu' }).click();
+        await expect(menu).toBeVisible();
+        await page.waitForTimeout(500);
+        expect(await drawsOver(1000)).toBe(0);
+        await page.setViewportSize({ width: 1180, height: 820 });
+        await page.waitForTimeout(500);
+        expect(await drawsOver(1500)).toBeGreaterThan(0);
       }
     );
   });
