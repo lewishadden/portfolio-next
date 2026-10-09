@@ -5,7 +5,10 @@
    Command palette: ⌘K / Ctrl+K. An opaque panel in the header HUD's
    style (a hairline frame and corner brackets) over a dimmed page:
    no backdrop blur, which re-blurred the live 3D world under it every
-   frame
+   frame. Small text is --text-secondary and the HUD's own cyan: on the
+   opaque --bg-secondary panel (darker than the old near-white glass in
+   light theme) --text-muted and --accent-secondary fell under 4.5:1,
+   and to 3.5:1 on the selected row
    ============================================================= */
 html.palette-open {
   overflow: hidden;
@@ -66,7 +69,7 @@ html.palette-open {
     flex-shrink: 0;
     font-family: var(--font-mono);
     font-size: var(--fs-caption);
-    color: var(--accent-secondary);
+    color: var(--hud-text);
   }
 
   &__input {
@@ -85,7 +88,7 @@ html.palette-open {
     caret-color: var(--accent-secondary);
 
     &::placeholder {
-      color: var(--text-muted);
+      color: var(--text-secondary);
     }
   }
 
@@ -151,7 +154,7 @@ html.palette-open {
     font-size: var(--fs-tiny);
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
 
   &__item {
@@ -183,19 +186,23 @@ html.palette-open {
     flex-shrink: 0;
     font-family: var(--font-mono);
     font-size: var(--fs-tiny);
-    color: var(--text-muted);
+    color: var(--text-secondary);
 
     &--docked {
-      color: var(--accent-secondary);
+      color: var(--hud-text);
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
   }
 
+  &__item.is-active &__hint--docked {
+    color: var(--hud-text-strong);
+  }
+
   &__empty {
     padding: 1rem 0.7rem;
     font-size: var(--fs-caption);
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
 
   &__foot {
@@ -205,7 +212,7 @@ html.palette-open {
     padding: 0.55rem 1rem;
     border-top: 1px solid var(--border-color);
     font-size: var(--fs-tiny);
-    color: var(--text-muted);
+    color: var(--text-secondary);
 
     span {
       display: inline-flex;
