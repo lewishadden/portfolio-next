@@ -8,9 +8,11 @@ import { motionLevel } from '@/utils/motion';
 
 import { colliderCount, contactWith, shipMargin } from './colliders';
 import { clickTarget, refreshPointer, releaseHover } from './interaction';
+import { spawnPing } from './Pings';
 import { canLockPointer, lockPointer } from './pointerLock';
 import { navigableStations, stationForPath } from './routes';
 import { applyShake } from './shake';
+import { spawnSparks } from './Sparks';
 import { fogTarget, setViewRange, useLite } from './stationHooks';
 import { baseFov, beaconHeight, stationPositions } from './stations';
 import { worldMode } from './worldMode';
@@ -242,16 +244,21 @@ function stopAiming(state: RootState) {
 }
 
 /** A knock against a hull, `speed` units a second into it: a jolt, a flash of the HUD and a thud */
-function bump(speed: number, t: number, state: LookState, hit: Contact) {
+function bump(speed: number, t: number, state: LookState, hit: Contact, incoming: Vector3) {
   if (t - state.bumpedAt < 0.35) return;
   state.bumpedAt = t;
   const strength = MathUtils.clamp(speed / 30, 0.25, 1);
   worldStore.shake = Math.max(worldStore.shake, strength);
   emitCue('bump', { at: [hit.point.x, hit.point.y, hit.point.z], strength });
   window.dispatchEvent(new CustomEvent(worldBumpEvent, { detail: strength }));
+  // A ring of light where the hull was struck, and sparks off it (full motion)
+  spawnPing(hit.point);
+  spawnSparks(hit.point, hit.normal, incoming, strength);
 }
 
 const contact: Contact = { normal: new Vector3(), gap: 0, point: new Vector3() };
+/** The ship's velocity going into a hull, before it bounced */
+const incoming = new Vector3();
 
 /** Colliders the ship is already inside as free roam starts: left alone until it is clear of them */
 function excuseColliders(position: Vector3, t: number, state: LookState) {
@@ -272,8 +279,9 @@ function collide(cam: PerspectiveCamera, t: number, state: LookState) {
     cam.position.addScaledVector(contact.normal, shipMargin - contact.gap);
     const into = -velocity.dot(contact.normal);
     if (into <= 0) continue;
+    incoming.copy(velocity);
     velocity.addScaledVector(contact.normal, into * 1.5);
-    if (into > gentle) bump(into, t, state, contact);
+    if (into > gentle) bump(into, t, state, contact, incoming);
   }
 }
 
