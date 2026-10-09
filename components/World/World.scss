@@ -512,8 +512,9 @@ html[data-flight='cruise'] .world__veil {
     outline: none;
   }
 
+  /* Dark enough for its text to keep 4.5:1 over the light sky */
   [data-theme='light'] & {
-    --signal: #b45309;
+    --signal: #92400e;
   }
 
   /* The top bar with the signal detector under it, however tall the bar
@@ -622,9 +623,10 @@ html[data-flight='cruise'] .world__veil {
       color: var(--text-primary);
     }
 
+    /* Dimmed a little, not so far as to fall under 4.5:1 */
     &[data-done] {
       color: var(--text-secondary);
-      opacity: 0.75;
+      opacity: 0.85;
     }
   }
 
@@ -725,7 +727,8 @@ html[data-flight='cruise'] .world__veil {
   }
 
   /* The edge of the world (EdgeWarning): a warning over the reticle while
-     the ship is turned back; empty (and unseen) otherwise */
+     the ship is turned back; empty (and unseen) otherwise. Its frame
+     blinks, never its text, which keeps 4.5:1 over whatever is behind */
   &__edge {
     position: absolute;
     top: calc(50% - 10vmin - 2rem);
@@ -740,7 +743,7 @@ html[data-flight='cruise'] .world__veil {
     color: var(--signal);
     border: 1px solid color-mix(in oklab, var(--signal) 55%, transparent);
     border-radius: 4px;
-    background: color-mix(in oklab, var(--bg-primary) 70%, transparent);
+    background: color-mix(in oklab, var(--bg-primary) 88%, transparent);
     transform: translateX(-50%);
     animation: edge-blink 1.6s ease-in-out infinite;
 
@@ -1483,7 +1486,7 @@ html[data-flight='cruise'] .world__veil {
 
 @keyframes edge-blink {
   50% {
-    opacity: 0.55;
+    border-color: color-mix(in oklab, var(--signal) 12%, transparent);
   }
 }
 
