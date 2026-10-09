@@ -1,19 +1,26 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import {
   AdditiveBlending,
   Color,
+  DataTexture,
+  FrontSide,
   Group,
   InstancedBufferAttribute,
   InstancedMesh,
+  Mesh,
   Object3D,
   ShaderMaterial,
   SphereGeometry,
+  SRGBColorSpace,
+  Texture,
 } from 'three';
 
+import { bloomMaskLayer, maskBloom } from '../bloomMask';
+import { decodeImage } from '../imageDecoder';
 import { asGlow, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
 import { HabitatRing, NavLights, SolarArray, Spin } from '../parts';
@@ -23,6 +30,7 @@ import {
   easeInOut,
   stepReaction,
   trickProgress,
+  useRedrawOnPageHover,
   useReactionHandlers,
   useShowcase,
 } from '../reaction';
@@ -30,7 +38,11 @@ import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { StationHull } from '../StationHull';
 import { stationModels, stationPositions } from '../stations';
 import { seededRandom, setUniform } from '../utils';
+import { queueUpload } from '../warmup';
+import { worldStore } from '../worldStore';
 
+import type { ThreeEvent } from '@react-three/fiber';
+import type { BufferGeometry } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
 
@@ -114,6 +126,144 @@ function placeMotes(mesh: InstancedMesh | null, motes: Mote[], t: number) {
   mesh.instanceMatrix.needsUpdate = true;
 }
 
+/* ------------------------------------------------------------------
+   The helmet cam: the visor shows the portrait from the About page, as
+   if seen from inside the helmet. A shell just over the visor's glass
+   (a sphere segment fitted once to the GLB) carries it: scanlines, a
+   fresnel edge, and a scan that sweeps it in from the top. It shows for
+   a moment after a click on the helmet, and while the portrait on the
+   page is pointed at or focused. Kept out of bloom, so the photo shows
+   at its own brightness.
+   ------------------------------------------------------------------ */
+
+/**
+ * The visor's sphere in the helmet's frame (the model is 2.8 high, and its
+ * visor looks along `facing`: nearly -X, towards the page's copy), and the
+ * patch of it the glass covers, fitted by eye against the GLB
+ */
+const visor = {
+  centre: [-0.177, 0, 0.031] as [number, number, number],
+  radius: [1.11, 1.055, 1.11] as [number, number, number],
+  /** Which way it looks: the angle about Y from -X (SphereGeometry's phi) */
+  facing: 0.17,
+  /** Half its width and height on the sphere (radians), and how far above the equator it is centred */
+  halfWidth: 0.82,
+  halfHeight: 0.42,
+  lift: 0,
+};
+
+/** Seconds the scan takes to sweep in, how long a click holds it, and how fast it goes */
+const scanIn = 0.4;
+const scanHold = 2;
+const scanOut = 0.5;
+
+/** Stands in for the portrait until it is decoded (the shell isn't drawn till then) */
+const noPortrait = new DataTexture(new Uint8Array(4), 1, 1);
+noPortrait.needsUpdate = true;
+
+function visorGeometry() {
+  return new SphereGeometry(
+    1,
+    48,
+    24,
+    visor.facing - visor.halfWidth,
+    visor.halfWidth * 2,
+    Math.PI / 2 - visor.lift - visor.halfHeight,
+    visor.halfHeight * 2
+  );
+}
+
+function createVisorMaterial(p: WorldPalette) {
+  return asGlow(
+    new ShaderMaterial({
+      uniforms: {
+        uMap: { value: noPortrait },
+        /** Width over height of the portrait, cropped to fill the visor */
+        uAspect: { value: 1 },
+        uShow: { value: 0 },
+        uTime: { value: 0 },
+        uCharge: { value: 1 },
+        uLight: { value: 0 },
+        uTint: { value: new Color(p.cyan) },
+      },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vView;
+        void main() {
+          vUv = uv;
+          vec4 world = modelMatrix * vec4(position, 1.0);
+          vNormal = normalize(mat3(modelMatrix) * normal);
+          vView = normalize(cameraPosition - world.xyz);
+          gl_Position = projectionMatrix * viewMatrix * world;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D uMap;
+        uniform float uAspect, uShow, uTime, uCharge, uLight;
+        uniform vec3 uTint;
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vView;
+        void main() {
+          // The scan sweeps down from the top as it comes in, and back up as it goes
+          float line = 1.0 - vUv.y;
+          float reveal = 1.0 - smoothstep(uShow * 1.15 - 0.15, uShow * 1.15, line);
+          if (reveal <= 0.0) discard;
+          // The glass is about twice as wide as high: a window on the face and
+          // shoulders, as wide as the portrait allows
+          vec2 uv = vec2(
+            0.5 + (vUv.x - 0.5) * min(0.96, 0.64 / max(uAspect, 0.1)),
+            0.56 + (vUv.y - 0.5) * 0.32
+          );
+          vec3 photo = texture2D(uMap, uv).rgb;
+          float lines = 0.8 + 0.2 * sin(vUv.y * 240.0 - uTime * 3.0);
+          float facing = abs(dot(normalize(vNormal), normalize(vView)));
+          float rim = pow(clamp(1.0 - facing, 0.0, 1.0), 2.0);
+          // A bright band at the scan's leading edge, the glass's edge soft
+          float band = smoothstep(0.06, 0.0, abs(line - uShow * 1.15 + 0.07)) * (1.0 - uShow * uShow);
+          float edge = smoothstep(0.0, 0.1, vUv.x) * smoothstep(1.0, 0.9, vUv.x)
+            * smoothstep(0.0, 0.12, vUv.y) * smoothstep(1.0, 0.88, vUv.y);
+          vec3 col = photo * lines * mix(0.85, 1.0, uLight) + uTint * (rim * 0.6 + band * 1.2);
+          float alpha = reveal * edge * mix(0.9, 0.8, uLight) * min(uCharge, 1.0);
+          gl_FragColor = vec4(col * max(uCharge, 1.0), alpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      side: FrontSide,
+      toneMapped: false,
+    })
+  );
+}
+
+/** What the visor is doing: the last click (clock time) and how far shown, 0..1 */
+interface VisorState {
+  clickAt: number;
+  show: number;
+}
+
+/**
+ * Eases the visor towards shown (a click's hold, or the portrait pointed at
+ * on the page) or hidden; at the still level it jumps straight there
+ */
+function stepVisor(state: VisorState, t: number, dt: number, still: boolean) {
+  const wanted =
+    worldStore.targetHover === 'about:portrait' || t - state.clickAt < scanIn + scanHold ? 1 : 0;
+  if (still) state.show = wanted;
+  else if (wanted > state.show) state.show = Math.min(1, state.show + dt / scanIn);
+  else state.show = Math.max(0, state.show - dt / scanOut);
+  return state.show;
+}
+
+/** Keeps the photo on the visor out of bloom while it shows */
+function VisorMask({ geometry, shown }: { geometry: BufferGeometry; shown: boolean }) {
+  const ref = useRef<Mesh>(null);
+  useEffect(() => (ref.current ? maskBloom(ref.current) : undefined), []);
+  return <mesh ref={ref} geometry={geometry} layers={bloomMaskLayer} visible={shown} />;
+}
+
 const buildMaterials = (p: WorldPalette) => ({
   ringA: createRingMaterial({
     colorA: p.cyan,
@@ -136,10 +286,11 @@ const buildMaterials = (p: WorldPalette) => ({
   scanDisc: createHaloMaterial({ color: p.cyan, intensity: 1.2, opacity: 0.4 }),
   halo: createHaloMaterial({ color: p.violet, intensity: 1.2, opacity: 0.55 }),
   motes: createMoteMaterial(p),
+  visor: createVisorMaterial(p),
 });
 
 /** `/about` — the helmet, circled by holographic data rings and a scanning plane */
-export function AboutStation({ theme }: { theme: WorldTheme }) {
+export function AboutStation({ theme, portrait }: { theme: WorldTheme; portrait: string }) {
   const groupRef = useRef<Group>(null);
   const helmetRef = useRef<Group>(null);
   const ringsRef = useRef<Group>(null);
@@ -147,8 +298,64 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
   const motesRef = useRef<InstancedMesh>(null);
   const materials = useThemedMaterials(buildMaterials, theme, 'about');
   const reaction = useRef(createReaction());
-  const handlers = useReactionHandlers(reaction, helmetTip, spinTime);
+  const baseHandlers = useReactionHandlers(reaction, helmetTip, spinTime);
   useShowcase('about', helmetRef, reaction, spinTime);
+  const visorRef = useRef<Mesh>(null);
+  const visorState = useRef<VisorState>({ clickAt: -Infinity, show: 0 });
+  const [visorShown, setVisorShown] = useState(false);
+  const still = useThree((s) => s.frameloop === 'demand');
+  const invalidate = useThree((s) => s.invalidate);
+  useRedrawOnPageHover(true);
+  // A click spins the helmet and scans the portrait onto its visor
+  const handlers = useMemo(
+    () => ({
+      ...baseHandlers,
+      onClick(e: ThreeEvent<MouseEvent>) {
+        baseHandlers.onClick(e);
+        visorState.current.clickAt = reaction.current.now;
+        // On demand, one more frame takes it down again after the hold
+        if (still) window.setTimeout(invalidate, (scanIn + scanHold) * 1000 + 50);
+      },
+    }),
+    [baseHandlers, still, invalidate]
+  );
+
+  // The portrait, decoded off the main thread at 512 wide and uploaded on a frame of its own
+  const gl = useThree((s) => s.gl);
+  const [photo, setPhoto] = useState<Texture | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const url = `/_next/image?url=${encodeURIComponent(portrait)}&w=640&q=75`;
+    decodeImage(url, {
+      imageOrientation: 'flipY',
+      premultiplyAlpha: 'none',
+      resizeWidth: 512,
+      resizeQuality: 'high',
+    })
+      .then(async (bitmap) => {
+        if (!alive) return;
+        const texture = new Texture(bitmap);
+        texture.flipY = false;
+        texture.colorSpace = SRGBColorSpace;
+        texture.userData.aspect = bitmap.width / bitmap.height;
+        texture.needsUpdate = true;
+        await queueUpload(gl, texture);
+        if (alive) setPhoto(texture);
+        else texture.dispose();
+      })
+      // No portrait, no helmet cam: the visor stays as it is
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [gl, portrait]);
+  useEffect(() => () => photo?.dispose(), [photo]);
+  useEffect(() => {
+    setUniform(materials.visor, 'uMap', photo ?? noPortrait);
+    setUniform(materials.visor, 'uAspect', photo?.userData.aspect ?? 1);
+  }, [materials, photo]);
+  const shellGeometry = useMemo(() => visorGeometry(), []);
+  useEffect(() => () => shellGeometry.dispose(), [shellGeometry]);
 
   const motes = useMemo<Mote[]>(() => {
     const random = seededRandom(41);
@@ -202,6 +409,15 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
     if (scan) scan.position.y = Math.sin(t * 0.7) * 1.35;
 
     placeMotes(motesRef.current, motes, t);
+
+    // The helmet cam: nothing to draw until the portrait is in and asked for
+    const shown = stepVisor(visorState.current, t, Math.min(delta, 0.05), still) > 0;
+    const shell = visorRef.current;
+    if (shell) shell.visible = shown && photo !== null;
+    if (shown !== visorShown) setVisorShown(shown);
+    setUniform(materials.visor, 'uShow', visorState.current.show);
+    // Scanlines hold still at the still level
+    if (!still) setUniform(materials.visor, 'uTime', t);
   });
 
   return (
@@ -262,6 +478,17 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
 
         <group ref={helmetRef}>
           <Model url={stationModels.about!} height={2.8} theme={theme} />
+          {/* The helmet cam, just over the visor's glass */}
+          <group position={visor.centre} scale={visor.radius}>
+            <mesh
+              ref={visorRef}
+              geometry={shellGeometry}
+              material={materials.visor}
+              scale={1.002}
+              visible={false}
+            />
+            <VisorMask geometry={shellGeometry} shown={visorShown && photo !== null} />
+          </group>
           {/* Never drawn: the helmet's target for the pointer (a sphere, not its triangles) */}
           <mesh visible={false} {...handlers}>
             <sphereGeometry args={[1.35, 16, 12]} />

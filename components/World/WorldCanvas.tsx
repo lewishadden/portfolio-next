@@ -465,7 +465,7 @@ export default function WorldCanvas({
           )}
           {has('about') && (
             <Precompiled>
-              <AboutStation theme={theme} />
+              <AboutStation theme={theme} portrait={content.about.portrait} />
             </Precompiled>
           )}
           {has('experience') && (
