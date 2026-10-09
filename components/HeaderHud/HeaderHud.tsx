@@ -2,7 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 
-import { emitCue, worldStore } from 'components/World/worldStore';
+import { rangeBetween, stationForPath, stationNames, stationKeys } from 'components/World/routes';
+import { emitCue, onFlight, worldStore } from 'components/World/worldStore';
+
+import type { StationKey } from 'components/World/routes';
 
 import './HeaderHud.scss';
 
@@ -63,6 +66,11 @@ uniform vec3 uFillColour;
 uniform float uFill;
 uniform vec4 uRows[2];
 uniform float uFloor;
+uniform float uProgress;
+uniform float uTicks[6];
+uniform float uTickCount;
+uniform float uReading;
+uniform float uFlight;
 uniform float uGlow;
 uniform float uMotion;
 uniform float uLineAlpha;
@@ -151,6 +159,31 @@ float lines(vec2 p, float t) {
   light += lockOn * span * (smoothstep(2.0, 0.0, abs(p.y - baseline)) * (0.9 + uLockFlash) + exp(-abs(p.y - baseline) / 4.0) * 0.25 * uGlow);
   vec4 ping = vec4(uLock.xy - 5.0 - uLockPing * 18.0, uLock.zw + 10.0 + uLockPing * 36.0);
   light += lockOn * smoothstep(1.4, 0.3, abs(rectDist(p, ping))) * (1.0 - uLockPing) * step(0.001, uLockPing) * 0.8;
+
+  // Along the bottom edge, how far through the page you are: a 1px fill
+  // with a bright head, and a tick at each of the page's sections, the one
+  // being read glowing. In flight it's the course instead: the fill is how
+  // far you've come and the rest runs on ahead, dashed (the ticks belong to
+  // the page you left, so they fade)
+  if (abs(p.y - uSize.y) < 9.0) {
+    float edgeY = uSize.y - 1.0;
+    float headX = uSize.x * clamp(uProgress, 0.0, 1.0);
+    float onLine = smoothstep(1.3, 0.3, abs(p.y - edgeY)) * step(0.0, p.x) * step(p.x, uSize.x);
+    float filled = onLine * step(p.x, headX) * 0.55;
+    float ahead = onLine * step(headX, p.x) * step(0.5, fract(p.x / 7.0 - t * 1.2)) * 0.45 * uFlight;
+    vec2 d = (p - vec2(headX, edgeY)) / vec2(6.0, 2.2);
+    float head = exp(-dot(d, d)) * 1.3 * step(0.002, uProgress + uFlight);
+    float ticks = 0.0;
+    for (int i = 0; i < 6; i++) {
+      if (float(i) >= uTickCount) break;
+      float x = uTicks[i] * uSize.x;
+      float mark = smoothstep(1.1, 0.3, abs(p.x - x)) * step(edgeY - 5.0, p.y) * step(p.y, edgeY + 0.5);
+      float lit = 1.0 - min(abs(float(i) - uReading), 1.0);
+      float glow = exp(-length(p - vec2(x, edgeY - 2.0)) / 4.0) * lit;
+      ticks += mark * (0.45 + lit * 0.9) + glow * 0.6;
+    }
+    light += (filled + ahead + head + ticks * (1.0 - uFlight)) * settle;
+  }
   return light;
 }
 
@@ -267,6 +300,11 @@ interface Frame {
   hover: Box;
   /** The row of links and the row of buttons (each one box round them all), as 8 floats */
   rows: Float32Array;
+  /** 0..1 along the bottom edge: how far through the page, or through the flight */
+  progress: number;
+  ticks: Ticks;
+  /** 0..1: how much the bottom edge shows the flight's course rather than the page */
+  flight: number;
   /** 0..1: how far the brackets have closed on a hovered link to another station */
   aim: number;
   lock: Box;
@@ -304,6 +342,11 @@ const uniformNames = [
   'uFill',
   'uRows',
   'uFloor',
+  'uProgress',
+  'uTicks',
+  'uTickCount',
+  'uReading',
+  'uFlight',
   'uGlow',
   'uMotion',
   'uLineAlpha',
@@ -402,6 +445,11 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
       gl.uniform1f(u.uFill, palette.clear + (palette.dense - palette.clear) * f.fill);
       gl.uniform4fv(u.uRows, f.rows);
       gl.uniform1f(u.uFloor, palette.floor);
+      gl.uniform1f(u.uProgress, f.progress);
+      gl.uniform1fv(u.uTicks, f.ticks.at);
+      gl.uniform1f(u.uTickCount, f.ticks.count);
+      gl.uniform1f(u.uReading, f.ticks.reading);
+      gl.uniform1f(u.uFlight, f.flight);
       gl.uniform1f(u.uGlow, palette.glow);
       gl.uniform1f(u.uMotion, f.motion);
       gl.uniform1f(u.uLineAlpha, palette.lineAlpha);
@@ -681,6 +729,64 @@ const swing = (s: Sway) =>
     1
   );
 
+/* ---------- Progress along the bottom edge ---------- */
+
+/** At most this many section ticks (the shader's uTicks) */
+const maxTicks = 6;
+/** Where a section counts as being read: the world's reading line (pageInputs) */
+const readingLine = 0.45;
+
+/**
+ * The page's sections as ticks along the bar: `at` is how far through the
+ * page (0..1 of its scroll) each one reaches the reading line, `reading`
+ * the one being read (-1 for none)
+ */
+interface Ticks {
+  at: Float32Array;
+  count: number;
+  reading: number;
+}
+
+/**
+ * What a page's sections are: the parts the camera moves round
+ * ([data-world-section]), the skills categories and the experience roles.
+ * Scoped to the page itself (the outgoing page's copy keeps its classes)
+ */
+const sectionSelector =
+  '#main-content :is([data-world-section], [data-world-category], [data-world-target^="role:"])';
+
+/** Measures where the page's sections fall (up to six, spread evenly over more) */
+function measureTicks(ticks: Ticks) {
+  const sections = [...document.querySelectorAll<HTMLElement>(sectionSelector)];
+  const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+  const picked =
+    sections.length <= maxTicks
+      ? sections
+      : Array.from(
+          { length: maxTicks },
+          (_, i) => sections[Math.round((i * (sections.length - 1)) / (maxTicks - 1))]
+        );
+  ticks.count = scrollable > 0 ? picked.length : 0;
+  ticks.at.fill(0);
+  picked.forEach((el, i) => {
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    ticks.at[i] = clamp((top - window.innerHeight * readingLine) / scrollable, 0, 1);
+  });
+}
+
+/** The section being read at `progress`: the last tick reached */
+function readingAt(ticks: Ticks, progress: number) {
+  let reading = -1;
+  for (let i = 0; i < ticks.count; i++) if (ticks.at[i] <= progress + 0.002) reading = i;
+  return reading;
+}
+
+const isStation = (key: string): key is StationKey => stationKeys.includes(key as StationKey);
+
+/** What the label riding the travelling lock says: where to, and how far still to go */
+const courseLabel = (to: StationKey, km: number) =>
+  `→ ${stationNames[to].page.toUpperCase()} · ${km} KM`;
+
 /** What the loop reads from React, handed over through a ref */
 interface HudProps {
   theme: HudTheme;
@@ -700,6 +806,7 @@ export function HeaderHud({
   onLive,
 }: HudProps & { onLive: (live: boolean) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const courseRef = useRef<HTMLSpanElement>(null);
   const props = useRef<HudProps>({ theme, dense, still });
   /** Set when something the hologram shows has changed (drawing on demand for reduced motion) */
   const dirty = useRef(true);
@@ -732,6 +839,31 @@ export function HeaderHud({
     const rows = new Float32Array([...none, ...none]);
     let hover = -1;
     let fill = props.current.dense ? 1 : 0;
+    const ticks: Ticks = { at: new Float32Array(maxTicks), count: 0, reading: -1 };
+    let progress = 0;
+    /** 0..1: how much the bottom edge shows the flight's course, eased */
+    let flightBlend = 0;
+    /**
+     * The flight's ends, for the label riding the lock: the station docked
+     * at (kept from each arrival, as flights and cuts announce them) and
+     * where the flight in progress is going
+     */
+    const course: { docked: StationKey; from: StationKey | ''; to: StationKey | '' } = {
+      docked: stationForPath(window.location.pathname),
+      from: '',
+      to: '',
+    };
+    const stopFlights = onFlight((event, to) => {
+      if (!isStation(to)) return;
+      if (event === 'start') {
+        course.from = course.docked;
+        course.to = to;
+      } else if (event === 'end') {
+        course.docked = to;
+      }
+    });
+    const label = courseRef.current;
+    let labelText = '';
     const sway = createSway();
     const lock = createLock();
     /** When the power-on began (s), -1 until the HUD is first in sight */
@@ -752,8 +884,25 @@ export function HeaderHud({
       const active = elements.findIndex((el) => el.getAttribute('aria-current') === 'page');
       aimLock(lock, active, active >= 0 ? boxes[active] : none, seconds(), props.current.still);
       hud.resize(bar.offsetWidth, bar.offsetHeight, Math.min(window.devicePixelRatio || 1, 2));
+      measureTicks(ticks);
       dirty.current = true;
     };
+    // The page's sections move as it lays out, loads and reveals: measured
+    // again whenever the page changes size (a new page included), and once
+    // its entrance has settled
+    const main = document.getElementById('main-content');
+    let tickTimer = 0;
+    const remeasureTicks = () => {
+      measureTicks(ticks);
+      dirty.current = true;
+      window.clearTimeout(tickTimer);
+      tickTimer = window.setTimeout(() => {
+        measureTicks(ticks);
+        dirty.current = true;
+      }, 1200);
+    };
+    const pageSize = new ResizeObserver(remeasureTicks);
+    if (main) pageSize.observe(main);
 
     // What you point at (or focus), by delegation; ticks and clicks for the sound
     const targetOf = (node: EventTarget | null) =>
@@ -794,6 +943,19 @@ export function HeaderHud({
       (root.dataset.worldMode !== undefined && root.dataset.worldMode !== 'page') ||
       root.hasAttribute('data-boot');
 
+    /** Shows the course label under the lock's box ('' hides it) */
+    const showLabel = (text: string, box?: Box) => {
+      if (!label) return;
+      if (text !== labelText) {
+        labelText = text;
+        label.textContent = text;
+        label.hidden = !text;
+      }
+      if (text && box) {
+        label.style.transform = `translate3d(${(box[0] + box[2] / 2).toFixed(1)}px, ${(box[1] + box[3] + 9).toFixed(1)}px, 0) translateX(-50%)`;
+      }
+    };
+
     let frame = 0;
     let last = performance.now();
     let odd = false;
@@ -806,6 +968,7 @@ export function HeaderHud({
       if (away()) {
         worldStore.hudHum = 0;
         dirty.current = true;
+        showLabel('');
         return;
       }
       const now = nowMs / 1000;
@@ -828,8 +991,19 @@ export function HeaderHud({
       const target = thick ? 1 : 0;
       const sinceLock = now - lock.lockedAt;
       const hoverBox = hover >= 0 && boxes[hover] ? boxes[hover] : none;
+      const scrolled = clamp(worldStore.scroll, 0, 1);
 
       if (calm) {
+        showLabel('');
+        if (Math.abs(scrolled - progress) > 0.0005) {
+          progress = scrolled;
+          dirty.current = true;
+        }
+        const reading = readingAt(ticks, progress);
+        if (reading !== ticks.reading) {
+          ticks.reading = reading;
+          dirty.current = true;
+        }
         if (bar.style.transform) bar.style.transform = '';
         if (fill !== target) {
           fill = target;
@@ -849,6 +1023,9 @@ export function HeaderHud({
           motion: 0,
           hover: hoverBox,
           rows,
+          progress,
+          ticks,
+          flight: 0,
           aim,
           lock: lock.at,
           lockOpen: 0,
@@ -872,11 +1049,37 @@ export function HeaderHud({
       bar.style.transform = swayTransform(sway);
       const open = stepLock(lock, now);
       const swinging = swing(sway);
+
+      // The bottom edge: the page's progress, or the flight's course
+      const { flight } = worldStore;
+      const flying = flight.active && isStation(flight.to);
+      flightBlend += (Number(flying) - flightBlend) * (1 - Math.exp(-6 * dt));
+      if (Math.abs(flightBlend - Number(flying)) < 0.002) flightBlend = Number(flying);
+      const along = mix(scrolled, flying ? flight.progress : 0, flightBlend);
+      if (Math.abs(along - progress) > 0.0005) {
+        progress = along;
+        dirty.current = true;
+      }
+      ticks.reading = readingAt(ticks, scrolled);
+      // Riding the travelling lock: where to, and the range still to go
+      if (lock.travelling && flying && course.from && course.to && course.to === flight.to) {
+        const km = Math.round(
+          rangeBetween(course.from, course.to) * (1 - smootherstep(flight.progress))
+        );
+        showLabel(courseLabel(course.to, km), lock.at);
+      } else {
+        showLabel('');
+      }
       worldStore.hudHum = boot < 1 ? boot : 0.5 + swinging * 0.5;
       // The sway moves every frame; the hologram only needs every other
       // one, unless something on it is changing
       const busy =
-        boot < 1 || lock.travelling || sinceLock < 0.6 || sway.jolt.burst > 0 || sway.jolt.last > 0;
+        boot < 1 ||
+        lock.travelling ||
+        sinceLock < 0.6 ||
+        sway.jolt.burst > 0 ||
+        sway.jolt.last > 0 ||
+        (flightBlend > 0 && flightBlend < 1);
       odd = !odd;
       if (!odd && !dirty.current && !busy) return;
       dirty.current = false;
@@ -890,6 +1093,9 @@ export function HeaderHud({
         motion: 1,
         hover: hoverBox,
         rows,
+        progress,
+        ticks,
+        flight: flightBlend,
         aim,
         lock: lock.at,
         lockOpen: open + shut,
@@ -919,6 +1125,10 @@ export function HeaderHud({
       if (header) delete header.dataset.hudBoot;
       resize.disconnect();
       mutations.disconnect();
+      pageSize.disconnect();
+      window.clearTimeout(tickTimer);
+      stopFlights();
+      showLabel('');
       bar.removeEventListener('pointerover', over);
       bar.removeEventListener('pointerout', out);
       bar.removeEventListener('focusin', over);
@@ -930,7 +1140,13 @@ export function HeaderHud({
     };
   }, [onLive]);
 
-  return <canvas ref={canvasRef} className="header-hud" aria-hidden="true" />;
+  return (
+    <>
+      <canvas ref={canvasRef} className="header-hud" aria-hidden="true" />
+      {/* Rides the target lock as it travels: where to, and how far still to go */}
+      <span ref={courseRef} className="header-hud__course" aria-hidden="true" hidden />
+    </>
+  );
 }
 
 export default HeaderHud;
