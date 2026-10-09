@@ -405,6 +405,35 @@ test.describe('free roam controls', () => {
   );
 
   test(
+    'Enter docks where a station marker clicked with the mouse flew the ship',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      await page.getByRole('button', { name: 'Free roam' }).click();
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      await page.evaluate(() => document.exitPointerLock());
+
+      // A mouse click focuses the marker in Chrome; the autopilot flies to
+      // About and parks there. The button itself has no size: its label is
+      // what the mouse lands on
+      const about = hud
+        .getByRole('list', { name: 'Stations' })
+        .getByRole('button', { name: /^Autopilot to About/ });
+      await about.locator('.waypoint__text').click();
+      await expect(about).toHaveAttribute('aria-pressed', 'true');
+      await expect(hud.getByRole('button', { name: /^Dock at About/ })).toBeVisible({
+        timeout: 90_000,
+      });
+      // Enter is the dock shortcut, not the marker's (which would only set course again)
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(/\/about$/, { timeout: 30_000 });
+    }
+  );
+
+  test(
     'the first free roam coaches, then keeps the keys behind a Controls button',
     { tag: '@webgl' },
     async ({ page }) => {

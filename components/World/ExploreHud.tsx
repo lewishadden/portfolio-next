@@ -29,7 +29,7 @@ import {
   worldStore,
 } from './worldStore';
 
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import type { StationKey } from './routes';
 import type { WorldContent } from './types';
 
@@ -618,6 +618,13 @@ export function ExploreHud({
     regionRef.current?.focus({ preventScroll: true });
   }, [exploring]);
 
+  // A control clicked with the mouse takes focus in some browsers (Chrome),
+  // and would then take Enter as well: focus goes back to the HUD, where
+  // Enter docks. Keyboard presses (detail 0) leave it where it is
+  const refocus = useCallback((e: MouseEvent) => {
+    if (e.detail > 0 && ownsEnter(e.target)) regionRef.current?.focus({ preventScroll: true });
+  }, []);
+
   // The cursor ring hides while the pointer is locked (World.scss)
   useEffect(() => {
     document.documentElement.toggleAttribute('data-pointer-lock', locked);
@@ -627,9 +634,14 @@ export function ExploreHud({
     // Not while the autopilot is flying somewhere else, or already docking
     if (!exploring || !dock || course || docking) return;
     const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
       // Enter on a focused control is that control's (a station marker sets
-      // the autopilot), never a dock as well
-      if (e.key !== 'Enter' || ownsEnter(e.target)) return;
+      // the autopilot), never a dock as well. Not the marker of the station
+      // the ship is at, though: the one used to fly here keeps focus, and
+      // setting course for where you are only parks again
+      const here =
+        e.target instanceof Element && !!e.target.closest(`.waypoint[data-station="${dock}"]`);
+      if (!here && ownsEnter(e.target)) return;
       e.preventDefault();
       onDockRequest(stationPaths[dock]);
     };
@@ -685,6 +697,7 @@ export function ExploreHud({
       role="region"
       aria-label="Explore mode"
       tabIndex={-1}
+      onClickCapture={refocus}
     >
       <Waypoints />
       {/* Over the markers, under the rest of the HUD */}
