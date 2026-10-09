@@ -77,10 +77,14 @@
     }
   }
 
+  /* Keeps 3D between the card and the icon: transform-style isn't inherited,
+     and a flat parent here drops the icon's translateZ before the card's
+     tilt applies, so the icon never lifts */
   &__top {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    transform-style: preserve-3d;
   }
 
   &__icon {
