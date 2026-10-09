@@ -118,6 +118,23 @@ test.describe('the palette and the world', () => {
     await expect(dialog.getByRole('log')).not.toContainText('Launch sequence armed');
   });
 
+  test('closing the palette with Ctrl/⌘+K mid "sudo hire lewis" stays on the page too', async ({
+    page,
+  }) => {
+    await openHydrated(page, '/about');
+    let { dialog, input } = await openPalette(page);
+    await input.fill('sudo hire lewis');
+    await page.keyboard.press('Enter');
+    await expect(dialog.getByRole('log')).toContainText('password for recruiter');
+    await page.keyboard.press('ControlOrMeta+k');
+    await expect(dialog).toBeHidden();
+    await page.waitForTimeout(5000);
+    await expect(page).toHaveURL(/\/about$/);
+    ({ dialog, input } = await openPalette(page));
+    await expect(dialog.getByRole('log')).toContainText('^C');
+    await expect(dialog.getByRole('log')).not.toContainText('Launch sequence armed');
+  });
+
   test('a page chosen from the palette has focus on its heading once it shows', async ({
     page,
   }) => {

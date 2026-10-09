@@ -221,25 +221,32 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     [close]
   );
 
-  // Global shortcuts: ⌘K / Ctrl+K toggles; Alt+Shift+S toggles the stats overlay
+  // Global shortcuts: ⌘K / Ctrl+K toggles; Alt+Shift+S toggles the stats overlay.
+  // Closing goes through close(), like Escape: toggling the state alone left
+  // `sudo hire lewis` running (it still flew to /contact) and the old query
+  // and selection in place. Nothing opens under the loading screen, where the
+  // palette would be hidden and only take focus from it
   useEffect(() => {
+    const show = () => {
+      if (document.documentElement.dataset.boot !== 'loading') setOpen(true);
+    };
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setOpen((current) => !current);
+        if (open) close();
+        else show();
       } else if (e.altKey && e.shiftKey && e.code === 'KeyS') {
         e.preventDefault();
         statsOverlay.toggle();
       }
     };
-    const onOpen = () => setOpen(true);
     window.addEventListener('keydown', onKey);
-    openListeners.add(onOpen);
+    openListeners.add(show);
     return () => {
       window.removeEventListener('keydown', onKey);
-      openListeners.delete(onOpen);
+      openListeners.delete(show);
     };
-  }, []);
+  }, [open, close]);
 
   useEffect(() => {
     if (!open) return;
