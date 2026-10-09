@@ -68,7 +68,8 @@ export const pageProjectFocus = () =>
  * A hop moves two things together: the focus (which screen's height the
  * camera is at) and the camera's angle round the helix, which takes the
  * short way round, so even a hop the length of the helix turns the view
- * half a turn at most.
+ * half a turn at most. While the page glides to a project it says which
+ * (worldStore.projectRideTo), and the ride heads straight there (rideGoal).
  */
 export interface Ride {
   /** Focus ridden (fractional project index); -1 when there is nothing to ride (off the projects pages) */
@@ -94,6 +95,14 @@ export interface Ride {
   spin: number;
   /** The ride crosses a screen or more: it sounded as it set off, and locks on as it lands */
   long: boolean;
+  /**
+   * The page's focus (worldStore.projectFocus) on the last frame (NaN
+   * before the first), which way it last moved, and for how long (seconds)
+   * it has held still since
+   */
+  page: number;
+  pageWay: number;
+  pageStill: number;
 }
 
 export const createRide = (): Ride => ({
@@ -111,7 +120,43 @@ export const createRide = (): Ride => ({
   angleTo: 0,
   spin: 0,
   long: false,
+  page: NaN,
+  pageWay: 0,
+  pageStill: 0,
 });
+
+/**
+ * How long (seconds) the page's focus may hold still and still count as on
+ * its way to the project it named: a frame or two can pass without a scroll
+ * event, and the end of a long glide moves less than a pixel a frame
+ */
+const pageRest = 0.25;
+
+/**
+ * Where the ride heads this frame (-1 off the projects pages): the project
+ * the page is gliding to (worldStore.projectRideTo) while the page is on
+ * its way there, else where the page is. Fed each frame of the glide
+ * instead, a ride set off towards the first and took the short way round
+ * to each in turn, so a glide past half a turn of the helix (five screens)
+ * turned the view one way, then back. On its way: last moving towards it,
+ * and not held still for `pageRest`, so a destination the page leaves set
+ * after something else took the scroll is let go (the ride comes back to
+ * the page) rather than kept until the ride arrives, which sent it back and
+ * forth between the two
+ */
+export function rideGoal(ride: Ride, dt: number) {
+  const page = worldStore.projectFocus;
+  const moved = page - ride.page;
+  ride.page = page;
+  if (moved > 0 || moved < 0) {
+    ride.pageWay = Math.sign(moved);
+    ride.pageStill = 0;
+  } else ride.pageStill += dt;
+  if (page < 0) return -1;
+  const to = Math.min(worldStore.projectRideTo, helix.screens - 1);
+  const onItsWay = to >= 0 && ride.pageStill < pageRest && (to - page) * ride.pageWay > 0;
+  return onItsWay ? to : pageProjectFocus();
+}
 
 /**
  * Jumps smaller than this in a 60th of a second pass straight through, so
@@ -170,10 +215,13 @@ function setOff(ride: Ride, goal: number, t: number, speed: number, spin: number
 
 /**
  * The page's focus moved mid-hop. While the hop is still setting off, a
- * goal that races on (the page gliding there: the index, a screen click)
- * or drifts re-aims the same hop, re-based so it carries on from where it
- * is: restarted from rest every frame of the glide, it barely moved until
- * the page stopped, and sounded on every frame. Later, a drift is
+ * goal that races on (the page gliding somewhere it hasn't named, as a
+ * flick of the wheel does) or drifts re-aims the same hop, re-based so it
+ * carries on from where it is: restarted from rest every frame of the
+ * glide, it barely moved until the page stopped, and sounded on every
+ * frame. Each re-aim takes the short way to where the goal has got to, so
+ * one that races on past half a turn can still turn the ride back: glides
+ * to a project name it (rideGoal) to avoid that. Later, a drift is
  * followed; a new jump (back the other way, or on again as it slows) sets
  * off afresh from where it has got to, at the speed it had. Either way it
  * is one ride for the ear
@@ -213,13 +261,13 @@ function retarget(ride: Ride, goal: number, t: number, jump: number) {
 }
 
 /**
- * Moves the ride towards `goal` (the page's focus, -1 off the projects
- * pages) at clock time `t`, `dt` after the last frame: straight through
- * while it moves less than `rideJump` at a time, else a hop of 0.8 to 2.2s
- * depending on its length (longer if it would turn the view faster than
- * `rideTurnRate`). A ride over a screen or more sounds once as it sets off
- * ('select') and once as it lands ('hud-lock'). Cuts when the camera does
- * (`snap`)
+ * Moves the ride towards `goal` (rideGoal: the page's focus or the project
+ * it is gliding to, -1 off the projects pages) at clock time `t`, `dt`
+ * after the last frame: straight through while it moves less than
+ * `rideJump` at a time, else a hop of 0.8 to 2.2s depending on its length
+ * (longer if it would turn the view faster than `rideTurnRate`). A ride
+ * over a screen or more sounds once as it sets off ('select') and once as
+ * it lands ('hud-lock'). Cuts when the camera does (`snap`)
  */
 export function stepRide(ride: Ride, goal: number, t: number, dt: number, snap: boolean) {
   if (snap || goal < 0 || ride.value < 0) {

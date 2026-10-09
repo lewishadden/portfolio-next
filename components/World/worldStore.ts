@@ -16,6 +16,16 @@ export const worldStore = {
    */
   projectFocus: -1,
   /**
+   * The project the /projects page is gliding to (an index entry, a helix
+   * screen, a closed modal's project), -1 while it isn't gliding to one.
+   * The camera's ride heads straight there: re-aimed at each screen the
+   * glide passed instead, it chose its way round the helix before it knew
+   * where it was going, and turned one way, then back. The page sets it as
+   * the glide sets off and clears it when the glide ends or anything else
+   * takes the scroll over
+   */
+  projectRideTo: -1,
+  /**
    * How far the /projects page still is from its first project: 1 at the
    * top, where the camera holds back on the whole station beside the page
    * head, 0 once the ride down the helix has begun (and off that page)

@@ -19,7 +19,7 @@ import {
   baseFov,
   createRide,
   holdPageCopy,
-  pageProjectFocus,
+  rideGoal,
   rideProjectFocus,
   stationCamera,
   stationKeys,
@@ -215,8 +215,7 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     }
 
     // The projects ride: off it, nothing to ride
-    const ridingTo = worldStore.projectFocus < 0 ? -1 : pageProjectFocus();
-    stepRide(rig.ride, ridingTo, t, dt, snap);
+    stepRide(rig.ride, rideGoal(rig.ride, dt), t, dt, snap);
     rideProjectFocus(rig.ride.value, rig.ride.angle);
     stationCamera(
       station,
