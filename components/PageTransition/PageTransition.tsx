@@ -31,16 +31,18 @@ interface Arrival {
 const rushIn: Arrival = { x: '0vw', y: 16, scale: 0.94, rotateY: 0 };
 
 /**
- * An about-turn: the copy swings in from the side the camera turns
- * towards (it turns left, the view pans right, so the copy enters from the
- * left), turned away in perspective. The page it left went the other way
- * (pageSnapshot's swing)
+ * An about-turn, `turn` being the way the camera set off (worldStore's
+ * flight.turn, +1 left). By the approach it is rounding the station the
+ * other way (flight.ts: two opposite half turns), so the copy swings in from
+ * the side it is turning towards then (set off left, rounding right: in from
+ * the right), turned away in perspective. That is the side the page it left
+ * went off by (pageSnapshot's swing): both move with the view
  */
-const swingIn = (side: number): Arrival => ({
-  x: `${-side * 8}vw`,
+const swingIn = (turn: number): Arrival => ({
+  x: `${turn * 8}vw`,
   y: 0,
   scale: 1,
-  rotateY: side * 7,
+  rotateY: turn * -7,
 });
 
 const reveal = {
