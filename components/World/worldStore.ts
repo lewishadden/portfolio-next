@@ -120,8 +120,10 @@ export const worldStore = {
   /** How many of `readingRects` are in use, 0..6 */
   readingCount: 0,
   /**
-   * NDC x (-1..1) of the right edge of the widest `#main-content .glass`
-   * crossing the reading line, so the station can clear it; -1 when none
+   * NDC x (-1..1) of the right-most edge of the `#main-content .glass`
+   * panels at the reading line (or within a card gap of it), so the station
+   * can clear them; drawn in towards -1 as they move away from the line, -1
+   * when there are none
    */
   clearRight: -1,
   /** /skills: fractional index of the [data-world-category] at the reading line (-1 off /skills) */

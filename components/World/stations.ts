@@ -271,7 +271,7 @@ function companionWeights(count: number, out: number[]) {
 }
 const weights: number[] = [];
 
-/** NDC kept between the widest glass panel at the reading line and the station's framing box */
+/** NDC kept between the glass panels at the reading line and the station's framing box */
 const clearMargin = 0.06;
 /** Furthest right (NDC) the station's centre is pushed to clear the glass: it stays in shot */
 const clearMost = 0.62;
@@ -279,8 +279,8 @@ const subject = new Vector3();
 
 /**
  * How far right (world units, along the camera's right axis) a wide layout
- * has to move the station for its framing box to clear the widest glass
- * panel at the reading line (worldStore.clearRight), from the eye `pos`
+ * has to move the station for its framing box to clear the glass panels
+ * at the reading line (worldStore.clearRight), from the eye `pos`
  * before any shift, along the pose's axes (`forward` and `right`, set just
  * before); 0 when there is none. Stations the camera travels
  * through (the experience beam, the projects helix) clear the point it
@@ -481,7 +481,7 @@ export function stationCamera(
   const centred = key === 'projects' && !worldStore.projectAside;
   const intro = centred ? projectIntro() : 0;
   const roomy = (key === 'skills' ? 4.4 : centred ? overview.room * intro : 3.3) + room;
-  // Further, if that leaves the station behind the widest glass panel at the
+  // Further, if that leaves the station behind the glass panels at the
   // reading line (worldStore.clearRight)
   const shiftX = wide
     ? Math.max(roomy, centred ? 0 : clearRoom(key, pos, look, width / height))

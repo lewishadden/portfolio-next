@@ -148,15 +148,39 @@ function measureReading(main: HTMLElement, line: number) {
   readingBlocks.length = 0;
 }
 
-/** NDC x of the right edge of the widest glass panel crossing the reading line (-1 for none) */
+/**
+ * Glass this close to the reading line (share of the viewport's height)
+ * counts as at it: the gaps between a list's cards (3rem at most) are well
+ * inside it. Measured at the line alone, every gap dropped the panel, and
+ * the station jumped back and out again between each pair of cards. Further
+ * off, a panel's pull fades out over `clearFade`, so the station eases in
+ * and out at the head and foot of a list instead of stepping
+ */
+const clearGap = 0.05;
+const clearFade = 0.2;
+
+const smoothstep = (x: number, edge0: number, edge1: number) => {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+};
+
+/**
+ * NDC x the station keeps right of (worldStore.clearRight): the right-most
+ * edge of the glass panels at the reading line, each drawn in towards -1
+ * (none) as it moves away from the line, so the value follows the scroll
+ * rather than jumping. -1 for none
+ */
 function measureClearRight(main: HTMLElement, line: number) {
-  let widest = 0;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
   let right = -1;
   for (const el of main.querySelectorAll('.glass')) {
     const rect = el.getBoundingClientRect();
-    if (rect.top > line || rect.bottom <= line || rect.width <= widest) continue;
-    widest = rect.width;
-    right = (rect.right / window.innerWidth) * 2 - 1;
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    const away =
+      (rect.top > line ? rect.top - line : rect.bottom <= line ? line - rect.bottom : 0) / height;
+    const pull = 1 - smoothstep(away, clearGap, clearGap + clearFade);
+    if (pull > 0) right = Math.max(right, -1 + (rect.right / width) * 2 * pull);
   }
   worldStore.clearRight = right;
 }
@@ -200,7 +224,7 @@ function clearReading() {
  * is at the reading line (worldStore.sectionFocus, the camera moves round
  * the station with it), which skills category ([data-world-category]) on
  * /skills, where the heading block sits on screen, the text blocks the
- * readability guard protects ([data-reading]), the widest glass panel at the
+ * readability guard protects ([data-reading]), the glass panels at the
  * reading line and the phone "window" nearest it ([data-world-window]).
  * Measured on scroll, resize and route changes, at most once a frame.
  */
