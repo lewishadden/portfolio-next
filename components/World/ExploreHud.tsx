@@ -16,7 +16,15 @@ import {
   stationPaths,
 } from './routes';
 import { signals, useFoundSignals } from './signalStore';
-import { SignalCard, SignalCount, SignalDetector, useDockOnArrival } from './SignalsHud';
+import {
+  ScanButton,
+  ScanStatus,
+  SignalCard,
+  SignalCount,
+  SignalDetector,
+  signalName,
+  useDockOnArrival,
+} from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
 import {
@@ -343,12 +351,16 @@ function HullContact() {
   );
 }
 
-/** What the autopilot is flying to, by name: a station's page, or a signal ('signal:<id>') */
+/**
+ * What the autopilot is flying to, by name: a station's page, or a signal
+ * ('signal:<id>'), named once found and a contact until then
+ */
 function courseName(course: string) {
   if ((stationKeys as readonly string[]).includes(course)) {
     return stationNames[course as StationKey].page;
   }
-  return signals.find((signal) => `signal:${signal.id}` === course)?.name ?? course;
+  const signal = signals.find((s) => `signal:${s.id}` === course);
+  return signal ? signalName(signal.id) : course;
 }
 
 /** The edge warning shows once worldStore.edge reaches this, and goes once it falls back below that */
@@ -559,7 +571,8 @@ function Coach({ pilot, onDone }: { pilot: Pilot; onDone: () => void }) {
 
 /** Every control, for how the visitor flies */
 function KeyLegend({ pilot }: { pilot: Pilot }) {
-  if (pilot === 'touch') return <>Thumbsticks fly · tap a station for autopilot</>;
+  if (pilot === 'touch')
+    return <>Thumbsticks fly · tap a station for autopilot · Scan finds signals</>;
   return (
     <>
       <kbd>W</kbd>
@@ -567,8 +580,8 @@ function KeyLegend({ pilot }: { pilot: Pilot }) {
       <kbd>S</kbd>
       <kbd>D</kbd> fly · mouse {pilot === 'lock' ? 'looks' : 'steers'} · <kbd>Space</kbd>
       <kbd>C</kbd> up/down · <kbd>R</kbd>
-      <kbd>V</kbd> pitch · <kbd>⇧</kbd> boost · <kbd>E</kbd> click · <kbd>0</kbd>–<kbd>5</kbd>{' '}
-      autopilot
+      <kbd>V</kbd> pitch · <kbd>⇧</kbd> boost · <kbd>E</kbd> click · <kbd>F</kbd> scan ·{' '}
+      <kbd>0</kbd>–<kbd>5</kbd> autopilot
     </>
   );
 }
@@ -710,6 +723,7 @@ export function ExploreHud({
       <Waypoints />
       {/* Over the markers, under the rest of the HUD */}
       {touch && <TouchSticks />}
+      {touch && <ScanButton />}
 
       <div className="explore-hud__head">
         <div className="explore-hud__top glass">
@@ -739,6 +753,7 @@ export function ExploreHud({
           </button>
         </div>
         <SignalDetector />
+        <ScanStatus />
         {!trained && <Coach pilot={pilot} onDone={finishTraining} />}
         {compact && status}
       </div>

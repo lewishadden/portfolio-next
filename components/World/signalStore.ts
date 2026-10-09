@@ -3,15 +3,20 @@ import { useSyncExternalStore } from 'react';
 import { githubRepoUrl } from 'config';
 
 import { stationPositions } from './routes';
+import { emitCue, worldStore } from './worldStore';
 
 /* ------------------------------------------------------------------
    Signals: five things hidden out in the world for free roam to find,
    off the line of stations. Flying close to one finds it: the HUD shows
    what it says (some carry something: the CV, the source code), counts
    how many of the five you have found (remembered between visits), and
-   a detector warms up as you get near one you haven't. The canvas side
-   (Signals.tsx) draws them and reports distances here. No three.js: the
-   HUD uses this.
+   a detector warms up as you get near one you haven't. A sonar scan (F,
+   or the Scan button on touch; one every 8s) sweeps out from the ship to
+   detector range and picks out the unfound signals it passes as
+   contacts: the HUD marks them, the sector map plots them and the
+   autopilot can fly to them. The canvas side (Signals.tsx) draws them,
+   runs the sweep and reports distances here. No three.js: the HUD uses
+   this.
    ------------------------------------------------------------------ */
 
 export type SignalAction =
@@ -182,6 +187,105 @@ export function reopenFound() {
   if (!recent || latest === recent) return;
   latest = recent;
   notify();
+}
+
+/* ----------------- Sonar scans ----------------- */
+
+/** Seconds a scan takes to recharge, and its sweep to reach detector range */
+export const scanCooldown = 8;
+export const scanSweep = 1.8;
+
+/**
+ * The scan in progress or last made: when (seconds on the page's clock,
+ * performance.now(); -Infinity before the first), where the ship was (the
+ * sweep's centre), and the contacts it has picked out so far
+ */
+export interface Scan {
+  at: number;
+  from: readonly [number, number, number];
+  hits: readonly Signal['id'][];
+}
+
+const noScan: Scan = { at: -Infinity, from: [0, 0, 0], hits: [] };
+let scan = noScan;
+/** Every signal a scan has picked out this visit, in the order they were */
+let scannedIds: readonly Signal['id'][] = [];
+
+/** Seconds on the clock scans run by */
+export const scanClock = () => performance.now() / 1000;
+
+/**
+ * Starts a sonar scan from where the ship is, with the `scan` cue: false
+ * while the last one is still recharging
+ */
+export function requestScan() {
+  const now = scanClock();
+  if (now - scan.at < scanCooldown) return false;
+  const { x, y, z } = worldStore.camera;
+  scan = { at: now, from: [x, y, z], hits: [] };
+  emitCue('scan', { at: scan.from });
+  notify();
+  return true;
+}
+
+/** The scan in progress or last made */
+export const currentScan = () => scan;
+
+/** When the current scan began (seconds on scanClock), -Infinity before the first */
+export const scanAt = () => scan.at;
+
+/** Seconds until another scan can be made (0 when one can) */
+export const scanRecharge = () => Math.max(0, scanCooldown - (scanClock() - scan.at));
+
+/** The sweep has reached a signal: it is a contact (Signals.tsx calls this) */
+export function markScanned(id: Signal['id']) {
+  if (scan.hits.includes(id)) return;
+  scan = { ...scan, hits: [...scan.hits, id] };
+  if (!scannedIds.includes(id)) scannedIds = [...scannedIds, id];
+  notify();
+}
+
+/** Every signal a scan has picked out this visit (found since or not) */
+export const scanned = () => scannedIds;
+
+export const isScanned = (id: string) => scannedIds.includes(id as Signal['id']);
+
+/**
+ * What the HUD calls a signal a scan picked out until it is found (its
+ * name is what finding it tells you): Contact A, B… in the order scans
+ * picked them out
+ */
+export function contactName(id: Signal['id']) {
+  const index = scannedIds.indexOf(id);
+  return index < 0 ? 'Contact' : `Contact ${String.fromCharCode(65 + index)}`;
+}
+
+/**
+ * Where free roam's contacts are on screen, written each frame by the
+ * canvas (Signals.tsx) for the HUD's markers, as worldStore.waypoints is
+ * for the stations: present only for contacts not yet found
+ */
+export const contactMarks: Partial<
+  Record<Signal['id'], { x: number; y: number; onScreen: boolean; distance: number }>
+> = {};
+
+interface ScanSnapshot {
+  scan: Scan;
+  scanned: readonly Signal['id'][];
+}
+
+let scanSnapshot: ScanSnapshot = { scan, scanned: scannedIds };
+const readScan = () => {
+  if (scanSnapshot.scan !== scan || scanSnapshot.scanned !== scannedIds) {
+    scanSnapshot = { scan, scanned: scannedIds };
+  }
+  return scanSnapshot;
+};
+const serverScan: ScanSnapshot = { scan: noScan, scanned: [] };
+
+/** The scan in progress or last made, and every signal scans have picked out */
+export function useScan() {
+  return useSyncExternalStore(subscribe, readScan, () => serverScan);
 }
 
 /** Where the nearest unfound signal is while one is in detector range */

@@ -8,9 +8,16 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { stationForPath, stationPaths, stationPositions } from './routes';
 import {
   allFound,
+  contactName,
+  currentScan,
   dismissFound,
+  isFound,
   recentFound,
   reopenFound,
+  requestScan,
+  scanRecharge,
+  scanSweep,
+  signalAt,
   signalCount,
   signals,
   useDetector,
@@ -18,7 +25,7 @@ import {
   useLatestSignal,
 } from './signalStore';
 import { worldMode } from './worldMode';
-import { onAutopilot, setAutopilot, worldStore } from './worldStore';
+import { onAutopilot, setAutopilot, worldScanEvent, worldStore } from './worldStore';
 
 import type { StationKey } from './routes';
 import type { SignalAction } from './signalStore';
@@ -114,6 +121,135 @@ export function SignalDetector() {
       </span>
     </div>
   );
+}
+
+/* ----------------- Sonar scans ----------------- */
+
+/** How long a scan's result stays up (ms) */
+const scanResultTime = 6000;
+
+/** Which way a point lies from the camera, in words: "above left", "ahead", "behind and below"… */
+function bearing(x: number, y: number, z: number) {
+  const { camera } = worldStore;
+  const dx = x - camera.x;
+  const dy = y - camera.y;
+  const dz = z - camera.z;
+  const { fx, fy, fz } = camera;
+  // Right is forward × up; the camera's up is right × forward
+  const rl = Math.hypot(fz, fx) || 1;
+  const [rx, rz] = [-fz / rl, fx / rl];
+  const ux = -rz * fy;
+  const uy = rz * fx - rx * fz;
+  const uz = rx * fy;
+  const side = dx * rx + dz * rz;
+  const up = dx * ux + dy * uy + dz * uz;
+  const ahead = dx * fx + dy * fy + dz * fz;
+  const length = Math.hypot(dx, dy, dz) || 1;
+  const vertical = up > 0.35 * length ? 'above' : up < -0.35 * length ? 'below' : '';
+  if (ahead > Math.abs(side) * 1.5 || ahead < -Math.abs(side)) {
+    const way = ahead > 0 ? 'ahead' : 'behind';
+    return vertical ? `${way} and ${vertical}` : way;
+  }
+  const way = side > 0 ? 'right' : 'left';
+  return vertical ? `${vertical} ${way}` : way;
+}
+
+/** What the last scan found, for its status line */
+function scanResult() {
+  const contacts = currentScan()
+    .hits.filter((id) => !isFound(id))
+    .map((id) => signals.find((signal) => signal.id === id)!);
+  if (!contacts.length) {
+    return signals.every((signal) => isFound(signal.id))
+      ? 'Scan: every signal is logged'
+      : 'Scan: no contacts in range';
+  }
+  const { camera } = worldStore;
+  const nearest = contacts
+    .map((signal) => {
+      const at = signalAt(signal);
+      return { at, distance: Math.hypot(at.x - camera.x, at.y - camera.y, at.z - camera.z) };
+    })
+    .sort((a, b) => a.distance - b.distance)[0];
+  const count = contacts.length === 1 ? '1 contact' : `${contacts.length} contacts`;
+  const where = bearing(nearest.at.x, nearest.at.y, nearest.at.z);
+  return `Scan: ${count} · nearest ${Math.round(nearest.distance)} km, ${where}`;
+}
+
+/**
+ * Asks for a sonar scan (F in free roam, which ExploreControls dispatches
+ * as worldScanEvent, or the Scan button): says it is sweeping, then what
+ * it found (how many contacts, how far and which way the nearest is), or
+ * how long until the scanner has recharged
+ */
+function scan(say: (text: string, then?: () => string, after?: number) => void) {
+  if (worldMode.get().mode !== 'explore' || worldStore.docking) return;
+  if (!requestScan()) {
+    say(`Scanner recharging · ${Math.ceil(scanRecharge())} s`);
+    return;
+  }
+  say('Scanning…', scanResult, scanSweep * 1000 + 150);
+}
+
+/**
+ * The sonar scan's status line: it hears every request for a scan (F, the
+ * Scan button). Mounted for all of free roam, so the status region is
+ * there before anything is said in it
+ */
+export function ScanStatus() {
+  const [text, setText] = useState('');
+  const timers = useRef<number[]>([]);
+
+  const say = useEffectEvent((next: string, then?: () => string, after = 0) => {
+    timers.current.forEach((id) => window.clearTimeout(id));
+    setText(next);
+    const clear = () => setText('');
+    if (then) {
+      timers.current = [
+        window.setTimeout(() => {
+          setText(then());
+          timers.current = [window.setTimeout(clear, scanResultTime)];
+        }, after),
+      ];
+    } else {
+      timers.current = [window.setTimeout(clear, 2500)];
+    }
+  });
+
+  useEffect(() => {
+    const onScan = () => scan(say);
+    window.addEventListener(worldScanEvent, onScan);
+    const scheduled = timers;
+    return () => {
+      window.removeEventListener(worldScanEvent, onScan);
+      scheduled.current.forEach((id) => window.clearTimeout(id));
+    };
+  }, []);
+
+  return (
+    <p className="explore-hud__scan" role="status">
+      {text}
+    </p>
+  );
+}
+
+/** Touch's way to scan (desktop presses F): over the rise and sink buttons */
+export function ScanButton() {
+  return (
+    <button
+      type="button"
+      className="explore-hud__scan-button"
+      onClick={() => window.dispatchEvent(new CustomEvent(worldScanEvent))}
+    >
+      <Icon icon="ph:broadcast-bold" width={18} height={18} aria-hidden="true" />
+      <span>Scan</span>
+    </button>
+  );
+}
+
+/** What the HUD calls a signal: its name once found, a contact before */
+export function signalName(id: (typeof signals)[number]['id']) {
+  return isFound(id) ? signals.find((signal) => signal.id === id)!.name : contactName(id);
 }
 
 /** Enter reaches the card's choices (shown while keyboard focus is elsewhere) */

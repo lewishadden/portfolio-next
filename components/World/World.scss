@@ -949,6 +949,56 @@ html[data-flight='cruise'] .world__veil {
     }
   }
 
+  /* A sonar scan's status (SignalsHud's ScanStatus), under the detector:
+     backed, so it keeps its contrast over the sky. Empty, it takes no room
+     but stays a live region */
+  &__scan {
+    margin: 0;
+    padding: 2px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--signal);
+    border: 1px solid color-mix(in oklab, var(--signal) 45%, transparent);
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--bg-primary) 88%, transparent);
+
+    &:empty {
+      padding: 0;
+      border: 0;
+      background: none;
+    }
+  }
+
+  /* Touch's Scan button, over the rise and sink buttons (TouchSticks) */
+  &__scan-button {
+    position: absolute;
+    right: 64px;
+    bottom: calc(200px + 2 * 48px + 0.5rem + 16px);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 44px;
+    padding: 0 0.9rem;
+    border: 1px solid color-mix(in oklab, var(--signal) 55%, transparent);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--signal);
+    background: color-mix(in oklab, var(--surface-strong) 80%, transparent);
+    pointer-events: auto;
+    touch-action: manipulation;
+
+    &:focus-visible {
+      outline: 2px solid var(--signal);
+      outline-offset: 2px;
+    }
+  }
+
   &__signal {
     position: absolute;
     top: 50%;
@@ -1425,6 +1475,15 @@ html[data-flight='cruise'] .world__veil {
       left: auto;
       right: calc(cos(var(--turn)) * 34px);
       transform: translateX(calc(50% - cos(var(--turn)) * 50%));
+    }
+  }
+
+  /* A contact a sonar scan picked out: amber, round */
+  &--contact {
+    --tone: var(--signal);
+
+    .waypoint__mark {
+      border-radius: 50%;
     }
   }
 

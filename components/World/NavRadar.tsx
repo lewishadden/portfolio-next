@@ -13,7 +13,17 @@ import {
   stationNames,
   stationPositions,
 } from './routes';
-import { isFound, signalAt, signals } from './signalStore';
+import {
+  contactName,
+  currentScan,
+  detectorRange,
+  isFound,
+  isScanned,
+  scanClock,
+  scanSweep,
+  signalAt,
+  signals,
+} from './signalStore';
 import { worldMode } from './worldMode';
 import { onFlight, onPreview, worldStore } from './worldStore';
 
@@ -36,7 +46,8 @@ import type { Signal, WorldPoint } from './signalStore';
    In free roam it follows the autopilot (its course, worldStore.
    autopilotPath, marching to its goal, a station or a signal, and the
    distance left), plots the signals found (hollow rings, the comet where
-   it has flown on to, the derelict as a craft) and the edge of the world,
+   it has flown on to, the derelict as a craft), the contacts sonar scans
+   have picked out (amber, with each scan's sweep) and the edge of the world,
    and zooms out as far as it must to keep the camera, the goal and those
    finds on the map (the scale bar follows), back in as they come closer.
    ------------------------------------------------------------------ */
@@ -187,10 +198,14 @@ function placeLabel(label: string, x: number, y: number, w: number, placed: Box[
 
 type Point = [number, number, number];
 
-/** A signal free roam has plotted on the map: found ones, as hollow rings (the derelict as a craft) */
+/**
+ * A signal free roam has plotted on the map: found ones as hollow rings
+ * (the derelict as a craft), contacts a scan picked out as amber dots
+ */
 interface Plot {
   signal: Signal;
   at: Point;
+  found: boolean;
 }
 
 const scratch: WorldPoint = { x: 0, y: 0, z: 0 };
@@ -200,11 +215,11 @@ const pointOf = (signal: Signal): Point => {
   return [x, y, z];
 };
 
-/** The signals the map plots in free roam: those found (the comet where it is now) */
+/** The signals the map plots in free roam: those found or scanned (the comet where it is now) */
 function plotted(): Plot[] {
   return signals
-    .filter((signal) => isFound(signal.id))
-    .map((signal) => ({ signal, at: pointOf(signal) }));
+    .filter((signal) => isFound(signal.id) || isScanned(signal.id))
+    .map((signal) => ({ signal, at: pointOf(signal), found: isFound(signal.id) }));
 }
 
 const isStation = (course: string): course is StationKey =>
@@ -218,7 +233,8 @@ function courseGoal(course: string): { at: Point; label: string; station: Statio
   const signal = signals.find((s) => `signal:${s.id}` === course);
   if (!signal) return null;
   // Unfound, it is only a contact: its name is what finding it tells you
-  return { at: pointOf(signal), label: isFound(signal.id) ? signal.name : 'Contact', station: '' };
+  const label = isFound(signal.id) ? signal.name : contactName(signal.id);
+  return { at: pointOf(signal), label, station: '' };
 }
 
 /** The largest scale (up to the stations' fit) that keeps every point on the map */
@@ -382,6 +398,31 @@ function paint(
     ctx.restore();
   }
 
+  // A sonar scan sweeping out from where the ship was, to detector range
+  const scan = currentScan();
+  const age = scanClock() - scan.at;
+  if (exploring && age >= 0 && age < scanSweep) {
+    const radius = (age / scanSweep) * detectorRange;
+    ctx.save();
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = colours.amber;
+    ctx.globalAlpha = 0.9 * (1 - age / scanSweep);
+    ctx.beginPath();
+    for (let i = 0; i <= edgeSteps; i++) {
+      const angle = (i / edgeSteps) * Math.PI * 2;
+      const [x, y] = project(
+        view,
+        scan.from[0] + Math.cos(angle) * radius,
+        scan.from[1],
+        scan.from[2] + Math.sin(angle) * radius
+      );
+      if (i) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Planned route, with how far along it the camera is; the course a
   // hovered link would take, marching towards its station; or in free roam
   // the autopilot's course, marching towards its goal
@@ -452,13 +493,24 @@ function paint(
   }
 
   // Free roam's finds: hollow rings where each signal was logged (the comet
-  // where it has flown on to), and the derelict as the craft it is
-  for (const { signal, at } of plots) {
+  // where it has flown on to), and the derelict as the craft it is; and the
+  // contacts scans have picked out, amber
+  for (const { signal, at, found } of plots) {
     const top = project(view, at[0], at[1], at[2]);
     const foot = project(view, at[0], groundY, at[2]);
     const isGoal = !!goal && worldStore.autopilot === `signal:${signal.id}`;
-    stalk(ctx, top, foot, colours.cyan, 0.3);
+    stalk(ctx, top, foot, found ? colours.cyan : colours.amber, 0.3);
     if (isGoal) pulse(ctx, top[0], top[1], colours.pink, now);
+    if (!found) {
+      ctx.fillStyle = colours.amber;
+      ctx.shadowColor = colours.amber;
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(top[0], top[1], 2.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      continue;
+    }
     if (signal.id === 'derelict') {
       ctx.fillStyle = colours.muted;
       ctx.beginPath();

@@ -24,7 +24,21 @@ import { pastStamp } from './clock';
 import { asGlow, createFresnelMaterial } from './materials';
 import { Antenna, NavLights, partMaterials, SolarArray, Truss } from './parts';
 import { spawnPing } from './Pings';
-import { cometAt, isFound, markFound, reportNearest, setSignalTime, signals } from './signalStore';
+import {
+  cometAt,
+  contactMarks,
+  currentScan,
+  detectorRange,
+  isFound,
+  isScanned,
+  markFound,
+  markScanned,
+  reportNearest,
+  scanClock,
+  scanSweep,
+  setSignalTime,
+  signals,
+} from './signalStore';
 import { sunDirection } from './sky';
 import { useThemedMaterials } from './stationHooks';
 import { palettes } from './utils';
@@ -32,7 +46,7 @@ import { queueUpload } from './warmup';
 import { worldMode } from './worldMode';
 import { emitCue } from './worldStore';
 
-import type { WebGLRenderer } from 'three';
+import type { Camera, WebGLRenderer } from 'three';
 import type { Signal } from './signalStore';
 import type { WorldPalette, WorldTheme } from './utils';
 
@@ -226,6 +240,46 @@ function disposeAssets(assets: SignalAssets) {
 /** Per signal: when it was found (clock time, -Infinity before), and how its nameplate shows */
 interface FindState {
   foundAt: number;
+}
+
+const sweepFrom = new Vector3();
+const seen = new Vector3();
+const onView = new Vector3();
+
+/**
+ * A sonar scan sweeping out from where the ship was (currentScan): each
+ * unfound signal is picked out as the sweep's radius, detector range in
+ * `scanSweep` seconds, passes it, with a ping where it is and the sonar's
+ * cue from there
+ */
+function sweep(signal: Signal, at: Vector3) {
+  const scan = currentScan();
+  const age = scanClock() - scan.at;
+  if (age < 0 || age > scanSweep + 0.1 || scan.hits.includes(signal.id)) return;
+  const distance = at.distanceTo(sweepFrom.fromArray(scan.from));
+  if (distance > detectorRange || distance > (age / scanSweep) * detectorRange) return;
+  markScanned(signal.id);
+  spawnPing(at, { scale: 2, flash: false, cue: false });
+  emitCue('sonar', { at: [at.x, at.y, at.z], strength: 1 - distance / detectorRange });
+}
+
+/** Where a contact (scanned, not yet found) is on screen, for the HUD's marker */
+function markContact(signal: Signal, at: Vector3, camera: Camera) {
+  const mark = (contactMarks[signal.id] ??= { x: 0, y: 0, onScreen: false, distance: 0 });
+  mark.distance = camera.position.distanceTo(at);
+  onView.copy(at).applyMatrix4(camera.matrixWorldInverse);
+  seen.copy(at).project(camera);
+  if (onView.z < 0 && Math.abs(seen.x) <= 1 && Math.abs(seen.y) <= 1) {
+    mark.x = seen.x;
+    mark.y = seen.y;
+    mark.onScreen = true;
+  } else {
+    // Off screen: the way to turn (straight behind reads as "turn round", downwards)
+    const length = Math.hypot(onView.x, onView.y);
+    mark.x = length > 1e-3 ? onView.x / length : 0;
+    mark.y = length > 1e-3 ? onView.y / length : -1;
+    mark.onScreen = false;
+  }
 }
 
 const tailVertex = /* glsl */ `
@@ -458,7 +512,12 @@ export function Signals({ theme }: { theme: WorldTheme }) {
       plate.visible = plateMaterial.opacity > 0.01;
       plate.scale.set(plateWidth, plateWidth / 4, 1);
 
-      if (!exploring || found) return;
+      if (!exploring || found) {
+        delete contactMarks[signal.id];
+        return;
+      }
+      sweep(signal, node.position);
+      if (isScanned(signal.id)) markContact(signal, node.position, camera);
       if (distance < signal.reach) {
         if (markFound(signal.id)) {
           find.foundAt = t;
