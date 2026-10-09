@@ -74,8 +74,12 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
           </group>
         </group>
         <Shards count={22} radius={4} seed={17} theme={theme} tumble />
-        <group ref={driftRef} {...handlers}>
+        <group ref={driftRef}>
           <Model url={stationModels.lost!} height={3} theme={theme} />
+          {/* Never drawn: the astronaut's target for the pointer (a capsule, not its triangles) */}
+          <mesh visible={false} {...handlers}>
+            <capsuleGeometry args={[0.95, 1.2, 4, 12]} />
+          </mesh>
         </group>
       </group>
     </StationScope>

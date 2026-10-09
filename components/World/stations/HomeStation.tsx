@@ -235,8 +235,12 @@ export function HomeStation({ theme }: { theme: WorldTheme }) {
 
         <Shards count={18} radius={3.4} seed={3} theme={theme} />
 
-        <group ref={floatRef} {...handlers}>
+        <group ref={floatRef}>
           <Model url={stationModels.home!} height={3.5} theme={theme} />
+          {/* Never drawn: the astronaut's target for the pointer (a capsule, not its triangles) */}
+          <mesh visible={false} {...handlers}>
+            <capsuleGeometry args={[1.05, 1.5, 4, 12]} />
+          </mesh>
         </group>
       </group>
     </StationScope>

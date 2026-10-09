@@ -277,8 +277,12 @@ export function ExperienceStation({
           ))}
         </group>
 
-        <group ref={satelliteRef} position={[2.3, 1.6, 0]} {...handlers}>
+        <group ref={satelliteRef} position={[2.3, 1.6, 0]}>
           <Model url={stationModels.experience!} height={1.6} theme={theme} />
+          {/* Never drawn: the satellite's target for the pointer, along its length */}
+          <mesh visible={false} rotation={[Math.PI / 2, 0, 0]} {...handlers}>
+            <capsuleGeometry args={[0.8, 1.6, 4, 12]} />
+          </mesh>
         </group>
 
         {/* The satellite's ping, running down the beam */}

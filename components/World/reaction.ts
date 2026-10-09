@@ -58,16 +58,22 @@ function hover(state: Reaction, on: boolean, tip: WorldTip) {
   else if (worldTip.get() === tip) worldTip.set(null);
 }
 
-/** Starts the trick (unless one is already playing) */
-export function trick(state: Reaction, duration = 1) {
+/** A point in world space (an R3F event's `e.point`) */
+type Point = { x: number; y: number; z: number };
+
+/** Starts the trick (unless one is already playing); `at` places its cue in space */
+export function trick(state: Reaction, duration = 1, at?: Point) {
   if (state.now - state.trickAt < duration) return;
   state.trickAt = state.now;
-  emitCue('trick');
+  emitCue('trick', at ? { at: [at.x, at.y, at.z] } : undefined);
 }
 
 /**
  * Pointer handlers for a character: hover leans it in (and shows `tip`), a
- * click pings where it landed and plays its `duration`-second trick
+ * click pings where it landed and plays its `duration`-second trick. Put
+ * them on an invisible proxy (a capsule or sphere round the character), not
+ * on the model: R3F raycasts everything under the object with the handlers,
+ * and a GLB's triangles cost far more to test on every pointer move
  */
 export function useReactionHandlers(state: RefObject<Reaction>, tip: WorldTip, duration = 1) {
   return useMemo(
@@ -82,7 +88,7 @@ export function useReactionHandlers(state: RefObject<Reaction>, tip: WorldTip, d
       onClick(e: ThreeEvent<MouseEvent>) {
         e.stopPropagation();
         spawnPing(e.point);
-        trick(state.current, duration);
+        trick(state.current, duration, e.point);
       },
     }),
     [state, tip, duration]

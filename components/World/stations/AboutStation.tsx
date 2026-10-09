@@ -258,8 +258,12 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
           onUpdate={(mesh) => placeMotes(mesh, motes, 0)}
         />
 
-        <group ref={helmetRef} {...handlers}>
+        <group ref={helmetRef}>
           <Model url={stationModels.about!} height={2.8} theme={theme} />
+          {/* Never drawn: the helmet's target for the pointer (a sphere, not its triangles) */}
+          <mesh visible={false} {...handlers}>
+            <sphereGeometry args={[1.35, 16, 12]} />
+          </mesh>
         </group>
       </group>
     </StationScope>
