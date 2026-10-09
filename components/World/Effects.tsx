@@ -22,6 +22,7 @@ import {
   updateReadingGuard,
 } from './optics';
 import { palettes } from './utils';
+import { tierRank, tierSettings } from './quality';
 import { precompileComposer, useWarmupTask } from './warmup';
 
 import type { EffectComposer as EffectComposerImpl } from 'postprocessing';
@@ -108,8 +109,9 @@ function composerReady(ref: { current: EffectComposerImpl | null }) {
  *    thin rings, trusses and orbit lines shimmered without it), then grain.
  *
  * The tiers differ in cost only: the pixel ratio (WorldCanvas), bloom's
- * internal resolution (a quarter on low, set through the effect so nothing
- * is recreated), and fringes and sun shafts held at zero below high.
+ * internal resolution (quality.ts: a quarter on low, 0.6 on ultra, set
+ * through the effect so nothing is recreated), and fringes and sun shafts
+ * held at zero below high.
  * The chain is built once: a theme change sets its grade in place
  * (themeChain), so the passes keep their keys and nothing recompiles.
  */
@@ -119,7 +121,8 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
   const scene = useThree((s) => s.scene);
   const track = useWarmupTask();
   const composerRef = useRef<EffectComposerImpl>(null);
-  const top = tier === 'high';
+  // Fringes and sun shafts from high up
+  const top = tierRank(tier) >= tierRank('high');
 
   // Built once: a theme change retunes it in place (themeChain)
   const chain = useMemo<Chain>(() => {
@@ -170,7 +173,7 @@ export function Effects({ theme, tier }: { theme: WorldTheme; tier: QualityTier 
   });
 
   useEffect(() => {
-    setBloomScale(chain.bloom, tier === 'low' ? 0.25 : 0.5);
+    setBloomScale(chain.bloom, tierSettings[tier].bloomScale);
   }, [chain, tier]);
 
   // Precompile the passes when the chain is built (once)
