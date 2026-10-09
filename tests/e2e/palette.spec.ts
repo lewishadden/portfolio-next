@@ -72,6 +72,91 @@ test.describe('command palette', () => {
   });
 });
 
+test.describe('the palette and the world', () => {
+  test('page rows say where each page is docked, and the selection starts on another page', async ({
+    page,
+  }) => {
+    await openHydrated(page, '/');
+    const { dialog } = await openPalette(page);
+    const home = dialog.getByRole('option', { name: /^Home/ });
+    await expect(home).toContainText('Docked');
+    await expect(home).toHaveAttribute('aria-selected', 'false');
+    const about = dialog.getByRole('option', { name: /^About/ });
+    await expect(about).toContainText(/Crew habitat · \d+ km/);
+    await expect(about).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('a wheel over the open palette leaves the page where it was', async ({ page }) => {
+    await openHydrated(page, '/experience');
+    await page.mouse.move(40, 400);
+    await page.mouse.wheel(0, 700);
+    await page.waitForTimeout(1200);
+    const before = await page.evaluate(() => window.scrollY);
+    expect(before).toBeGreaterThan(0);
+    await openPalette(page);
+    // Over the dimmed page beside the panel
+    await page.mouse.move(12, 600);
+    await page.mouse.wheel(0, 900);
+    await page.waitForTimeout(1200);
+    expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  });
+
+  test('closing the palette mid "sudo hire lewis" stays on the page', async ({ page }) => {
+    await openHydrated(page, '/about');
+    let { dialog, input } = await openPalette(page);
+    await input.fill('sudo hire lewis');
+    await page.keyboard.press('Enter');
+    await expect(dialog.getByRole('log')).toContainText('password for recruiter');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await page.waitForTimeout(5000);
+    await expect(page).toHaveURL(/\/about$/);
+    ({ dialog, input } = await openPalette(page));
+    await expect(dialog.getByRole('log')).toContainText('^C');
+    await expect(dialog.getByRole('log')).not.toContainText('Launch sequence armed');
+  });
+
+  test('a page chosen from the palette has focus on its heading once it shows', async ({
+    page,
+  }) => {
+    await openHydrated(page, '/');
+    const { dialog, input } = await openPalette(page);
+    await input.fill('experience');
+    await page.keyboard.press('Enter');
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(/\/experience$/);
+    await expect(page.locator('#main-content h1')).toBeFocused();
+  });
+});
+
+test.describe('the palette in free roam', () => {
+  test.use({ world: 'on', reducedMotion: 'reduce' });
+
+  test(
+    'choosing a page from free roam leaves explore mode',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      const html = page.locator('html');
+
+      let { input } = await openPalette(page);
+      await input.fill('free flight');
+      await page.keyboard.press('Enter');
+      await expect(html).toHaveAttribute('data-world-mode', 'explore');
+      await page.evaluate(() => document.exitPointerLock());
+
+      ({ input } = await openPalette(page));
+      await input.fill('skills');
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(/\/skills$/);
+      await expect(html).toHaveAttribute('data-world-mode', 'page', { timeout: 20_000 });
+      await expect(page.locator('#main-content')).not.toHaveAttribute('inert');
+    }
+  );
+});
+
 test('stats for nerds shows live frame timings', async ({ page }) => {
   await openHydrated(page, '/');
   const { dialog, input } = await openPalette(page);

@@ -1,7 +1,11 @@
 @use '../../app/motion' as *;
+@use '../HeaderHud/frame' as *;
 
 /* =============================================================
-   Command palette: ⌘K / Ctrl+K
+   Command palette: ⌘K / Ctrl+K. An opaque panel in the header HUD's
+   style (a hairline frame and corner brackets) over a dimmed page:
+   no backdrop blur, which re-blurred the live 3D world under it every
+   frame
    ============================================================= */
 html.palette-open {
   overflow: hidden;
@@ -15,22 +19,29 @@ html.palette-open {
   justify-items: center;
   align-items: start;
   padding: clamp(4rem, 14vh, 9rem) 16px 16px;
-  background: color-mix(in oklab, var(--bg-primary) 55%, transparent);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background: color-mix(in oklab, var(--bg-primary) 72%, transparent);
   animation: palette-fade 0.18s ease-out both;
 
   &__dialog {
+    @include hud-frame;
+
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     width: min(640px, 100%);
     max-height: min(560px, 74vh);
-    overflow: hidden;
-    background: var(--surface-strong);
     box-shadow:
       0 30px 90px -20px rgba(0, 0, 0, 0.75),
-      0 0 0 1px color-mix(in oklab, var(--accent-primary) 30%, transparent);
+      0 0 24px -8px var(--hud-glow);
     animation: palette-rise 0.28s var(--ease-out) both;
+
+    &::before {
+      @include hud-brackets;
+    }
+
+    /* Long rows and log lines shrink to the frame rather than widen it */
+    > * {
+      min-width: 0;
+    }
   }
 
   &__prompt {
@@ -168,6 +179,12 @@ html.palette-open {
     font-family: var(--font-mono);
     font-size: var(--fs-tiny);
     color: var(--text-muted);
+
+    &--docked {
+      color: var(--accent-secondary);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
   }
 
   &__empty {
