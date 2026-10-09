@@ -6,6 +6,7 @@ import { Icon } from '@iconify/react';
 import { useLenis } from 'lenis/react';
 
 import { useSound } from 'components/Sound/sound';
+import { answersHail, canHail, hail } from 'components/StationReadout/hail';
 import { statsOverlay } from 'components/StatsOverlay/statsStore';
 import { rangeBetween, stationForPath, stationNames } from 'components/World/routes';
 import { launchWorldMode, navigateFromMode } from 'components/World/worldMode';
@@ -430,6 +431,27 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           startExplore();
         },
       },
+      ...(answersHail(here)
+        ? [
+            {
+              id: 'hail',
+              group: 'World' as const,
+              label: 'Hail the station',
+              icon: 'ph:broadcast-bold',
+              hint: stationNames[here].craft,
+              keywords: 'hail hello wave trick show off',
+              run: () => {
+                if (!canHail()) {
+                  print('Nothing out there can hear you with 3D effects off.', 'warn');
+                  return true;
+                }
+                // Closed first, so the trick is seen; the readout says what it did
+                close();
+                hail(here);
+              },
+            },
+          ]
+        : []),
       {
         id: 'world',
         group: 'World',

@@ -116,3 +116,37 @@ test.describe('the footer manifest', () => {
     await context.close();
   });
 });
+
+test.describe('hailing the station', () => {
+  test('needs the world: with 3D effects off there is nothing to hail', async ({ page }) => {
+    await openHydrated(page, '/about');
+    await expect(page.getByRole('button', { name: 'Hail the crew habitat' })).toBeHidden();
+  });
+
+  test.describe('with the world on', () => {
+    test.use({ world: 'on', reducedMotion: 'reduce' });
+
+    test('it answers, and says how', { tag: '@webgl' }, async ({ page }) => {
+      await openHydrated(page, '/about');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      const button = page.getByRole('button', { name: 'Hail the crew habitat' });
+      await expect(button).toBeVisible();
+      await button.click();
+      // Held still, a hail is answered with a ping
+      await expect(page.locator('#main-content').getByRole('status')).toHaveText(
+        'The crew habitat answers with a ping'
+      );
+
+      // The command palette hails too
+      await page.keyboard.press('ControlOrMeta+k');
+      const dialog = page.getByRole('dialog', { name: 'Command palette' });
+      await dialog.getByRole('combobox', { name: 'Command' }).fill('hail');
+      await page.keyboard.press('Enter');
+      await expect(dialog).toBeHidden();
+      await expect(page.locator('#main-content').getByRole('status')).toHaveText(
+        'The crew habitat answers with a ping'
+      );
+    });
+  });
+});

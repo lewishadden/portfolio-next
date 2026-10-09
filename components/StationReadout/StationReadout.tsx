@@ -1,15 +1,21 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { Icon } from '@iconify/react';
 
 import { rangeToGo, watchCourse } from 'components/HeaderHud/course';
 import { rangeBetween, stationForPath, stationNames } from 'components/World/routes';
 import { onFlight, worldStore } from 'components/World/worldStore';
 
+import { answersHail, hail, onHail } from './hail';
+
 import type { StationKey } from 'components/World/routes';
 
 import './StationReadout.scss';
+
+/** How long what a hail did stays on screen (ms) */
+const answerFor = 4500;
 
 /** What the readout says, docked or on the way */
 const wording = (key: StationKey, enRoute: boolean) => ({
@@ -22,7 +28,9 @@ const wording = (key: StationKey, enRoute: boolean) => ({
  * docked at and how far that is from Home (rangeBetween, the same figure
  * in the server HTML, with the world on and with it off). While the camera
  * is flying here it reads "En route to the <craft>" with the range still
- * to go, counting down; its animation loop runs only then.
+ * to go, counting down; its animation loop runs only then. With the
+ * world up, a Hail button beside it asks the station to show off (see
+ * hail.ts), and a status line says what it did.
  */
 export function StationReadout({ className = '' }: { className?: string }) {
   const key = stationForPath(usePathname());
@@ -30,6 +38,22 @@ export function StationReadout({ className = '' }: { className?: string }) {
   const distanceRef = useRef<HTMLSpanElement>(null);
   const tailRef = useRef<HTMLSpanElement>(null);
   const fromHome = rangeBetween(key, 'home');
+  const [answer, setAnswer] = useState('');
+
+  // What a hail did, from this button or the command palette, said for a moment
+  useEffect(() => {
+    let timer = 0;
+    const stop = onHail((station, said) => {
+      if (station !== key) return;
+      setAnswer(said);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setAnswer(''), answerFor);
+    });
+    return () => {
+      stop();
+      window.clearTimeout(timer);
+    };
+  }, [key]);
 
   useEffect(() => {
     watchCourse();
@@ -101,6 +125,23 @@ export function StationReadout({ className = '' }: { className?: string }) {
         <span ref={tailRef}>{words.tail}</span>
       </span>
       {key === 'home' && <span className="station-readout__port">Home port</span>}
+      {answersHail(key) && (
+        <>
+          {/* Shown only once the world is up to hear it (StationReadout.scss) */}
+          <button
+            type="button"
+            className="station-readout__hail"
+            aria-label={`Hail the ${craft.toLowerCase()}`}
+            onClick={() => hail(key)}
+          >
+            <Icon icon="ph:broadcast-bold" width={13} height={13} aria-hidden="true" />
+            <span>Hail</span>
+          </button>
+          <span className="station-readout__answer" role="status">
+            {answer}
+          </span>
+        </>
+      )}
     </p>
   );
 }
