@@ -97,6 +97,59 @@ test.describe('project index', () => {
   });
 });
 
+test.describe('the ride without the world', () => {
+  test('a short scroll carries on to the next project, and the first docks', async ({ page }) => {
+    await openHydrated(page, '/projects');
+    const index = page.getByRole('navigation', { name: 'Projects' });
+    const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
+    /** Waits for the scroll (and any snap glide) to come to rest */
+    const settled = () =>
+      expect
+        .poll(async () => {
+          const start = await scrollY();
+          await page.waitForTimeout(400);
+          return (await scrollY()) === start;
+        })
+        .toBe(true);
+    const { width, height } = page.viewportSize()!;
+    await page.mouse.move(width / 2, height / 2);
+
+    // From the top, a short swipe docks on the first project rather than
+    // going back up (the stage is further away than that)
+    await page.mouse.wheel(0, 150);
+    await settled();
+    const docked = await page.evaluate(() => {
+      const tour = document.querySelector<HTMLElement>('.projects__tour')!;
+      const stage = document.querySelector<HTMLElement>('.projects__stage')!;
+      return (
+        tour.getBoundingClientRect().top + window.scrollY - parseFloat(getComputedStyle(stage).top)
+      );
+    });
+    expect(Math.abs((await scrollY()) - docked)).toBeLessThan(4);
+    await expect(index.getByRole('link', { name: 'ZGS Carpentry', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+
+    // 150px is well short of halfway to the next project: it still goes on to it
+    await page.mouse.wheel(0, 150);
+    await settled();
+    await expect(index.getByRole('link', { name: 'Sidenote', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    await expect(page.getByRole('heading', { level: 2, name: 'Sidenote' })).toBeVisible();
+
+    // And back the same way
+    await page.mouse.wheel(0, -150);
+    await settled();
+    await expect(index.getByRole('link', { name: 'ZGS Carpentry', exact: true })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+  });
+});
+
 test.describe('the helix ride', () => {
   test.use({ world: 'on' });
 

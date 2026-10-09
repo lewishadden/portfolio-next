@@ -202,8 +202,15 @@ function rideStage(stage: HTMLElement | null, focus: number) {
   stage.style.setProperty('--hud-o', Math.min(Math.max(1 - Math.abs(ride) * 2.2, 0), 1).toFixed(3));
 }
 
-/** Scroll that comes to rest on the ride glides to the nearest stop, after this long (ms) */
+/** Scroll that comes to rest on the ride glides to a stop, after this long (ms) */
 const snapAfter = 160;
+/**
+ * A scroll that ends this far (px) from where the last one came to rest
+ * carries on to the next stop its way, however short of halfway it is; a
+ * smaller one goes back. From the top of the page a smaller one still docks
+ */
+const snapCommit = 60;
+const snapCommitTop = 24;
 const snapEase = (t: number) => 1 - Math.pow(1 - t, 3);
 
 /**
@@ -322,13 +329,18 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     [lenis, runway]
   );
 
-  // Snapping: once scroll comes to rest on the ride, glide to the nearest
-  // project (or back to the top of the page); past the last one it is free.
-  // Any scroll input interrupts the glide (Lenis stops programmatic scrolls)
+  // Snapping: once scroll comes to rest on the ride, glide to a project (or
+  // back to the top of the page): the next one in the direction of the
+  // gesture once it has gone snapCommit from where the last one rested (the
+  // first from the top always docks), else back to the nearest. Past the
+  // last project it is free. Any scroll input interrupts the glide (Lenis
+  // stops programmatic scrolls)
   useEffect(() => {
     if (!lenis || selected >= 0) return;
     let timer = 0;
     let pressed = false;
+    /** Where the scroll last came to rest (or was sent) */
+    let anchor = window.scrollY;
     const settle = () => {
       const lane = runway();
       if (pressed || lane.step < 10) return;
@@ -339,14 +351,29 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
       }
       const y = window.scrollY;
       const stops = items.map((_, i) => lane.docked + lane.step * i);
-      if (y > stops[stops.length - 1] + lane.step / 2) return;
+      const last = stops[stops.length - 1];
+      if (y > last + lane.step / 2) {
+        anchor = y;
+        return;
+      }
       if (lane.docked > 1) stops.unshift(0);
-      const nearest = stops.reduce((best, stop) =>
-        Math.abs(stop - y) < Math.abs(best - y) ? stop : best
-      );
-      if (Math.abs(nearest - y) < 2) return;
+      const moved = y - anchor;
+      const commit = anchor < lane.docked - 2 && moved > 0 ? snapCommitTop : snapCommit;
+      let target: number;
+      if (Math.abs(moved) > commit) {
+        target =
+          moved > 0
+            ? (stops.find((stop) => stop >= y - 2) ?? last)
+            : (stops.findLast((stop) => stop <= y + 2) ?? stops[0]);
+      } else {
+        target = stops.reduce((best, stop) =>
+          Math.abs(stop - y) < Math.abs(best - y) ? stop : best
+        );
+      }
+      anchor = target;
+      if (Math.abs(target - y) < 2) return;
       const reduce = motionLevel() !== 'full';
-      lenis.scrollTo(nearest, { duration: 0.75, easing: snapEase, immediate: reduce });
+      lenis.scrollTo(target, { duration: 0.75, easing: snapEase, immediate: reduce });
     };
     function rest() {
       window.clearTimeout(timer);
