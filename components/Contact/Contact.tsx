@@ -68,7 +68,11 @@ const ContactCard = ({ info }: { info: ContactInfo }) => {
 
   return (
     <RevealItem as="li" className="contact__card-cell">
-      <div className="contact__card glass spotlight" ref={ref}>
+      <div
+        className="contact__card glass spotlight"
+        ref={ref}
+        data-world-target={`contact:${info.name}`}
+      >
         {info.link ? (
           <Link
             href={info.link}
