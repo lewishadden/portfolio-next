@@ -49,29 +49,18 @@ Paths assumed: repo `~/Workspace/portfolio-next` (= `/Users/lewis/Workspace/port
 in `~/Workspace/wi-worktrees/`, briefs/reports/scratch in `~/Workspace/wi/`. If yours differ, replace
 `/Users/lewis/Workspace` in `lane-brief.md` and `world-immersion-pass-mac.js` before starting.
 
+Run the setup script with bash (it is safe to re-run, checks every step, and stops with a clear message at the
+first failure; don't paste the steps into zsh, whose default settings pass `# ...` comments to commands as
+arguments):
+
 ```sh
-cd ~/Workspace/portfolio-next
-git status   # the old local branch claude/world-immersion may show an untracked bun.lockb: leave it, never commit it
-git fetch origin
-git switch -c claude/world-immersion-rpta9t --track origin/claude/world-immersion-rpta9t   # or: git switch claude/world-immersion-rpta9t && git pull --ff-only
-nvm use              # Node 24 (.nvmrc)
-npm ci
-npx playwright install chromium
-cp -n .env.SAMPLE .env   # if there is no .env yet
-
-# handoff files -> ~/Workspace/wi (lane-brief.md, reports/, handoff/)
-mkdir -p ~/Workspace/wi/scratch ~/Workspace/wi-worktrees
-git archive origin/claude/wi-handoff | tar -x -C ~/Workspace/wi
-
-# lane worktrees
-for l in l1 l2; do git worktree add -b claude/wi-$l ~/Workspace/wi-worktrees/$l origin/claude/wi-$l; done
-for l in l4 l5 l6 l7 l8 l9 l10 l11; do git worktree add -b claude/wi-$l ~/Workspace/wi-worktrees/$l claude/world-immersion-rpta9t; done
-for l in l1 l2 l4 l5 l6 l7 l8 l9 l10 l11; do
-  cp -c -R node_modules ~/Workspace/wi-worktrees/$l/node_modules
-  cp .env ~/Workspace/wi-worktrees/$l/
-  mkdir -p ~/Workspace/wi/scratch/$l
-done
+cd ~/Workspace/portfolio-next && git fetch origin claude/wi-handoff && git show origin/claude/wi-handoff:handoff/setup-mac.sh | bash
 ```
+
+It switches the checkout to `claude/world-immersion-rpta9t` (refusing if tracked files have uncommitted changes),
+runs `npm ci` and `npx playwright install chromium`, extracts these handoff files into `~/Workspace/wi`, creates
+the ten lane worktrees (`claude/wi-l1` and `claude/wi-l2` from their pushed branches, the rest from the
+integration branch), and clones `node_modules` and `.env` into each. Override paths with `REPO=`, `WT=`, `WI=`.
 
 Keep the Mac awake and plugged in for the whole run (`caffeinate -dims` in a spare terminal).
 
