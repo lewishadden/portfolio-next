@@ -11,7 +11,7 @@ import { useLenis } from 'lenis/react';
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal } from 'components/Motion/Reveal';
-import { projectRideEvent } from 'components/World/ride';
+import { projectRideEvent, settleFocus } from 'components/World/ride';
 import { worldStore } from 'components/World/worldStore';
 
 import { motionLevel } from '@/utils/motion';
@@ -179,6 +179,29 @@ function ProjectHud({
   );
 }
 
+/**
+ * The HUD's copy travels with the camera between projects: `--ride` is how
+ * far the camera is from the project shown (settleFocus, -0.5..0.5, 0 while
+ * it holds on one) and `--hud-o` the copy's opacity, gone by a ride of
+ * 0.45, where the next project's copy takes over. Within `rideRest` of a
+ * project there is no transform or opacity at all, so text at rest is crisp
+ */
+const rideRest = 0.02;
+
+function rideStage(stage: HTMLElement | null, focus: number) {
+  if (!stage) return;
+  const ride = settleFocus(focus) - Math.round(focus);
+  if (Math.abs(ride) < rideRest) {
+    stage.removeAttribute('data-riding');
+    stage.style.removeProperty('--ride');
+    stage.style.removeProperty('--hud-o');
+    return;
+  }
+  stage.setAttribute('data-riding', '');
+  stage.style.setProperty('--ride', ride.toFixed(4));
+  stage.style.setProperty('--hud-o', Math.min(Math.max(1 - Math.abs(ride) * 2.2, 0), 1).toFixed(3));
+}
+
 /** Scroll that comes to rest on the ride glides to the nearest stop, after this long (ms) */
 const snapAfter = 160;
 const snapEase = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -232,15 +255,17 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
     let frame = 0;
     const update = () => {
       frame = 0;
+      const stage = stageRef.current;
       if (selected >= 0) {
         worldStore.projectFocus = selected;
         worldStore.projectIntro = 0;
         worldStore.projectTail = 0;
+        rideStage(stage, selected);
         return;
       }
-      const stage = stageRef.current;
       if (lane.step < 10) {
         stage?.removeAttribute('data-waiting');
+        rideStage(stage, 0);
         return;
       }
       const focus = Math.min(
@@ -248,6 +273,7 @@ export const Projects = ({ projects }: { projects: ProjectsProps }) => {
         items.length - 1
       );
       worldStore.projectFocus = focus;
+      rideStage(stage, focus);
       // Past the last project the camera descends with the page, so the last
       // screen scrolls away with its copy
       const last = lane.docked + lane.step * (items.length - 1);

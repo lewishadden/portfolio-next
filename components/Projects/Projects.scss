@@ -105,6 +105,25 @@
   transform: translateY(14px);
 }
 
+/* Between projects the copy rides with the camera (Projects' rideStage):
+   up and out as the camera leaves a project, in from below as it reaches
+   the next, tracking the scroll (no transition). At rest there is no
+   transform or opacity at all */
+.projects__stage[data-riding] .proj-hud {
+  > .proj-hud__head,
+  > .proj-hud__tech,
+  > .proj-hud__desc,
+  > .proj-hud__actions {
+    opacity: var(--hud-o);
+    transform: translateY(calc(var(--ride) * -2.5rem));
+    transition: none;
+
+    @include reduced-motion {
+      transform: none;
+    }
+  }
+}
+
 /* Written round the screen: head top left, stack top right, summary and
    actions below. The middle row is the screen's */
 .proj-hud {
