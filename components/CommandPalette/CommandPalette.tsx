@@ -18,9 +18,12 @@ import {
 } from 'components/World/worldStore';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useMotionPref } from '@/hooks/useMotion';
 import { useWorldPreference } from '@/hooks/useWorldPreference';
+import { setMotionPref } from '@/utils/motion';
 
 import type { StationKey } from 'components/World/routes';
+import type { MotionPref } from '@/utils/motion';
 
 import './CommandPalette.scss';
 
@@ -99,6 +102,14 @@ function cancelHire() {
   hire.timers = [];
   return true;
 }
+
+/** The motion levels (utils/motion.ts) as palette commands */
+const motionChoices: { pref: MotionPref; label: string; icon: string }[] = [
+  { pref: 'system', label: 'Motion: follow system', icon: 'ph:gear-six-bold' },
+  { pref: 'full', label: 'Motion: full', icon: 'ph:wind-bold' },
+  { pref: 'calm', label: 'Motion: calm', icon: 'ph:feather-bold' },
+  { pref: 'still', label: 'Motion: still', icon: 'ph:pause-bold' },
+];
 
 /** How long a row must stay selected before the world previews the course to it (as link hovers do) */
 const previewDelay = 140;
@@ -249,6 +260,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
   }, [open, lenis]);
 
   const { on: soundOn, setSound } = useSound();
+  const motionPref = useMotionPref();
   const switchTheme = useCallback(() => {
     toggleTheme();
     emitCue('theme');
@@ -456,6 +468,18 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           switchTheme();
         },
       },
+      ...motionChoices.map(({ pref, label, icon }) => ({
+        id: `motion-${pref}`,
+        group: 'Actions' as const,
+        label,
+        icon,
+        hint: pref === motionPref ? 'Current' : undefined,
+        keywords: 'motion animation reduce reduced calm still accessibility vestibular',
+        run: () => {
+          setMotionPref(pref);
+          return true;
+        },
+      })),
       {
         id: 'email',
         group: 'Actions',
@@ -516,6 +540,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     data,
     enabled,
     here,
+    motionPref,
     navigate,
     pathname,
     print,

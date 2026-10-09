@@ -7,6 +7,8 @@ import Magnet from 'components/Magnet/Magnet';
 import { Reveal } from 'components/Motion/Reveal';
 import { ScrambleText } from 'components/Motion/ScrambleText';
 
+import { MotionControl } from './MotionControl';
+
 import { Footer as FooterProps, NavItem } from '@/types';
 
 import './Footer.scss';
@@ -78,6 +80,10 @@ export const Footer = ({ footer, navItems }: { footer: FooterProps; navItems: Na
               </li>
             ))}
           </ul>
+        </div>
+
+        <div className="footer__col footer__console">
+          <MotionControl />
         </div>
       </div>
 
