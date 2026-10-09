@@ -129,7 +129,9 @@ export const worldStore = {
   /**
    * Phones: the [data-world-window] spacer nearest the reading line (CSS px
    * from the top of the viewport, and its height), where the camera frames
-   * the station mid-page; `top` is -1 when there is none
+   * the station mid-page; `top` is -1 and `height` 0 when there is none.
+   * A spacer partly scrolled above the screen has a negative `top` too, so
+   * test `height > 0` for whether there is one
    */
   worldWindow: { top: -1, height: 0 },
   /** CSS px of the helix screen in front on /projects (`on` false when none is) */
@@ -321,12 +323,14 @@ const chromeListeners = new Set<() => void>();
 
 /** Reports page chrome opening or closing over the world (only what changed needs passing) */
 export function setChrome(next: Partial<{ menuOpen: boolean; modalCover: boolean }>) {
-  const changed = (Object.keys(next) as (keyof typeof chrome)[]).some(
-    (key) => next[key] !== undefined && next[key] !== chrome[key]
-  );
-  if (!changed) return;
-  Object.assign(chrome, next);
-  chromeListeners.forEach((listener) => listener());
+  let changed = false;
+  for (const key of Object.keys(chrome) as (keyof typeof chrome)[]) {
+    const value = next[key];
+    if (value === undefined || value === chrome[key]) continue;
+    chrome[key] = value;
+    changed = true;
+  }
+  if (changed) chromeListeners.forEach((listener) => listener());
 }
 
 /** Subscribe to the menu or a covering modal opening or closing */

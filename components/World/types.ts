@@ -2,6 +2,12 @@ import type { ThreeElements } from '@react-three/fiber';
 
 export type GroupProps = ThreeElements['group'];
 
+/** `window`, where requestIdleCallback may be missing (Safari) */
+export type IdleWindow = Window & {
+  requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+  cancelIdleCallback?: (id: number) => void;
+};
+
 /** Content the world needs from content.json (serialisable, passed from the root layout) */
 export interface WorldContent {
   projects: {

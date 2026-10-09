@@ -65,18 +65,15 @@ export const worldMode = {
  * link does (World's navigate handler snapshots the page being left, so it
  * flies off with the camera). From the tour or free roam it navigates and
  * stays in that mode until the page has arrived (`arrivedAt`), so the camera
- * flies there as one move; the current page just hands the camera back.
+ * flies there as one move. The page already open isn't opened again: the
+ * tour or free roam just hands the camera back to it.
  */
 export function navigateFromMode(path: string) {
-  if (state.mode === 'page') {
-    navigateTo(path);
-    return;
-  }
   if (path === window.location.pathname) {
-    worldMode.exit();
+    if (state.mode !== 'page') worldMode.exit();
     return;
   }
-  pending = path;
+  if (state.mode !== 'page') pending = path;
   navigateTo(path);
 }
 

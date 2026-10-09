@@ -68,16 +68,11 @@ import type { Clock } from 'three';
 import type { MotionLevel } from '@/utils/motion';
 import type { QualityTier } from './quality';
 import type { StationKey } from './stations';
-import type { WorldContent } from './types';
+import type { IdleWindow, WorldContent } from './types';
 import type { WorldTheme } from './utils';
 
 /** Everywhere free roam can reach: every station, and the 404 derelict as a hidden signal */
 const roamable: StationKey[] = [...navigableStations, 'lost'];
-
-type IdleWindow = Window & {
-  requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-  cancelIdleCallback?: (id: number) => void;
-};
 
 /** Page chrome covers the whole world (the mobile menu, a full-screen modal) */
 const isCovered = () => chrome.menuOpen || chrome.modalCover;

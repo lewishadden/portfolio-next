@@ -26,7 +26,7 @@ import { intentSettle, setDocking, setIntent, worldNavigateEvent, worldStore } f
 
 import type { ReactNode } from 'react';
 import type { StationKey } from './routes';
-import type { WorldContent } from './types';
+import type { IdleWindow, WorldContent } from './types';
 
 import './World.scss';
 
@@ -35,11 +35,6 @@ const dockTime = 1700;
 
 // three.js + R3F live in their own chunk, fetched after the page is interactive
 const WorldCanvas = dynamic(() => import('./WorldCanvas'), { ssr: false });
-
-type IdleWindow = Window & {
-  requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-  cancelIdleCallback?: (id: number) => void;
-};
 
 /**
  * The canvas is the WebGL support test: if creating its context (or loading
