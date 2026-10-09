@@ -78,10 +78,12 @@ test.describe('the palette and the world', () => {
   }) => {
     await openHydrated(page, '/');
     const { dialog } = await openPalette(page);
-    const home = dialog.getByRole('option', { name: /^Home/ });
+    // Browsing, the pages come first, in nav order
+    const home = dialog.getByRole('option').nth(0);
+    await expect(home).toContainText('Home');
     await expect(home).toContainText('Docked');
     await expect(home).toHaveAttribute('aria-selected', 'false');
-    const about = dialog.getByRole('option', { name: /^About/ });
+    const about = dialog.getByRole('option').nth(1);
     await expect(about).toContainText(/Crew habitat · \d+ km/);
     await expect(about).toHaveAttribute('aria-selected', 'true');
   });
