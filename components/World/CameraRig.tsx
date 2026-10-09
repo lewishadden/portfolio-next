@@ -71,6 +71,8 @@ interface RigState {
   /** The station the route preview was last planned to ('' for none) */
   preview: string;
   ride: Ride;
+  /** The camera cut (motion held back) to a new pose it should announce as an arrival */
+  arriving: boolean;
 }
 
 /**
@@ -119,6 +121,7 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     arrivedAt: 0,
     preview: '',
     ride: { value: -1, hopping: false, from: 0, to: 0, start: 0, duration: 0, long: false },
+    arriving: false,
   });
 
   useFrame(({ camera, clock, size, frameloop, invalidate }, delta) => {
@@ -211,6 +214,10 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       }
     } else if (retarget && !snap) {
       startFlight(rig, cam, station);
+    } else if (retarget) {
+      // Motion held back: the camera cuts where it would fly, and arrives
+      // the way a flight does once it has (no 'start': nothing powers down)
+      rig.arriving = true;
     }
     rig.station = station;
     rig.mode = mode;
@@ -228,6 +235,11 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       // stayed a measure behind (a whole jump behind after End or Home).
       // While it still moves, ask for one more frame
       if (moved && frameloop === 'demand') invalidate();
+      if (rig.arriving) {
+        rig.arriving = false;
+        rig.arrivedAt = t;
+        emitFlight('end', station);
+      }
     } else if (rig.flight) {
       fly(rig, cam, station, dt, t);
     } else {
