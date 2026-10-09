@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from '@iconify/react';
-import { useLenis } from 'lenis/react';
 
 import { BrandMark } from 'components/BrandMark/BrandMark';
 import { useSound } from 'components/Sound/sound';
@@ -14,6 +13,7 @@ import {
   onBoot,
   useBootPhase,
 } from 'components/World/boot';
+import { useLenisHold } from '@/hooks/useLenisHold';
 import { motionLevel } from '@/utils/motion';
 
 import './BootScreen.scss';
@@ -65,7 +65,6 @@ const onServer = () => false;
 export function BootScreen() {
   const phase = useBootPhase();
   const rootRef = useRef<HTMLDivElement>(null);
-  const lenis = useLenis();
   const hydrated = useSyncExternalStore(subscribeNothing, onClient, onServer);
   const { on: sound, setSound } = useSound();
   // Offered unless sound was already on; once chosen here, it stays to show it's on
@@ -79,11 +78,7 @@ export function BootScreen() {
   }, []);
 
   // The page stays put underneath
-  useEffect(() => {
-    if (!lenis || phase !== 'loading') return;
-    lenis.stop();
-    return () => lenis.start();
-  }, [lenis, phase]);
+  useLenisHold(phase === 'loading');
 
   useEffect(() => {
     if (phase === 'gone') return;

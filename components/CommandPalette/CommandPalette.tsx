@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
-import { useLenis } from 'lenis/react';
 
 import { useSound } from 'components/Sound/sound';
 import { answersHail, canHail, hail } from 'components/StationReadout/hail';
@@ -19,6 +18,7 @@ import {
 } from 'components/World/worldStore';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useLenisHold } from '@/hooks/useLenisHold';
 import { useMotionPref } from '@/hooks/useMotion';
 import { useWorldPreference } from '@/hooks/useWorldPreference';
 import { setMotionPref } from '@/utils/motion';
@@ -179,7 +179,6 @@ function score(text: string, query: string) {
 export function CommandPalette({ data }: { data: PaletteData }) {
   const pathname = usePathname();
   const here = stationForPath(pathname);
-  const lenis = useLenis();
   const { toggleTheme } = useTheme();
   const { enabled, supported, setEnabled } = useWorldPreference();
   const [open, setOpen] = useState(false);
@@ -260,12 +259,9 @@ export function CommandPalette({ data }: { data: PaletteData }) {
   }, [open]);
 
   // The page behind holds still: Lenis would otherwise scroll it under a
-  // wheel over the backdrop
-  useEffect(() => {
-    if (!open || !lenis) return;
-    lenis.stop();
-    return () => lenis.start();
-  }, [open, lenis]);
+  // wheel over the backdrop. A shared hold, so closing the palette over the
+  // mobile menu or a project doesn't free the page under those
+  useLenisHold(open);
 
   const { on: soundOn, setSound } = useSound();
   const motionPref = useMotionPref();

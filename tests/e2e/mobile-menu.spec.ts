@@ -85,6 +85,30 @@ test.describe('mobile menu', () => {
     await expect(page.locator('html')).not.toHaveClass(/menu-open/);
   });
 
+  test('the page stays held under the menu after the palette opens over it and closes', async ({
+    page,
+  }) => {
+    await openHydrated(page, '/about');
+    const html = page.locator('html');
+    await page.getByRole('button', { name: 'Open navigation menu' }).click();
+    await expect(page.locator('#mobile-menu')).toBeVisible();
+    await expect(html).toHaveClass(/lenis-stopped/);
+
+    // The palette opens above the menu; a tap on its backdrop closes only it
+    await page.getByRole('button', { name: 'Open command palette' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Command palette' });
+    await expect(dialog).toBeVisible();
+    await page.mouse.click(8, 830);
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('#mobile-menu')).toBeVisible();
+    await expect(html).toHaveClass(/lenis-stopped/);
+
+    // Once the menu closes too, the page scrolls again
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#mobile-menu')).toBeHidden();
+    await expect(html).not.toHaveClass(/lenis-stopped/);
+  });
+
   test.describe('with 3D effects on', () => {
     test.use({ world: 'on' });
 

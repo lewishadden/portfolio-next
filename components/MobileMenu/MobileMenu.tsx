@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
-import { useLenis } from 'lenis/react';
 
 import {
   prefetchStationModel,
@@ -15,6 +14,7 @@ import {
 
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useLenisHold } from '@/hooks/useLenisHold';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 import { MenuHolo } from './MenuHolo';
@@ -49,17 +49,13 @@ export function MobileMenu({
 }) {
   const pathname = usePathname();
   const menuRef = useFocusTrap<HTMLDivElement>(open);
-  const lenis = useLenis();
   const { theme } = useTheme();
   const reduced = useReducedMotion();
   const here = stationForPath(pathname);
 
-  // The page under the menu holds still
-  useEffect(() => {
-    if (!open || !lenis) return;
-    lenis.stop();
-    return () => lenis.start();
-  }, [open, lenis]);
+  // The page under the menu holds still (a hold shared with the palette,
+  // which opens above the menu)
+  useLenisHold(open);
 
   // A tap on any row flies there: with 3D effects on, every row's station
   // starts downloading as the menu opens, so the flight arrives at the
