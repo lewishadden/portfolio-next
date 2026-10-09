@@ -152,8 +152,11 @@ export const worldStore = {
   projectShot: { project: -1, image: -1 },
   /** The content image index each helix screen shows (-1 unknown) */
   screenShown: new Int8Array(16).fill(-1),
-  /** CSS px of the hovered 3D object's box as projected on screen (`on` false when nothing is) */
-  tipBox: { x0: 0, y0: 0, x1: 0, y1: 0, on: false },
+  /**
+   * CSS px of the hovered 3D object's box as projected on screen (`on` false
+   * when nothing is), and the tip it was measured for
+   */
+  tipBox: { x0: 0, y0: 0, x1: 0, y1: 0, on: false, tip: null as WorldTip | null },
   /** Home: the hero's role line as currently displayed (mid-decode included) */
   heroRole: '',
   /** /contact: how much of the message is written, its length over the limit, 0..1 */

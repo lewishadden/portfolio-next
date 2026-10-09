@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Box3, Matrix4, Vector3 } from 'three';
 
 import { refreshPointer } from './interaction';
@@ -19,6 +19,10 @@ import type { Camera, InstancedMesh, Mesh, Object3D } from 'three';
    can bracket the object itself rather than trail the pointer, and keep
    up as it turns, bobs or the camera moves. The object is the one named
    with setTipTarget, else the nearest one R3F has under the pointer.
+
+   The box is stamped with the tip it was measured for, so a new tip is
+   never bracketed round the last object; and a new tip asks for a frame,
+   so it is measured even while the canvas only draws on demand (still).
 
    It also keeps the hover honest while the page scrolls: the camera
    follows the scroll, so the world moves under a pointer that hasn't,
@@ -161,6 +165,7 @@ function step(state: RootState, probe: Probe) {
   // only updates its matrices as it draws
   state.camera.updateMatrixWorld();
   tip.on = project(target.object, probe.box, state.camera, state.size.width, state.size.height);
+  tip.tip = worldTip.get();
 }
 
 /**
@@ -169,6 +174,10 @@ function step(state: RootState, probe: Probe) {
  */
 export function TipProbe() {
   const probe = useRef<Probe>({ object: null, instance: -1, box: new Box3(), scrolledAt: 0 });
+  const invalidate = useThree((s) => s.invalidate);
+
+  // A hover draws no frame of its own, and on demand (still) none may follow
+  useEffect(() => worldTip.subscribe(() => invalidate()), [invalidate]);
 
   useEffect(() => {
     const current = probe.current;

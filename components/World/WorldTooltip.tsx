@@ -149,7 +149,9 @@ export function WorldTooltip() {
       const tagH = tag.offsetHeight;
       const box = worldStore.tipBox;
 
-      if (!box.on) {
+      // Measured for another tip (no frame has drawn since this one came):
+      // never bracket the last object with this one's name
+      if (!box.on || box.tip !== tip) {
         // Nothing to bracket (yet): the tag trails the pointer, as it used to
         root.removeAttribute('data-boxed');
         state.placedAt = 0;
