@@ -1048,7 +1048,10 @@ export function HeaderHud({
       const flying = flight.active && isStation(flight.to);
       flightBlend += (Number(flying) - flightBlend) * (1 - Math.exp(-6 * dt));
       if (Math.abs(flightBlend - Number(flying)) < 0.002) flightBlend = Number(flying);
-      const along = mix(scrolled, flying ? flight.progress : 0, flightBlend);
+      // Eased towards the course whether or not it's still flying: progress
+      // stays at 1 after an arrival, so the fill drains back to the page's
+      // scroll with the blend (cut to 0 on docking, it vanished in a frame)
+      const along = mix(scrolled, flight.progress, flightBlend);
       if (Math.abs(along - progress) > 0.0005) {
         progress = along;
         dirty.current = true;
