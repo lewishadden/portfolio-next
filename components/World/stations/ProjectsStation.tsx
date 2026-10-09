@@ -1286,7 +1286,8 @@ export function ProjectsStation({
     }
     const t = clock.elapsedTime;
     const dt = Math.min(delta, 0.05);
-    const instant = snap || !settled.current;
+    const first = !settled.current;
+    const instant = snap || first;
     settled.current = true;
 
     // The project in front: an open one, else wherever the page has scrolled to
@@ -1415,11 +1416,12 @@ export function ProjectsStation({
         screen.lookAt(camera.position);
       });
       // A detent: the ride settling on another screen ticks, from that
-      // screen (not as the station first draws)
+      // screen (not as the station first draws; still motion too, it is a
+      // sound)
       const settledOn = live >= 0 && Math.abs(front - live) < 0.02 ? live : -1;
       if (live < 0) ticked.current = -1;
       else if (settledOn >= 0 && settledOn !== ticked.current) {
-        if (!instant) {
+        if (!first) {
           spiral.children[settledOn]?.getWorldPosition(centre);
           emitCue('tick', { at: [centre.x, centre.y, centre.z] });
         }
