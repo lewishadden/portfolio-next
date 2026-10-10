@@ -31,6 +31,7 @@ import {
 import { motionLevel } from '@/utils/motion';
 
 import { bloomMaskLayer, maskBloom } from '../bloomMask';
+import { ambientTime } from '../clock';
 import { smootherstep } from '../flight';
 import { iconSvg, useIconCollections } from '../icons';
 import { decodeImage } from '../imageDecoder';
@@ -1338,14 +1339,19 @@ export function ProjectsStation({
   const opened = focus >= 0 && focus < screens.length ? focus : -1;
   useHullTimings(groupRef, hubRef);
 
-  useFrame(({ camera, clock, size }, delta) => {
+  useFrame((frame, delta) => {
+    const { camera, clock, size } = frame;
     const group = groupRef.current;
     const shots = shotsRef.current;
     if (!shots || !stationInRange(group, camera, 'projects')) {
       worldStore.screenRect.on = false;
       return;
     }
+    // Events (power-ups, fades, the hull's reveal) are timed by the clock,
+    // idle motion (the hub's turn, scanlines, the helix drifting round) by
+    // ambient time, which holds at the still level
     const t = clock.elapsedTime;
+    const idle = ambientTime(frame);
     const dt = Math.min(delta, 0.05);
     const first = !settled.current;
     const instant = snap || first;
@@ -1403,7 +1409,7 @@ export function ProjectsStation({
       : 0;
     if (sharpWidth) shots.sharpen(sharpWidth, Math.max(front, 0), live);
 
-    setUniform(materials.base, 'uTime', t);
+    setUniform(materials.base, 'uTime', idle);
     // The open gallery's slide, as an index into its screen's shots (one it
     // doesn't carry holds the screen where it is)
     const shot = worldStore.projectShot;
@@ -1423,7 +1429,7 @@ export function ProjectsStation({
         const pinned = images.findIndex((image) => image.index === shot.image);
         state.pin = pinned >= 0 ? pinned : state.next >= 0 ? state.next : state.index;
       }
-      setUniform(material, 'uTime', t + i);
+      setUniform(material, 'uTime', idle + i);
       liveScreen(
         material,
         state,
@@ -1465,7 +1471,7 @@ export function ProjectsStation({
       // The camera rides the helix (stationCamera), so it holds still while a
       // project is in front; elsewhere it turns slowly with the page. Always
       // the short way round
-      const angle = front >= 0 ? 0 : t * 0.035 + worldStore.scroll * 1.2;
+      const angle = front >= 0 ? 0 : idle * 0.035 + worldStore.scroll * 1.2;
       const turnTo = spiral.rotation.y + angleDelta(spiral.rotation.y, angle);
       if (instant) spiral.rotation.y = turnTo;
       else easing.damp(spiral.rotation, 'y', turnTo, 0.35, dt);
@@ -1510,7 +1516,7 @@ export function ProjectsStation({
     }
 
     const hub = hubRef.current;
-    if (hub) hub.rotation.y = 0.4 + t * 0.1 + worldStore.pointerX * 0.2;
+    if (hub) hub.rotation.y = 0.4 + idle * 0.1 + worldStore.pointerX * 0.2;
 
     // Rendering on demand: keep drawing until a screen's fade (or its wait
     // for the gallery's slide to load) is over

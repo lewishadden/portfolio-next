@@ -14,6 +14,7 @@ import {
   Vector3,
 } from 'three';
 
+import { ambientTime } from './clock';
 import { navigableStations, stationNames } from './routes';
 import { beaconHeight, pageCopyShown, stationPositions } from './stations';
 import { palettes } from './utils';
@@ -252,7 +253,8 @@ export function Beacons({ theme, current }: { theme: WorldTheme; current: Statio
     [assets]
   );
 
-  useFrame(({ camera, clock, size }, delta) => {
+  useFrame((state, delta) => {
+    const { camera, size } = state;
     const group = groupRef.current;
     if (!group) return;
     const { mode } = worldMode.get();
@@ -268,7 +270,8 @@ export function Beacons({ theme, current }: { theme: WorldTheme; current: Statio
       (touring || (mode === 'page' && !pageCopyShown()));
     const only = touring || size.width < 760 || size.width < size.height ? flight.to : '';
     const previewing = mode === 'page' && !flight.active ? worldStore.preview : '';
-    const t = clock.elapsedTime;
+    // The pulses are idle motion: they hold at the still level
+    const t = ambientTime(state);
     const dt = Math.min(delta, 0.05);
     const bright = (beacons.current = MathUtils.damp(beacons.current, exploring ? 1 : 0, 3, dt));
 

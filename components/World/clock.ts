@@ -1,4 +1,6 @@
-import type { RootState } from '@react-three/fiber';
+import { motionLevel } from '@/utils/motion';
+
+import type { Clock } from 'three';
 
 /*
    The world's time, for frame callbacks in the world canvas. R3F's clock
@@ -30,21 +32,23 @@ const ambient = { t: 0, seen: 0 };
 
 /**
  * Ambient time (s): what the world's idle motion runs on (turning rings
- * and craft, bobbing characters, blinking nav lights, drifting shaders) in
- * place of the clock. It moves on with the clock while the canvas draws
- * every frame and holds while it draws on demand (the still level), so a
+ * and craft, bobbing characters, blinking nav lights, drifting shaders,
+ * and the sky's twinkling, dust, rocks and shuttles) in place of the
+ * clock. It moves on with the clock, at most 0.1s a step, and holds at the
+ * still level, where nothing moves on its own: free roam included, where
+ * the canvas draws every frame, and wherever it draws on demand, so a
  * frame drawn there to answer a hover or a scroll changes only what it was
  * drawn for, never the whole idle gap's motion at once. It carries on
  * rather than starting again when R3F restarts its clock. Every caller in
  * one frame gets the same time; call it from frame callbacks in the world
  * canvas only (one clock)
  */
-export function ambientTime({ clock, frameloop }: RootState) {
+export function ambientTime({ clock }: { clock: Clock }) {
   const now = clock.elapsedTime;
   if (now !== ambient.seen) {
     const step = now - ambient.seen;
     ambient.seen = now;
-    if (frameloop !== 'demand' && step > 0) ambient.t += Math.min(step, maxStep);
+    if (step > 0 && motionLevel() !== 'still') ambient.t += Math.min(step, maxStep);
   }
   return ambient.t;
 }

@@ -15,6 +15,7 @@ import {
   Vector3,
 } from 'three';
 
+import { ambientTime } from './clock';
 import { noiseGlsl } from './materials';
 import { moon, planet, sunDirection } from './sky';
 import { setUniform } from './utils';
@@ -273,8 +274,10 @@ export function Landmarks({ theme }: { theme: WorldTheme }) {
     [materials]
   );
 
-  useFrame(({ camera, clock }) => {
-    const t = clock.elapsedTime;
+  useFrame((state) => {
+    const { camera } = state;
+    // Idle motion: holds at the still level, where nothing moves on its own
+    const t = ambientTime(state);
     setUniform(materials.planet, 'uTime', t);
     setUniform(materials.sun, 'uTime', t);
     if (planetRef.current) planetRef.current.rotation.y = t * 0.002;
