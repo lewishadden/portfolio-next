@@ -1091,11 +1091,12 @@ const arm = { from: 0.22, to: helix.radius - 0.14, radius: 0.035 };
 
 /**
  * One arm per screen out from the spine, and a joint at each end: two
- * instanced draws in the truss's material, their matrices set once (the
- * screens only turn in place, and this group turns with the helix)
+ * instanced draws in the truss's finish (its instanced twin, so warm-up waits
+ * for that program too), their matrices set once (the screens only turn in
+ * place, and this group turns with the helix)
  */
 function ScreenArms({ count }: { count: number }) {
-  const material = partMaterials().dark;
+  const material = partMaterials().darkInstanced;
   const armsRef = useRef<InstancedMesh>(null);
   const jointsRef = useRef<InstancedMesh>(null);
   const geometry = useMemo(

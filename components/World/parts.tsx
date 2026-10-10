@@ -78,9 +78,17 @@ function cellTexture() {
 let shared: ReturnType<typeof buildMaterials> | null = null;
 
 function buildMaterials() {
+  const dark = new MeshStandardMaterial({ color: '#262a36', metalness: 0.85, roughness: 0.42 });
   return {
     panel: new MeshStandardMaterial({ color: '#d8dbe4', metalness: 0.55, roughness: 0.38 }),
-    dark: new MeshStandardMaterial({ color: '#262a36', metalness: 0.85, roughness: 0.42 }),
+    dark,
+    /**
+     * The dark finish for instanced meshes, as a material of its own. Warm-up
+     * (compileAsync, primePrograms) tracks one program per material, the
+     * last one prepared: shared with plain meshes, the instanced variant
+     * compiled but was never waited for, and first drew mid-flight
+     */
+    darkInstanced: dark.clone(),
     gold: new MeshStandardMaterial({ color: '#c79a3b', metalness: 1, roughness: 0.32 }),
     cells: new MeshStandardMaterial({
       map: cellTexture(),
