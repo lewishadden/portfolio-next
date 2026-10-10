@@ -17,7 +17,8 @@ import type { WorldTheme } from './utils';
 /* ------------------------------------------------------------------
    Free roam's docking sequence, in the world: as the clamps close in on
    the HUD (ExploreHud's DockingOverlay, which keeps the role=status
-   text), a beam reaches out from the station's docking port to the ship,
+   text), a beam reaches out from the station's docking port to the
+   ship's underside,
    charging up over 0.4s, its energy flowing in towards the station, and
    the station answers: its power-on plays again as an acknowledgement
    (two false starts, a surge, its windows flicking back on) while its
@@ -30,21 +31,28 @@ import type { WorldTheme } from './utils';
 const port = new Vector3(0, 1.5, 6);
 /** The beam stops this far short of the ship (world units) */
 const shortOf = 4;
+/**
+ * It reaches for the ship's underside, this far below the camera, not the
+ * camera itself: docking faces the station, so a beam to the eye would run
+ * straight down the line of sight and show only as a ring
+ */
+const underside = 2.4;
 /** Seconds the beam takes to charge, and how fast it fades once docking is over (1/s) */
 const chargeTime = 0.4;
 const fadeRate = 10;
 /** The beam's radius at the port; it narrows towards the ship */
-const radius = 0.34;
+const radius = 0.26;
 
 const from = new Vector3();
 const toward = new Vector3();
+const below = new Vector3();
 const up = new Vector3(0, 1, 0);
 
 function buildBeam() {
   return createBeamMaterial({
     color: palettes.dark.cyan,
-    intensity: 1.9,
-    opacity: 0.85,
+    intensity: 1.6,
+    opacity: 0.6,
     speed: 1.2,
   });
 }
@@ -127,7 +135,8 @@ export function DockingBeam({ theme }: { theme: WorldTheme }) {
       return;
     }
     from.fromArray(stationPositions[beam.station]).add(port);
-    toward.subVectors(camera.position, from);
+    below.set(0, -underside, 0).applyQuaternion(camera.quaternion).add(camera.position);
+    toward.subVectors(below, from);
     const length = toward.length() - shortOf;
     if (length < 0.5) {
       mesh.visible = false;
