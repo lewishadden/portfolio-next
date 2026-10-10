@@ -460,7 +460,7 @@ const cues: Record<Cue, Sound> = {
     tone(o, at + 0.17, 1400, 0.36, level * 0.3, 'sine', 1300);
   },
   // Arrived without a flight (motion held back, or the world off): the
-  // destination's chord an octave up, softly strummed, from the station
+  // destination's chord an octave up, softly strummed
   arrive: (o, at, detail) => {
     const key = detail?.at ? stationNear(detail.at) : stationForPath(window.location.pathname);
     for (let i = 0; i < 3; i++) {
@@ -513,9 +513,12 @@ const lastPlayed: Partial<Record<Cue, number>> = {};
 /**
  * The HUD's and the page's own cues: they belong to the visitor's view,
  * not to anywhere in the world, so they play centred even when emitted
- * with a place
+ * with a place. So does `arrive`, whose place only names the station: it
+ * sounds the instant the camera cuts there, before anything (the listener
+ * included) has caught up with the cut
  */
 const centred = new Set<Cue>([
+  'arrive',
   'hud-hover',
   'hud-click',
   'hud-lock',

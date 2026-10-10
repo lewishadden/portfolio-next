@@ -204,6 +204,9 @@ export interface Space {
   params: boolean;
 }
 
+/** Where the listener is heading: the camera, or with the world off the page's station */
+const aim = { x: 0, y: 0, z: 0, fx: 0, fy: 0, fz: -1 };
+
 /** AudioParam positions where the browser has them (typed boolean, so TS doesn't narrow the node away) */
 const hasParams = (node: object): boolean => 'positionX' in node;
 
@@ -343,6 +346,16 @@ export function buildSpace(ctx: AudioContext, out: AudioNode): Space {
 }
 
 /**
+ * Where a cue at `at` is heard from: placed where it is from the camera,
+ * not from the listener, which glides after a camera that cut (below full
+ * motion, or a new page with the world off) and would hear a cue at the
+ * station it cut to from far off
+ */
+function heardAt({ ear }: Space, [x, y, z]: Point): Point {
+  return [x + ear.x - aim.x, y + ear.y - aim.y, z + ear.z - aim.z];
+}
+
+/**
  * Where a cue happening at `at` plays into: the pool's panner that falls
  * quiet first, placed there from context time `start` and held for
  * `tail` seconds (how long the cue rings)
@@ -351,13 +364,13 @@ export function cueOut(space: Space, at: Point, start: number, tail: number): Au
   let pick = space.cues[0];
   for (const cue of space.cues) if (cue.busyUntil < pick.busyUntil) pick = cue;
   pick.busyUntil = start + tail;
-  place(pick.panner, at, start);
+  place(pick.panner, heardAt(space, at), start);
   return pick.panner;
 }
 
 /** Where the detector's sonar plays into: its own panner, set at the signal from context time `start` */
 export function sonarOut(space: Space, at: Point, start: number): AudioNode {
-  place(space.sonar, at, start);
+  place(space.sonar, heardAt(space, at), start);
   return space.sonar;
 }
 
@@ -427,8 +440,6 @@ function tune(space: Space, ctx: AudioContext, dt: number, live: boolean) {
     voice.sway.gain.setTargetAtTime(gain * swayDepth, now, powerTime);
   }
 }
-
-const aim = { x: 0, y: 0, z: 0, fx: 0, fy: 0, fz: -1 };
 
 /** Moves the listener after the camera: every animation frame while sound is on */
 export function listen(space: Space, ctx: AudioContext, dt: number) {
