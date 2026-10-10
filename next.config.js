@@ -8,8 +8,9 @@ export default withBundleAnalyzer({
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
-  // next dev would otherwise append its generated agent-rules block to
-  // AGENTS.md (and CLAUDE.md) on every start: both are written by hand here
+  // next dev run by an AI coding agent would otherwise append its generated
+  // agent-rules block to AGENTS.md whenever it's missing: the file is
+  // written by hand here
   agentRules: false,
   experimental: {
     optimizePackageImports: ['@iconify/react'],

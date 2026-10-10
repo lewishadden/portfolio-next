@@ -266,7 +266,7 @@ function GltfModel({
     [scene, height, envIntensity, prepare]
   );
   const scan = useRef({ for: null as Group | null, progress: 0 });
-  // On-demand rendering (reduced motion) has no frames to animate with — appear whole
+  // On-demand rendering (the still level, outside free roam) has no frames to animate with — appear whole
   const scanIn = useThree((s) => s.frameloop !== 'demand');
   const { scene: world, camera } = useThree();
   const track = useWarmupTask();

@@ -391,8 +391,8 @@
    The HUD is see-through (deliberately no backdrop blur), and round the
    flat bar's glass pill the page shows too, so once the page scrolls under
    it a band of the page's own background fades in behind the bar. It is
-   solid all the way down to the bar's bottom edge plus the spring's trail
-   (Header.tsx lets the bar lag the page a little), at every width: a
+   solid to 8px below the bar's resting bottom edge at every width (a
+   little of the trail Header.tsx gives the bar, not all of it): a
    gradient that started fading inside the bar let the hero's huge name and
    the station's lit parts read through the logo and buttons. Below that it
    fades out over ~40px. A plain gradient (no backdrop-filter), under the

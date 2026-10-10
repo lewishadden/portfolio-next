@@ -2,8 +2,10 @@
  * Adaptive rendering quality. WorldCanvas starts at the device's default tier
  * and drei's PerformanceMonitor steps it down when the frame rate stays low
  * (and back up when there is headroom). Tiers differ in cost only: the pixel
- * ratio and bloom's working resolution here, and fringes and sun shafts off
- * below high (Effects).
+ * ratio and bloom's working resolution here, fringes and sun shafts off
+ * below high (Effects), the heading projector's cone off below high
+ * (HeadingProjector), and half the gas clouds and shuttles on low
+ * (GasClouds, Traffic).
  *
  * Ultra renders a retina screen at its full 2x, with bloom at 0.6 of it. It
  * sits above high only on desktops whose canvas at 2x stays within

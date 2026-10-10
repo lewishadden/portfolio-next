@@ -284,7 +284,7 @@ export function Starfield({ count, theme }: { count: number; theme: WorldTheme }
 
   return (
     <mesh material={material} frustumCulled={false}>
-      {/* New per count: three caps an instanced geometry at the count it first drew */}
+      {/* New per count: three caps an instanced geometry at the attribute size it first drew */}
       <instancedBufferGeometry key={count} ref={geometryRef} instanceCount={count}>
         <bufferAttribute attach="attributes-position" args={[quadCorners, 3]} />
         <bufferAttribute attach="index" args={[quadIndex, 1]} />
@@ -447,7 +447,7 @@ export function BrightStars({ count, theme }: { count: number; theme: WorldTheme
   // Daylight hides them
   return (
     <mesh material={material} frustumCulled={false} visible={theme === 'dark'}>
-      {/* New per count: three caps an instanced geometry at the count it first drew */}
+      {/* New per count: three caps an instanced geometry at the attribute size it first drew */}
       <instancedBufferGeometry key={count} instanceCount={count}>
         <bufferAttribute attach="attributes-position" args={[quadCorners, 3]} />
         <bufferAttribute attach="index" args={[quadIndex, 1]} />

@@ -29,7 +29,9 @@ export function useWide() {
  * no programs, even for a station hidden at the time. `factory` must be a
  * stable module-level function. With `station`, its glows follow that
  * station's power (power.tsx); never key it on a station that changes at
- * runtime.
+ * runtime. Only the theme may change: a set replaced for any other reason
+ * waits in the retire queue, undisposed, until the next theme switch (only
+ * ThemeRetire disposes it).
  */
 export function useThemedMaterials<T extends Record<string, Material>>(
   factory: (palette: WorldPalette) => T,

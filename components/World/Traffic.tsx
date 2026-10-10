@@ -299,7 +299,7 @@ export function Traffic({
 
   return (
     <mesh material={shuttle} frustumCulled={false}>
-      {/* New per count: three caps an instanced geometry at the count it first drew */}
+      {/* New per count: three caps an instanced geometry at the attribute size it first drew */}
       <instancedBufferGeometry
         key={count}
         instanceCount={tier === 'low' ? Math.ceil(placed / 2) : placed}

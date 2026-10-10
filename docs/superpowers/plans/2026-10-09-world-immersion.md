@@ -424,7 +424,7 @@ Each lane: `git switch -c claude/wi-<lane>` in its worktree, `cp -c -R /Users/le
 - [x] **E5 + G2 (listeners):**
   - Skills: flare every constellation and ping the planet.
   - Contact: `setTransmitting(true)`, then false after 2s (the packet arc), plus a short rocket rev. Never `requestLaunch`.
-- [x] **ContactStation globe click** pings, like every other 3D click. The globe drag gets `touch-action: none` handling so a touch drag isn't cancelled by scrolling (verify with CDP touch events). _(Touches that start on the globe get `pan-y` and a first-move gate instead of `touch-action: none`, so up and down swipes that start on it still scroll.)_
+- [x] **ContactStation globe click** pings, like every other 3D click. The globe drag gets `touch-action: none` handling so a touch drag isn't cancelled by scrolling (verify with CDP touch events). _(Instead of `touch-action: none`, a non-passive touchmove gate claims only clearly sideways swipes that start on the globe, so up and down swipes still scroll.)_
 
 ### L6 SKY-A: sky bake, theme, post effects, quality
 
@@ -526,7 +526,7 @@ Each lane: `git switch -c claude/wi-<lane>` in its worktree, `cp -c -R /Users/le
 
 - [x] **FX27:** signal page actions no longer dock from afar. `setAutopilot(stationForPath(href))` with a "Course set for <craft>" status line; docking happens on arrival.
 - [x] **FX04 (radar half):**
-  - In page mode, NavRadar shows only while `flight.active && !flight.approached` (300ms linger), and not at all during the boot warp-in.
+  - In page mode, NavRadar shows only while `flight.active && !flight.approached` (300ms linger), and not at all during the boot warp-in. _(Kept on purpose: a course preview still opens the map aside under the header with no flight under way, but only on wide layouts (`(min-width: 900px) and (min-aspect-ratio: 11 / 10)`). It comes from hovering or focusing a link to another station, or from the command palette's selected row. Stacked layouts keep it shut.)_
   - In the tour it moves top-left and is hidden below 760px.
   - It never sits over the focused element (check `document.activeElement`'s rect).
   - Replace `.glass` with an opaque surface and no backdrop-filter.
@@ -564,7 +564,7 @@ Each lane: `git switch -c claude/wi-<lane>` in its worktree, `cp -c -R /Users/le
 - [x] **FX38:** GoogleAnalyticsDeferred skips loading on `localhost`, `127.0.0.1`, `*.localhost` and when `navigator.webdriver` is set.
 - [x] **DV3:** HeaderHud and MenuHolo re-read uniform locations whenever their program is created; no INVALID_OPERATION in dev.
 - [x] **FX05:** `.header-scrim` stays solid to the bar's bottom plus the spring's trail (`calc(var(--header-h) + 4px)`), then fades over ~40px; `--scrim: 1` within the bar at every width.
-- [x] **FX06:** HeaderHud's fill gets a floor along the row of links and actions (clear 0.35 inside each measured target box) so station parts behind the bar never hide controls. Verify the p5 contrast of header icons is ≥3:1 at the top of `/projects`, `/about` and `/experience`, light theme.
+- [x] **FX06:** HeaderHud's fill gets a floor along the row of links and actions (clear 0.35 inside each measured target box) so station parts behind the bar never hide controls. Verify the p5 contrast of header icons is ≥3:1 at the top of `/projects`, `/about` and `/experience`, light theme. _(Floors are 0.6 dark / 0.72 light rather than 0.35: at 0.35 the `/projects` 3D toggle measured 1.68:1 in the light theme and the `/experience` one 2.89:1 in the dark. With the new floors the light theme is at least 3.73:1 and the dark at least 5.17:1.)_
 - [x] **A9 + FX30 (tear half):**
   - `stepSway` adds a jolt from `worldStore.shake`: ≤3px, ≤1° roll, a split/tear burst.
   - The velocity-driven tear and split are multiplied by `sway.flying`.
@@ -683,7 +683,7 @@ Each lane: `git switch -c claude/wi-<lane>` in its worktree, `cp -c -R /Users/le
 
 - [x] `npm run verify`, `npm run build`, `npm run test:e2e` (full suite, both projects). Fix failures in the app, not by loosening tests.
 - [x] Visual QA on the prod build, both themes, at 1440×900, 1024×768, 390×844 and 844×390. Cover every route, a flight between every station pair, the tour, free roam (autopilot, dock, signals, scan), the project modal and project pages, and the theme switch. Check each motion level (full, calm, still) and the world off.
-- [x] Perf check on the prod build (M3, then 4× CPU throttle at 390×844): _(Tier held high (medium on the phone profile) for 60s idle and after flights; settled draw calls rose by 3 at most and fell on `/about` and `/skills`. A theme switch misses 50ms only on the 4× throttled phone profile's first switch (see PF2 + A21).)_
+- [x] Perf check on the prod build (M3, then 4× CPU throttle at 390×844): _(Tier held high (medium on the phone profile) for 60s idle and after flights; settled draw calls rose by 3 at most and fell on `/about` and `/skills`. A theme switch misses 50ms only on the 4× throttled phone profile's first switch (see PF2 + A21). First-flight frames stay at 50ms or under on desktop (M3, 50ms max) and on the unthrottled phone (33ms max). On the 4× throttled phone profile every first flight to a new station except `/` has one frame of about 83-117ms, so that sub-target is not met there; the baseline misses it too (67-133ms). f0a1044 then moved the Experience patch atlas out of the first flight frame, but that change was not measured again. The probe follows links with a synthetic click, so N1's touch-intent warm-up is not exercised.)_
   - idle 60fps;
   - first-flight frames ≤50ms;
   - theme switch ≤50ms;

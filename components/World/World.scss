@@ -45,9 +45,10 @@
 }
 
 /* The world off, or no JavaScript (nothing says the world will run): a
-   still sky in its place behind the 2D station renders, the loading
-   screen's stars over a faint nebula drifting through the right of the
-   view, where the render floats */
+   still sky in its place, the loading screen's stars over a faint nebula
+   drifting through the right of the view. With the world off
+   (html[data-world='off'], never set without JavaScript) a 2D station
+   render floats there (.station-fallback in app/page.scss) */
 html:not([data-world-expected]),
 html[data-world='off'] {
   .world__backdrop {

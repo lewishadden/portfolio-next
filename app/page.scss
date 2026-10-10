@@ -401,8 +401,10 @@ body {
 }
 
 /* =============================================================
-   Static renders shown when WebGL is unavailable
-   (World sets html[data-world='off']). Positioned where the
+   Static renders shown with the world off (html[data-world='off']:
+   World sets it without WebGL or when switched off, ThemeScript for a
+   saved "off" or an app that never starts; never without JavaScript).
+   Positioned where the
    3D station would be: right of the copy, or above it on narrow screens.
    ============================================================= */
 .station-fallback {
