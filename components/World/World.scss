@@ -666,14 +666,18 @@ html[data-flight='cruise'] .world__veil {
     }
   }
 
-  /* The sound toggle in the bar, sized to its other buttons */
+  /* The sound toggle in the bar, sized to its other buttons (with a 44px
+     target round it to touch, as they have) */
   &__top .world-toggle {
     width: 34px;
     height: 34px;
 
     @media (pointer: coarse) {
-      width: 44px;
-      height: 44px;
+      &::after {
+        content: '';
+        position: absolute;
+        inset: -5px;
+      }
     }
   }
 
@@ -755,7 +759,9 @@ html[data-flight='cruise'] .world__veil {
     color: var(--accent-secondary);
   }
 
-  /* Exit, and the Controls button beside it (44px tall to touch) */
+  /* Exit, and the Controls button beside it. To touch, each has a 44px
+     target round it without growing the bar: on a phone the head already
+     reaches down towards the thumbsticks */
   &__exit {
     padding: 0.4rem 0.8rem;
     border: 1px solid var(--border-strong);
@@ -764,7 +770,13 @@ html[data-flight='cruise'] .world__veil {
     color: var(--text-primary);
 
     @media (pointer: coarse) {
-      min-height: 44px;
+      position: relative;
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset: -4px -2px;
+      }
     }
 
     &:hover,
