@@ -306,13 +306,15 @@ export function World({ content }: { content: WorldContent }) {
   // Touring or exploring hides the page (html[data-world-mode]) and takes it
   // out of the tab order and the accessibility tree until you come back (and
   // the camera has, 'returning'); so does the loading screen until it lifts.
-  // The skip link goes too while the page is hidden: it leads into it
+  // The back-to-top button goes with it (outside them all, it would be an
+  // invisible tab stop that scrolls the hidden page). The skip link goes too
+  // while the page is hidden: it leads into it
   const away = active && mode !== 'page';
   const hidden = away || (active && returning);
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.worldMode = away ? mode : hidden ? 'returning' : 'page';
-    for (const el of document.querySelectorAll('#main-content, .header, .footer')) {
+    for (const el of document.querySelectorAll('#main-content, .header, .footer, .back-to-top')) {
       el.toggleAttribute('inert', hidden || !booted);
     }
     document.querySelector('.skip-link')?.toggleAttribute('inert', hidden);
