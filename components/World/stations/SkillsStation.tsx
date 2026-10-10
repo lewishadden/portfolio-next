@@ -38,6 +38,7 @@ import {
 import { NavLights, SolarArray, Spin } from '../parts';
 import { spawnPing } from '../Pings';
 import { flashNavLights, StationScope, stationPower } from '../power';
+import { useRedrawOnTargetHover } from '../reaction';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { isWideViewport, pageCopyShown, stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
@@ -47,7 +48,7 @@ import { palettes, setUniform } from '../utils';
 import { queueUpload, useWarmupTask } from '../warmup';
 import { focusOnPage, onShowcase, setWorldHover, worldStore, worldTip } from '../worldStore';
 
-import { repaintFor, useStillRepaint } from './stillFrames';
+import { repaintFor } from './stillFrames';
 
 import type { RefObject } from 'react';
 import type { IconifyJSON } from '@iconify/react';
@@ -57,6 +58,9 @@ import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
 
 type SkillIcon = { name: string; icon: string; category: string; level: number };
+
+/** A skill tile pointed at or focused on the page (its badge lights and its orbit holds) */
+const answersSkill = (target: string) => target.startsWith('skill:');
 
 const planetFragment = /* glsl */ `
   uniform float uTime;
@@ -903,7 +907,7 @@ export function SkillsStation({
   const tipAnchorRef = useRef<Mesh>(null);
   const materials = useThemedMaterials(buildMaterials, theme, 'skills');
   const invalidate = useThree((s) => s.invalidate);
-  useStillRepaint();
+  useRedrawOnTargetHover(answersSkill);
 
   const orbits = useMemo(
     () =>

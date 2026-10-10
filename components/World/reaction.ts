@@ -172,39 +172,53 @@ export function useShowcase(
 }
 
 /**
- * The still level draws on demand: when the page element pointed at or
- * focused (worldStore.targetHover) changes to or from one this station
- * answers (`answers`, a stable module-level test), it asks for one frame,
- * so the answer shows without waiting for a scroll. Any other pointer or
- * focus move on the page draws nothing: every frame drawn moves the
- * world's ambient motion on, and at the still level nothing should move
- * on its own
+ * The still level draws on demand: when the page state a station answers
+ * changes (`read`, a stable module-level reader of it: the element pointed
+ * at or focused, a form field's focus, a message's length), it asks for one
+ * frame, so the answer shows without waiting for a scroll. Any other
+ * pointer, focus or typing on the page draws nothing: a frame drawn for
+ * nothing re-patterns the film grain and moves on whatever the clock times
+ * (a screen's next slide, say), and stations stay mounted, listening, long
+ * after the visitor has left their page
  */
-export function useRedrawOnTargetHover(answers: (target: string) => boolean) {
+export function useRedrawOnPageChange(read: () => string) {
   const invalidate = useThree((s) => s.invalidate);
   const onDemand = useThree((s) => s.frameloop === 'demand');
   useEffect(() => {
     if (!onDemand) return;
-    let seen = worldStore.targetHover;
+    let seen = read();
     let frame = 0;
-    // Compared a frame later: pageInputs sets targetHover from these same
-    // events, and its listeners may run after these ones
+    // Compared a frame later: the page sets what is read from these same
+    // events (pageInputs, the contact form), and its listeners may run
+    // after these ones
     const compare = () => {
       frame = 0;
-      const target = worldStore.targetHover;
-      if (target === seen) return;
-      const was = seen;
-      seen = target;
-      if (answers(target) || answers(was)) invalidate();
+      const now = read();
+      if (now === seen) return;
+      seen = now;
+      invalidate();
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(compare);
     };
-    const events = ['pointerover', 'pointerout', 'focusin', 'focusout'] as const;
+    const events = ['pointerover', 'pointerout', 'focusin', 'focusout', 'input'] as const;
     for (const type of events) document.addEventListener(type, schedule, { passive: true });
     return () => {
       cancelAnimationFrame(frame);
       for (const type of events) document.removeEventListener(type, schedule);
     };
-  }, [answers, onDemand, invalidate]);
+  }, [read, onDemand, invalidate]);
+}
+
+/**
+ * useRedrawOnPageChange for the page element pointed at or focused
+ * (worldStore.targetHover): a frame whenever it changes to or from one
+ * this station answers (`answers`, a stable module-level test)
+ */
+export function useRedrawOnTargetHover(answers: (target: string) => boolean) {
+  const read = useMemo(
+    () => () => (answers(worldStore.targetHover) ? worldStore.targetHover : ''),
+    [answers]
+  );
+  useRedrawOnPageChange(read);
 }

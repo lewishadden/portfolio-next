@@ -40,6 +40,7 @@ import { createHaloMaterial, createRingMaterial } from '../materials';
 import { NavLights, partMaterials, Truss } from '../parts';
 import { spawnPing } from '../Pings';
 import { flashNavLights, StationScope } from '../power';
+import { useRedrawOnTargetHover } from '../reaction';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import {
   baseFov,
@@ -73,6 +74,8 @@ import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
 import type { WorldPalette, WorldTheme } from '../utils';
 
+/** A project named on the page pointed at or focused (an index link, a pager card): its screen lights */
+const answersProject = (target: string) => target.startsWith('project:');
 /** How much bigger the screen in front is: the camera's framing box (stations.ts) is sized to it */
 const focusScale = 1.4;
 const hoverScale = 1.1;
@@ -897,7 +900,8 @@ function openProject(slug: string) {
  * The shot it shows, or is fading to, is recorded in
  * worldStore.screenShown, which a gallery opening starts from: one that
  * opened mid-fade on the outgoing shot had the screen finish the wipe,
- * then wipe back to the gallery's slide.
+ * then wipe back to the gallery's slide. With `snap` (drawing on demand,
+ * where one frame answers a hover) its light comes on and goes at once.
  */
 function liveScreen(
   material: ShaderMaterial,
@@ -908,9 +912,10 @@ function liveScreen(
   dt: number,
   live: boolean,
   shots: ScreenShots,
-  waitForSharp: boolean
+  waitForSharp: boolean,
+  snap: boolean
 ) {
-  state.hover = approach(state.hover, live ? 1 : 0, 6, dt);
+  state.hover = snap ? (live ? 1 : 0) : approach(state.hover, live ? 1 : 0, 6, dt);
   setUniform(material, 'uHover', state.hover);
   const current = shots.copy(i, state.index);
   if (current)
@@ -1197,6 +1202,7 @@ export function ProjectsStation({
   const snap = useThree((s) => s.frameloop === 'demand');
   const gl = useThree((s) => s.gl);
   const invalidate = useThree((s) => s.invalidate);
+  useRedrawOnTargetHover(answersProject);
   const groupRef = useRef<Group>(null);
   const helixRef = useRef<Group>(null);
   const armsRef = useRef<Group>(null);
@@ -1440,7 +1446,8 @@ export function ProjectsStation({
         dt,
         i === live || i === hoveredRef.current || i === named,
         shots,
-        sharpWidth > 0 && i === live && state.pin < 0
+        sharpWidth > 0 && i === live && state.pin < 0,
+        snap
       );
       changing ||= state.next >= 0 || (state.pin >= 0 && state.pin !== state.index);
       if (state.poweredAt >= 0 && (snap || t - state.poweredAt > 2.5 * screenPowerTime)) {

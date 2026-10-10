@@ -39,6 +39,7 @@ import {
   trick,
   trickProgress,
   useReactionHandlers,
+  useRedrawOnPageChange,
 } from '../reaction';
 import { stationInRange, useThemedMaterials, useWide } from '../stationHooks';
 import { StationHull } from '../StationHull';
@@ -49,7 +50,7 @@ import { latLngToVector3, palettes, seededRandom, setUniform } from '../utils';
 import { emitCue, onShowcase, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import { RocketSmoke } from './RocketSmoke';
-import { repaintFor, useStillRepaint } from './stillFrames';
+import { repaintFor } from './stillFrames';
 
 import type { RefObject } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
@@ -339,6 +340,17 @@ function buildArcs() {
     return new TubeGeometry(new QuadraticBezierCurve3(start, mid, end), 48, 0.011, 6, false);
   });
 }
+
+/**
+ * What the station answers on the page, as one string for
+ * useRedrawOnPageChange: a contact card or the location map pointed at,
+ * and the form (a field focused, the message's length)
+ */
+const readComms = () => {
+  const target = worldStore.targetHover;
+  const answered = target.startsWith('contact:') || target === 'globe:home' ? target : '';
+  return `${answered}|${worldStore.commsFocus ? 1 : 0}|${worldStore.composing}`;
+};
 
 const globeTip = { label: 'Peterborough, UK', sub: 'Drag to spin the globe' };
 const rocketTip = { label: 'Ready for launch', sub: 'Send a message to fire it, or click to rev' };
@@ -760,7 +772,7 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   const materials = useThemedMaterials(buildMaterials, theme, 'contact');
   const palette = palettes[theme];
   const invalidate = useThree((s) => s.invalidate);
-  useStillRepaint();
+  useRedrawOnPageChange(readComms);
   // Stop claiming touches once the station goes
   useEffect(() => () => armTouch(false), []);
 
