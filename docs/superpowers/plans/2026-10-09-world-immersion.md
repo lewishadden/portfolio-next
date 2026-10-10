@@ -393,7 +393,7 @@ Each lane: `git switch -c claude/wi-<lane>` in its worktree, `cp -c -R /Users/le
   - `HeadingProjector`: on `onFlight('approach')` in page mode, a 1.4s envelope.
   - The emitter is `stationPositions[station]` plus a per-station offset (home hub antenna tip, about habitat mast, experience satellite, contact dish rim, skills ring edge, projects front-screen top).
   - The target is `worldStore.copy`'s 4 corners unprojected to 7 units in front of the camera.
-  - LineSegments (plus, on the high tier only, a 4-triangle cone) through `useThemedMaterials(…, station)`, so it flickers with the power-on. Alpha falls from the emitter to ~15% at the heading.
+  - LineSegments (plus, on the high tier only, a 4-triangle cone), materials per theme; `uCharge` follows `stationPower[station].charge` per frame while it plays, so it flickers with the power-on. Alpha falls from the emitter to ~15% at the heading.
   - None at `still`/`calm`.
 - [ ] **B20:**
   - LostStation counts nudges. After 3, a tractor beam (beam material) from the wreck to the astronaut, and the tip becomes "Signal locked / Click to plot a course home".
