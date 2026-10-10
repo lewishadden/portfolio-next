@@ -289,6 +289,21 @@ function burst(
 /** A sound starting at context time `at` (a cue gets what was emitted with it) */
 type Sound = (o: Out, at: number, detail?: CueDetail) => void;
 
+/** A station's chord note `i`, `octaves` up, with the voice's own detune */
+function voiceNote(key: StationKey, i: number, octaves: number) {
+  const { notes, detune } = stationVoices[key];
+  return notes[i] * 2 ** (octaves + detune[i] / 1200);
+}
+
+/**
+ * The experience voice's notes across three octaves, high to low: each
+ * role's pod down the beam sounds one step lower than the last (pod)
+ */
+const podNotes = stationVoices.experience.notes
+  .flatMap((note) => [1, 2, 4, 8].map((octave) => note * octave))
+  .filter((note) => note >= 160 && note <= 800)
+  .sort((a, b) => b - a);
+
 const silent: Sound = () => undefined;
 
 const cues: Record<Cue, Sound> = {
@@ -391,9 +406,23 @@ const cues: Record<Cue, Sound> = {
       );
     }, 40);
   },
+  // A detent, the projects ride settling on a screen: a soft relay click
+  // and the yard's second note two octaves up. It can come six times a
+  // second on a long ride, so it is short and quiet
+  tick: (o, at) => {
+    burst(o, at, 0.025, 0.016, 'highpass', 3400);
+    tone(o, at, 150, 0.05, 0.018, 'sine', 90);
+    tone(o, at + 0.006, voiceNote('projects', 1, 2), 0.22, 0.014, 'triangle');
+  },
+  // The timeline reaching another role (strength: its index): a soft note
+  // stepping down the experience chord, role by role, with a glint above
+  pod: (o, at, detail) => {
+    const role = Math.max(0, Math.round(detail?.strength ?? 0));
+    const note = podNotes[Math.min(role, podNotes.length - 1)];
+    tone(o, at, note, 0.55, 0.012, 'triangle');
+    tone(o, at + 0.02, note * 2, 0.4, 0.004);
+  },
   // Not voiced yet: the cues exist so the world can emit them
-  tick: silent,
-  pod: silent,
   sonar: silent,
   scan: silent,
   arrive: silent,
@@ -402,7 +431,13 @@ const cues: Record<Cue, Sound> = {
 };
 
 /** The fewest seconds between two of the same cue (a scrape along a hull bumps every frame) */
-const spacing: Partial<Record<Cue, number>> = { bump: 0.35, ping: 0.06, trick: 0.3 };
+const spacing: Partial<Record<Cue, number>> = {
+  bump: 0.35,
+  ping: 0.06,
+  trick: 0.3,
+  tick: 0.08,
+  pod: 0.08,
+};
 const lastPlayed: Partial<Record<Cue, number>> = {};
 
 /**
@@ -473,18 +508,10 @@ function arrival(key: StationKey): Sound {
   return (o, at) => {
     burst(o, at, 0.08, 0.03, 'bandpass', 1100, 650, 0.004);
     tone(o, at, 110, 0.28, 0.06, 'sine', 62);
-    const { notes, detune } = stationVoices[key];
     const from = { e: o.e, to: cueOut(o.e.space, voiceAt(o.e.space, key), at, 1.5) };
-    notes.forEach((frequency, i) =>
-      tone(
-        from,
-        at + 0.1 + i * 0.07,
-        frequency * 4 * 2 ** (detune[i] / 1200),
-        1.2,
-        0.016,
-        'triangle'
-      )
-    );
+    for (let i = 0; i < 3; i++) {
+      tone(from, at + 0.1 + i * 0.07, voiceNote(key, i, 2), 1.2, 0.016, 'triangle');
+    }
   };
 }
 
