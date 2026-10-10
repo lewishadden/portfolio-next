@@ -462,6 +462,10 @@ html[data-flight='cruise'] .world__veil {
 
   &__btn {
     min-height: 40px;
+
+    @media (pointer: coarse) {
+      min-height: 44px;
+    }
   }
 
   /* Previous stop and pause: small round buttons */
@@ -477,6 +481,12 @@ html[data-flight='cruise'] .world__veil {
     height: 40px;
     border: 1px solid var(--border-strong);
     border-radius: 50%;
+
+    /* Touch: 44px targets */
+    @media (pointer: coarse) {
+      width: 44px;
+      height: 44px;
+    }
     color: var(--text-secondary);
     transition:
       color var(--dur-fast) ease,
@@ -509,6 +519,12 @@ html[data-flight='cruise'] .world__veil {
 
     &:hover {
       color: var(--accent-secondary);
+    }
+
+    @media (pointer: coarse) {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
     }
   }
 
@@ -654,6 +670,11 @@ html[data-flight='cruise'] .world__veil {
   &__top .world-toggle {
     width: 34px;
     height: 34px;
+
+    @media (pointer: coarse) {
+      width: 44px;
+      height: 44px;
+    }
   }
 
   /* The first free roam's coach, under the bar */
@@ -734,12 +755,17 @@ html[data-flight='cruise'] .world__veil {
     color: var(--accent-secondary);
   }
 
+  /* Exit, and the Controls button beside it (44px tall to touch) */
   &__exit {
     padding: 0.4rem 0.8rem;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-pill);
     font-size: var(--fs-caption);
     color: var(--text-primary);
+
+    @media (pointer: coarse) {
+      min-height: 44px;
+    }
 
     &:hover,
     &:focus-visible {

@@ -70,6 +70,18 @@
     html[data-world='on']:has(.world--ready) & {
       display: inline-flex;
     }
+
+    /* Touch: a 44px target round the slim pill, without making the
+       telemetry line any taller */
+    @media (pointer: coarse) {
+      position: relative;
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset: -8px -2px;
+      }
+    }
   }
 
   /* What the hail did, said for a moment (a polite status) */

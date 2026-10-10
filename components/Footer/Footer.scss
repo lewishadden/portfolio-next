@@ -179,6 +179,12 @@
     &.is-active {
       color: var(--text-primary);
     }
+
+    /* Touch: every row a 44px target (the rows sit too close for a larger
+       hit area alone, which would take taps meant for the next) */
+    @media (pointer: coarse) {
+      min-height: 44px;
+    }
   }
 
   &__nav-index {
