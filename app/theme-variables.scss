@@ -89,6 +89,9 @@
   --bg-tertiary: #121528;
   --surface: rgba(16, 18, 38, 0.55);
   --surface-strong: rgba(14, 16, 32, 0.82);
+  /* --surface-strong as it looks over the page's scrim, but opaque: for
+     panels with no blur behind them, so nothing reads through */
+  --surface-solid: #0c0e1d;
   --surface-hover: rgba(28, 30, 60, 0.6);
   --border-color: rgba(190, 200, 255, 0.1);
   --border-strong: rgba(190, 200, 255, 0.2);
@@ -146,6 +149,7 @@
   --bg-tertiary: #d8dcef;
   --surface: rgba(255, 255, 255, 0.62);
   --surface-strong: rgba(255, 255, 255, 0.9);
+  --surface-solid: #fdfdfe;
   --surface-hover: rgba(255, 255, 255, 0.85);
   --border-color: rgba(40, 36, 110, 0.1);
   --border-strong: rgba(40, 36, 110, 0.2);

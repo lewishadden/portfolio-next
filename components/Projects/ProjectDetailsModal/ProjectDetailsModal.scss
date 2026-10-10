@@ -1,6 +1,8 @@
 /* =============================================================
    Project details: a dialog over a plain scrim. No backdrop blur:
-   blurring the live 3D world behind it every frame was costly
+   blurring the live 3D world behind it every frame was costly. So the
+   dialog is opaque (--surface-solid): translucent, the page's projects
+   HUD read through it as ghost text between its lines
    ============================================================= */
 
 .pdm {
@@ -29,7 +31,8 @@
     overflow: hidden;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
-    background: var(--surface-strong);
+    /* A plain colour, so the frame's fade in and out (pdm-frame-in / -out) takes it too */
+    background-color: var(--surface-solid);
     box-shadow:
       0 50px 120px -40px rgba(0, 0, 0, 0.85),
       var(--shadow-glow);
