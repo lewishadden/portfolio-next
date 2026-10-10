@@ -46,15 +46,7 @@ import { repaintFor, useStillRepaint } from './stillFrames';
 import type { RefObject } from 'react';
 import type { IconifyJSON } from '@iconify/react';
 import type { ThreeEvent } from '@react-three/fiber';
-import type {
-  Camera,
-  Intersection,
-  LineSegments,
-  Mesh,
-  Object3D,
-  Raycaster,
-  Texture,
-} from 'three';
+import type { Camera, Intersection, LineSegments, Mesh, Object3D, Raycaster, Texture } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
 
