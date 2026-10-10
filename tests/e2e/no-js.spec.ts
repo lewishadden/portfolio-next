@@ -81,12 +81,20 @@ async function hangTheApp(page: Page) {
   );
 }
 
+/** A chunk that arrives but can't be parsed */
+const garbled = { contentType: 'text/javascript', body: 'const garbled = ;' };
+
 /**
  * Holds the page's HTML up just before ThemeScript, as a stalled connection
- * can, and fails the first of the chunks whose tags come ahead of it in the
- * meantime, so it fails before ThemeScript's listeners exist
+ * can, and breaks the first of the chunks whose tags come ahead of it in the
+ * meantime (blocked, or garbled so it can't be parsed), so it fails before
+ * ThemeScript's listeners exist
  */
-async function stallBeforeThemeScript(page: Page, path: string) {
+async function stallBeforeThemeScript(
+  page: Page,
+  path: string,
+  breakage: 'blocked' | 'garbled' = 'blocked'
+) {
   await page.route(`**${path}`, async (route) => {
     const response = await route.fetch();
     const html = await response.text();
@@ -96,7 +104,9 @@ async function stallBeforeThemeScript(page: Page, path: string) {
       .slice(0, at)
       .match(/<script src="(\/_next\/static\/chunks\/[^"]+\.js)" async/)?.[1];
     expect(chunk, 'a chunk loads ahead of ThemeScript').toBeTruthy();
-    await page.route(`**${chunk}`, (failed) => failed.abort('blockedbyclient'));
+    await page.route(`**${chunk}`, (failed) =>
+      breakage === 'blocked' ? failed.abort('blockedbyclient') : failed.fulfill(garbled)
+    );
     const stall = '<script src="/stall-before-theme-script.js"></script>';
     await route.fulfill({ response, body: html.slice(0, at) + stall + html.slice(at) });
   });
@@ -106,13 +116,29 @@ async function stallBeforeThemeScript(page: Page, path: string) {
   });
 }
 
-/** Every script chunk arrives but can't be parsed (an old browser): the app never starts */
+/** Every script chunk arrives but can't be parsed: the app never starts */
 async function garbleTheApp(page: Page) {
   await page.route('**/_next/static/chunks/**', (route) =>
-    route.request().resourceType() === 'script'
-      ? route.fulfill({ contentType: 'text/javascript', body: 'const garbled = ;' })
-      : route.continue()
+    route.request().resourceType() === 'script' ? route.fulfill(garbled) : route.continue()
   );
+}
+
+/**
+ * A browser older than the scripts' syntax (class static blocks, Safari 16.4),
+ * as far as ThemeScript's test for it can tell: compiling one throws
+ */
+async function beTooOld(page: Page) {
+  await page.addInitScript(() => {
+    const compile = Function;
+    const tooOld = function (...sources: string[]) {
+      if (sources.some((source) => /static\s*\{/.test(source))) {
+        throw new SyntaxError("Unexpected token '{'");
+      }
+      return compile(...sources);
+    };
+    tooOld.prototype = compile.prototype;
+    window.Function = tooOld as FunctionConstructor;
+  });
 }
 
 /**
@@ -251,6 +277,24 @@ seeded.describe('when the app never starts', () => {
         await expect(root).not.toHaveAttribute('data-boot');
         // Not left to the give-up at 25s
         await expect(root).toHaveAttribute('data-world', 'off', { timeout: 5_000 });
+        await expectWorldClosed(page);
+        await expect(root).not.toHaveAttribute('data-hydrated');
+      }
+    );
+
+    seeded(
+      'a browser too old for the scripts closes the world windows at once',
+      async ({ page }) => {
+        // The first chunk, which hydration needs, can't be parsed there, and
+        // fails before ThemeScript's listeners exist
+        await stallBeforeThemeScript(page, '/contact', 'garbled');
+        await beTooOld(page);
+        await page.goto('/contact', { waitUntil: 'domcontentloaded' });
+        const root = page.locator('html');
+        // As ThemeScript runs: the loading screen lifts before it shows
+        await expect(root).toHaveAttribute('data-world', 'off', { timeout: 1_000 });
+        await expect(root).not.toHaveAttribute('data-boot');
+        await expectReadable(page, '/contact');
         await expectWorldClosed(page);
         await expect(root).not.toHaveAttribute('data-hydrated');
       }

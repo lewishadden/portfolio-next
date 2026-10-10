@@ -106,6 +106,15 @@ export function ThemeScript() {
         if (!root.hasAttribute('data-world')) root.setAttribute('data-world', 'off');
         if (root.hasAttribute('data-boot')) lift();
       };
+      // The scripts need class static blocks (Safari 16.4, the bundle's floor),
+      // which an older browser downloads but can't parse. The first chunk, which
+      // hydration needs, is tagged ahead of this script, so its SyntaxError can
+      // come before the listener below exists: test for the syntax itself
+      try {
+        Function('class A { static {} }');
+      } catch (e) {
+        if (e instanceof SyntaxError) fail();
+      }
       var wait = function() {
         if (running()) return;
         if (root.hasAttribute('data-boot') && Date.now() - began < ${coverFailsafe}) {
@@ -151,8 +160,9 @@ export function ThemeScript() {
       // when none arrived: a blocker, a dropped connection; Safari reports
       // none). The loader never retries those: they failed before it was
       // listening. Later failures are the listener's, which knows about
-      // retries. Any other failure missed before this script ran (in Safari,
-      // or a chunk that can't be parsed) waits for the give-up
+      // retries. A load failure missed before this script ran in Safari, or a
+      // chunk that failed to parse by then for a reason other than the syntax
+      // tested above, waits for the give-up
       try {
         new PerformanceObserver(function(list, observer) {
           if (running()) return observer.disconnect();
