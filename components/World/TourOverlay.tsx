@@ -227,6 +227,8 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
         aria-label="Guided tour"
         aria-live="polite"
         tabIndex={-1}
+        // On a short screen the card can scroll (World.scss)
+        data-lenis-prevent
       >
         <p className="tour__step">
           <span className="tour__dot" aria-hidden="true" />
@@ -257,7 +259,7 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
             Fly freely from here
           </button>
           <button type="button" className="tour__exit" onClick={worldMode.exit}>
-            Back to {stationNames[here].page} <kbd>Esc</kbd>
+            Back to {stationNames[here].page} {!touch && <kbd>Esc</kbd>}
           </button>
         </div>
       </div>
@@ -275,6 +277,7 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
       aria-label="Guided tour"
       aria-live="polite"
       tabIndex={-1}
+      data-lenis-prevent
       data-paused={paused || undefined}
       style={{ '--tour-dwell': `${dwell}ms` } as CSSProperties}
     >
@@ -333,7 +336,7 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
           </button>
         </span>
         <button type="button" className="tour__exit" onClick={worldMode.exit}>
-          Exit <kbd>Esc</kbd>
+          Exit {!touch && <kbd>Esc</kbd>}
         </button>
       </div>
     </div>

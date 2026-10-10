@@ -169,14 +169,15 @@ html[data-world='off'] {
   }
 
   /* The tour's card has the bottom of the screen: the map goes top left,
-     where the hidden header was. Small screens have no room for both */
+     where the hidden header was. Small screens have no room for both, nor
+     short ones (a phone on its side), where the card stands at the right */
   [data-world-mode='tour'] & {
     top: 24px;
     right: auto;
     bottom: auto;
     left: 24px;
 
-    @media (max-width: 760px) {
+    @media (max-width: 760px), (max-height: 520px) {
       display: none;
     }
   }
@@ -502,12 +503,36 @@ html[data-flight='cruise'] .world__veil {
     border-radius: var(--radius-xs);
     font-family: var(--font-mono);
   }
+
+  /* Short landscape screens (a phone on its side): at the bottom the card
+     would hide most of the station, so it stands at the right, and each stop
+     is framed in the space left of it (stations.ts tourFraming, which keeps
+     to this width and margin) */
+  @media (max-height: 520px) and (orientation: landscape) {
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    left: auto;
+    align-content: end;
+    width: min(400px, 48vw);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: none;
+    animation-name: tour-in-side;
+  }
 }
 
 @keyframes tour-in {
   from {
     opacity: 0;
     transform: translate(-50%, 16px);
+  }
+}
+
+@keyframes tour-in-side {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
   }
 }
 

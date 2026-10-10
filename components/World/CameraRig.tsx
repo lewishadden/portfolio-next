@@ -244,7 +244,8 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       size.height,
       target,
       look,
-      mode === 'page'
+      mode === 'page',
+      mode === 'tour'
     );
     origin.fromArray(stationPositions[station]);
     target.add(origin);
@@ -353,9 +354,10 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     const fov = baseFov + (snap ? 0 : Math.min(speed * 0.3, 24));
     easing.damp(cam, 'fov', fov, 0.3, dt);
     // The lens shifts the picture sideways where the pose asks it to
-    // (stationLens: the projects ride's screen in its cell beside the copy),
-    // so the camera still looks straight at what it frames
-    const lens = mode === 'page' ? stationLens(station, size.width, size.height) : 0;
+    // (stationLens: the projects ride's screen in its cell beside the copy,
+    // a tour stop beside the caption card), so the camera still looks
+    // straight at what it frames
+    const lens = stationLens(station, size.width, size.height, mode === 'page', mode === 'tour');
     if (snap) rig.lens = lens;
     else easing.damp(rig, 'lens', lens, 0.2, dt);
     if (Math.abs(rig.lens) < 1e-4) rig.lens = 0;

@@ -491,17 +491,59 @@ function screenCellFraming(width: number, height: number, out: CellFraming) {
   return out;
 }
 
+/**
+ * The guided tour's caption card on a short landscape screen stands at the
+ * right, the full height of the screen less its margin (World.scss `.tour`,
+ * `(max-height: 520px) and (orientation: landscape)`: min(400px, 48vw)
+ * wide, 16px in). Keep these in step with that rule.
+ */
+const tourCard = { width: 400, share: 0.48, margin: 16 };
+
+/**
+ * A tour stop on a short landscape screen: frames the station in the space
+ * left of the caption card, fitted to it, with the lens moving the picture
+ * there (stationLens) so the camera still looks straight at the station.
+ * Null on any other screen, where the card has the bottom of the screen
+ */
+function tourFraming(key: StationKey, width: number, height: number, out: CellFraming) {
+  if (!isShortLandscape(width, height)) return null;
+  const shot = shots[key];
+  const aspect = width / Math.max(height, 1);
+  const card = Math.min(tourCard.width, tourCard.share * width);
+  const right = width - card - 2 * tourCard.margin;
+  const spaceWidth = Math.max(right - tourCard.margin, 1) / width;
+  const spaceHeight = Math.max(height - 2 * tourCard.margin, 1) / height;
+  const distance = Math.max(
+    shot.distance,
+    shot.halfWidth / (narrowFill * spaceWidth * tanHalfFov * aspect),
+    shot.halfHeight / (spaceHeight * tanHalfFov)
+  );
+  out.zoom = distance / shot.distance;
+  out.lift = -shot.offsetY;
+  out.axis = (tourCard.margin + right) / width - 1;
+  return out;
+}
+
 const framing: Framing = { zoom: 1, lift: 0 };
 const cellFraming: CellFraming = { zoom: 1, lift: 0, axis: 0 };
+const tourCardFraming: CellFraming = { zoom: 1, lift: 0, axis: 0 };
 
 /**
  * Where across the view (NDC x, -1..1) the camera's lens puts its axis for
- * a station's pose: 0 (the middle) everywhere but the projects ride on a
- * short landscape screen, where the screen in front is framed in the cell
- * beside the copy (screenCellFraming), coming into it as the ride begins.
- * CameraRig turns it into the camera's film offset
+ * a station's pose: 0 (the middle) everywhere but on a short landscape
+ * screen, for the projects ride (the screen in front is framed in the cell
+ * beside the copy, screenCellFraming, coming into it as the ride begins)
+ * and for a tour stop (`touring`: framed left of the caption card,
+ * tourFraming). CameraRig turns it into the camera's film offset
  */
-export function stationLens(key: StationKey, width: number, height: number, reading = true) {
+export function stationLens(
+  key: StationKey,
+  width: number,
+  height: number,
+  reading = true,
+  touring = false
+) {
+  if (touring) return tourFraming(key, width, height, tourCardFraming)?.axis ?? 0;
   if (key !== 'projects' || !reading) return 0;
   const cell = screenCellFraming(width, height, cellFraming);
   return cell ? cell.axis * (1 - projectIntro()) : 0;
@@ -705,7 +747,8 @@ function skillsEye(distance: number, eyeY: number, focus: number, out: Vector3) 
  * its glass panels and its world windows. A tour stop, or the route a link
  * previews, passes false and is framed from the top of its page instead:
  * those measure the page on screen, which is hidden while touring and is
- * another station's page for a preview
+ * another station's page for a preview. `touring` (a tour stop) frames it
+ * clear of the caption card where that stands beside it (tourFraming)
  */
 export function stationCamera(
   key: StationKey,
@@ -715,11 +758,19 @@ export function stationCamera(
   height: number,
   pos: Vector3,
   look: Vector3,
-  reading = true
+  reading = true,
+  touring = false
 ) {
   let { zoom, lift } = stationFraming(key, width, height, framing);
   const { height: eyeY, distance } = shots[key];
   const wide = isWideViewport(width, height);
+  // A tour stop beside the caption card: fitted to the space left of it,
+  // the lens moving it there (stationLens)
+  const besideCard = touring ? tourFraming(key, width, height, tourCardFraming) : null;
+  if (besideCard) {
+    zoom = besideCard.zoom;
+    lift = besideCard.lift;
+  }
   // The projects ride on a short landscape screen frames its screen in the
   // page's cell beside the copy, coming into it as the ride begins
   const cell = key === 'projects' && reading ? screenCellFraming(width, height, cellFraming) : null;
@@ -852,12 +903,13 @@ export function stationCamera(
           : clearRoom(key, pos, look, width / height, reading ? worldStore.clearRight : -1)
       )
     : 0;
-  // In the cell the lens moves the picture instead (stationLens)
+  // In the cell, or beside the tour's card, the lens moves the picture instead (stationLens)
   if (cell) shiftX = MathUtils.lerp(shiftX, 0, inCell);
+  if (besideCard) shiftX = 0;
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   // Centred in the space below the header, not the whole viewport
-  if (centred && wide && !cell) {
+  if (centred && wide && !cell && !besideCard) {
     pos.addScaledVector(up, 0.19 * (1 - intro));
     look.addScaledVector(up, 0.19 * (1 - intro));
   }
