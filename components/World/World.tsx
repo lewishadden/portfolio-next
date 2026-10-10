@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { copyHeldFor, onCopyHold, snapshotPage } from '@/components/PageTransition/pageSnapshot';
+import { wireHaptics } from '@/components/Sound/haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useMotionLevel } from '@/hooks/useMotion';
@@ -363,6 +364,10 @@ export function World({ content }: { content: WorldContent }) {
       el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 600, easing: 'ease-out' });
     }
   }, [hidden, motion]);
+
+  // Free roam's knocks and finds (and the rocket's launch) are felt on a
+  // phone or tablet that can vibrate (components/Sound/haptics.ts)
+  useEffect(() => wireHaptics(), []);
 
   // Loaded: a visit soon after skips the loading screen (it's all cached)
   useEffect(() => {
