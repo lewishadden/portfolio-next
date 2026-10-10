@@ -20,7 +20,7 @@ import {
 } from '../reaction';
 import { spawnPing } from '../Pings';
 import { Shards } from '../Shards';
-import { isFound, markFound, signals } from '../signalStore';
+import { isFound, markFound } from '../signalStore';
 import { StationHull } from '../StationHull';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { stationModels, stationPositions } from '../stations';
@@ -62,7 +62,8 @@ const tipFor = () => (worldMode.get().mode === 'explore' ? loggedTip : lockedTip
 
 /**
  * Locked on: the click plots a course home (or, in free roam, logs the
- * derelict, as flying close to it does), and the rescue starts over
+ * derelict, as flying close to it does: Signals plays the find out, its
+ * ping, burst, nameplate and sound), and the rescue starts over
  */
 function answerLocked(rescue: Rescue) {
   rescue.nudges = 0;
@@ -70,10 +71,7 @@ function answerLocked(rescue: Rescue) {
   const tip = worldTip.get();
   if (tip === lockedTip || tip === loggedTip) worldTip.set(lostTip);
   if (worldMode.get().mode === 'explore') {
-    if (markFound('derelict')) {
-      const cue = signals.every((s) => isFound(s.id)) ? 'complete' : 'found';
-      emitCue(cue, { at: stationPositions.lost });
-    }
+    markFound('derelict');
     return;
   }
   navigateTo('/');
@@ -122,7 +120,9 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
         const state = rescue.current;
         if (isLocked(state)) {
           e.stopPropagation();
-          spawnPing(e.point);
+          // A click that logs the derelict sounds as its find (Signals), not a ping too
+          const logs = worldMode.get().mode === 'explore' && !isFound('derelict');
+          spawnPing(e.point, { cue: !logs });
           answerLocked(state);
           invalidate();
           return;

@@ -238,9 +238,14 @@ function disposeAssets(assets: SignalAssets) {
   }
 }
 
-/** Per signal: when it was found (clock time, -Infinity before), and how its nameplate shows */
+/**
+ * Per signal: when it was found (clock time, -Infinity before), and whether
+ * that find has been seen here yet (null until the first frame, which
+ * takes finds stored from an earlier visit as old)
+ */
 interface FindState {
   foundAt: number;
+  seen: boolean | null;
 }
 
 /** Where the nearest unfound signal is, reported to the detector each frame */
@@ -438,6 +443,18 @@ function Comet({
   );
 }
 
+/**
+ * A find, as it happens: a ping at the signal, its glow bursting (from
+ * `foundAt`) and its nameplate blinking on, and the find's sound from where
+ * it is (the last one's own)
+ */
+function celebrate(signal: Signal, node: Group, find: FindState, t: number) {
+  find.foundAt = t;
+  const at = [node.position.x, node.position.y, node.position.z] as const;
+  spawnPing(node.position, { scale: signal.id === 'derelict' ? 2.6 : 1.8, cue: false });
+  emitCue(signals.every((s) => isFound(s.id)) ? 'complete' : 'found', { at });
+}
+
 /** How a find's nameplate flickers on (full motion): on, off, on over its first 0.3s */
 function flicker(s: number) {
   if (s < 0.08) return 1;
@@ -451,7 +468,7 @@ export function Signals({ theme }: { theme: WorldTheme }) {
   const groupRef = useRef<Group>(null);
   const materials = useThemedMaterials(buildMaterials, theme);
   const assets = useMemo(() => buildAssets(), []);
-  const finds = useRef<FindState[]>(signals.map(() => ({ foundAt: -Infinity })));
+  const finds = useRef<FindState[]>(signals.map(() => ({ foundAt: -Infinity, seen: null })));
 
   useEffect(() => applySignalsTheme(assets, theme, gl), [assets, theme, gl]);
   useEffect(() => () => disposeAssets(assets), [assets]);
@@ -486,6 +503,10 @@ export function Signals({ theme }: { theme: WorldTheme }) {
       const find = finds.current[i];
       find.foundAt = pastStamp(find.foundAt, t);
       const found = isFound(signal.id);
+      // A find made elsewhere in free roam (the derelict logged through the
+      // lost astronaut's tractor beam) plays out here like one flown into
+      if (found && find.seen === false && exploring) celebrate(signal, node, find, t);
+      find.seen = found;
       const distance = camera.position.distanceTo(node.position);
 
       // Found just now: the glow bursts out and fades. Otherwise a faint
@@ -529,10 +550,8 @@ export function Signals({ theme }: { theme: WorldTheme }) {
       if (isScanned(signal.id)) markContact(signal, node.position, camera);
       if (distance < signal.reach) {
         if (markFound(signal.id)) {
-          find.foundAt = t;
-          const at = [node.position.x, node.position.y, node.position.z] as const;
-          spawnPing(node.position, { scale: signal.id === 'derelict' ? 2.6 : 1.8, cue: false });
-          emitCue(signals.every((s) => isFound(s.id)) ? 'complete' : 'found', { at });
+          find.seen = true;
+          celebrate(signal, node, find, t);
         }
         return;
       }
