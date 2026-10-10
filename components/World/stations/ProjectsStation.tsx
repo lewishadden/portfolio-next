@@ -28,6 +28,8 @@ import {
   Vector4,
 } from 'three';
 
+import { motionLevel } from '@/utils/motion';
+
 import { bloomMaskLayer, maskBloom } from '../bloomMask';
 import { smootherstep } from '../flight';
 import { iconSvg, useIconCollections } from '../icons';
@@ -36,7 +38,7 @@ import { projectRideEvent, projectShotEvent } from '../ride';
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { NavLights, partMaterials, Truss } from '../parts';
 import { spawnPing } from '../Pings';
-import { StationScope } from '../power';
+import { flashNavLights, StationScope } from '../power';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import {
   baseFov,
@@ -53,7 +55,16 @@ import { palettes, setUniform } from '../utils';
 import { queueUpload } from '../warmup';
 import { prefetch } from '../routes';
 import { worldMode } from '../worldMode';
-import { emitCue, navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
+import {
+  emitCue,
+  navigateTo,
+  onShowcase,
+  setWorldHover,
+  worldStore,
+  worldTip,
+} from '../worldStore';
+
+import { repaintFor } from './stillFrames';
 
 import type { RefObject } from 'react';
 import type { BufferGeometry, Camera, InstancedMesh, Mesh, Object3D, WebGLRenderer } from 'three';
@@ -776,6 +787,22 @@ class ScreenShots {
 
 const corner = new Vector3();
 const centre = new Vector3();
+const showPoint = new Vector3();
+
+/** A showcase's wave: each screen's edge light swells this long (s) after the one above it */
+const waveStep = 0.07;
+
+/**
+ * Asked to show off: the screens' edge lights swell one after another down
+ * the helix, from clock time `t` (a swell without the flicker, so nothing
+ * flashes)
+ */
+function lightWave(states: ScreenState[], t: number) {
+  states.forEach((state, i) => {
+    state.poweredAt = t + i * waveStep;
+    state.flicker = false;
+  });
+}
 
 /**
  * Whether a screen sits behind the page's heading block (worldStore.copy,
@@ -1261,6 +1288,31 @@ export function ProjectsStation({
     window.addEventListener(projectShotEvent, repaint);
     return () => window.removeEventListener(projectShotEvent, repaint);
   }, [invalidate]);
+
+  // Asked to show off (a tour stop landing, or the visitor hailing it): the
+  // hub pings and the screens light up one after another down the helix
+  // (lightWave). A tour's showcase waits for full motion; at the still
+  // level a hail is the ping and a blink of the spine's nav lights
+  const get = useThree((s) => s.get);
+  useEffect(
+    () =>
+      onShowcase((station, reason) => {
+        if (station !== 'projects') return;
+        const level = motionLevel();
+        if (reason === 'tour' && level !== 'full') return;
+        const { clock, invalidate: draw } = get();
+        const hub = hubRef.current;
+        if (hub) spawnPing(hub.getWorldPosition(showPoint));
+        if (level === 'still') {
+          flashNavLights('projects');
+          repaintFor(draw, 1400);
+          return;
+        }
+        lightWave(states, clock.elapsedTime);
+        if (hub) emitCue('trick', { at: [showPoint.x, showPoint.y, showPoint.z] });
+      }),
+    [get, states]
+  );
 
   // Projects with no screenshots show their art, drawn once the icons are in
   const icons = useIconCollections();

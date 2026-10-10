@@ -12,13 +12,13 @@ import type { StationKey } from 'components/World/routes';
 
 /**
  * What each station does when hailed, at full and calm motion (the
- * stations' showcase listeners). The projects yard has no answer, so it
- * offers no hail
+ * stations' showcase listeners). A station without an answer offers no hail
  */
 const answers: Partial<Record<StationKey, string>> = {
   home: 'The astronaut does a barrel roll',
   about: 'The helmet spins',
   experience: 'The satellite rolls and pings the beam',
+  projects: 'The screens light up one after another down the helix',
   skills: 'Every constellation flares',
   contact: 'The comms array transmits and the rocket revs',
   lost: 'The lost astronaut tumbles',
