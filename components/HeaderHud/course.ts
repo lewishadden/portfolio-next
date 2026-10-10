@@ -34,11 +34,6 @@ let live = false;
 
 const isStation = (key: string): key is StationKey => stationKeys.includes(key as StationKey);
 
-const smootherstep = (x: number) => {
-  const t = Math.min(Math.max(x, 0), 1);
-  return t * t * t * (t * (t * 6 - 15) + 10);
-};
-
 /**
  * Starts keeping track (call it when a component that shows the course
  * mounts). The camera is docked at a station once a flight or cut arrives
@@ -126,12 +121,14 @@ export function flightUnderWay() {
  * The flight under way: where to and the range still to go in whole km,
  * counting down from the range between the two stations (rangeBetween; for
  * a flight that didn't leave from a station, the distance it set off from)
- * to 0 on arrival, in step with the camera; null when there's no flight
- * (or the world was switched off during it)
+ * to 0 on arrival, in step with the camera (the share of its path it has
+ * covered); null when there's no flight (or the world was switched off
+ * during it). Every readout of the range left (the header's lock, the
+ * station readout, the sector map) reads it, so they agree
  */
 export function rangeToGo(): { to: StationKey; km: number } | null {
   const { flight } = worldStore;
   if (!flightUnderWay() || !course.to || course.to !== flight.to) return null;
-  const km = Math.round(course.span * (1 - smootherstep(flight.progress)));
+  const km = Math.round(course.span * (1 - flight.covered));
   return { to: course.to, km };
 }

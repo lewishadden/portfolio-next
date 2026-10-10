@@ -76,12 +76,15 @@ export const worldStore = {
    * leaves: 0 straight ahead, +1 an about-turn to the left, -1 to the right.
    * `approached` turns true on the final approach (when the new page shows).
    * `duration` is the planned flight length in seconds (0 when none);
-   * CameraRig's startFlight writes it
+   * CameraRig's startFlight writes it. `covered` is the share of the path
+   * the camera has covered, 0..1 (progress through its easing: about-turns
+   * ease differently from flights ahead), for counting down the range
    */
   flight: {
     active: false,
     to: '',
     progress: 0,
+    covered: 0,
     path: new Float32Array(0),
     turn: 0,
     approached: false,

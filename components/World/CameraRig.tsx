@@ -9,6 +9,7 @@ import {
   createFlightView,
   flightPosition,
   flightRotation,
+  flightEase,
   lookRotation,
   planFlight,
   smootherstep,
@@ -181,6 +182,7 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
       flight.active = false;
       flight.approached = false;
       flight.progress = 0;
+      flight.covered = 0;
       flight.duration = 0;
     };
   }, []);
@@ -399,6 +401,7 @@ function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey,
   worldStore.flight.active = true;
   worldStore.flight.to = station;
   worldStore.flight.progress = 0;
+  worldStore.flight.covered = 0;
   worldStore.flight.path = path;
   worldStore.flight.turn = flight.about ? flight.departTurn : 0;
   worldStore.flight.approached = false;
@@ -411,6 +414,7 @@ function endFlight(rig: RigState, station: StationKey, arrived: boolean) {
   holdPageCopy(false);
   worldStore.flight.active = false;
   worldStore.flight.progress = arrived ? 1 : worldStore.flight.progress;
+  worldStore.flight.covered = arrived ? 1 : worldStore.flight.covered;
   if (arrived) emitFlight('end', station);
   worldStore.flight.duration = 0;
 }
@@ -456,6 +460,7 @@ function fly(rig: RigState, cam: PerspectiveCamera, station: StationKey, dt: num
   cam.quaternion.multiply(bank.setFromAxisAngle(zAxis, rig.roll * level));
 
   worldStore.flight.progress = s;
+  worldStore.flight.covered = flightEase(flight, s);
   // About-turns are on their final approach once the arc starts rounding the station
   const approach = flight.about ? flight.roundFrom : 0.6;
   if (!rig.approached && s >= approach) {

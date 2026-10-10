@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 
+import { rangeToGo, watchCourse } from '@/components/HeaderHud/course';
 import { copyHeldFor } from '@/components/PageTransition/pageSnapshot';
 import { motionLevel } from '@/utils/motion';
 
@@ -618,7 +619,15 @@ function paint(
       : null;
   if (destination) {
     const [tx, ty, tz] = destination.at;
-    const left = `${Math.round(Math.hypot(tx - camera.x, ty - camera.y, tz - camera.z))} ${unit}`;
+    // A station flight counts down as the header's lock and the station
+    // readout do (rangeToGo); a free-roam goal or a previewed route reads
+    // the straight-line distance, with no flight to count down
+    const toGo = !goal && !preview && flight.active ? rangeToGo() : null;
+    const km =
+      toGo && toGo.to === target
+        ? toGo.km
+        : Math.round(Math.hypot(tx - camera.x, ty - camera.y, tz - camera.z));
+    const left = `${km} ${unit}`;
     const labelWidth = ctx.measureText(destination.label).width;
     // A long name goes up a line rather than run into the scale bar
     const room = bx - 5 - ctx.measureText(barText).width - 6;
@@ -683,6 +692,8 @@ export function NavRadar() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    // The range left on a flight comes from the course it is following
+    watchCourse();
     const root = rootRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
