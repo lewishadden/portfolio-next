@@ -5,6 +5,7 @@ import { motionLevel } from '@/utils/motion';
 
 import { cameraMotion } from './MotionProbe';
 import { sunDirection } from './sky';
+import { pageCopyShown } from './stations';
 import { worldMode } from './worldMode';
 import { worldStore } from './worldStore';
 
@@ -232,8 +233,12 @@ export class GrainEffect extends Effect {
 }
 
 export class ReadingGuardEffect extends Effect {
-  /** How firmly it holds, eased (0 while a flight cruises or outside page mode) */
-  strength = 0;
+  /**
+   * How firmly it holds, eased (0 while a new page's copy is held back or
+   * outside page mode). Starts firm, so a canvas started under copy that is
+   * already showing (3D switched back on) guards it from the first frame
+   */
+  strength = 1;
 
   constructor() {
     super('ReadingGuardEffect', readingGuardShader, {
@@ -290,9 +295,11 @@ const guardFeather = 40;
 /**
  * Per frame: hands the guard the blocks the page measured (viewport
  * fractions, y down) as canvas UVs (y up), the theme's limits and its
- * strength, which lets go while a flight cruises (the new page's copy is
- * held back until the approach) and outside page mode (the tour and free
- * roam hide the page). Eases over ~0.2s; at once when nothing may move
+ * strength. It lets go only while the page's copy isn't on screen: while a
+ * flight to a new page holds that copy back (until its final approach), and
+ * outside page mode (the tour, free roam and the return from them hide the
+ * page). The warp in keeps it, as its page is already showing. Eases over
+ * ~0.2s; at once when nothing may move
  */
 export function updateReadingGuard(
   effect: ReadingGuardEffect,
@@ -302,8 +309,7 @@ export function updateReadingGuard(
   delta: number
 ) {
   const uniforms = effect.uniforms;
-  const flight = worldStore.flight;
-  const goal = worldMode.get().mode === 'page' && !(flight.active && !flight.approached) ? 1 : 0;
+  const goal = worldMode.get().mode === 'page' && pageCopyShown() ? 1 : 0;
   effect.strength =
     motionLevel() === 'still'
       ? goal
