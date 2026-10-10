@@ -155,6 +155,7 @@
   &__nav-list {
     display: grid;
     gap: 0.15rem;
+    container-type: inline-size;
   }
 
   &__nav-link {
@@ -409,6 +410,40 @@ html:has(.header--hud) {
 
   .footer__bottom {
     color: var(--text-secondary);
+  }
+}
+
+/* A narrow manifest (a phone, a phone on its side, or the column of a
+   wide footer): the craft takes a line of its own under the page name,
+   in full, rather than being cut short */
+@container (max-width: 320px) {
+  .footer__nav-link {
+    grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+    grid-template-areas:
+      'index label range'
+      '. craft craft';
+    row-gap: 0.1rem;
+  }
+
+  .footer__nav-index {
+    grid-area: index;
+  }
+
+  .footer__nav-label {
+    grid-area: label;
+  }
+
+  .footer__nav-range {
+    grid-area: range;
+  }
+
+  .footer__nav-craft {
+    grid-area: craft;
+    white-space: normal;
+
+    &::before {
+      content: none;
+    }
   }
 }
 
