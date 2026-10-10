@@ -609,9 +609,13 @@ export function ExploreHud({
   const docksOnArrival = useDockOnArrival();
   const control = useEnterControl();
   const touch = useMediaQuery('(pointer: coarse)');
-  // Phones held upright: the thumbsticks fill the bottom, so the autopilot's
-  // status and the dock prompt sit under the top bar instead
-  const compact = useMediaQuery('(pointer: coarse) and (max-width: 599px)');
+  // Phones, either way up: the thumbsticks fill the bottom (held sideways,
+  // with the rise, sink and Scan buttons between them), so the autopilot's
+  // status and the dock prompt sit under the top bar instead. Matches the
+  // short-screen rule in World.scss
+  const compact = useMediaQuery(
+    '(pointer: coarse) and (max-width: 599px), (pointer: coarse) and (max-height: 500px)'
+  );
   const lockable = useSyncExternalStore(subscribeNothing, canLockPointer, noLock);
   const locked = usePointerLocked();
   const targeting = useSyncExternalStore(subscribeHover, readHover, noLock);

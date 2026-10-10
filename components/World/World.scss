@@ -1333,8 +1333,9 @@ html[data-flight='cruise'] .world__veil {
   }
 }
 
-/* Phones held upright: the autopilot's status and the dock prompt sit in the
-   head, under the top bar, clear of the thumbsticks (ExploreHud) */
+/* Phones (upright, or on their side): the autopilot's status and the dock
+   prompt sit in the head, under the top bar, clear of the thumbsticks and
+   the buttons between them (ExploreHud) */
 .explore-hud__head {
   .explore-hud__autopilot,
   .explore-hud__dock {
