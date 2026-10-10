@@ -1,8 +1,17 @@
 import { useSyncExternalStore } from 'react';
 
+import { stationForPath, stationPositions } from 'components/World/routes';
 import { onCue, onFlight, worldStore } from 'components/World/worldStore';
 import { onSonar } from './detector';
-import { buildSpace, cueOut, listen, sonarOut, stationVoices, voiceAt } from './spatial';
+import {
+  buildSpace,
+  cueOut,
+  listen,
+  sonarOut,
+  stationNear,
+  stationVoices,
+  voiceAt,
+} from './spatial';
 
 import type { StationKey } from 'components/World/routes';
 import type { Cue, CueDetail } from 'components/World/worldStore';
@@ -15,7 +24,8 @@ import type { Space } from './spatial';
    drone and a breath of cabin air) under every station's own voice,
    heard from where the camera is (spatial.ts); a rush of filtered noise
    that follows the camera's speed (flights, free roam); a swell as a
-   flight sets off and a chime in the destination's chord as it docks;
+   flight sets off and a chime in the destination's chord as it docks
+   (or, arriving without a flight, the chord itself: `arrive`);
    and short cues for what happens in the world (worldStore `emitCue`):
    HUD blips, clicks and tricks, docking clamps, stations powering up,
    signals found, the rocket and the comms array transmitting. A cue
@@ -47,6 +57,8 @@ let engine: Engine | null = null;
 let wanted: boolean | undefined;
 let frame = 0;
 let lastFrame = 0;
+/** The page's station as the follow loop last saw it (null until it has looked) */
+let lastStation: StationKey | null = null;
 let armed = false;
 /** The context is starting up: cues wait for it rather than going unheard */
 let waking: Promise<void> | null = null;
@@ -180,11 +192,27 @@ function follow(time: number) {
   engine.rushFilter.frequency.setTargetAtTime(220 + 1600 * speed, now, 0.2);
   engine.hum.gain.setTargetAtTime(0.012 * worldStore.hudHum, now, 0.3);
   listen(engine.space, engine.ctx, dt);
+  arriveUnflown();
+}
+
+/**
+ * With the world off there are no flights to dock: a new page's station
+ * is arrived at the moment the address changes (not as the loop starts)
+ */
+function arriveUnflown() {
+  const station = stationForPath(window.location.pathname);
+  if (station === lastStation) return;
+  const seen = lastStation !== null;
+  lastStation = station;
+  if (seen && document.documentElement.dataset.world !== 'on') {
+    play('arrive', { at: stationPositions[station] });
+  }
 }
 
 function loop(on: boolean) {
   cancelAnimationFrame(frame);
   lastFrame = 0;
+  lastStation = null;
   if (on) frame = requestAnimationFrame(follow);
 }
 
@@ -430,15 +458,24 @@ const cues: Record<Cue, Sound> = {
     tone(o, at, 1400, 0.42, level, 'sine', 1300);
     tone(o, at + 0.17, 1400, 0.36, level * 0.3, 'sine', 1300);
   },
+  // Arrived without a flight (motion held back, or the world off): the
+  // destination's chord an octave up, softly strummed, from the station
+  arrive: (o, at, detail) => {
+    const key = detail?.at ? stationNear(detail.at) : stationForPath(window.location.pathname);
+    for (let i = 0; i < 3; i++) {
+      tone(o, at + i * 0.045, voiceNote(key, i, 1), 0.95, 0.016, 'triangle', undefined, 0.02);
+    }
+    tone(o, at + 0.1, voiceNote(key, 0, 3), 0.9, 0.006);
+  },
   // Not voiced yet: the cues exist so the world can emit them
   scan: silent,
-  arrive: silent,
   edge: silent,
   hail: silent,
 };
 
 /** The fewest seconds between two of the same cue (a scrape along a hull bumps every frame) */
 const spacing: Partial<Record<Cue, number>> = {
+  arrive: 0.3,
   bump: 0.35,
   ping: 0.06,
   trick: 0.3,
@@ -523,16 +560,25 @@ function arrival(key: StationKey): Sound {
 }
 
 let lastSwell = -Infinity;
+/** The station the last flight set off for, until it docks ('' for none) */
+let flyingTo = '';
 
 function flightSound(event: 'start' | 'approach' | 'end', to: string) {
   if (event === 'start') {
+    flyingTo = to;
     // A change of course mid-flight sets off again: one swell is enough
     const now = performance.now() / 1000;
     if (now - lastSwell < 0.4) return;
     lastSwell = now;
     schedule(swell);
   } else if (event === 'end' && to in stationVoices) {
-    schedule(arrival(to as StationKey));
+    const key = to as StationKey;
+    // Flown in, it docks with the clamps and chime; cut there (motion held
+    // back), with no 'start', it just arrives
+    const flown = flyingTo === key;
+    flyingTo = '';
+    if (flown) schedule(arrival(key));
+    else play('arrive', { at: stationPositions[key] });
   }
 }
 
