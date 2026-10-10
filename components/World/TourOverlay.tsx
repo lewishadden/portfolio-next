@@ -39,7 +39,7 @@ function forTouch(text: string) {
   });
 }
 
-/** Arrow keys and Space belong to these, not the tour */
+/** Arrow keys, Space and Escape belong to these (a field, the command palette), not the tour */
 const ownKeys = (target: EventTarget | null) =>
   target instanceof Element &&
   !!target.closest('input, textarea, select, [contenteditable], [role="dialog"]');
@@ -186,12 +186,14 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
   }, [touring, finale, tourStep, station, dwell]);
 
   // Keys: Escape ends the tour, ← / → step through it, Space on a stop's
-  // card pauses (the closing card has no countdown, nor a pause to show)
+  // card pauses (the closing card has no countdown, nor a pause to show).
+  // An Escape something else has claimed (closing the command palette over
+  // the tour) or pressed in a field or dialog is left to it
   useEffect(() => {
     if (!touring) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        worldMode.exit();
+        if (!e.defaultPrevented && !ownKeys(e.target)) worldMode.exit();
         return;
       }
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || ownKeys(e.target)) return;

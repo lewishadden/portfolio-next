@@ -257,6 +257,13 @@ test.describe('the guided tour', () => {
       await expect(pause).toHaveAttribute('aria-pressed', 'false');
       await expect(tour).not.toContainText('Paused');
       await page.keyboard.press('ArrowRight');
+      // Escape closing the palette over the tour closes only the palette
+      await page.keyboard.press('ControlOrMeta+k');
+      await expect(palette).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(palette).toBeHidden();
+      await expect(page.locator('html')).toHaveAttribute('data-world-mode', 'tour');
+      await expect(tour).toContainText('Complete');
       await tour.getByRole('button', { name: /^Back to Skills/ }).click();
       await expect(tour).toBeHidden();
       await expect(page).toHaveURL(/\/skills$/);
