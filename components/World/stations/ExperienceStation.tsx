@@ -1,22 +1,37 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import { easing } from 'maath';
-import { Group, MathUtils, Mesh, MeshStandardMaterial } from 'three';
+import {
+  CanvasTexture,
+  DataTexture,
+  Group,
+  MathUtils,
+  Mesh,
+  MeshStandardMaterial,
+  PlaneGeometry,
+  ShaderMaterial,
+  SRGBColorSpace,
+} from 'three';
 
+import { ambientTime, pastStamp } from '../clock';
+import { setProjectorEmitter } from '../HeadingProjector';
 import { createBeamMaterial, createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
 import { Antenna, NavLights, SolarArray, Spin } from '../parts';
+import { drawPatchAtlas, patchColumns } from '../patches';
 import { spawnPing } from '../Pings';
-import { StationScope } from '../power';
+import { StationScope, stationPower } from '../power';
 import {
   createReaction,
   easeInOut,
   stepReaction,
   trickProgress,
   useReactionHandlers,
+  useRedrawOnTargetHover,
+  useShowcase,
 } from '../reaction';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
 import { StationHull } from '../StationHull';
@@ -27,10 +42,13 @@ import {
   stationModels,
   stationPositions,
 } from '../stations';
+import { setTipTarget, tipTarget } from '../tipTarget';
 import { palettes, setUniform } from '../utils';
-import { focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
+import { queueUpload, useWarmupTask } from '../warmup';
+import { emitCue, focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import type { ThreeEvent } from '@react-three/fiber';
+import type { Object3D, Texture } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldTip } from '../worldStore';
 import type { WorldContent } from '../types';
@@ -53,6 +71,96 @@ const tetherLights: NavLight[] = [
 /** Which pod the pointer is over (-1 for none): it lights as if it were being read */
 type Hovered = { current: number };
 
+/** Page targets this station answers: a role's card lights its pod */
+const answersRole = (target: string) => target.startsWith('role:');
+
+/** The role whose card on the page is pointed at or focused (worldStore.targetHover), -1 for none */
+function pageRole(count: number) {
+  const target = worldStore.targetHover;
+  if (!target.startsWith('role:')) return -1;
+  const index = Number(target.slice('role:'.length));
+  return Number.isInteger(index) && index >= 0 && index < count ? index : -1;
+}
+
+/**
+ * The satellite's ping running along the beam: down past every pod after
+ * its trick, or to one pod when that role's card is pointed at on the
+ * page. Clock times in seconds; `to` is the height it runs to
+ */
+interface BeamPing {
+  at: number;
+  to: number;
+  duration: number;
+  /** The trick that started the last full run, so a new one is noticed */
+  trickAt: number;
+  /** The role pointed at on the page, -1 for none */
+  role: number;
+  /** When the ping cue last sounded, so a sweep across the cards doesn't chatter */
+  cueAt: number;
+}
+
+const createBeamPing = (): BeamPing => ({
+  at: -Infinity,
+  to: 0,
+  duration: 1,
+  trickAt: -Infinity,
+  role: -1,
+  cueAt: -Infinity,
+});
+
+/** The ping cue sounds at most this often (s) */
+const cueGap = 0.15;
+const podPoint: [number, number, number] = [0, 0, 0];
+
+/** Forgets the ping's stamps from before R3F restarted its clock (see stepReaction) */
+function forgetPastPing(ping: BeamPing, t: number) {
+  ping.at = pastStamp(ping.at, t);
+  ping.cueAt = pastStamp(ping.cueAt, t);
+}
+
+/**
+ * Starts the beam's ping for a new trick (the whole beam) or a newly
+ * pointed-at role (its pod only, with the ping cue from the pod); returns
+ * how far through its run it is, or -1 when none is running
+ */
+function stepBeamPing(
+  ping: BeamPing,
+  trickAt: number,
+  role: number,
+  t: number,
+  fromY: number,
+  nodeYs: number[],
+  origin: { x: number; y: number; z: number },
+  still: boolean
+) {
+  if (trickAt !== ping.trickAt) {
+    ping.trickAt = trickAt;
+    ping.at = trickAt;
+    ping.to = -experienceDepth - 2;
+    ping.duration = pingTime;
+  }
+  if (role !== ping.role) {
+    ping.role = role;
+    if (role >= 0) {
+      // Nothing runs along the beam at the still level: the pod just lights
+      if (!still) {
+        ping.at = t;
+        ping.to = nodeYs[role];
+        ping.duration = MathUtils.clamp(0.35 + Math.abs(fromY - nodeYs[role]) * 0.05, 0.35, 1.2);
+      }
+      if (t - ping.cueAt >= cueGap) {
+        ping.cueAt = t;
+        podPoint[0] = origin.x;
+        podPoint[1] = origin.y + nodeYs[role];
+        podPoint[2] = origin.z;
+        emitCue('ping', { at: podPoint });
+      }
+    }
+  }
+  const since = t - ping.at;
+  return since >= 0 && since < ping.duration ? since / ping.duration : -1;
+}
+
 function hoverNode(
   e: ThreeEvent<PointerEvent>,
   tip: WorldTip,
@@ -64,12 +172,92 @@ function hoverNode(
     e.stopPropagation();
     setWorldHover(true);
     worldTip.set(tip);
+    // The tooltip brackets the pod's proxy (TipProbe)
+    setTipTarget(e.eventObject);
     hovered.current = index;
   } else {
     setWorldHover(false);
     if (worldTip.get() === tip) worldTip.set(null);
+    if (tipTarget()?.object === e.eventObject) setTipTarget(null);
     if (hovered.current === index) hovered.current = -1;
   }
+}
+
+/** Stands in for the patch atlas until it is drawn (nothing shows: patches wait for it) */
+const noPatches = new DataTexture(new Uint8Array(4), 1, 1);
+noPatches.needsUpdate = true;
+
+/**
+ * A role's mission patch beside its pod: a cell of the patch atlas
+ * (patches.ts, one texture for every role, drawn after the page's fonts
+ * load). Not a glow: it follows the station's power like one, though
+ */
+function createPatchMaterial() {
+  return new ShaderMaterial({
+    uniforms: {
+      uMap: { value: noPatches },
+      uCharge: { value: 1 },
+      uLight: { value: 0 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D uMap;
+      uniform float uCharge, uLight;
+      varying vec2 vUv;
+      void main() {
+        // (not "patch": a reserved word in GLSL ES 3.00)
+        vec4 badge = texture2D(uMap, vUv);
+        if (badge.a < 0.01) discard;
+        gl_FragColor = vec4(
+          badge.rgb * mix(0.9, 1.0, uLight) * max(uCharge, 1.0),
+          badge.a * min(uCharge, 1.0)
+        );
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    toneMapped: false,
+  });
+}
+
+/** A plane showing role `index`'s cell of the patch atlas */
+function patchGeometry(index: number, rows: number) {
+  const geometry = new PlaneGeometry(1, 1);
+  const column = index % patchColumns;
+  const row = Math.floor(index / patchColumns);
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i++) {
+    // The atlas's first row is at its top, where the texture's v is 1
+    uv.setXY(i, (column + uv.getX(i)) / patchColumns, 1 - (row + 1 - uv.getY(i)) / rows);
+  }
+  return geometry;
+}
+
+/** World units across a patch at full size, and the pod light it shows from */
+const patchWidth = 0.9;
+const patchFrom = 0.15;
+
+/**
+ * A pod's patch tilts upright and grows as the pod lights (eased with the
+ * pod's own swell), sewn on crooked as the page's are until it is lit; it
+ * isn't drawn below `patchFrom`. `patch` is a drei Billboard: the group
+ * inside it is turned to face the camera every frame, so the tilt goes on
+ * the plane within that (two levels down), relative to the camera
+ */
+function showPatch(patch: Object3D | undefined, lit: number, ready: boolean) {
+  const plane = patch?.children[0]?.children[0];
+  if (!patch || !plane) return;
+  patch.visible = ready && lit >= patchFrom;
+  if (!patch.visible) return;
+  const a = MathUtils.smoothstep(lit, patchFrom, 1);
+  plane.scale.setScalar(MathUtils.lerp(0.45, 1, a) * patchWidth);
+  plane.rotation.set(MathUtils.lerp(-1.05, 0, a), 0, MathUtils.lerp(-0.16, 0, a));
 }
 
 const buildMaterials = (p: WorldPalette) => ({
@@ -84,17 +272,34 @@ const buildMaterials = (p: WorldPalette) => ({
   }),
   halo: createHaloMaterial({ color: p.cyan, intensity: 1.2, opacity: 0.5 }),
   topHalo: createHaloMaterial({ color: p.violet, intensity: 1.2, opacity: 0.5 }),
+  patch: createPatchMaterial(),
 });
 
-function lightNode(node: Group, activation: number, dt: number) {
+/**
+ * Lights a pod by how strongly it is read, pointed at or pinged; its glow
+ * follows the station's power. Its children: core, ring, halo, the
+ * pointer's target, then its patch. At the still level (frames on demand)
+ * it lights at once and its ring holds still
+ */
+function lightNode(
+  node: Group,
+  activation: number,
+  charge: number,
+  patches: boolean,
+  dt: number,
+  still: boolean
+) {
   const [core, ring, halo] = node.children as Mesh[];
-  easing.damp(node.scale, 'x', 0.8 + activation * 0.5, 0.25, dt);
+  const size = 0.8 + activation * 0.5;
+  if (still) node.scale.x = size;
+  else easing.damp(node.scale, 'x', size, 0.25, dt);
   node.scale.y = node.scale.z = node.scale.x;
   const material = core.material as MeshStandardMaterial;
-  material.emissiveIntensity = 0.4 + activation * 3.2;
-  ring.rotation.z += dt * (0.3 + activation * 1.4);
+  material.emissiveIntensity = (0.4 + activation * 3.2) * charge;
+  if (!still) ring.rotation.z += dt * (0.3 + activation * 1.4);
   halo.visible = activation > 0.05;
   halo.scale.setScalar(2.4 + activation * 2.4);
+  showPatch(node.children[4], (node.scale.x - 0.8) / 0.5, patches);
 }
 
 /**
@@ -125,33 +330,84 @@ export function ExperienceStation({
   const nodesRef = useRef<Group>(null);
   const pingRef = useRef<Group>(null);
   const hovered = useRef(-1);
+  const beamPing = useRef(createBeamPing());
   const reaction = useRef(createReaction());
   const handlers = useReactionHandlers(reaction, satelliteTip, rollTime);
+  useShowcase('experience', satelliteRef, reaction, rollTime);
   const materials = useThemedMaterials(buildMaterials, theme, 'experience');
   const palette = palettes[theme];
   const beamLength = experienceDepth + 10;
+  const still = useThree((s) => s.frameloop === 'demand');
+  useRedrawOnTargetHover(answersRole);
+
+  // Every role's mission patch in one texture, drawn once the page's fonts
+  // are in, then uploaded on a frame of its own. Redrawn for a new theme;
+  // the old one stays on until the new one is up. During the initial
+  // warm-up it is drawn at once; mounting later (on the way here) or for a
+  // new theme, a patch at a time in idle moments, never mid-flight, so it
+  // stays off the flight's first frames (the pods aren't in view until the
+  // approach). Drawn once per theme
+  const gl = useThree((s) => s.gl);
+  const get = useThree((s) => s.get);
+  const track = useWarmupTask();
+  const [patchAtlas, setPatchAtlas] = useState<Texture | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const warming = get().frameloop === 'never';
+    const task = drawPatchAtlas(roles, theme, !warming).then(async ({ canvas }) => {
+      if (!alive) return;
+      const texture = new CanvasTexture(canvas);
+      texture.colorSpace = SRGBColorSpace;
+      texture.anisotropy = 4;
+      await queueUpload(gl, texture);
+      if (alive) setPatchAtlas(texture);
+      else texture.dispose();
+    });
+    track(task);
+    return () => {
+      alive = false;
+    };
+  }, [get, gl, roles, theme, track]);
+  useEffect(() => () => patchAtlas?.dispose(), [patchAtlas]);
+  useEffect(
+    () => setUniform(materials.patch, 'uMap', patchAtlas ?? noPatches),
+    [materials, patchAtlas]
+  );
+  const patchGeometries = useMemo(() => {
+    const rows = Math.max(1, Math.ceil(count / patchColumns));
+    return Array.from({ length: count }, (_, i) => patchGeometry(i, rows));
+  }, [count]);
+  useEffect(
+    () => () => patchGeometries.forEach((geometry) => geometry.dispose()),
+    [patchGeometries]
+  );
 
   const nodeYs = useMemo(
     () => Array.from({ length: count }, (_, i) => -((i + 0.6) / count) * experienceDepth),
     [count]
   );
 
-  useFrame(({ camera, clock, size }, delta) => {
-    const group = groupRef.current;
-    if (!stationInRange(group, camera, 'experience') || !group) return;
-    const t = clock.elapsedTime;
+  useFrame((state, delta) => {
+    const { camera, size } = state;
+    // Clicks and hovers are timed by the clock, idle motion by ambient time.
+    // The click and ping stamps are stepped even out of range (see stepReaction)
+    const t = state.clock.elapsedTime;
     const dt = Math.min(delta, 1 / 20);
-    setUniform(materials.core, 'uTime', t);
-    setUniform(materials.glow, 'uTime', t);
-    setUniform(materials.nodeRing, 'uTime', t);
-
-    const localCameraY = camera.position.y - group.position.y;
     const r = reaction.current;
     stepReaction(r, t, dt);
+    forgetPastPing(beamPing.current, t);
+    const group = groupRef.current;
+    if (!stationInRange(group, camera, 'experience') || !group) return;
+    const ambient = ambientTime(state);
+    setUniform(materials.core, 'uTime', ambient);
+    setUniform(materials.glow, 'uTime', ambient);
+    setUniform(materials.nodeRing, 'uTime', ambient);
+
+    const localCameraY = camera.position.y - group.position.y;
 
     const satellite = satelliteRef.current;
     if (satellite) {
-      const angle = t * 0.35;
+      const angle = ambient * 0.35;
       // Wide: up beside the copy. Narrow: centred in the stage slot above it
       const framedY = framedHeight('experience', localCameraY, size.width, size.height);
       const targetY = isWideViewport(size.width, size.height)
@@ -163,23 +419,38 @@ export function ExperienceStation({
       // Keep the sensor eye turned towards the camera as it circles the beam;
       // hovered it turns a little more to you, clicked it rolls
       const roll = trickProgress(r, rollTime);
-      satellite.rotation.y = Math.sin(t * 0.3) * 0.4 + r.yaw * 0.3 * r.amount;
+      satellite.rotation.y = Math.sin(ambient * 0.3) * 0.4 + r.yaw * 0.3 * r.amount;
       satellite.rotation.z =
-        Math.sin(t * 0.5) * 0.15 + (roll >= 0 ? easeInOut(roll) * Math.PI * 2 : 0);
+        Math.sin(ambient * 0.5) * 0.15 + (roll >= 0 ? easeInOut(roll) * Math.PI * 2 : 0);
       satellite.scale.setScalar(1 + r.amount * 0.08);
+      // The page heading is projected from the satellite as the camera arrives
+      setProjectorEmitter(
+        'experience',
+        group.position.x + satellite.position.x,
+        group.position.y + satellite.position.y,
+        group.position.z + satellite.position.z
+      );
     }
 
-    // The satellite's ping runs down the beam past every pod
+    // The satellite's ping runs down the beam past every pod after its
+    // trick, or to the pod of the role pointed at on the page
     const ping = pingRef.current;
+    const role = pageRole(count);
+    const fromY = satellite?.position.y ?? 1.6;
+    const run = stepBeamPing(
+      beamPing.current,
+      r.trickAt,
+      role,
+      t,
+      fromY,
+      nodeYs,
+      group.position,
+      still
+    );
     if (ping) {
-      const run = trickProgress(r, pingTime);
       ping.visible = run >= 0;
       if (run >= 0) {
-        ping.position.y = MathUtils.lerp(
-          satellite?.position.y ?? 1.6,
-          -experienceDepth - 2,
-          run * run
-        );
+        ping.position.y = MathUtils.lerp(fromY, beamPing.current.to, run * run);
         ping.scale.setScalar(0.9 + Math.sin(run * Math.PI) * 0.6);
       }
     }
@@ -188,15 +459,17 @@ export function ExperienceStation({
     // tour, free roam) whichever pods the camera passes
     const reading = worldStore.roleFocus;
     const pingY = ping?.visible ? ping.position.y : Infinity;
+    const charge = stationPower.experience.charge.value;
+    const patches = patchAtlas !== null;
     nodesRef.current?.children.forEach((node, i) => {
       const activation =
         reading > -0.99
           ? Math.max(0, 1 - Math.abs(i - reading) * 1.4)
           : Math.max(0, 1 - Math.abs(localCameraY - nodeYs[i]) / 5);
-      // Pointed at, or passed by the satellite's ping
-      const noticed = hovered.current === i ? 0.75 : 0;
+      // Pointed at (here, or its card on the page), or passed by the satellite's ping
+      const noticed = hovered.current === i || role === i ? 0.75 : 0;
       const pinged = Math.max(0, 1 - Math.abs(pingY - nodeYs[i]) / 1.6);
-      lightNode(node as Group, Math.max(activation, noticed, pinged), dt);
+      lightNode(node as Group, Math.max(activation, noticed, pinged), charge, patches, dt, still);
     });
   });
 
@@ -271,12 +544,20 @@ export function ExperienceStation({
               >
                 <sphereGeometry args={[0.8, 12, 8]} />
               </mesh>
+              {/* Its mission patch, on the copy's side; shown as it lights */}
+              <Billboard position={[-1.25, 0.15, 0.3]} visible={false}>
+                <mesh geometry={patchGeometries[i]} material={materials.patch} />
+              </Billboard>
             </group>
           ))}
         </group>
 
-        <group ref={satelliteRef} position={[2.3, 1.6, 0]} {...handlers}>
+        <group ref={satelliteRef} position={[2.3, 1.6, 0]}>
           <Model url={stationModels.experience!} height={1.6} theme={theme} />
+          {/* Never drawn: the satellite's target for the pointer, along its length */}
+          <mesh visible={false} rotation={[Math.PI / 2, 0, 0]} {...handlers}>
+            <capsuleGeometry args={[0.8, 1.6, 4, 12]} />
+          </mesh>
         </group>
 
         {/* The satellite's ping, running down the beam */}

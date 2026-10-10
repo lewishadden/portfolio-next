@@ -8,6 +8,7 @@ import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Recommendations } from 'components/Recommendations/Recommendations';
 import { illustrations } from 'components/World/StationFallback';
+import { WorldWindow } from 'components/WorldWindow/WorldWindow';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
@@ -21,6 +22,18 @@ const aboutImageLoader: ImageLoader = ({ src, width, quality }) => {
   const w = Math.min(width, maxImageWidth);
   return `/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=${quality || 75}`;
 };
+
+/* The portrait's rendered width, kept in step with About.scss. Wide layouts
+   (its min-aspect-ratio block) shrink it to about 17.5vw - 22px, at most 236px
+   once the grid reaches its 54rem cap; the grid splits at 901px, as its
+   max-width: 900px block wins at exactly 900. Elsewhere the frame caps it at
+   460px, and phones fill the width */
+const portraitSizes = [
+  '(min-width: 1490px) and (min-aspect-ratio: 11/10) 236px',
+  '(min-width: 901px) and (min-aspect-ratio: 11/10) calc(17.5vw - 22px)',
+  '(min-width: 508px) 460px',
+  'calc(100vw - 48px)',
+].join(', ');
 
 const HighlightCard = ({ highlight }: { highlight: Highlight }) => {
   const ref = usePointerGlow<HTMLDivElement>({ tilt: 6 });
@@ -63,9 +76,9 @@ export const About = ({
         sub={`Senior full stack engineer · ${location} · shipping production software since 2018.`}
       />
 
-      <div className="about__grid">
+      <div className="about__grid" data-world-section="bio">
         <Reveal className="about__media" y={60} scale={0.94}>
-          <div className="about__frame" ref={portraitRef}>
+          <div className="about__frame" ref={portraitRef} data-world-target="about:portrait">
             <div className="about__frame-inner">
               <Image
                 src={image.url}
@@ -74,7 +87,7 @@ export const About = ({
                 height={image.size.height}
                 alt={`Portrait of ${name}`}
                 loader={aboutImageLoader}
-                sizes="(min-width: 900px) 460px, calc(100vw - 48px)"
+                sizes={portraitSizes}
                 priority
               />
               <span className="about__scan" aria-hidden="true" />
@@ -105,6 +118,7 @@ export const About = ({
         <div className="about__body">
           <Reveal
             className="about__copy"
+            data-reading
             delay={0.1}
             dangerouslySetInnerHTML={{ __html: description }}
           />
@@ -144,6 +158,8 @@ export const About = ({
           </Reveal>
         </div>
       </div>
+
+      <WorldWindow />
 
       {recommendations && <Recommendations items={recommendations} />}
 

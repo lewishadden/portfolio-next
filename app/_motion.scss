@@ -1,0 +1,101 @@
+@use 'sass:list';
+@use 'sass:selector';
+@use 'sass:string';
+
+// Motion levels (utils/motion.ts): ThemeScript sets html[data-motion] to
+// full, calm or still before first paint, and setMotionPref() keeps it in
+// step. Without JavaScript there is no attribute, and the OS setting
+// (prefers-reduced-motion) decides instead.
+
+// `@include reduced-motion { ... }` applies at calm and still, and
+// `@include full-motion { ... }` at full only. Use them wherever a
+// `@media (prefers-reduced-motion: ...)` query would go, nested in the rule
+// they adjust or at the top level. `:where()` keeps every rule's specificity
+// exactly as it was.
+
+// Nested, any selector works, including one that starts on <html> itself:
+// `html[data-boot]`, `:root`, or an attribute the site keeps there
+// (`[data-theme='light'] &`, `[data-world='off'] ...`). At the top level the
+// block's selectors sit under <html>, so a rule keyed on <html>'s own
+// attributes includes the mixin inside it instead. Inside the block `&`
+// already carries the check on <html>, so use it at most once per selector:
+// for `&[data-open] &__item`, include the mixin inside that rule instead.
+
+$-held: ":where([data-motion='calm'], [data-motion='still'])";
+$-full: ":where([data-motion='full'])";
+$-unset: ':where(:not([data-motion]))';
+
+// `$selector` while <html> matches `$state`, joined onto its first compound:
+// - one that starts at html, :root or :where(html) is <html>, so it takes
+//   the state itself;
+// - one that starts with an attribute or a pseudo-class may be <html> (the
+//   site's state attributes, data-theme, data-world, data-world-mode..., live
+//   there) or anything inside it, so it takes either;
+// - anything else gets <html> in front as an ancestor, which keeps
+//   `&__suffix` working inside the block
+@function -rooted($selector, $state) {
+  $result: ();
+
+  @each $complex in selector.parse($selector) {
+    $first: '#{list.nth($complex, 1)}';
+    $root: false;
+
+    @each $start in ('html', ':root', ':where(html)') {
+      $root: $root or string.index($first, $start) == 1;
+    }
+
+    $lead: string.slice($first, 1, 1);
+    $open: ($lead == '[' or $lead == ':') and string.index($first, '::') != 1;
+
+    @if $root {
+      $complex: list.set-nth($complex, 1, selector.unify($first, $state));
+    } @else if $open {
+      $within: ':where(html#{$state}, html#{$state} *)';
+      $complex: list.set-nth($complex, 1, selector.unify($first, $within));
+    } @else {
+      $complex: list.join((':where(html#{$state})'), $complex, $separator: space);
+    }
+
+    $result: list.append($result, $complex, $separator: comma);
+  }
+
+  @return $result;
+}
+
+@mixin -at($state, $fallback) {
+  @if & {
+    @at-root #{-rooted(&, $state)} {
+      @content;
+    }
+
+    @media #{$fallback} {
+      @at-root #{-rooted(&, $-unset)} {
+        @content;
+      }
+    }
+  } @else {
+    :where(html#{$state}) {
+      @content;
+    }
+
+    @media #{$fallback} {
+      :where(html#{$-unset}) {
+        @content;
+      }
+    }
+  }
+}
+
+/// Motion held back: the calm and still levels
+@mixin reduced-motion {
+  @include -at($-held, '(prefers-reduced-motion: reduce)') {
+    @content;
+  }
+}
+
+/// Full motion only
+@mixin full-motion {
+  @include -at($-full, '(prefers-reduced-motion: no-preference)') {
+    @content;
+  }
+}

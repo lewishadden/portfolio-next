@@ -1,16 +1,34 @@
 'use client';
 
-import { useEffect, useId, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from '@iconify/react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { SoundToggle } from 'components/Sound/SoundToggle';
 
 import { canLockPointer, usePointerLocked } from './pointerLock';
-import { stationForPath, stationNames, stationPaths } from './routes';
-import { SignalCard, SignalCount, SignalDetector } from './SignalsHud';
+import {
+  sectorCentre,
+  sectorRadius,
+  stationForPath,
+  stationKeys,
+  stationNames,
+  stationPaths,
+} from './routes';
+import { contactName, signals, useFoundSignals } from './signalStore';
+import {
+  ScanButton,
+  ScanStatus,
+  SignalCard,
+  SignalCount,
+  SignalDetector,
+  useDockOnArrival,
+  useEnterControl,
+} from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
 import {
+  emitCue,
   exploreInput,
   onDock,
   onDocking,
@@ -19,6 +37,7 @@ import {
   worldStore,
 } from './worldStore';
 
+import type { MouseEvent, ReactNode } from 'react';
 import type { StationKey } from './routes';
 import type { WorldContent } from './types';
 
@@ -29,12 +48,27 @@ const readDock = () => worldStore.dock;
 const stickReach = 56;
 /** The move stick boosts with the thumb pushed on past its rim, this many reaches out */
 const boostAt = 1.8;
+/**
+ * …and keeps boosting until the thumb comes back in past this: a thumb
+ * resting on the boost ring flicked boost (the engine flare, the stick's
+ * ring) on and off as its reported position jittered
+ */
+const boostOff = 1.6;
 /** How far the look stick has to be pushed to take the controls back from the autopilot */
 const lookTakeOver = 0.35;
 /** Where the sticks wait, in from the bottom corners (px) */
 const restInset = { x: 96, y: 112 };
 /** A touch this short (ms) and still (px) is a tap, passed on to the station marker under it */
 const tap = { time: 300, slop: 10 };
+
+/** Controls that act on Enter themselves */
+const enterTargets =
+  'button, a[href], input, textarea, select, [role="button"], [contenteditable]:not([contenteditable="false"])';
+
+/** Enter pressed here belongs to the focused control, not to the HUD's dock shortcut */
+function ownsEnter(target: EventTarget | null) {
+  return target instanceof Element && !!target.closest(enterTargets);
+}
 
 interface Stick {
   el: HTMLElement;
@@ -110,7 +144,7 @@ function TouchSticks() {
       }
       tilt(stick, dx, dy);
       if (stick === move) {
-        const boost = length >= boostAt;
+        const boost = length >= (exploreInput.boost ? boostOff : boostAt);
         // A ring follows the thumb out from the rim to the boost ring
         stick.el.style.setProperty('--thumb', `${Math.min(length, boostAt) * stickReach * 2}px`);
         stick.el.style.setProperty(
@@ -226,60 +260,68 @@ function TouchSticks() {
   );
 }
 
+/** How long (ms) boost has to be let go before the next boost is announced again */
+const boostQuiet = 1000;
+
 /**
  * Boosting (Shift, or the move stick pushed out to its boost ring) while
- * thrusting: a rocket jet fires under the middle of the view, its flame
- * longer the faster you go. Read each frame, not rendered by React
+ * thrusting: the ship's engines flare at the corners of the view (Cockpit,
+ * in the canvas), and this says so for screen readers, once per boost.
+ * Holding Shift while tapping W starts and stops boosting with every tap,
+ * which said "Boost" every time: it is said again only once boost has been
+ * let go for a second, or the autopilot or docking took the controls. Read
+ * each frame, not rendered by React (data-on follows every frame)
  */
-function BoostJet() {
-  const ref = useRef<HTMLDivElement>(null);
-  const gradient = useId();
+function BoostStatus() {
+  const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     let frame = 0;
     let on = false;
-    const tick = () => {
+    let said = false;
+    /** When the boost control was last held (ms) */
+    let held = 0;
+    const tick = (now: number) => {
       frame = requestAnimationFrame(tick);
       const thrusting = exploreInput.forward || exploreInput.strafe || exploreInput.lift;
-      const boosting =
-        exploreInput.boost && !!thrusting && !worldStore.autopilot && !worldStore.docking;
+      const taken = !!worldStore.autopilot || !!worldStore.docking;
+      const boosting = exploreInput.boost && !!thrusting && !taken;
+      if (exploreInput.boost) held = now;
       if (boosting !== on) {
         on = boosting;
         el.toggleAttribute('data-on', on);
       }
-      if (on) el.style.setProperty('--thrust', Math.min(worldStore.velocity / 70, 1).toFixed(2));
+      if (boosting && !said) {
+        said = true;
+        el.textContent = 'Boost';
+      } else if (said && !boosting && (taken || now - held > boostQuiet)) {
+        said = false;
+        el.textContent = '';
+      }
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  return (
-    <div ref={ref} className="explore-hud__jet" aria-hidden="true">
-      <svg className="explore-hud__rocket" viewBox="0 0 24 30" width="24" height="30">
-        <defs>
-          <linearGradient id={gradient} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" style={{ stopColor: 'var(--gradient-start)' }} />
-            <stop offset="1" style={{ stopColor: 'var(--gradient-end)' }} />
-          </linearGradient>
-        </defs>
-        <g fill={`url(#${gradient})`}>
-          <path d="M12 1c4.2 3.6 6.3 8.6 6.3 14.6V24H5.7v-8.4C5.7 9.6 7.8 4.6 12 1Z" />
-          <path d="M5.7 16.5 1.5 22v5l4.2-2.6ZM18.3 16.5l4.2 5.5v5l-4.2-2.6Z" />
-          <path d="M8.6 24h6.8l-.9 3H9.5Z" />
-        </g>
-        <circle cx="12" cy="12" r="2.6" className="explore-hud__rocket-window" />
-      </svg>
-      <span className="explore-hud__flame" />
-      <span className="explore-hud__jet-label">Boost</span>
-    </div>
-  );
+  return <span ref={ref} className="explore-hud__jet sr-only" role="status" />;
 }
 
 const noLock = () => false;
 const subscribeNothing = () => () => {};
 const readDocking = () => worldStore.docking;
+
+/** Something interactive in 3D is pointed at (html[data-world-hover], setWorldHover) */
+const subscribeHover = (listener: () => void) => {
+  const observer = new MutationObserver(listener);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-world-hover'],
+  });
+  return () => observer.disconnect();
+};
+const readHover = () => document.documentElement.hasAttribute('data-world-hover');
 
 /**
  * Docking: clamps close in from the edges, a light sweeps the view and a
@@ -333,6 +375,242 @@ function HullContact() {
 }
 
 /**
+ * What the autopilot is flying to, by name: a station's page, or a signal
+ * ('signal:<id>'), named once found (`found`, subscribed, so the name
+ * changes the moment it is), and by its scan's letter until then
+ */
+function courseName(course: string, found: readonly string[]) {
+  if ((stationKeys as readonly string[]).includes(course)) {
+    return stationNames[course as StationKey].page;
+  }
+  const signal = signals.find((s) => `signal:${s.id}` === course);
+  if (!signal) return course;
+  return found.includes(signal.id) ? signal.name : contactName(signal.id);
+}
+
+/** The edge warning shows once worldStore.edge reaches this, and goes once it falls back below that */
+const edgeNear = 0.6;
+const edgeClear = 0.3;
+
+/** Where the ship meets the edge of the world: straight out from the sector's middle */
+function edgePoint(): [number, number, number] {
+  const { x, y, z } = worldStore.camera;
+  const [cx, cy, cz] = sectorCentre;
+  const length = Math.hypot(x - cx, y - cy, z - cz) || 1;
+  const k = sectorRadius / length;
+  return [cx + (x - cx) * k, cy + (y - cy) * k, cz + (z - cz) * k];
+}
+
+/**
+ * Nearing the edge of the world (worldStore.edge, as the shimmer shows
+ * it): a status line says the ship is being turned back, with the `edge`
+ * cue once per approach
+ */
+function EdgeWarning() {
+  const [near, setNear] = useState(false);
+
+  useEffect(() => {
+    let frame = 0;
+    let on = false;
+    const tick = () => {
+      frame = requestAnimationFrame(tick);
+      const edge = worldStore.edge;
+      if (!on && edge >= edgeNear) {
+        on = true;
+        setNear(true);
+        emitCue('edge', { at: edgePoint(), strength: edge });
+      } else if (on && edge <= edgeClear) {
+        on = false;
+        setNear(false);
+      }
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <p className="explore-hud__edge" role="status">
+      {near ? 'Sector edge · turning back' : ''}
+    </p>
+  );
+}
+
+/* ----------------- Learning to fly: the coach and the key legend ----------------- */
+
+/** localStorage: set once the visitor has been through (or skipped) the coach */
+const trainedKey = 'roam-trained';
+
+function readTrained() {
+  try {
+    return localStorage.getItem(trainedKey) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveTrained() {
+  try {
+    localStorage.setItem(trainedKey, '1');
+  } catch {
+    // Storage blocked: remembered for this visit
+  }
+}
+
+/** How the visitor flies: a locked mouse looks, a free one steers, touch has thumbsticks */
+type Pilot = 'lock' | 'steer' | 'touch';
+type CoachStep = 'look' | 'fly' | 'course';
+const coachSteps: CoachStep[] = ['look', 'fly', 'course'];
+
+/** Mouse travel (px, locked) that counts as having looked around */
+const lookTravel = 60;
+/** How long the coach says it is done before it goes (ms) */
+const coachOutro = 2600;
+
+const coachCopy: Record<CoachStep, Record<Pilot, ReactNode>> = {
+  look: {
+    lock: <>Look around: move the mouse</>,
+    steer: <>Steer: rest the mouse away from the middle</>,
+    touch: <>Look around: push the right thumbstick</>,
+  },
+  fly: {
+    lock: (
+      <>
+        Fly: <kbd>W</kbd>
+        <kbd>A</kbd>
+        <kbd>S</kbd>
+        <kbd>D</kbd>, <kbd>⇧</kbd> to boost
+      </>
+    ),
+    steer: (
+      <>
+        Fly: <kbd>W</kbd>
+        <kbd>A</kbd>
+        <kbd>S</kbd>
+        <kbd>D</kbd>, <kbd>⇧</kbd> to boost
+      </>
+    ),
+    touch: <>Fly: push the left thumbstick, out to its ring to boost</>,
+  },
+  course: {
+    lock: (
+      <>
+        Set a course: <kbd>0</kbd>–<kbd>5</kbd>, or find a hidden signal
+      </>
+    ),
+    steer: (
+      <>
+        Set a course: click a station or press <kbd>0</kbd>–<kbd>5</kbd>, or find a hidden signal
+      </>
+    ),
+    touch: <>Set a course: tap a station, or find a hidden signal</>,
+  },
+};
+
+const stepNames: Record<CoachStep, string> = {
+  look: 'look around',
+  fly: 'fly',
+  course: 'set a course',
+};
+
+/**
+ * The first free roam teaches itself: three steps, each ticked off as the
+ * visitor does it (looking round, flying or boosting, setting the
+ * autopilot or finding a signal), in words for how they fly. Done or
+ * skipped, it is remembered (localStorage `roam-trained`) and doesn't
+ * show again
+ */
+function Coach({ pilot, onDone }: { pilot: Pilot; onDone: () => void }) {
+  const [done, setDone] = useState<Record<CoachStep, boolean>>({
+    look: false,
+    fly: false,
+    course: false,
+  });
+  const found = useFoundSignals();
+  const [foundBefore] = useState(found.length);
+
+  useEffect(() => {
+    let frame = 0;
+    let travel = 0;
+    const mark = (step: CoachStep) =>
+      setDone((current) => (current[step] ? current : { ...current, [step]: true }));
+    const onMove = (e: PointerEvent) => {
+      if (!document.pointerLockElement) return;
+      travel += Math.abs(e.movementX) + Math.abs(e.movementY);
+      if (travel > lookTravel) mark('look');
+    };
+    const tick = () => {
+      frame = requestAnimationFrame(tick);
+      const input = exploreInput;
+      const steering = Math.max(Math.abs(input.steerX), Math.abs(input.steerY)) > 0.25;
+      const stick = Math.max(Math.abs(input.stickX), Math.abs(input.stickY)) > 0.3;
+      if (steering || stick || input.turn || input.pitch) mark('look');
+      if (input.forward || input.strafe || input.lift) mark('fly');
+      if (worldStore.autopilot) mark('course');
+    };
+    frame = requestAnimationFrame(tick);
+    window.addEventListener('pointermove', onMove, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('pointermove', onMove);
+    };
+  }, []);
+
+  const ticked = { ...done, course: done.course || found.length > foundBefore };
+  const current = coachSteps.find((step) => !ticked[step]);
+
+  useEffect(() => {
+    if (current) return;
+    const id = window.setTimeout(onDone, coachOutro);
+    return () => window.clearTimeout(id);
+  }, [current, onDone]);
+
+  return (
+    <section className="explore-hud__coach glass" aria-label="Flight training">
+      <ol className="explore-hud__coach-steps">
+        {coachSteps.map((step) => (
+          <li
+            key={step}
+            className="explore-hud__coach-step"
+            data-done={ticked[step] || undefined}
+            aria-current={step === current ? 'step' : undefined}
+          >
+            <span className="explore-hud__coach-mark" aria-hidden="true" />
+            <span>{coachCopy[step][pilot]}</span>
+            {ticked[step] && <span className="sr-only"> (done)</span>}
+          </li>
+        ))}
+      </ol>
+      {current ? (
+        <button type="button" className="explore-hud__exit" onClick={onDone}>
+          Skip
+        </button>
+      ) : (
+        <p className="explore-hud__coach-done">All set. The keys are under Controls.</p>
+      )}
+      <p className="sr-only" role="status">
+        {current ? `Next: ${stepNames[current]}` : 'Training done'}
+      </p>
+    </section>
+  );
+}
+
+/** Every control, for how the visitor flies */
+function KeyLegend({ pilot }: { pilot: Pilot }) {
+  if (pilot === 'touch') return <>Thumbsticks fly · tap a station for autopilot</>;
+  return (
+    <>
+      <kbd>W</kbd>
+      <kbd>A</kbd>
+      <kbd>S</kbd>
+      <kbd>D</kbd> fly · mouse {pilot === 'lock' ? 'looks' : 'steers'} · <kbd>Space</kbd>
+      <kbd>C</kbd> up/down · <kbd>R</kbd>
+      <kbd>V</kbd> pitch · <kbd>⇧</kbd> boost · <kbd>E</kbd> click · <kbd>F</kbd> scan ·{' '}
+      <kbd>0</kbd>–<kbd>5</kbd> autopilot
+    </>
+  );
+}
+
+/**
  * Explore mode's heads-up display: how to fly, an exit, a marker for
  * every station (which sets the autopilot), the autopilot's status, a
  * docking prompt when you are close enough to a station to open its page
@@ -350,19 +628,47 @@ export function ExploreHud({
   const exploring = mode === 'explore';
   const dock = useSyncExternalStore(onDock, readDock, noDock) as StationKey | '';
   const docking = useSyncExternalStore(onDocking, readDocking, noDock);
-  const course = useAutopilot() as StationKey | '';
+  const course = useAutopilot();
+  const found = useFoundSignals();
+  // A signal's page action sets course for that page's station, to dock on arrival
+  const docksOnArrival = useDockOnArrival();
+  const control = useEnterControl();
   const touch = useMediaQuery('(pointer: coarse)');
-  // Phones held upright: the thumbsticks fill the bottom, so the autopilot's
-  // status and the dock prompt sit under the top bar instead
-  const compact = useMediaQuery('(pointer: coarse) and (max-width: 599px)');
+  // Phones, either way up: the thumbsticks fill the bottom (held sideways,
+  // with the rise, sink and Scan buttons between them), so the autopilot's
+  // status and the dock prompt sit under the top bar instead. Matches the
+  // short-screen rule in World.scss
+  const compact = useMediaQuery(
+    '(pointer: coarse) and (max-width: 599px), (pointer: coarse) and (max-height: 500px)'
+  );
   const lockable = useSyncExternalStore(subscribeNothing, canLockPointer, noLock);
   const locked = usePointerLocked();
-  const exitRef = useRef<HTMLButtonElement>(null);
+  const targeting = useSyncExternalStore(subscribeHover, readHover, noLock);
+  const regionRef = useRef<HTMLDivElement>(null);
+  const pilot: Pilot = touch ? 'touch' : lockable ? 'lock' : 'steer';
+  // Until the coach is done the key legend shows; after, it waits behind a button
+  const [trained, setTrained] = useState(readTrained);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const legendId = useId();
+  const finishTraining = useCallback(() => {
+    saveTrained();
+    setTrained(true);
+  }, []);
 
+  // Keyboard focus moves into the HUD (the page under it is inert). The
+  // region itself takes it, not a control in it: Enter is then the dock
+  // shortcut, and Space flies up rather than pressing a button
   useEffect(() => {
     if (!exploring) return;
-    exitRef.current?.focus({ preventScroll: true });
+    regionRef.current?.focus({ preventScroll: true });
   }, [exploring]);
+
+  // A control clicked with the mouse takes focus in some browsers (Chrome),
+  // and would then take Enter as well: focus goes back to the HUD, where
+  // Enter docks. Keyboard presses (detail 0) leave it where it is
+  const refocus = useCallback((e: MouseEvent) => {
+    if (e.detail > 0 && ownsEnter(e.target)) regionRef.current?.focus({ preventScroll: true });
+  }, []);
 
   // The cursor ring hides while the pointer is locked (World.scss)
   useEffect(() => {
@@ -373,10 +679,16 @@ export function ExploreHud({
     // Not while the autopilot is flying somewhere else, or already docking
     if (!exploring || !dock || course || docking) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !(e.target instanceof HTMLInputElement)) {
-        e.preventDefault();
-        onDockRequest(stationPaths[dock]);
-      }
+      if (e.key !== 'Enter') return;
+      // Enter on a focused control is that control's (a station marker sets
+      // the autopilot), never a dock as well. Not the marker of the station
+      // the ship is at, though: the one used to fly here keeps focus, and
+      // setting course for where you are only parks again
+      const here =
+        e.target instanceof Element && !!e.target.closest(`.waypoint[data-station="${dock}"]`);
+      if (!here && ownsEnter(e.target)) return;
+      e.preventDefault();
+      onDockRequest(stationPaths[dock]);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -390,15 +702,25 @@ export function ExploreHud({
       </div>
     );
   }
+  // The dock prompt's ↵ shows while Enter docks: not while another focused
+  // control takes it, bar the marker of the station here and its own button
+  const enterDocks =
+    !control || !!control.closest(`.waypoint[data-station="${dock}"], .explore-hud__dock`);
   // The autopilot's status replaces the dock prompt until it arrives
   const status = (
     <>
       {course && (
         <div className="explore-hud__autopilot glass" role="status">
           <span className="explore-hud__autopilot-dot" aria-hidden="true" />
-          <span>
-            Autopilot to <b>{stationNames[course].page}</b>
-          </span>
+          {docksOnArrival && course === docksOnArrival ? (
+            <span>
+              Course set for <b>{stationNames[docksOnArrival].craft}</b> · docking on arrival
+            </span>
+          ) : (
+            <span>
+              Autopilot to <b>{courseName(course, found)}</b>
+            </span>
+          )}
           <button type="button" className="explore-hud__exit" onClick={() => setAutopilot('')}>
             Take the controls
           </button>
@@ -416,7 +738,7 @@ export function ExploreHud({
             onClick={() => onDockRequest(stationPaths[dock])}
           >
             Dock at {stationNames[dock].page}
-            {!touch && <kbd>↵</kbd>}
+            {!touch && enterDocks && <kbd>↵</kbd>}
           </button>
         </div>
       )}
@@ -424,10 +746,18 @@ export function ExploreHud({
   );
 
   return (
-    <div className="explore-hud" role="region" aria-label="Explore mode">
+    <div
+      ref={regionRef}
+      className="explore-hud"
+      role="region"
+      aria-label="Explore mode"
+      tabIndex={-1}
+      onClickCapture={refocus}
+    >
       <Waypoints />
       {/* Over the markers, under the rest of the HUD */}
       {touch && <TouchSticks />}
+      {touch && <ScanButton />}
 
       <div className="explore-hud__head">
         <div className="explore-hud__top glass">
@@ -436,39 +766,47 @@ export function ExploreHud({
             Explore mode
           </span>
           <SignalCount />
-          <span className="explore-hud__keys">
-            {touch ? (
-              'Thumbsticks fly · tap a station for autopilot'
-            ) : (
-              <>
-                <kbd>W</kbd>
-                <kbd>A</kbd>
-                <kbd>S</kbd>
-                <kbd>D</kbd> fly · mouse {lockable ? 'looks' : 'steers'} · <kbd>Space</kbd>
-                <kbd>C</kbd> up/down · <kbd>⇧</kbd> boost · <kbd>0</kbd>–<kbd>5</kbd> autopilot
-              </>
-            )}
+          {trained && (
+            <button
+              type="button"
+              className="explore-hud__exit explore-hud__controls"
+              aria-expanded={legendOpen}
+              aria-controls={legendId}
+              onClick={() => setLegendOpen((open) => !open)}
+            >
+              <Icon icon="ph:keyboard" width={16} height={16} aria-hidden="true" />
+              Controls
+            </button>
+          )}
+          <span id={legendId} className="explore-hud__keys" hidden={trained && !legendOpen}>
+            <KeyLegend pilot={pilot} />
           </span>
-          <button
-            ref={exitRef}
-            type="button"
-            className="explore-hud__exit"
-            onClick={worldMode.exit}
-          >
-            Exit <kbd>Esc</kbd>
+          <SoundToggle />
+          <button type="button" className="explore-hud__exit" onClick={worldMode.exit}>
+            Exit {!touch && <kbd>Esc</kbd>}
           </button>
         </div>
         <SignalDetector />
+        {!trained && <Coach pilot={pilot} onDone={finishTraining} />}
         {compact && status}
+        {/* Last: empty, its row moves nothing down (on a phone the head reaches the thumbsticks) */}
+        <ScanStatus />
       </div>
 
-      <SignalCard cv={cv} onPage={onDockRequest} />
-      <BoostJet />
+      <SignalCard cv={cv} onDock={onDockRequest} />
+      <BoostStatus />
       <HullContact />
+      <EdgeWarning />
 
       {!touch && (
         <span
-          className={`explore-hud__reticle${lockable ? ' explore-hud__reticle--locked' : ''}`}
+          className={[
+            'explore-hud__reticle',
+            lockable && 'explore-hud__reticle--locked',
+            targeting && 'explore-hud__reticle--target',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           aria-hidden="true"
         />
       )}

@@ -6,20 +6,37 @@ import { easing } from 'maath';
 import { DirectionalLight, Object3D, Vector3 } from 'three';
 
 import { sunDirection } from './sky';
-import { stationPositions } from './stations';
+import { stationKeys, stationPositions } from './stations';
 import { palettes } from './utils';
+import { worldMode } from './worldMode';
 
 import type { StationKey } from './stations';
 import type { WorldTheme } from './utils';
 
 const focus = new Vector3();
+const candidate = new Vector3();
+
+/** The station nearest `point` (free roam can be anywhere, the derelict included) */
+function nearestStation(point: Vector3) {
+  let nearest: StationKey = stationKeys[0];
+  let best = Infinity;
+  for (const key of stationKeys) {
+    const distance = candidate.fromArray(stationPositions[key]).distanceToSquared(point);
+    if (distance < best) {
+      best = distance;
+      nearest = key;
+    }
+  }
+  return nearest;
+}
 
 /**
  * One sun lights the whole world, from the same direction the sky's sun
  * glow and the lens flare sit in. Its shadow camera follows the active
  * station (a tight box, so the shadow map's resolution goes where it is
- * seen); a cool sky fill and a faint violet bounce keep the shadow side
- * readable without flattening it.
+ * seen), in free roam the station the camera is nearest; a cool sky fill
+ * and a faint violet bounce keep the shadow side readable without
+ * flattening it.
  */
 export function Lighting({
   theme,
@@ -45,8 +62,10 @@ export function Lighting({
     const sun = sunRef.current;
     const target = targetRef.current;
     if (!sun || !target) return;
-    // Follow the station while settled; follow the camera while it travels
-    focus.fromArray(stationPositions[station]);
+    // Follow the station while settled; follow the camera while it travels.
+    // Free roam isn't at the page's station: the one it is flying round
+    const exploring = worldMode.get().mode === 'explore';
+    focus.fromArray(stationPositions[exploring ? nearestStation(camera.position) : station]);
     if (camera.position.distanceTo(focus) > 40) focus.copy(camera.position);
     easing.damp3(target.position, focus, 0.35, Math.min(delta, 0.05));
     sun.position.copy(target.position).addScaledVector(sunDirection, 60);

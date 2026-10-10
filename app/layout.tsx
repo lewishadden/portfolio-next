@@ -15,6 +15,7 @@ import { Cursor } from '@/components/Cursor/Cursor';
 import { CommandPalette } from '@/components/CommandPalette/CommandPalette';
 import { StatsOverlay } from '@/components/StatsOverlay/StatsOverlay';
 import { RoamButton } from '@/components/RoamButton/RoamButton';
+import { companyInitials } from '@/components/Experience/timeline';
 import { BootScreen } from '@/components/BootScreen/BootScreen';
 import { ScrollProgress } from '@/components/ScrollProgress/ScrollProgress';
 
@@ -61,17 +62,30 @@ const worldContent: WorldContent = {
     images: [...p.images]
       // Typed as the declared image shape: the type inferred from the JSON doesn't always
       // carry the optional `fullPage`
-      .map((image: Project['images'][number]) => ({
+      .map((image: Project['images'][number], index) => ({
         url: image.url,
         tall: image.fullPage === true,
         width: image.size.width,
+        index,
       }))
       .sort((a, b) => Number(b.tall) - Number(a.tall))
       .slice(0, 4),
   })),
-  skills: content.skills.icons.map((s) => ({ name: s.name, icon: s.class, category: s.category })),
+  skills: content.skills.icons.map((s) => ({
+    name: s.name,
+    icon: s.class,
+    category: s.category,
+    level: Number(s.level),
+  })),
   categories: content.skills.categories.map((c) => c.categoryKey),
-  roles: content.experience.items.map(({ title, company }) => ({ title, company })),
+  // Numbered as the timeline's mission patches are: the latest role carries the highest
+  roles: content.experience.items.map(({ title, company }, i, items) => ({
+    title,
+    company,
+    initials: companyInitials(company),
+    mission: items.length - i,
+  })),
+  about: { portrait: content.about.image.url },
   tour: content.tour.stops,
   cv: { url: content.about.cta.primary.url, name: content.about.cv.download },
 };
@@ -255,14 +269,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             navItems={content.global.navItems}
             available={content.global.openToWork}
           />
-          <main id="main-content">
+          {/* Fixed bottom right, but early in the tab order: free roam is a
+              few tab stops in, not after the whole page */}
+          <RoamButton />
+          <main id="main-content" tabIndex={-1}>
             <PageTransition>{children}</PageTransition>
           </main>
           <Footer footer={content.footer} navItems={content.global.navItems} />
           <Cursor />
           <CommandPalette data={paletteData} />
           <StatsOverlay />
-          <RoamButton />
         </ClientProviders>
         <JsonLd />
         <GoogleAnalyticsDeferred gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />

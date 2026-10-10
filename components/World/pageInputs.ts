@@ -99,12 +99,148 @@ function measureCopy() {
   copy.bottom = 1 - (rect.bottom / window.innerHeight) * 2;
 }
 
+/** The readability guard keeps the world dim behind at most this many text blocks */
+const maxReading = 6;
+const readingBlocks: { rect: DOMRect; large: boolean; distance: number }[] = [];
+
+/** WCAG's large text: at least 24px, or 18.66px (14pt) bold */
+function isLargeText(el: Element) {
+  const style = getComputedStyle(el);
+  const size = parseFloat(style.fontSize);
+  return size >= 24 || (size >= 18.66 && Number(style.fontWeight) >= 700);
+}
+
+/**
+ * The text blocks the readability guard protects ([data-reading]), visible
+ * in the viewport, nearest the reading line first, as viewport fractions
+ * (worldStore.readingRects / readingLarge / readingCount)
+ */
+function measureReading(main: HTMLElement, line: number) {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  readingBlocks.length = 0;
+  for (const el of main.querySelectorAll<HTMLElement>('[data-reading]')) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    if (rect.bottom <= 0 || rect.top >= height || rect.right <= 0 || rect.left >= width) continue;
+    const distance =
+      rect.top > line ? rect.top - line : rect.bottom < line ? line - rect.bottom : 0;
+    // Marked large, and really large at this size (phones shrink headings)
+    readingBlocks.push({
+      rect,
+      large: el.dataset.reading === 'large' && isLargeText(el),
+      distance,
+    });
+  }
+  readingBlocks.sort((a, b) => a.distance - b.distance);
+  const count = Math.min(readingBlocks.length, maxReading);
+  const rects = worldStore.readingRects;
+  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+  for (let i = 0; i < maxReading; i++) {
+    const block = i < count ? readingBlocks[i] : null;
+    rects[i * 4] = block ? clamp(block.rect.left / width) : 0;
+    rects[i * 4 + 1] = block ? clamp(block.rect.top / height) : 0;
+    rects[i * 4 + 2] = block ? clamp(block.rect.right / width) : 0;
+    rects[i * 4 + 3] = block ? clamp(block.rect.bottom / height) : 0;
+    worldStore.readingLarge[i] = block?.large ? 1 : 0;
+  }
+  worldStore.readingCount = count;
+  readingBlocks.length = 0;
+}
+
+/**
+ * Glass this close to the reading line (share of the viewport's height)
+ * counts as at it: the gaps between a list's cards (3rem at most) are well
+ * inside it. Measured at the line alone, every gap dropped the panel, and
+ * the station jumped back and out again between each pair of cards. Further
+ * off, a panel's pull fades out over `clearFade`, so the station eases in
+ * and out at the head and foot of a list instead of stepping
+ */
+const clearGap = 0.05;
+const clearFade = 0.2;
+
+const smoothstep = (x: number, edge0: number, edge1: number) => {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+};
+
+/**
+ * NDC x the station keeps right of (worldStore.clearRight): the right-most
+ * edge of the glass panels at the reading line, each drawn in towards -1
+ * (none) as it moves away from the line, so the value follows the scroll
+ * rather than jumping. -1 for none
+ */
+function measureClearRight(main: HTMLElement, line: number) {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  let right = -1;
+  for (const el of main.querySelectorAll('.glass')) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    const away =
+      (rect.top > line ? rect.top - line : rect.bottom <= line ? line - rect.bottom : 0) / height;
+    const pull = 1 - smoothstep(away, clearGap, clearGap + clearFade);
+    if (pull > 0) right = Math.max(right, -1 + (rect.right / width) * 2 * pull);
+  }
+  worldStore.clearRight = right;
+}
+
+/** The phone "window" spacer ([data-world-window]) nearest the reading line, in CSS px */
+function measureWorldWindow(main: HTMLElement, line: number) {
+  const view = worldStore.worldWindow;
+  let best = Infinity;
+  view.top = -1;
+  view.height = 0;
+  for (const el of main.querySelectorAll('[data-world-window]')) {
+    const rect = el.getBoundingClientRect();
+    if (rect.height <= 0) continue;
+    const distance =
+      rect.top > line ? rect.top - line : rect.bottom < line ? line - rect.bottom : 0;
+    if (distance >= best) continue;
+    best = distance;
+    view.top = rect.top;
+    view.height = rect.height;
+  }
+}
+
+/** /projects: the cell the ride's screen in front is framed in (worldStore.screenSlot), in CSS px */
+function measureScreenSlot(main: HTMLElement) {
+  const slot = worldStore.screenSlot;
+  const rect = main.querySelector('.projects__stage .proj-hud__screen')?.getBoundingClientRect();
+  slot.on = !!rect && rect.width > 0 && rect.height > 0;
+  if (!rect || !slot.on) return;
+  slot.left = rect.left;
+  slot.top = rect.top;
+  slot.right = rect.right;
+  slot.bottom = rect.bottom;
+}
+
+/** Puts back everything usePageReading measures (route changes, unmount) */
+function clearReading() {
+  worldStore.sectionFocus = -1;
+  worldStore.sectionCount = 0;
+  worldStore.skillCategory = '';
+  worldStore.skillFocus = -1;
+  worldStore.copy.left = worldStore.copy.right = 0;
+  worldStore.copy.top = worldStore.copy.bottom = 0;
+  worldStore.readingRects.fill(0);
+  worldStore.readingLarge.fill(0);
+  worldStore.readingCount = 0;
+  worldStore.clearRight = -1;
+  worldStore.worldWindow.top = -1;
+  worldStore.worldWindow.height = 0;
+  worldStore.screenSlot.on = false;
+}
+
 /**
  * Where the page is being read: which of its sections ([data-world-section])
  * is at the reading line (worldStore.sectionFocus, the camera moves round
  * the station with it), which skills category ([data-world-category]) on
- * /skills, and where the heading block sits on screen. Measured on scroll,
- * resize and route changes, at most once a frame.
+ * /skills, where the heading block sits on screen, the text blocks the
+ * readability guard protects ([data-reading]), the glass panels at the
+ * reading line, the phone "window" nearest it ([data-world-window]) and
+ * the projects ride's screen cell. Measured on scroll, resize and route
+ * changes, at most once a frame.
  */
 export function usePageReading(active: boolean, routeKey: string) {
   useEffect(() => {
@@ -124,7 +260,12 @@ export function usePageReading(active: boolean, routeKey: string) {
         return top <= line && line < bottom;
       });
       worldStore.skillCategory = reading?.dataset.worldCategory ?? '';
+      worldStore.skillFocus = focusAmong(categories, line);
       measureCopy();
+      measureReading(main, line);
+      measureClearRight(main, line);
+      measureWorldWindow(main, line);
+      measureScreenSlot(main);
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(measure);
@@ -139,49 +280,63 @@ export function usePageReading(active: boolean, routeKey: string) {
       window.clearTimeout(settle);
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
-      worldStore.sectionFocus = -1;
-      worldStore.sectionCount = 0;
-      worldStore.skillCategory = '';
-      worldStore.copy.left = worldStore.copy.right = 0;
+      clearReading();
     };
   }, [active, routeKey]);
 }
 
+/** Sets worldStore.targetHover, and the skill hover derived from it */
+function setTargetHover(target: string) {
+  worldStore.targetHover = target;
+  worldStore.skillHover = target.startsWith('skill:') ? target.slice('skill:'.length) : '';
+}
+
 /**
- * A skill tile hovered or focused on /skills ([data-world-target="skill:…"])
- * flares its badge in the constellation (worldStore.skillHover)
+ * The page element an event happened in that stands for something in the
+ * world: `[data-world-target]` as it is, `[data-world-project="i"]` as
+ * `project:i`. Only page content (#main-content): never the outgoing page's
+ * still copy, nor the header or menus
  */
-export function useSkillHover(active: boolean) {
+function targetOf(node: EventTarget | null) {
+  if (!(node instanceof Element)) return '';
+  const el = node.closest<HTMLElement>('[data-world-target], [data-world-project]');
+  if (!el || !document.getElementById('main-content')?.contains(el)) return '';
+  const { worldTarget, worldProject } = el.dataset;
+  if (worldTarget) return worldTarget;
+  return worldProject ? `project:${worldProject}` : '';
+}
+
+/**
+ * Pointing at or focusing page content that stands for something in the
+ * world (worldStore.targetHover): a skill tile flares its badge in the
+ * constellation (worldStore.skillHover), a role's card lights its pod, a
+ * project's link its screen
+ */
+export function useTargetHover(active: boolean, routeKey: string) {
   useEffect(() => {
     if (!active) return;
-    const skillOf = (target: EventTarget | null) => {
-      const tile =
-        target instanceof Element
-          ? target.closest<HTMLElement>('[data-world-target^="skill:"]')
-          : null;
-      return tile?.dataset.worldTarget?.slice('skill:'.length) ?? '';
-    };
     const onEnter = (e: Event) => {
-      const skill = skillOf(e.target);
-      if (skill) worldStore.skillHover = skill;
+      const target = targetOf(e.target);
+      if (target) setTargetHover(target);
     };
     const onLeave = (e: Event) => {
-      const skill = skillOf(e.target);
-      const next = skillOf((e as FocusEvent | PointerEvent).relatedTarget);
-      if (skill && skill !== next && worldStore.skillHover === skill) worldStore.skillHover = '';
+      const target = targetOf(e.target);
+      const next = targetOf((e as FocusEvent | PointerEvent).relatedTarget);
+      if (target && target !== next && worldStore.targetHover === target) setTargetHover('');
     };
     document.addEventListener('pointerover', onEnter, { passive: true });
     document.addEventListener('focusin', onEnter);
     document.addEventListener('pointerout', onLeave, { passive: true });
     document.addEventListener('focusout', onLeave);
     return () => {
-      worldStore.skillHover = '';
+      // A new page: what was pointed at has gone without a pointerout
+      setTargetHover('');
       document.removeEventListener('pointerover', onEnter);
       document.removeEventListener('focusin', onEnter);
       document.removeEventListener('pointerout', onLeave);
       document.removeEventListener('focusout', onLeave);
     };
-  }, [active]);
+  }, [active, routeKey]);
 }
 
 type OrientationRequest = { requestPermission?: () => Promise<'granted' | 'denied'> };

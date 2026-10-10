@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
   AdditiveBlending,
@@ -15,6 +15,7 @@ import {
   Vector3,
 } from 'three';
 
+import { ambientTime } from './clock';
 import { noiseGlsl } from './materials';
 import { moon, planet, sunDirection } from './sky';
 import { setUniform } from './utils';
@@ -174,10 +175,16 @@ const blockers = [
   new Sphere(moon.position, moon.radius),
 ];
 
-function buildMaterials(theme: WorldTheme) {
-  const light = theme === 'light' ? 1 : 0;
-  const shared = { uSun: { value: sunDirection }, uLight: { value: light } };
+/**
+ * Built once for the canvas's life: a theme change sets them in place
+ * (themeLandmarks), so their shaders never compile again
+ */
+function buildMaterials() {
+  const shared = { uSun: { value: sunDirection }, uLight: { value: 0 } };
   return {
+    shared,
+    /** How bright the lens flare's ghosts burn at full strength (per theme) */
+    flare: { strength: 0.55 },
     planet: new ShaderMaterial({
       uniforms: { ...shared, uTime: { value: 0 } },
       defines: { OCTAVES: 4 },
@@ -192,7 +199,7 @@ function buildMaterials(theme: WorldTheme) {
       transparent: true,
       depthWrite: false,
       side: BackSide,
-      blending: light ? NormalBlending : AdditiveBlending,
+      blending: AdditiveBlending,
       fog: false,
     }),
     moon: new ShaderMaterial({
@@ -203,12 +210,12 @@ function buildMaterials(theme: WorldTheme) {
       fog: false,
     }),
     sun: new ShaderMaterial({
-      uniforms: { uIntensity: { value: light ? 0.55 : 1 }, uTime: { value: 0 } },
+      uniforms: { uIntensity: { value: 1 }, uTime: { value: 0 } },
       vertexShader: sunVertex,
       fragmentShader: sunFragment,
       transparent: true,
       depthWrite: false,
-      blending: light ? NormalBlending : AdditiveBlending,
+      blending: AdditiveBlending,
       toneMapped: false,
       fog: false,
     }),
@@ -233,12 +240,28 @@ function buildMaterials(theme: WorldTheme) {
   };
 }
 
+type LandmarkMaterials = ReturnType<typeof buildMaterials>;
+
+/**
+ * A theme, in place: the light sky's paler bodies (uniforms), and its glows
+ * laid on with normal blending, which is draw state rather than shader code
+ */
+function themeLandmarks(materials: LandmarkMaterials, theme: WorldTheme) {
+  const light = theme === 'light';
+  materials.shared.uLight.value = light ? 1 : 0;
+  materials.atmosphere.blending = light ? NormalBlending : AdditiveBlending;
+  materials.sun.blending = light ? NormalBlending : AdditiveBlending;
+  setUniform(materials.sun, 'uIntensity', light ? 0.55 : 1);
+  materials.flare.strength = light ? 0.25 : 0.55;
+}
+
 /** The giant planet, its moon, the sun and its lens flare */
 export function Landmarks({ theme }: { theme: WorldTheme }) {
   const planetRef = useRef<Mesh>(null);
   const sunRef = useRef<Mesh>(null);
   const flaresRef = useRef<Group>(null);
-  const materials = useMemo(() => buildMaterials(theme), [theme]);
+  const [materials] = useState(buildMaterials);
+  useLayoutEffect(() => themeLandmarks(materials, theme), [materials, theme]);
 
   useEffect(
     () => () => {
@@ -251,8 +274,10 @@ export function Landmarks({ theme }: { theme: WorldTheme }) {
     [materials]
   );
 
-  useFrame(({ camera, clock }) => {
-    const t = clock.elapsedTime;
+  useFrame((state) => {
+    const { camera } = state;
+    // Idle motion: holds at the still level, where nothing moves on its own
+    const t = ambientTime(state);
     setUniform(materials.planet, 'uTime', t);
     setUniform(materials.sun, 'uTime', t);
     if (planetRef.current) planetRef.current.rotation.y = t * 0.002;
@@ -277,7 +302,7 @@ export function Landmarks({ theme }: { theme: WorldTheme }) {
       const distance = ghost.distanceTo(camera.position);
       child.scale.setScalar(flare.size * distance);
       child.visible = strength > 0.01;
-      setUniform(materials.flares[i], 'uIntensity', strength * (theme === 'light' ? 0.25 : 0.55));
+      setUniform(materials.flares[i], 'uIntensity', strength * materials.flare.strength);
     });
   });
 

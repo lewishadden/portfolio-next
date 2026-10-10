@@ -1,18 +1,31 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
 
 import { Asteroids } from './Asteroids';
 import { Beacons } from './Beacons';
-import { bootState, readyBoot, reportBoot } from './boot';
+import { bootState, readyBoot, reportBoot, useBooted } from './boot';
 import { downloads } from './downloads';
 import { CameraRig } from './CameraRig';
+import { Cockpit } from './Cockpit';
+import { CourseLine } from './CourseLine';
+import { DockingBeam } from './DockingBeam';
 import { Dust } from './Dust';
+import { EdgeShimmer } from './EdgeShimmer';
 import { Effects } from './Effects';
 import { ExploreControls } from './ExploreControls';
 import { GasClouds } from './GasClouds';
+import { HeadingProjector } from './HeadingProjector';
 import { setHullTheme } from './hull';
 import { worldEvents } from './interaction';
 import { Landmarks } from './Landmarks';
@@ -30,32 +43,145 @@ import { HomeStation } from './stations/HomeStation';
 import { LostStation } from './stations/LostStation';
 import { ProjectsStation } from './stations/ProjectsStation';
 import { Signals } from './Signals';
+import { Sparks } from './Sparks';
 import { SkillsStation } from './stations/SkillsStation';
-import { lowerTier, raiseTier, tierSettings } from './quality';
+import {
+  hasLostUltra,
+  loseUltra,
+  lowerTier,
+  raiseTier,
+  subscribeScreen,
+  tierRank,
+  tierSettings,
+  ultraFits,
+} from './quality';
 import { navigableStations } from './routes';
 import { LiteContext } from './stationHooks';
 import { baseFov } from './stations';
+import { TipProbe } from './TipProbe';
+import { Traffic } from './Traffic';
 import { palettes } from './utils';
 import {
   Precompiled,
+  ThemeRetire,
   WarmupGate,
   WarmupProvider,
   createWarmupTracker,
   useWarmupIdle,
 } from './warmup';
 import { tourStops, useWorldMode } from './worldMode';
-import { worldStore } from './worldStore';
+import { chrome, intentSettle, onChrome, onIntent, worldStore } from './worldStore';
 
 import type { Dispatch, SetStateAction } from 'react';
+import type { RootState } from '@react-three/fiber';
+import type { Clock } from 'three';
+import type { MotionLevel } from '@/utils/motion';
 import type { QualityTier } from './quality';
 import type { StationKey } from './stations';
-import type { WorldContent } from './types';
+import type { IdleWindow, WorldContent } from './types';
 import type { WorldTheme } from './utils';
 
 /** Everywhere free roam can reach: every station, and the 404 derelict as a hidden signal */
 const roamable: StationKey[] = [...navigableStations, 'lost'];
 
-/** With frameloop="demand" (reduced motion), repaint on scroll, resize and route changes */
+/** Page chrome covers the whole world (the mobile menu, a full-screen modal) */
+const isCovered = () => chrome.menuOpen || chrome.modalCover;
+const notCovered = () => false;
+
+/** The station the visitor is about to fly to (worldStore.intent) */
+const readIntent = () => worldStore.intent;
+const noIntent = () => '' as const;
+
+/** The server never renders the canvas; ultra is a client question */
+const noUltra = () => false;
+
+/** Sets the clock's time (hook results are read-only in components) */
+function setClockTime(clock: Clock, time: number) {
+  clock.elapsedTime = time;
+}
+
+/** Drops the frames R3F still has queued (hook results are read-only in components) */
+function dropQueuedFrames(state: RootState) {
+  state.internal.frames = 0;
+}
+
+/**
+ * The canvas stops drawing while page chrome covers it. R3F restarts its
+ * clock at 0 whenever the frameloop changes, which would throw everything
+ * timed by it (the rocket's launch, the tour's sway, shader time) back to
+ * the start: when the cover lifts, the world's time carries on from where
+ * it stopped instead, and a frame is asked for. So it does across the
+ * still level's switches between drawing on demand and every frame
+ * (entering or leaving free roam, a change of motion level). A frame R3F still had
+ * queued as it paused would draw once more with its "never" mode's own
+ * timing (the clock set to the raw frame timestamp, a delta of the page's
+ * whole life), so the queue is dropped as the cover goes up.
+ *
+ * This leans on R3F internals, as of @react-three/fiber 9.8.0: the store's
+ * `setFrameloop` zeroes `clock.elapsedTime`, its render loop keeps going
+ * while `internal.frames > 0`, and a frame rendered in "never" mode sets
+ * the clock from the frame's timestamp. Recheck all three after upgrading
+ * it (in development a frame that runs while covered, or a clock that
+ * doesn't carry on once the cover lifts, is logged)
+ */
+function CoverPause({ covered }: { covered: boolean }) {
+  const get = useThree((s) => s.get);
+  const frameloop = useThree((s) => s.frameloop);
+  const time = useRef(0);
+  const paused = useRef(false);
+  const resumed = useRef(false);
+  /** The frameloop the last layout effect saw */
+  const loop = useRef(frameloop);
+
+  useFrame((state) => {
+    if (state.frameloop === 'never') {
+      if (process.env.NODE_ENV !== 'production' && paused.current) {
+        console.warn('CoverPause: a frame ran while the world was covered (see its R3F note)');
+      }
+      return;
+    }
+    if (process.env.NODE_ENV !== 'production' && resumed.current) {
+      resumed.current = false;
+      const gap = state.clock.elapsedTime - time.current;
+      if (gap < 0 || gap > 1) {
+        console.warn(`CoverPause: the world's clock jumped ${gap.toFixed(2)}s across a pause`);
+      }
+    }
+    time.current = state.clock.elapsedTime;
+  });
+
+  useLayoutEffect(() => {
+    const state = get();
+    const was = loop.current;
+    loop.current = frameloop;
+    if (covered) {
+      paused.current = true;
+      dropQueuedFrames(state);
+      return;
+    }
+    if (frameloop === 'never') return;
+    if (paused.current) {
+      paused.current = false;
+      resumed.current = true;
+    } else if (was === frameloop || was === 'never') {
+      // Nothing restarted the clock (or it starts here, at warm-up's end)
+      return;
+    }
+    setClockTime(state.clock, time.current);
+    state.invalidate();
+  }, [covered, frameloop, get]);
+
+  return null;
+}
+
+/**
+ * With frameloop="demand" (the still motion level), repaint on scroll,
+ * resize and route changes. Each repaint asks for a second frame on the
+ * next animation frame: the page measures where it is read (pageInputs,
+ * the experience page's role focus) in its own animation frame, which can
+ * run after the first, so that frame drew the last measure's pose and
+ * nothing asked for another
+ */
 function DemandDriver({
   station,
   theme,
@@ -69,7 +195,15 @@ function DemandDriver({
 
   useEffect(() => {
     invalidate();
-    const repaint = () => invalidate();
+    let frame = 0;
+    const again = () => {
+      frame = 0;
+      invalidate();
+    };
+    const repaint = () => {
+      invalidate();
+      if (!frame) frame = requestAnimationFrame(again);
+    };
     window.addEventListener('scroll', repaint, { passive: true });
     window.addEventListener('resize', repaint);
     // Models stream in after the first paint
@@ -78,55 +212,97 @@ function DemandDriver({
       window.removeEventListener('scroll', repaint);
       window.removeEventListener('resize', repaint);
       timers.forEach(clearTimeout);
+      cancelAnimationFrame(frame);
     };
   }, [invalidate, station, theme, focusProject]);
 
   return null;
 }
 
+/** PerformanceMonitor judges the frame rate over `judgeSamples` samples of `sampleMs` each */
+const sampleMs = 400;
+const judgeSamples = 10;
+/** How long after loading work or a flight its verdicts are ignored: a whole judging window, with room for slow frames */
+const settleMs = sampleMs * judgeSamples * 1.25;
+/** After this many falls straight after a rise, the tier stops rising: the device sits on the edge */
+const maxReversals = 3;
+/** A fall counts as straight after a rise within the next judging window or the one after */
+const reversalMs = settleMs * 2;
+
 /**
- * Adapts the quality tier to the device, but only samples the frame rate
- * while nothing is warming up and the camera isn't flying between stations
- * (scroll-follow is much slower than a flight and doesn't count). Otherwise
- * one-off loading work reads as a slow device and drops the tier for good.
+ * Adapts the quality tier to the device. The monitor stays mounted for the
+ * canvas's life, so its history survives navigations, but its verdicts only
+ * count once nothing has warmed up and the camera hasn't flown between
+ * stations (scroll-follow is much slower and doesn't count) for a whole
+ * judging window. Otherwise one-off loading work reads as a slow device and
+ * drops the tier for good. Nor do they count while the canvas renders on
+ * demand: sparse frames aren't a frame rate. A device always above the upper
+ * bound keeps inclining at the ceiling, which is no change at all; one that
+ * falls back straight after a rise (within two judging windows) three times
+ * stops rising rather than flapping between tiers (each change resizes the
+ * canvas and the composer, a visible hitch). A fall long after a rise (a
+ * heavy page, thermal throttling) is a fall, not a flap. A fall from ultra
+ * also ends ultra for the session (`onLoseUltra`): the device can't hold it.
  */
 function QualityGovernor({
+  tier,
   ceiling,
   setTier,
+  onLoseUltra,
 }: {
+  tier: QualityTier;
   ceiling: QualityTier;
   setTier: Dispatch<SetStateAction<QualityTier>>;
+  onLoseUltra: () => void;
 }) {
   const idle = useWarmupIdle();
-  const [flying, setFlying] = useState(false);
-  const watch = useRef({ flying: false, calmSince: 0 });
+  const frameloop = useThree((s) => s.frameloop);
+  const watch = useRef({ busyUntil: 0, roseAt: -Infinity, reversals: 0 });
 
-  useFrame(({ clock }) => {
-    const state = watch.current;
-    const t = clock.elapsedTime;
-    if (worldStore.velocity > 12) {
-      state.calmSince = t;
-      if (!state.flying) {
-        state.flying = true;
-        setFlying(true);
-      }
-    } else if (state.flying && t - state.calmSince > 1) {
-      state.flying = false;
-      setFlying(false);
-    }
+  useFrame(() => {
+    if (!idle || worldStore.velocity > 12) watch.current.busyUntil = performance.now() + settleMs;
   });
 
-  if (!idle || flying) return null;
+  // A pause reads as one very slow frame in the monitor's samples, which is
+  // not the device's doing: the canvas stopping and starting again (page
+  // chrome covering the world, a change of frameloop) or the tab coming
+  // back into view. Each is marked as it happens, before the next frame,
+  // so the judging window it lands in doesn't count. A slow device's
+  // frames, however slow, still do
+  useLayoutEffect(() => {
+    const rest = () => {
+      watch.current.busyUntil = performance.now() + settleMs;
+    };
+    rest();
+    const onVisibility = () => {
+      if (!document.hidden) rest();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [frameloop]);
+
+  const judging = () => frameloop === 'always' && performance.now() >= watch.current.busyUntil;
+
   return (
     <PerformanceMonitor
-      onDecline={() => setTier(lowerTier)}
-      onIncline={() => setTier((current) => raiseTier(current, ceiling))}
+      onDecline={() => {
+        if (!judging() || tier === 'low') return;
+        const state = watch.current;
+        if (performance.now() - state.roseAt <= reversalMs) state.reversals++;
+        state.roseAt = -Infinity;
+        if (tier === 'ultra') onLoseUltra();
+        setTier(lowerTier(tier));
+      }}
+      onIncline={() => {
+        const state = watch.current;
+        if (!judging() || tier === ceiling || state.reversals >= maxReversals) return;
+        state.roseAt = performance.now();
+        setTier(raiseTier(tier, ceiling));
+      }}
       // Judge over four seconds, and only step for a clear and sustained change
-      ms={400}
-      iterations={10}
+      ms={sampleMs}
+      iterations={judgeSamples}
       bounds={(refreshRate) => (refreshRate > 90 ? [48, 84] : [42, 56])}
-      flipflops={3}
-      onFallback={() => setTier('low')}
     />
   );
 }
@@ -134,7 +310,8 @@ function QualityGovernor({
 export interface WorldCanvasProps {
   station: StationKey;
   theme: WorldTheme;
-  reducedMotion: boolean;
+  /** `still` draws on demand, `calm` draws every frame with the camera cutting between stations */
+  motion: MotionLevel;
   lite: boolean;
   content: WorldContent;
   /** Index of the project whose screen faces the camera, -1 for none */
@@ -145,7 +322,7 @@ export interface WorldCanvasProps {
 export default function WorldCanvas({
   station: pageStation,
   theme,
-  reducedMotion,
+  motion,
   lite,
   content,
   focusProject,
@@ -155,12 +332,49 @@ export default function WorldCanvas({
   const { mode, tourStop } = useWorldMode();
   const station = mode === 'tour' ? tourStops[tourStop] : pageStation;
 
+  // The station the visitor is about to fly to mounts (and warms) ahead of
+  // the click, once the page is idle: not while the loading screen is up,
+  // and only once the intent has stood a moment (see intentSettle)
+  const intent = useSyncExternalStore(onIntent, readIntent, noIntent);
+  const booted = useBooted();
+  const [warming, setWarming] = useState<StationKey | ''>('');
+  useEffect(() => {
+    if (!intent || !booted) return;
+    const w = window as IdleWindow;
+    let idle = 0;
+    let timer = 0;
+    const warm = () => {
+      idle = 0;
+      // Never mid-flight (the page nav can be in view as a page arrives):
+      // compiling a station then would hitch the flight, so it waits until
+      // the camera has landed
+      if (worldStore.flight.active) {
+        timer = window.setTimeout(schedule, 250);
+        return;
+      }
+      // A transition, so a click that comes in the meantime cuts in
+      startTransition(() => setWarming(intent));
+    };
+    const schedule = () => {
+      timer = 0;
+      if (w.requestIdleCallback) idle = w.requestIdleCallback(warm, { timeout: 1000 });
+      else warm();
+    };
+    timer = window.setTimeout(schedule, intentSettle);
+    return () => {
+      window.clearTimeout(timer);
+      if (idle) w.cancelIdleCallback?.(idle);
+    };
+  }, [intent, booted]);
+
   // Stations mount the first time they are visited and stay mounted so flights
   // back to them are seamless; unvisited stations cost nothing. The tour
-  // warms the next stop while it lingers at this one.
+  // warms the next stop while it lingers at this one; a page, the station
+  // the visitor is about to fly to.
   const [visited, setVisited] = useState<StationKey[]>([station]);
   const wanted =
     mode === 'tour' ? [station, tourStops[(tourStop + 1) % tourStops.length]] : [station];
+  if (warming) wanted.push(warming);
   const missing = wanted.filter((key) => !visited.includes(key));
   if (missing.length) setVisited([...visited, ...missing]);
 
@@ -182,9 +396,19 @@ export default function WorldCanvas({
   const [roamed, setRoamed] = useState(false);
   if (mode === 'explore' && !roamed) setRoamed(true);
 
-  // Phones / touch devices start (and top out) one tier down
-  const ceiling: QualityTier = lite ? 'medium' : 'high';
-  const [tier, setTier] = useState<QualityTier>(ceiling);
+  // Phones / touch devices start (and top out) one tier down. Desktops start
+  // at high; a retina screen small enough to draw at 2x can incline to ultra,
+  // until the session first falls out of it (quality.ts)
+  const fitsUltra = useSyncExternalStore(subscribeScreen, ultraFits, noUltra);
+  const [lostUltra, setLostUltra] = useState(hasLostUltra);
+  const onLoseUltra = useCallback(() => {
+    loseUltra();
+    setLostUltra(true);
+  }, []);
+  const ceiling: QualityTier = lite ? 'medium' : fitsUltra && !lostUltra ? 'ultra' : 'high';
+  const [tier, setTier] = useState<QualityTier>(lite ? 'medium' : 'high');
+  // A resize that leaves ultra no room steps down at once (only an incline goes up)
+  if (tierRank(tier) > tierRank(ceiling)) setTier(ceiling);
   const { dpr } = tierSettings[tier];
 
   useEffect(() => {
@@ -233,13 +457,20 @@ export default function WorldCanvas({
     return () => window.clearInterval(id);
   }, [tracker, warm]);
 
+  // Paused while page chrome covers the world (it is opaque: nothing to see).
+  // Still: drawn only when something changes, except in free roam, where the
+  // visitor flies the camera (and the autopilot needs every frame)
+  const covered = useSyncExternalStore(onChrome, isCovered, notCovered);
+  const frameloop =
+    !warm || covered ? 'never' : motion === 'still' && mode !== 'explore' ? 'demand' : 'always';
+
   return (
     <Canvas
       className="world__canvas"
       dpr={[1, dpr]}
       gl={{ antialias: false, alpha: false, stencil: false, powerPreference: 'high-performance' }}
       camera={{ fov: baseFov, near: 0.1, far: 2000, position: [0, 0, 60] }}
-      frameloop={!warm ? 'never' : reducedMotion ? 'demand' : 'always'}
+      frameloop={frameloop}
       shadows={shadows ? 'percentage' : false}
       // The canvas sits behind the page: listen on the document, react only
       // over open space. No eventPrefix: it would replace worldEvents' compute,
@@ -256,14 +487,23 @@ export default function WorldCanvas({
         <LiteContext.Provider value={lite}>
           <color attach="background" args={[palette.background]} />
           <fog attach="fog" args={[palette.background, palette.fog[0], palette.fog[1]]} />
-          <QualityGovernor ceiling={ceiling} setTier={setTier} />
-          {reducedMotion && (
+          <QualityGovernor
+            tier={tier}
+            ceiling={ceiling}
+            setTier={setTier}
+            onLoseUltra={onLoseUltra}
+          />
+          <CoverPause covered={covered} />
+          {frameloop === 'demand' && (
             <DemandDriver station={station} theme={theme} focusProject={focusProject} />
           )}
 
-          <CameraRig station={station} reducedMotion={reducedMotion} />
+          <CameraRig station={station} motion={motion} />
           <ExploreControls />
-          <MotionProbe reducedMotion={reducedMotion} />
+          <TipProbe />
+          <MotionProbe motion={motion} />
+          <Cockpit theme={theme} />
+          <Sparks theme={theme} />
           <PowerDriver />
 
           <Lighting theme={theme} station={station} shadows={shadows} />
@@ -275,6 +515,7 @@ export default function WorldCanvas({
           <Asteroids count={lite ? 120 : 300} theme={theme} />
           <Dust count={lite ? 260 : 600} theme={theme} />
           <GasClouds count={lite ? 22 : 44} theme={theme} tier={tier} />
+          <Traffic count={lite ? 3 : 8} theme={theme} tier={tier} />
 
           {has('home') && (
             <Precompiled>
@@ -283,7 +524,7 @@ export default function WorldCanvas({
           )}
           {has('about') && (
             <Precompiled>
-              <AboutStation theme={theme} />
+              <AboutStation theme={theme} portrait={content.about.portrait} />
             </Precompiled>
           )}
           {has('experience') && (
@@ -323,9 +564,14 @@ export default function WorldCanvas({
           )}
 
           <Beacons theme={theme} current={station} />
+          <CourseLine theme={theme} />
+          <HeadingProjector theme={theme} />
+          <DockingBeam theme={theme} />
+          <EdgeShimmer theme={theme} />
           <Pings theme={theme} />
           <StatsProbe station={station} />
           <Effects theme={theme} tier={tier} />
+          <ThemeRetire theme={theme} />
           {/* Last, so every sibling has mounted and queued its own warm-up first */}
           <WarmupGate onWarm={onWarm} />
         </LiteContext.Provider>

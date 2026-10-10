@@ -9,6 +9,7 @@ import ContactForm from './ContactForm/ContactForm';
 import { LocationMap } from './LocationMap/LocationMap';
 import { PageHead } from 'components/PageHead/PageHead';
 import { illustrations } from 'components/World/StationFallback';
+import { WorldWindow } from 'components/WorldWindow/WorldWindow';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 import { requestLaunch } from 'components/World/worldStore';
 
@@ -67,7 +68,11 @@ const ContactCard = ({ info }: { info: ContactInfo }) => {
 
   return (
     <RevealItem as="li" className="contact__card-cell">
-      <div className="contact__card glass spotlight" ref={ref}>
+      <div
+        className="contact__card glass spotlight"
+        ref={ref}
+        data-world-target={`contact:${info.name}`}
+      >
         {info.link ? (
           <Link
             href={info.link}
@@ -145,29 +150,31 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
         sub={tagline}
       />
 
+      {/* One column: the intro, the channels, the form, then the map. On wide
+          layouts it keeps to the left, so the station has the right side */}
       <div className="contact__grid" data-world-section="message">
-        <aside className="contact__side">
-          <Reveal className="contact__intro">
-            <h2 className="contact__intro-title">{contactInfo.title}</h2>
-            <p className="contact__intro-text">{contactInfo.description}</p>
-            <p className="contact__sla">
-              <span className="contact__sla-dot" aria-hidden="true" />
-              Usually replies within a working day
-            </p>
-          </Reveal>
+        <Reveal className="contact__intro">
+          <h2 className="contact__intro-title" data-reading="large">
+            {contactInfo.title}
+          </h2>
+          <p className="contact__intro-text" data-reading>
+            {contactInfo.description}
+          </p>
+          <p className="contact__sla">
+            <span className="contact__sla-dot" aria-hidden="true" />
+            Usually replies within a working day
+          </p>
+        </Reveal>
 
-          <address>
-            <RevealGroup as="ul" className="contact__list" stagger={0.08}>
-              {contactInfo.items.map((info) => (
-                <ContactCard key={info.name} info={info} />
-              ))}
-            </RevealGroup>
-          </address>
+        <address>
+          <RevealGroup as="ul" className="contact__list" stagger={0.08}>
+            {contactInfo.items.map((info) => (
+              <ContactCard key={info.name} info={info} />
+            ))}
+          </RevealGroup>
+        </address>
 
-          <Reveal delay={0.2}>
-            <LocationMap location="Peterborough, UK" />
-          </Reveal>
-        </aside>
+        <WorldWindow />
 
         <Reveal
           className={`contact__panel glass${submitted ? ' contact__panel--submitted' : ''}`}
@@ -239,6 +246,10 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
               </m.div>
             )}
           </AnimatePresence>
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <LocationMap location="Peterborough, UK" />
         </Reveal>
       </div>
 

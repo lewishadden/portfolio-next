@@ -1,3 +1,5 @@
+@use '../../app/motion' as *;
+
 .marquee {
   position: relative;
   overflow: hidden;
@@ -60,7 +62,7 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@include reduced-motion {
   .marquee__track {
     animation: none;
   }

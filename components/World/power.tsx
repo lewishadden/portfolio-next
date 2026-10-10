@@ -4,8 +4,10 @@ import { createContext, useContext, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { MathUtils } from 'three';
 
+import { pastStamp } from './clock';
 import { smootherstep } from './flight';
 import { stationKeys, stationPositions } from './routes';
+import { worldMode } from './worldMode';
 import { emitCue, onFlight, worldStore } from './worldStore';
 
 import type { ReactNode } from 'react';
@@ -19,8 +21,11 @@ import type { StationKey } from './routes';
    lights come on one after another. Its glow materials (rings, beams,
    halos: `uCharge`), hull (accent strips and windows) and NavLights all
    read the station's power, so one value drives the whole craft.
-   Nothing happens without flights (reduced motion, free roam): every
-   station simply stays powered.
+   Only page flights power stations down: without flights (reduced
+   motion) and outside page mode (the tour, free roam) every station
+   stays powered, and one left waiting when the mode changed mid-flight
+   powers back up. While a station isn't fully powered its charge is
+   published in `worldStore.charge` (its voice follows it).
    ------------------------------------------------------------------ */
 
 /** Glows while a station waits for the camera */
@@ -39,12 +44,14 @@ export interface StationPower {
   onAt: number;
   /** What it is heading for when not powering on: 1 or `standby` */
   target: number;
+  /** Clock time its nav lights last blinked in answer to a hail (-Infinity: never) */
+  flashAt: number;
 }
 
 export const stationPower = Object.fromEntries(
   stationKeys.map((key) => [
     key,
-    { charge: { value: 1 }, windows: { value: 1 }, onAt: -1, target: 1 },
+    { charge: { value: 1 }, windows: { value: 1 }, onAt: -1, target: 1, flashAt: -Infinity },
   ])
 ) as Record<StationKey, StationPower>;
 
@@ -73,6 +80,31 @@ export function navPower(key: StationKey, index: number, t: number) {
   return s < 0.14 ? 2.6 : 1;
 }
 
+/** How long each nav light's answering blink lasts, and the beat between one light and the next (s) */
+const flashTime = 0.2;
+const flashStep = 0.07;
+/** How bright a nav light is at the height of its answering blink */
+export const navBlink = 2.6;
+
+/**
+ * Whether a station's nav light `index` is blinking in answer to a hail:
+ * each blinks once, one after another. The blink stands in for the light's
+ * own pattern rather than scaling it, so a white strobe (dark most of the
+ * time, and held wherever it stopped at the still level) blinks too
+ */
+export function navBlinking(key: StationKey, index: number, t: number) {
+  const blink = t - stationPower[key].flashAt - index * flashStep;
+  return blink >= 0 && blink < flashTime;
+}
+
+/** Stations whose nav lights blink on the next frame */
+const flashes = new Set<StationKey>();
+
+/** Blinks a station's nav lights once, one after another (a hail's answer when nothing may move) */
+export function flashNavLights(key: StationKey) {
+  flashes.add(key);
+}
+
 type Pending = { event: 'start' | 'approach' | 'end'; to: string };
 const pending: Pending[] = [];
 
@@ -82,6 +114,9 @@ function distanceTo(key: StationKey) {
   return Math.hypot(camera.x - x, camera.y - y, camera.z - z);
 }
 
+/** Only page flights drop a station to standby (see stepPower) */
+const paging = () => worldMode.get().mode === 'page';
+
 function handle({ event, to }: Pending, t: number) {
   for (const key of stationKeys) {
     const power = stationPower[key];
@@ -90,41 +125,70 @@ function handle({ event, to }: Pending, t: number) {
       if (event === 'start' && power.target < 1 && power.onAt < 0) power.target = 1;
       continue;
     }
-    if (event === 'start' && distanceTo(key) > nearby) {
+    if (event === 'start' && paging() && distanceTo(key) > nearby) {
       power.target = standby;
       power.onAt = -1;
     } else if (event === 'approach' && power.target < 1) {
       power.target = 1;
       power.onAt = t;
-      emitCue('power');
+      emitCue('power', { at: stationPositions[key] });
     }
   }
 }
 
+/** Within this of full power, a station easing back up is fully powered */
+const settled = 0.002;
+
+/** Publishes a station's charge while it isn't fully powered (absent: fully powered) */
+function publishCharge(key: StationKey, charge: number) {
+  if (charge === 1) delete worldStore.charge[key];
+  else worldStore.charge[key] = charge;
+}
+
 function stepPower(t: number, dt: number) {
   while (pending.length) handle(pending.shift()!, t);
+  for (const key of flashes) stationPower[key].flashAt = t;
+  flashes.clear();
+  // The tour and free roam never leave a station waiting: one a flight left
+  // in standby when the mode changed (it never got its approach) powers up
+  const holdUp = !paging();
   for (const key of stationKeys) {
     const power = stationPower[key];
+    power.flashAt = pastStamp(power.flashAt, t);
+    if (holdUp && power.target < 1) power.target = 1;
     if (power.onAt >= 0) {
       const s = t - power.onAt;
       power.charge.value = chargeAt(s);
       power.windows.value = windowsAt(s);
-      if (s > powerOnTime) {
+      // Done, or begun before R3F restarted its clock: it finishes at once
+      if (s > powerOnTime || s < 0) {
         power.onAt = -1;
         power.charge.value = 1;
         power.windows.value = 1;
       }
+      publishCharge(key, power.charge.value);
       continue;
     }
     // Fading to standby, or back up after a change of course
     power.charge.value = MathUtils.damp(power.charge.value, power.target, 5, dt);
     power.windows.value = MathUtils.damp(power.windows.value, power.target < 1 ? 0 : 1, 5, dt);
+    if (power.target === 1 && Math.abs(power.charge.value - 1) < settled) {
+      power.charge.value = 1;
+      if (power.windows.value > 1 - settled) power.windows.value = 1;
+    }
+    publishCharge(key, power.charge.value);
   }
 }
 
 /** Runs every station's power from the camera's flights; mount once in the canvas */
 export function PowerDriver() {
-  useEffect(() => onFlight((event, to) => pending.push({ event, to })), []);
+  useEffect(() => {
+    const off = onFlight((event, to) => pending.push({ event, to }));
+    return () => {
+      off();
+      for (const key of stationKeys) delete worldStore.charge[key];
+    };
+  }, []);
   useFrame(({ clock }, delta) => stepPower(clock.elapsedTime, Math.min(delta, 0.05)));
   return null;
 }
