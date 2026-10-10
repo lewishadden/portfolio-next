@@ -150,6 +150,12 @@ export const worldStore = {
   worldWindow: { top: -1, height: 0 },
   /** CSS px of the helix screen in front on /projects (`on` false when none is) */
   screenRect: { left: 0, top: 0, right: 0, bottom: 0, on: false },
+  /**
+   * /projects: CSS px of the page's cell for the screen in front
+   * (.proj-hud__screen), where the camera frames it on short landscape
+   * screens, which put the copy beside it; `on` false when there is none
+   */
+  screenSlot: { left: 0, top: 0, right: 0, bottom: 0, on: false },
   /** The project gallery's slide on show (content indexes); -1 / -1 when no gallery is open */
   projectShot: { project: -1, image: -1 },
   /** The content image index each helix screen shows (-1 unknown) */

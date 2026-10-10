@@ -203,6 +203,18 @@ function measureWorldWindow(main: HTMLElement, line: number) {
   }
 }
 
+/** /projects: the cell the ride's screen in front is framed in (worldStore.screenSlot), in CSS px */
+function measureScreenSlot(main: HTMLElement) {
+  const slot = worldStore.screenSlot;
+  const rect = main.querySelector('.projects__stage .proj-hud__screen')?.getBoundingClientRect();
+  slot.on = !!rect && rect.width > 0 && rect.height > 0;
+  if (!rect || !slot.on) return;
+  slot.left = rect.left;
+  slot.top = rect.top;
+  slot.right = rect.right;
+  slot.bottom = rect.bottom;
+}
+
 /** Puts back everything usePageReading measures (route changes, unmount) */
 function clearReading() {
   worldStore.sectionFocus = -1;
@@ -217,6 +229,7 @@ function clearReading() {
   worldStore.clearRight = -1;
   worldStore.worldWindow.top = -1;
   worldStore.worldWindow.height = 0;
+  worldStore.screenSlot.on = false;
 }
 
 /**
@@ -225,8 +238,9 @@ function clearReading() {
  * the station with it), which skills category ([data-world-category]) on
  * /skills, where the heading block sits on screen, the text blocks the
  * readability guard protects ([data-reading]), the glass panels at the
- * reading line and the phone "window" nearest it ([data-world-window]).
- * Measured on scroll, resize and route changes, at most once a frame.
+ * reading line, the phone "window" nearest it ([data-world-window]) and
+ * the projects ride's screen cell. Measured on scroll, resize and route
+ * changes, at most once a frame.
  */
 export function usePageReading(active: boolean, routeKey: string) {
   useEffect(() => {
@@ -251,6 +265,7 @@ export function usePageReading(active: boolean, routeKey: string) {
       measureReading(main, line);
       measureClearRight(main, line);
       measureWorldWindow(main, line);
+      measureScreenSlot(main);
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(measure);

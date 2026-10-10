@@ -444,7 +444,49 @@ export function stationFraming(
   return out;
 }
 
+/**
+ * Short landscape screens (a phone on its side, a short desktop window, at
+ * any width): the projects page puts its screen's cell in the left half and
+ * the copy in the right (Projects.scss, `(max-height: 520px) and
+ * (orientation: landscape)`)
+ */
+export const isShortLandscape = (width: number, height: number) => height <= 520 && width > height;
+
+/** The projects ride's framing in its screen cell: as Framing, plus the sideways shift (world units, + right) */
+interface CellFraming extends Framing {
+  shift: number;
+}
+
+/**
+ * The projects ride on a short landscape screen: frames the screen in front
+ * inside the page's cell for it (worldStore.screenSlot), fitted to the
+ * cell's width and height and centred on it, so it sits beside the copy
+ * rather than behind it. Null anywhere else (another layout, a project
+ * page, or no cell measured)
+ */
+function screenCellFraming(width: number, height: number, out: CellFraming) {
+  const slot = worldStore.screenSlot;
+  if (!isShortLandscape(width, height) || !slot.on || worldStore.projectAside) return null;
+  const shot = shots.projects;
+  const aspect = width / Math.max(height, 1);
+  const cellWidth = Math.max(slot.right - slot.left, 1) / width;
+  const cellHeight = Math.max(slot.bottom - slot.top, 1) / height;
+  const distance = Math.max(
+    shot.distance,
+    shot.halfWidth / (narrowFill * cellWidth * tanHalfFov * aspect),
+    shot.halfHeight / (cellHeight * tanHalfFov)
+  );
+  // The cell's centre in normalised device coordinates (y up)
+  const centreX = (slot.left + slot.right) / width - 1;
+  const centreY = 1 - (slot.top + slot.bottom) / height;
+  out.zoom = distance / shot.distance;
+  out.lift = centreY * distance * tanHalfFov - shot.offsetY;
+  out.shift = centreX * distance * tanHalfFov * aspect;
+  return out;
+}
+
 const framing: Framing = { zoom: 1, lift: 0 };
+const cellFraming: CellFraming = { zoom: 1, lift: 0, shift: 0 };
 const windowFraming: Framing = { zoom: 1, lift: 0 };
 const windowEye = new Vector3();
 const windowLook = new Vector3();
@@ -500,7 +542,9 @@ export function framedHeight(key: StationKey, cameraY: number, width: number, he
 
 /** How far the camera is from the project screen in front, riding the helix */
 export function frontScreenDistance(width: number, height: number) {
-  return shots.projects.distance * stationFraming('projects', width, height, framing).zoom;
+  const cell = screenCellFraming(width, height, cellFraming);
+  const zoom = cell ? cell.zoom : stationFraming('projects', width, height, framing).zoom;
+  return shots.projects.distance * zoom;
 }
 
 const right = new Vector3();
@@ -654,9 +698,17 @@ export function stationCamera(
   look: Vector3,
   reading = true
 ) {
-  const { zoom, lift } = stationFraming(key, width, height, framing);
+  let { zoom, lift } = stationFraming(key, width, height, framing);
   const { height: eyeY, distance } = shots[key];
   const wide = isWideViewport(width, height);
+  // The projects ride on a short landscape screen frames its screen in the
+  // page's cell beside the copy, coming into it as the ride begins
+  const cell = key === 'projects' && reading ? screenCellFraming(width, height, cellFraming) : null;
+  const inCell = cell ? 1 - projectIntro() : 0;
+  if (cell) {
+    zoom = MathUtils.lerp(zoom, cell.zoom, inCell);
+    lift = MathUtils.lerp(lift, cell.lift, inCell);
+  }
 
   // `look` is the framed point; `pos` starts as the eye's offset from it.
   // Scroll-follow speeds scale with the zoom so the station still leaves the
@@ -773,7 +825,7 @@ export function stationCamera(
   const roomy = (key === 'skills' ? 4.4 : centred ? overview.room * intro : 3.3) + room;
   // Further, if that leaves the station behind the glass panels at the
   // reading line (worldStore.clearRight)
-  const shiftX = wide
+  let shiftX = wide
     ? Math.max(
         roomy,
         centred
@@ -781,10 +833,11 @@ export function stationCamera(
           : clearRoom(key, pos, look, width / height, reading ? worldStore.clearRight : -1)
       )
     : 0;
+  if (cell) shiftX = MathUtils.lerp(shiftX, cell.shift, inCell);
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   // Centred in the space below the header, not the whole viewport
-  if (centred && wide) {
+  if (centred && wide && !cell) {
     pos.addScaledVector(up, 0.19 * (1 - intro));
     look.addScaledVector(up, 0.19 * (1 - intro));
   }
