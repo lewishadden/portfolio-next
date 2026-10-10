@@ -30,6 +30,19 @@ test.describe('command palette', () => {
     await expect(page).toHaveURL(/\/projects\/drive-king$/);
   });
 
+  test('holding Ctrl/⌘+K opens it once, not at the key-repeat rate', async ({ page }) => {
+    await openHydrated(page, '/about');
+    const dialog = page.getByRole('dialog', { name: 'Command palette' });
+    await page.keyboard.down('ControlOrMeta');
+    await page.keyboard.down('k');
+    await expect(dialog).toBeVisible();
+    // Held down, the key repeats: keydowns with `repeat` set, which used to toggle it
+    for (let i = 0; i < 5; i++) await page.keyboard.down('k');
+    await page.keyboard.up('k');
+    await page.keyboard.up('ControlOrMeta');
+    await expect(dialog).toBeVisible();
+  });
+
   test('the header button opens it and Escape hands focus back', async ({ page }) => {
     await openHydrated(page, '/experience');
     const button = page.getByRole('button', { name: 'Open command palette' });

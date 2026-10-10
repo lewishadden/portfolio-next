@@ -234,7 +234,9 @@ export function CommandPalette({ data }: { data: PaletteData }) {
   // Closing goes through close(), like Escape: toggling the state alone left
   // `sudo hire lewis` running (it still flew to /contact) and the old query
   // and selection in place. Nothing opens under the loading screen, where the
-  // palette would be hidden and only take focus from it
+  // palette would be hidden and only take focus from it. A held shortcut
+  // toggles once: its auto-repeats flipped the full-screen dim and the panel
+  // in and out at the key-repeat rate (unfaded at calm and still)
   useEffect(() => {
     const show = () => {
       if (document.documentElement.dataset.boot !== 'loading') setOpen(true);
@@ -242,11 +244,12 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
+        if (e.repeat) return;
         if (open) close();
         else show();
       } else if (e.altKey && e.shiftKey && e.code === 'KeyS') {
         e.preventDefault();
-        statsOverlay.toggle();
+        if (!e.repeat) statsOverlay.toggle();
       }
     };
     window.addEventListener('keydown', onKey);
