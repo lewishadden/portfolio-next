@@ -25,6 +25,11 @@
     text-transform: uppercase;
     color: var(--accent-secondary);
 
+    /* Small text over the sky: the light theme's accent is marginal there */
+    [data-theme='light'] & {
+      color: var(--hud-text);
+    }
+
     svg {
       animation: proj-nudge 2.4s var(--ease-in-out) infinite;
     }
