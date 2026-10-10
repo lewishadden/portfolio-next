@@ -162,13 +162,22 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     followLook: new Vector3(),
   });
 
-  // A cut under way when the world goes (switched off, a remount) leaves nothing behind
+  // A cut or a flight under way when the world goes (switched off, a
+  // remount) leaves nothing behind: a flight cut off here would otherwise
+  // stay active with its progress frozen for everything that reads it
+  // (the reading guard, the fog, intent warm-up, beacon names, the radar).
+  // Nothing is announced: no flight arrived
   useEffect(() => {
     const rig = state.current;
     return () => {
       rig.cutTimers.forEach((timer) => window.clearTimeout(timer));
       delete document.documentElement.dataset.worldCut;
       holdPageCopy(false);
+      const flight = worldStore.flight;
+      flight.active = false;
+      flight.approached = false;
+      flight.progress = 0;
+      flight.duration = 0;
     };
   }, []);
 
@@ -261,13 +270,19 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     // flight it was on arrives at its station (still rig.station here)
     if (snap && rig.flight) cutFlight(rig, rig.station ?? station, t);
     if (!rig.started) {
-      // First frame: start out in deep space and warp in
+      // First frame: start out in deep space and warp in. Below full motion
+      // it is placed there, and arrives the way a cut does (an 'end' with
+      // no 'start'), so whatever waits on an arrival hears of it
       rig.started = true;
       lookCurrent.copy(look);
-      if (snap) cam.position.copy(target);
-      else {
+      if (snap) {
+        cam.position.copy(target);
+        rig.arriving = true;
+      } else {
         cam.position.copy(target).add(introOffset);
         cam.lookAt(look);
+        // Where the warp in starts, for whatever reads the camera this frame
+        record(cam);
         startFlight(rig, cam, station);
       }
     } else if (retarget && !snap) {
@@ -346,7 +361,14 @@ function startFlight(rig: RigState, cam: PerspectiveCamera, station: StationKey,
   rig.flight = flight;
   rig.approached = false;
   holdPageCopy(toPage && !!flight);
-  if (!flight) return;
+  if (!flight) {
+    // Already there (a retarget within a few frames: Back straight after a
+    // click, or the end of a tour flight): no flight, and the one this
+    // replaced isn't under way any more either
+    worldStore.flight.active = false;
+    worldStore.flight.duration = 0;
+    return;
+  }
   rig.view.started = false;
   rig.heading = null;
   // Any bank the camera carried is in its starting rotation, which blends out
