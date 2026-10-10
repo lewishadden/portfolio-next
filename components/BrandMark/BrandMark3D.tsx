@@ -276,7 +276,14 @@ function Mark({
   const motion = useMemo(() => createMarkMotion(), []);
   const ready = useRef(false);
 
-  useEffect(() => () => disposeAssets(assets), [assets]);
+  // A theme switch builds a new set: the old goes once the new has drawn
+  // (two frames on), so the programs they share aren't deleted and relinked
+  useEffect(
+    () => () => {
+      requestAnimationFrame(() => requestAnimationFrame(() => disposeAssets(assets)));
+    },
+    [assets]
+  );
   useEffect(() => lightScene(gl, scene), [gl, scene]);
   useEffect(() => onGone, [onGone]);
 

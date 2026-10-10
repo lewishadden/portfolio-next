@@ -8,7 +8,22 @@ import {
   ShaderMaterial,
 } from 'three';
 
+import type { Material } from 'three';
 import type { WorldTheme } from './utils';
+
+/**
+ * Disposes materials once whatever replaced them has drawn (two animation
+ * frames on). Disposed first, as a theme switch swaps a set, the program
+ * the old and new materials share is deleted, then relinked for the new
+ * set on the switch's frame (a long frame); still in use when the new set
+ * draws, three's program cache hands it straight over
+ */
+export function disposeAfterDraw(materials: Iterable<Material>) {
+  const gone = [...materials];
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => gone.forEach((material) => material.dispose()))
+  );
+}
 
 /* ------------------------------------------------------------------
    GLSL chunks

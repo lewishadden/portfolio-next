@@ -28,7 +28,13 @@ import {
 import { motionLevel } from '@/utils/motion';
 
 import { iconSvg, useIconCollections } from '../icons';
-import { asGlow, chargeWith, createFresnelMaterial, noiseGlsl } from '../materials';
+import {
+  asGlow,
+  chargeWith,
+  createFresnelMaterial,
+  disposeAfterDraw,
+  noiseGlsl,
+} from '../materials';
 import { NavLights, SolarArray, Spin } from '../parts';
 import { spawnPing } from '../Pings';
 import { flashNavLights, StationScope, stationPower } from '../power';
@@ -992,13 +998,7 @@ export function SkillsStation({
       ),
     };
   }, [orbits, theme]);
-  useEffect(
-    () => () => {
-      lines.orbits.forEach((material) => material.dispose());
-      lines.constellations.forEach((material) => material.dispose());
-    },
-    [lines]
-  );
+  useEffect(() => () => disposeAfterDraw([...lines.orbits, ...lines.constellations]), [lines]);
 
   // One stable tooltip per skill (the tooltip store compares by identity)
   const tips = useMemo(
