@@ -29,6 +29,7 @@ import {
   contactMarks,
   currentScan,
   detectorRange,
+  finishSweep,
   isFound,
   isScanned,
   markFound,
@@ -258,11 +259,11 @@ const onView = new Vector3();
 function sweep(signal: Signal, at: Vector3) {
   const scan = currentScan();
   const age = scanClock() - scan.at;
-  if (age < 0 || age > scanSweep + 0.1 || scan.hits.includes(signal.id)) return;
+  if (scan.swept || age < 0 || scan.hits.includes(signal.id)) return;
   const distance = at.distanceTo(sweepFrom.fromArray(scan.from));
   if (distance > detectorRange || distance > (age / scanSweep) * detectorRange) return;
   markScanned(signal.id);
-  spawnPing(at, { scale: 2, flash: false, cue: false });
+  spawnPing(at, { scale: 1.6, flash: false, cue: false });
   emitCue('sonar', { at: [at.x, at.y, at.z], strength: 1 - distance / detectorRange });
 }
 
@@ -537,6 +538,10 @@ export function Signals({ theme }: { theme: WorldTheme }) {
       }
     });
     reportNearest(exploring ? nearest : Infinity, nearestAt);
+    // Every signal has been passed at full range: the scan has swept (or
+    // free roam ended mid-sweep, and there is nothing more to find)
+    const scan = currentScan();
+    if (!scan.swept && (!exploring || scanClock() - scan.at >= scanSweep)) finishSweep();
   });
 
   return (

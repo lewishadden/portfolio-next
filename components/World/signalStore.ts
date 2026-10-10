@@ -204,9 +204,11 @@ export interface Scan {
   at: number;
   from: readonly [number, number, number];
   hits: readonly Signal['id'][];
+  /** The canvas has swept it out to detector range: `hits` is every contact it will pick out */
+  swept: boolean;
 }
 
-const noScan: Scan = { at: -Infinity, from: [0, 0, 0], hits: [] };
+const noScan: Scan = { at: -Infinity, from: [0, 0, 0], hits: [], swept: true };
 let scan = noScan;
 /** Every signal a scan has picked out this visit, in the order they were */
 let scannedIds: readonly Signal['id'][] = [];
@@ -222,7 +224,7 @@ export function requestScan() {
   const now = scanClock();
   if (now - scan.at < scanCooldown) return false;
   const { x, y, z } = worldStore.camera;
-  scan = { at: now, from: [x, y, z], hits: [] };
+  scan = { at: now, from: [x, y, z], hits: [], swept: false };
   emitCue('scan', { at: scan.from });
   notify();
   return true;
@@ -245,6 +247,13 @@ export function markScanned(id: Signal['id']) {
   notify();
 }
 
+/** The canvas has swept the current scan out to detector range */
+export function finishSweep() {
+  if (scan.swept) return;
+  scan = { ...scan, swept: true };
+  notify();
+}
+
 /** Every signal a scan has picked out this visit (found since or not) */
 export const scanned = () => scannedIds;
 
@@ -252,12 +261,12 @@ export const isScanned = (id: string) => scannedIds.includes(id as Signal['id'])
 
 /**
  * What the HUD calls a signal a scan picked out until it is found (its
- * name is what finding it tells you): Contact A, B… in the order scans
- * picked them out
+ * name is what finding it tells you): Signal A, B… in the order scans
+ * picked them out. Not "Contact", which is a page (and its station)
  */
 export function contactName(id: Signal['id']) {
   const index = scannedIds.indexOf(id);
-  return index < 0 ? 'Contact' : `Contact ${String.fromCharCode(65 + index)}`;
+  return index < 0 ? 'Unknown signal' : `Signal ${String.fromCharCode(65 + index)}`;
 }
 
 /**
@@ -318,6 +327,9 @@ const subscribe = (listener: () => void) => {
   };
 };
 const none: readonly string[] = [];
+
+/** Calls `listener` whenever anything here changes (a find, a scan, the detector); returns the unsubscribe */
+export const subscribeSignals = subscribe;
 
 export function useFoundSignals() {
   return useSyncExternalStore(subscribe, readFound, () => none);

@@ -18,6 +18,7 @@ import {
   scanRecharge,
   scanSweep,
   signalAt,
+  subscribeSignals,
   signalCount,
   signals,
   useDetector,
@@ -176,53 +177,60 @@ function scanResult() {
   return `Scan: ${count} · nearest ${Math.round(nearest.distance)} km, ${where}`;
 }
 
-/**
- * Asks for a sonar scan (F in free roam, which ExploreControls dispatches
- * as worldScanEvent, or the Scan button): says it is sweeping, then what
- * it found (how many contacts, how far and which way the nearest is), or
- * how long until the scanner has recharged
- */
-function scan(say: (text: string, then?: () => string, after?: number) => void) {
-  if (worldMode.get().mode !== 'explore' || worldStore.docking) return;
-  if (!requestScan()) {
-    say(`Scanner recharging · ${Math.ceil(scanRecharge())} s`);
-    return;
-  }
-  say('Scanning…', scanResult, scanSweep * 1000 + 150);
-}
+/** How long a "recharging" notice stays up (ms), and the longest a result waits on the sweep */
+const noticeTime = 2500;
+const sweepWait = scanSweep * 1000 + 2500;
 
 /**
- * The sonar scan's status line: it hears every request for a scan (F, the
- * Scan button). Mounted for all of free roam, so the status region is
+ * The sonar scan's status line. It hears every request for a scan (F in
+ * free roam, which ExploreControls dispatches as worldScanEvent, or the
+ * Scan button): says it is sweeping, then, once the canvas has swept out
+ * to detector range (the scan's `swept`), what it found (how many contacts,
+ * how far and which way the nearest is), or how long until the scanner
+ * has recharged. Mounted for all of free roam, so the status region is
  * there before anything is said in it
  */
 export function ScanStatus() {
   const [text, setText] = useState('');
-  const timers = useRef<number[]>([]);
-
-  const say = useEffectEvent((next: string, then?: () => string, after = 0) => {
-    timers.current.forEach((id) => window.clearTimeout(id));
-    setText(next);
-    const clear = () => setText('');
-    if (then) {
-      timers.current = [
-        window.setTimeout(() => {
-          setText(then());
-          timers.current = [window.setTimeout(clear, scanResultTime)];
-        }, after),
-      ];
-    } else {
-      timers.current = [window.setTimeout(clear, 2500)];
-    }
-  });
 
   useEffect(() => {
-    const onScan = () => scan(say);
+    let clearTimer = 0;
+    let stopWaiting = () => {};
+    const say = (next: string, clearAfter = 0) => {
+      window.clearTimeout(clearTimer);
+      setText(next);
+      if (clearAfter) clearTimer = window.setTimeout(() => setText(''), clearAfter);
+    };
+    const onScan = () => {
+      if (worldMode.get().mode !== 'explore' || worldStore.docking) return;
+      if (!requestScan()) {
+        say(`Scanner recharging · ${Math.ceil(scanRecharge())} s`, noticeTime);
+        return;
+      }
+      say('Scanning…');
+      stopWaiting();
+      const at = currentScan().at;
+      const done = () => {
+        stopWaiting();
+        say(scanResult(), scanResultTime);
+      };
+      // The sweep is the canvas's: a slow frame rate mustn't report it early
+      const unsubscribe = subscribeSignals(() => {
+        const latest = currentScan();
+        if (latest.at === at && latest.swept) done();
+      });
+      const fallback = window.setTimeout(done, sweepWait);
+      stopWaiting = () => {
+        unsubscribe();
+        window.clearTimeout(fallback);
+        stopWaiting = () => {};
+      };
+    };
     window.addEventListener(worldScanEvent, onScan);
-    const scheduled = timers;
     return () => {
       window.removeEventListener(worldScanEvent, onScan);
-      scheduled.current.forEach((id) => window.clearTimeout(id));
+      window.clearTimeout(clearTimer);
+      stopWaiting();
     };
   }, []);
 
