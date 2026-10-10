@@ -200,6 +200,42 @@ test.describe('the palette in free roam', () => {
   );
 });
 
+test.describe('the palette after 3D comes back on', () => {
+  test.use({ world: 'on' });
+
+  test(
+    'a flight cut off by switching 3D off does not hold back heading focus at calm',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/about');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      const html = page.locator('html');
+      const toggle = page.getByRole('button', { name: '3D effects' });
+
+      // Switched off mid-flight, the store's flight stays active, short of its
+      // approach. Dispatched: a click would wait for the swaying bar to settle,
+      // which it does only once the flight is over
+      await page.locator('header a[href="/skills"]').first().click();
+      await expect(page.locator('#main-content [data-en-route]')).toBeAttached();
+      await toggle.dispatchEvent('click');
+      await expect(html).toHaveAttribute('data-world', 'off');
+      // Back on at calm, the new canvas snaps and cuts: nothing writes that flight again
+      await page.getByRole('radio', { name: 'Calm' }).check();
+      await toggle.dispatchEvent('click');
+      await expect(html).toHaveAttribute('data-world', 'on');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+
+      const { dialog, input } = await openPalette(page);
+      await input.fill('contact');
+      await page.keyboard.press('Enter');
+      await expect(dialog).toBeHidden();
+      await expect(page).toHaveURL(/\/contact$/);
+      await expect(page.locator('#main-content h1')).toBeFocused({ timeout: 15_000 });
+    }
+  );
+});
+
 test('stats for nerds shows live frame timings', async ({ page }) => {
   await openHydrated(page, '/');
   const { dialog, input } = await openPalette(page);

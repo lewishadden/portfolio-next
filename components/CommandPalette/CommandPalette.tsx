@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 
+import { flightUnderWay, watchCourse } from 'components/HeaderHud/course';
 import { useSound } from 'components/Sound/sound';
 import { answersHail, canHail, hail } from 'components/StationReadout/hail';
 import { statsOverlay } from 'components/StatsOverlay/statsStore';
@@ -145,12 +146,10 @@ function focusHeadingOnArrival(path: string) {
     if (document.activeElement !== from && document.activeElement !== document.body) return;
     const main = document.getElementById('main-content');
     const heading = main?.querySelector<HTMLElement>('h1');
-    const { flight } = worldStore;
-    const root = document.documentElement;
-    const mode = root.dataset.worldMode ?? 'page';
-    // With the world off no flight is under way, whatever the store says (one
-    // cut off with the canvas stays active, short of its approach)
-    const flying = flight.active && !flight.approached && root.dataset.world === 'on';
+    const mode = document.documentElement.dataset.worldMode ?? 'page';
+    // Not the store's flight.active: one cut off with the canvas stays
+    // active, short of its approach, even once 3D is back on (course.ts)
+    const flying = flightUnderWay() && !worldStore.flight.approached;
     const shown =
       window.location.pathname === path &&
       main &&
@@ -213,12 +212,14 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     setActive(-1);
   }, [print]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Heading focus after a navigation waits out a flight (flightUnderWay),
+    // which only course.ts can tell: watched from the start, header HUD or not
+    watchCourse();
+    return () => {
       cancelHire();
-    },
-    []
-  );
+    };
+  }, []);
 
   /** Flies to a page (leaving the tour or free roam if on), then focuses its heading */
   const navigate = useCallback(

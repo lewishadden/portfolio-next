@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 import { stationKeys, stationNames } from 'components/World/routes';
 import { emitCue, worldStore } from 'components/World/worldStore';
 
-import { rangeToGo, watchCourse } from './course';
+import { flightUnderWay, rangeToGo, watchCourse } from './course';
 
 import type { StationKey } from 'components/World/routes';
 
@@ -565,11 +565,11 @@ function aimLock(lock: Lock, index: number, box: Box, now: number, still: boolea
 /** Moves the lock along: in step with the camera's flight, or on its own if there's none */
 function stepLock(lock: Lock, now: number) {
   if (!lock.travelling) return 0;
-  const { flight } = worldStore;
   let progress: number;
-  if (flight.active) {
+  // A flight cut off with the canvas no longer counts (course.ts): the lock lands
+  if (flightUnderWay()) {
     lock.flightSeen = true;
-    progress = smootherstep(flight.progress);
+    progress = smootherstep(worldStore.flight.progress);
   } else if (lock.flightSeen) {
     progress = 1;
   } else {
@@ -688,7 +688,7 @@ function stepSway(s: Sway, dt: number, t: number, hold: boolean) {
 
   // Held still while the loading screen's mark flies into the logo slot
   // (the warp in is a flight): it eases in once the screen has gone
-  const following = worldStore.flight.active && !hold;
+  const following = flightUnderWay() && !hold;
   s.flying += (Number(following) - s.flying) * (1 - Math.exp(-5 * dt));
   if (s.flying < 0.001) s.flying = 0;
   const f = s.flying;
@@ -1045,7 +1045,7 @@ export function HeaderHud({
 
       // The bottom edge: the page's progress, or the flight's course
       const { flight } = worldStore;
-      const flying = flight.active && isStation(flight.to);
+      const flying = flightUnderWay() && isStation(flight.to);
       flightBlend += (Number(flying) - flightBlend) * (1 - Math.exp(-6 * dt));
       if (Math.abs(flightBlend - Number(flying)) < 0.002) flightBlend = Number(flying);
       // Eased towards the course whether or not it's still flying: progress

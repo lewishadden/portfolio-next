@@ -29,6 +29,8 @@ const course: {
   span: number;
 } = { docked: '', from: '', to: '', span: 0 };
 let watching = false;
+/** A flight has set off and not yet arrived, with the world on all the while */
+let live = false;
 
 const isStation = (key: string): key is StationKey => stationKeys.includes(key as StationKey);
 
@@ -55,6 +57,7 @@ export function watchCourse() {
   const root = document.documentElement;
   new MutationObserver(() => {
     if (root.dataset.world === 'on') return;
+    live = false;
     course.docked = '';
     // A flight cut off with the canvas leaves worldStore.flight active and
     // frozen (nothing ends it): forget its course, so nothing counts it down
@@ -76,6 +79,8 @@ export function watchCourse() {
     if (document.querySelector('.world__canvas')) course.docked = stationForPath(location.pathname);
   });
   onFlight((event, to) => {
+    if (event === 'start') live = true;
+    else if (event === 'end') live = false;
     if (!isStation(to)) return;
     if (event === 'start') {
       // From the station docked at; turning round mid-flight, still the one
@@ -102,6 +107,22 @@ export function watchCourse() {
 }
 
 /**
+ * Whether a camera flight is under way (needs watchCourse). The store's
+ * flight.active alone can't tell: a flight cut off with the canvas (3D
+ * switched off on the way) stays active and short of its approach, and a
+ * new canvas below full motion never writes it again (its first placement
+ * is a snap and its moves are cuts), so once 3D was back on at calm or
+ * still it read as a flight forever: the palette never focused the new
+ * page's heading, and at full the HUD's lock and bottom edge froze. Under
+ * way from a flight's 'start' until its 'end' or the world switching off,
+ * and only while the store agrees (a flight cut short by free roam ends
+ * without an 'end')
+ */
+export function flightUnderWay() {
+  return live && worldStore.flight.active;
+}
+
+/**
  * The flight under way: where to and the range still to go in whole km,
  * counting down from the range between the two stations (rangeBetween; for
  * a flight that didn't leave from a station, the distance it set off from)
@@ -110,7 +131,7 @@ export function watchCourse() {
  */
 export function rangeToGo(): { to: StationKey; km: number } | null {
   const { flight } = worldStore;
-  if (!flight.active || !course.to || course.to !== flight.to) return null;
+  if (!flightUnderWay() || !course.to || course.to !== flight.to) return null;
   const km = Math.round(course.span * (1 - smootherstep(flight.progress)));
   return { to: course.to, km };
 }
