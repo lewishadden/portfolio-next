@@ -74,6 +74,31 @@ async function breakTheApp(page: Page) {
   );
 }
 
+/**
+ * Holds the page's HTML up just before ThemeScript, as a stalled connection
+ * can, and fails the first of the chunks whose tags come ahead of it in the
+ * meantime, so it fails before ThemeScript's listeners exist
+ */
+async function stallBeforeThemeScript(page: Page, path: string) {
+  await page.route(`**${path}`, async (route) => {
+    const response = await route.fetch();
+    const html = await response.text();
+    // ThemeScript is the first inline script
+    const at = html.indexOf('<script>');
+    const chunk = html
+      .slice(0, at)
+      .match(/<script src="(\/_next\/static\/chunks\/[^"]+\.js)" async/)?.[1];
+    expect(chunk, 'a chunk loads ahead of ThemeScript').toBeTruthy();
+    await page.route(`**${chunk}`, (failed) => failed.abort('blockedbyclient'));
+    const stall = '<script src="/stall-before-theme-script.js"></script>';
+    await route.fulfill({ response, body: html.slice(0, at) + stall + html.slice(at) });
+  });
+  await page.route('**/stall-before-theme-script.js', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await route.fulfill({ contentType: 'text/javascript', body: '' });
+  });
+}
+
 /** Every script chunk arrives but can't be parsed (an old browser): the app never starts */
 async function garbleTheApp(page: Page) {
   await page.route('**/_next/static/chunks/**', (route) =>
@@ -142,6 +167,22 @@ seeded.describe('when the app never starts', () => {
   seeded.describe('on a narrow screen', () => {
     // Narrow, so the pages open world windows
     seeded.use({ world: 'on', viewport: { width: 390, height: 844 } });
+
+    seeded(
+      'a chunk that fails before ThemeScript runs still closes the world windows at once',
+      async ({ page }) => {
+        await stallBeforeThemeScript(page, '/contact');
+        // A returning visitor: no loading screen
+        await page.addInitScript(() => localStorage.setItem('world-loaded-at', String(Date.now())));
+        await page.goto('/contact', { waitUntil: 'domcontentloaded' });
+        const root = page.locator('html');
+        await expect(root).not.toHaveAttribute('data-boot');
+        // Not left to the give-up at 25s
+        await expect(root).toHaveAttribute('data-world', 'off', { timeout: 5_000 });
+        await expectWorldClosed(page);
+        await expect(root).not.toHaveAttribute('data-hydrated');
+      }
+    );
 
     seeded(
       'chunks that load but cannot be parsed close the world windows at once',

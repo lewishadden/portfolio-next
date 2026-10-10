@@ -129,6 +129,25 @@ export function ThemeScript() {
         var unparsed = target === window && e.error instanceof SyntaxError && ours(e.filename);
         if (unloaded || unparsed) markOff();
       }, true);
+      // Next puts its first chunks' <script> tags ahead of this one, so one can
+      // fail before the listener above exists, and error events aren't replayed.
+      // Resource timings are (buffered), so a chunk that failed to load is found
+      // there whenever it failed, in browsers that report the response's status
+      // (0 when none arrived: a blocker, a dropped connection). Any other failure
+      // missed before this script ran (in other browsers, or a chunk that can't
+      // be parsed) waits for the give-up
+      try {
+        new PerformanceObserver(function(list, observer) {
+          if (running()) return observer.disconnect();
+          list.getEntries().forEach(function(entry) {
+            var status = entry.responseStatus;
+            if (entry.initiatorType === 'script' && ours(entry.name) && typeof status === 'number'
+              && (status === 0 || status >= 400)) {
+              markOff();
+            }
+          });
+        }).observe({ type: 'resource', buffered: true });
+      } catch (e) {}
 
       requestAnimationFrame(function() {
         requestAnimationFrame(function() {
