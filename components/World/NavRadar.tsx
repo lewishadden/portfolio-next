@@ -138,6 +138,8 @@ const scaleBarFor = (scale: number) => barLengths.find((n) => n * scale >= 30) ?
  */
 const zoomOut = 4;
 const zoomIn = 1.5;
+/** Zoomed out past this share of the stations' fit, only the destination is named */
+const crowdedBelow = 0.55;
 /** The edge of the world as the map draws it: a circle on the ground, this many points round */
 const edgeSteps = 64;
 
@@ -187,7 +189,9 @@ function placeLabel(label: string, x: number, y: number, w: number, placed: Box[
     { x: x - 6 - w, y: y - h - 5, w, h },
     { x: x - 6 - w, y: y + 4, w, h },
   ];
-  const inside = (b: Box) => b.x >= 2 && b.x + b.w <= width - 2 && b.y >= 2;
+  // Clear of the bottom line (the distance left and the scale bar)
+  const inside = (b: Box) =>
+    b.x >= 2 && b.x + b.w <= width - 2 && b.y >= 2 && b.y + b.h <= height - 17;
   const box =
     spots.find((b) => inside(b) && !placed.some((p) => overlaps(p, b))) ??
     spots.find(inside) ??
@@ -466,6 +470,7 @@ function paint(
   ctx.font = `500 8.5px ${font}`;
   ctx.textBaseline = 'middle';
   const placed: Box[] = [];
+  const crowded = view.scale < fitScale * crowdedBelow;
   for (const { key, top, foot } of stations) {
     const isTarget = key === target;
     stalk(ctx, top, foot, isTarget ? colours.pink : colours.violet, 0.45);
@@ -485,6 +490,8 @@ function paint(
     ctx.fill();
     ctx.shadowBlur = 0;
 
+    // Zoomed far out the stations bunch up: only the destination keeps its name
+    if (crowded && !isTarget) continue;
     ctx.fillStyle = isTarget ? colours.text : colours.muted;
     const label = stationNames[key as StationKey].page.toUpperCase();
     const box = placeLabel(label, top[0], top[1], ctx.measureText(label).width, placed);
@@ -516,6 +523,7 @@ function paint(
       ctx.beginPath();
       ctx.arc(top[0], top[1], 2.6, 0, Math.PI * 2);
       ctx.fill();
+      if (crowded && !isGoal) continue;
       const label = stationNames.lost.craft.toUpperCase();
       const box = placeLabel(label, top[0], top[1], ctx.measureText(label).width, placed);
       ctx.textAlign = 'left';

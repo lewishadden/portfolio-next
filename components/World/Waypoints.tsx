@@ -21,6 +21,40 @@ export function useAutopilot() {
   return useSyncExternalStore(onAutopilot, readCourse, noCourse);
 }
 
+/** Room an edge marker keeps from the sector map: above and below it, and its label to its right */
+const mapRoom = { y: 26, left: 16, label: 150 };
+
+/** Every how many frames the markers look again for the sector map */
+const mapEvery = 10;
+
+/** The sector map's box while it shows over free roam (NavRadar), or null */
+function mapBox() {
+  const map = document.querySelector<HTMLElement>('.nav-radar--on:not(.nav-radar--clear)');
+  if (!map || getComputedStyle(map).visibility === 'hidden') return null;
+  return map.getBoundingClientRect();
+}
+
+/**
+ * An edge marker that would sit on the sector map moves off it: along its
+ * edge, past the map's end (above or below it on a side, beside it on the
+ * top or bottom), so the map never hides it
+ */
+function clearOfMap(edge: string, x: number, y: number, map: DOMRect | null, w: number, h: number) {
+  if (!edge || !map) return [x, y];
+  const over =
+    x > map.left - mapRoom.left &&
+    x < map.right + mapRoom.left &&
+    y > map.top - mapRoom.y &&
+    y < map.bottom + mapRoom.y;
+  // Its label runs to the right of the mark
+  const labelOver = x + mapRoom.label > map.left && x < map.right && y > map.top && y < map.bottom;
+  if (!over && !labelOver) return [x, y];
+  if (edge === 'side') {
+    return [x, map.top > h / 2 ? map.top - mapRoom.y : map.bottom + mapRoom.y];
+  }
+  return [map.left < w / 2 ? map.right + mapRoom.left : map.left - mapRoom.label, y];
+}
+
 /** Where a marker's station or contact is on screen this frame (see worldStore.waypoints) */
 function markOf(marker: HTMLElement) {
   const { station, signal } = marker.dataset;
@@ -42,8 +76,9 @@ function presenceOf(marker: HTMLElement, distance: number) {
  * its number) sets the autopilot for it. The contacts sonar scans have
  * picked out (not yet found) are marked the same way in amber, and their
  * markers set course for them ('signal:<id>', which parks a little short).
- * Positioned every frame from worldStore.waypoints and contactMarks, which
- * the canvas writes; React only renders them when the contacts change.
+ * Markers riding the edge keep off the sector map. Positioned every frame
+ * from worldStore.waypoints and contactMarks, which the canvas writes;
+ * React only renders them when the contacts change.
  */
 export function Waypoints() {
   const listRef = useRef<HTMLOListElement>(null);
@@ -64,6 +99,8 @@ export function Waypoints() {
     const shown = markers.map(() => '');
     let frame = 0;
 
+    let frames = 0;
+    let map: DOMRect | null = null;
     const xs = markers.map(() => 0);
     const ys = markers.map(() => 0);
     const edges = markers.map(() => '');
@@ -75,6 +112,9 @@ export function Waypoints() {
       const h = window.innerHeight;
       const cx = w / 2;
       const cy = h / 2;
+      // Read before anything is written this frame, every few frames (it
+      // only moves when it shows, hides or the window resizes)
+      if (frames++ % mapEvery === 0) map = mapBox();
       markers.forEach((marker, i) => {
         const waypoint = markOf(marker);
         live[i] = false;
@@ -93,9 +133,8 @@ export function Waypoints() {
           const reachX = dx ? (dx > 0 ? cx - inset.side : inset.side - cx) / dx : Infinity;
           const reachY = dy ? (dy > 0 ? h - inset.bottom - cy : inset.top - cy) / dy : Infinity;
           const reach = Math.max(0, Math.min(reachX, reachY));
-          xs[i] = cx + dx * reach;
-          ys[i] = cy + dy * reach;
           edges[i] = reachX <= reachY ? 'side' : 'end';
+          [xs[i], ys[i]] = clearOfMap(edges[i], cx + dx * reach, cy + dy * reach, map, w, h);
           marker.style.setProperty('--turn', `${Math.atan2(dy, dx)}rad`);
         }
         marker.classList.toggle('waypoint--edge', !waypoint.onScreen);
@@ -137,8 +176,14 @@ export function Waypoints() {
 
       markers.forEach((marker, i) => {
         if (!markOf(marker)) return;
-        const x = edges[i] ? Math.min(Math.max(xs[i], inset.side), w - inset.side) : xs[i];
-        const y = edges[i] ? Math.min(Math.max(ys[i], inset.top), h - inset.bottom) : ys[i];
+        const [x, y] = clearOfMap(
+          edges[i],
+          edges[i] ? Math.min(Math.max(xs[i], inset.side), w - inset.side) : xs[i],
+          edges[i] ? Math.min(Math.max(ys[i], inset.top), h - inset.bottom) : ys[i],
+          map,
+          w,
+          h
+        );
         marker.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
       });
     };
