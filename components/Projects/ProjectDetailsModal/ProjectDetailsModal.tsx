@@ -12,6 +12,7 @@ import { setChrome, worldStore } from 'components/World/worldStore';
 import { ProjectBody, pad, useSlides } from '../ProjectBody/ProjectBody';
 
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { holdLenis } from '@/hooks/useLenisHold';
 import { motionLevel } from '@/utils/motion';
 
 import type { KeyboardEvent } from 'react';
@@ -61,6 +62,12 @@ function flipTransform(from: DOMRect, to: Box) {
 /* Page scroll lock shared by every open dialog (one may still be exiting as another opens) */
 let scrollLocks = 0;
 let lockedY = 0;
+/**
+ * Lets go of Lenis: the lock holds it through the shared hold
+ * (useLenisHold), so closing a dialog under the command palette (Back
+ * while the palette is open) doesn't start the page scrolling under it
+ */
+let releaseLenis: (() => void) | null = null;
 
 // overflow: hidden stops the visitor scrolling, but not programmatic scrolls
 // (find-in-page, assistive tech, scrollIntoView) — put the page straight back
@@ -75,18 +82,19 @@ function lockScroll(lenis: Lenis | undefined) {
   const root = document.documentElement;
   root.style.overflow = 'hidden';
   root.style.scrollbarGutter = 'stable';
-  lenis?.stop();
+  releaseLenis = lenis ? holdLenis(lenis) : null;
   window.addEventListener('scroll', holdScroll);
 }
 
-function unlockScroll(lenis: Lenis | undefined) {
+function unlockScroll() {
   scrollLocks = Math.max(0, scrollLocks - 1);
   if (scrollLocks > 0) return;
   window.removeEventListener('scroll', holdScroll);
   const root = document.documentElement;
   root.style.overflow = '';
   root.style.scrollbarGutter = '';
-  lenis?.start();
+  releaseLenis?.();
+  releaseLenis = null;
 }
 
 export function ProjectDetailsModal({
@@ -207,7 +215,7 @@ export function ProjectDetailsModal({
   // Freeze the page (native + Lenis smooth scroll) behind the dialog
   useEffect(() => {
     lockScroll(lenis);
-    return () => unlockScroll(lenis);
+    return () => unlockScroll();
   }, [lenis]);
 
   // Escape closes from anywhere

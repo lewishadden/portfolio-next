@@ -12,12 +12,16 @@ import type Lenis from 'lenis';
  * mobile menu (or the loading screen) restarted Lenis while the menu still
  * needed the page held. Holders here share one hold, and Lenis restarts
  * only when the last lets go, and only if it was running when the first
- * took hold (the project modal's scroll lock stops it on its own).
+ * took hold. The project modal's scroll lock holds it the same way.
  */
 const holders = new Set<symbol>();
 let resume = false;
 
-function hold(lenis: Lenis) {
+/**
+ * Holds the page still alongside any other holder; call what it returns to
+ * let go. For code outside a component (the project modal's scroll lock)
+ */
+export function holdLenis(lenis: Lenis) {
   const key = Symbol('lenis-hold');
   if (!holders.size) resume = !lenis.isStopped;
   holders.add(key);
@@ -33,6 +37,6 @@ export function useLenisHold(active: boolean) {
   const lenis = useLenis();
   useEffect(() => {
     if (!active || !lenis) return;
-    return hold(lenis);
+    return holdLenis(lenis);
   }, [active, lenis]);
 }
