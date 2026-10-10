@@ -146,14 +146,18 @@ function focusHeadingOnArrival(path: string) {
     const main = document.getElementById('main-content');
     const heading = main?.querySelector<HTMLElement>('h1');
     const { flight } = worldStore;
-    const mode = document.documentElement.dataset.worldMode ?? 'page';
+    const root = document.documentElement;
+    const mode = root.dataset.worldMode ?? 'page';
+    // With the world off no flight is under way, whatever the store says (one
+    // cut off with the canvas stays active, short of its approach)
+    const flying = flight.active && !flight.approached && root.dataset.world === 'on';
     const shown =
       window.location.pathname === path &&
       main &&
       heading &&
       !main.inert &&
       mode === 'page' &&
-      (!flight.active || flight.approached) &&
+      !flying &&
       heading.getClientRects().length > 0;
     if (!shown) {
       requestAnimationFrame(step);

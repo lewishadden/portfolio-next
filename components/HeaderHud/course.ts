@@ -54,7 +54,12 @@ export function watchCourse() {
   });
   const root = document.documentElement;
   new MutationObserver(() => {
-    if (root.dataset.world !== 'on') course.docked = '';
+    if (root.dataset.world === 'on') return;
+    course.docked = '';
+    // A flight cut off with the canvas leaves worldStore.flight active and
+    // frozen (nothing ends it): forget its course, so nothing counts it down
+    // forever; the next flight's 'start' sets one again
+    course.to = '';
   }).observe(root, { attributes: true, attributeFilter: ['data-world'] });
   // Below full motion the camera's first placement is a snap, which
   // announces no arrival: docked stayed '' with the camera at the page's
@@ -101,6 +106,7 @@ export function watchCourse() {
  * counting down from the range between the two stations (rangeBetween; for
  * a flight that didn't leave from a station, the distance it set off from)
  * to 0 on arrival, in step with the camera; null when there's no flight
+ * (or the world was switched off during it)
  */
 export function rangeToGo(): { to: StationKey; km: number } | null {
   const { flight } = worldStore;
