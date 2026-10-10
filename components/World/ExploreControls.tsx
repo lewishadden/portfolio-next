@@ -6,6 +6,7 @@ import { CatmullRomCurve3, Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } f
 
 import { motionLevel } from '@/utils/motion';
 
+import { ambientTime } from './clock';
 import { colliderCount, contactWith, courseBlock, shipMargin } from './colliders';
 import {
   aimingReticle,
@@ -321,18 +322,25 @@ const contact: Contact = { normal: new Vector3(), gap: 0, point: new Vector3() }
 /** The ship's velocity going into a hull, before it bounced */
 const incoming = new Vector3();
 
-/** Colliders the ship is already inside as free roam starts: left alone until it is clear of them */
-function excuseColliders(position: Vector3, t: number, state: LookState) {
+/**
+ * Colliders the ship is already inside as free roam starts: left alone
+ * until it is clear of them (`idle`: ambient time, where the comet is)
+ */
+function excuseColliders(position: Vector3, idle: number, state: LookState) {
   state.excused.clear();
   for (let i = 0; i < colliderCount; i++) {
-    if (contactWith(i, position, t, contact)) state.excused.add(i);
+    if (contactWith(i, position, idle, contact)) state.excused.add(i);
   }
 }
 
-/** Pushes the ship back out of anything it has flown into, bouncing off rather than grinding along */
-function collide(cam: PerspectiveCamera, t: number, state: LookState) {
+/**
+ * Pushes the ship back out of anything it has flown into, bouncing off
+ * rather than grinding along (`t`: the clock, timing the knocks; `idle`:
+ * ambient time, where the comet is)
+ */
+function collide(cam: PerspectiveCamera, t: number, idle: number, state: LookState) {
   for (let i = 0; i < colliderCount; i++) {
-    if (!contactWith(i, cam.position, t, contact)) {
+    if (!contactWith(i, cam.position, idle, contact)) {
       state.excused.delete(i);
       continue;
     }
@@ -454,8 +462,8 @@ const isStation = (course: string): course is StationKey =>
  * arrival), `goal` (where to park) and `targetVelocity` (how fast that is
  * moving). A station key parks in front of the station; 'signal:<id>'
  * parks a little short of that signal on the ship's side (the comet
- * followed along its orbit, `t` the clock). Which it is, or null for a
- * course that leads nowhere
+ * followed along its orbit, `t` ambient time, which holds at the still
+ * level). Which it is, or null for a course that leads nowhere
  */
 function resolveCourse(course: string, from: Vector3, t: number): 'station' | 'signal' | null {
   targetVelocity.set(0, 0, 0);
@@ -469,9 +477,12 @@ function resolveCourse(course: string, from: Vector3, t: number): 'station' | 's
     : undefined;
   if (!signal) return null;
   if (signal.id === 'comet') {
-    // How fast it is moving along its orbit, so the ship can match it
+    // How fast it is moving along its orbit, so the ship can match it (not
+    // at all at the still level, where it holds)
     cometAt(t, station);
-    targetVelocity.subVectors(cometAt(t + 0.05, comet), station).divideScalar(0.05);
+    if (motionLevel() !== 'still') {
+      targetVelocity.subVectors(cometAt(t + 0.05, comet), station).divideScalar(0.05);
+    }
   } else station.fromArray(signal.position);
   goal.subVectors(from, station);
   if (goal.lengthSq() < 1e-6) goal.set(0, 0, 1);
@@ -739,6 +750,9 @@ export function ExploreControls() {
 
   useFrame((root, delta) => {
     const { camera, clock, scene } = root;
+    // Where the comet is (and so the courses to it and its collider) goes
+    // by ambient time, as Signals draws it; the clock times events
+    const idle = ambientTime(root);
     const state = look.current;
     const yawBefore = state.yaw;
     const dt = Math.min(delta, 1 / 20);
@@ -752,7 +766,7 @@ export function ExploreControls() {
         setAutopilot('');
         setDocking('');
         stopAiming(root, state);
-        trackCourse('', camera.position, clock.elapsedTime, state);
+        trackCourse('', camera.position, idle, state);
         worldStore.edge = 0;
       }
       return;
@@ -776,7 +790,7 @@ export function ExploreControls() {
       exploreInput.lookY = 0;
       // Free roam starts wherever the page left the camera, which can be
       // closer to a craft than the ship is held: no shove out on the first frame
-      excuseColliders(cam.position, clock.elapsedTime, state);
+      excuseColliders(cam.position, idle, state);
     }
 
     // Read every frame, so a change of level applies mid-flight
@@ -815,12 +829,12 @@ export function ExploreControls() {
     exploreInput.lookY = 0;
 
     const course = worldStore.autopilot;
-    trackCourse(course, cam.position, clock.elapsedTime, state);
+    trackCourse(course, cam.position, idle, state);
     if (worldStore.docking) {
       // Docking: hands off the controls, coast to a stop facing the station
       settle(stationForPath(worldStore.docking), state, cam, dt);
     } else if (course) {
-      if (flyTo(course, state, cam, clock.elapsedTime, dt)) setAutopilot('');
+      if (flyTo(course, state, cam, idle, dt)) setAutopilot('');
     } else {
       // Thrust along where the camera faces, with drag
       forward.set(0, 0, -1).applyEuler(euler.set(state.pitch, state.yaw, 0, 'YXZ'));
@@ -857,7 +871,7 @@ export function ExploreControls() {
 
     // Hulls (and the proxies round beams, helices and craft) push back: a
     // hard knock jolts the view, flashes the HUD and thuds
-    collide(cam, clock.elapsedTime, state);
+    collide(cam, clock.elapsedTime, idle, state);
     // A last stop just past the edge, well short of its shimmer (EdgeShimmer)
     fromCentre = cam.position.distanceTo(centre);
     if (fromCentre > sectorRadius + edgeSlack) {

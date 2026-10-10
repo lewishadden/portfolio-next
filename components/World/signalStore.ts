@@ -93,8 +93,9 @@ export const cometOrbit = { x: 170, y: 24, z: 120, period: 150 };
 const cometCentre = signals.find((signal) => signal.id === 'comet')!.position;
 
 /**
- * Where the comet is at clock time `t` (the world canvas's clock: see
- * `signalTime`), written into `out` (a fresh point by default)
+ * Where the comet is at ambient time `t` (the world canvas's idle-motion
+ * time, which holds at the still level: see `signalTime`), written into
+ * `out` (a fresh point by default)
  */
 export function cometAt<T extends WorldPoint = WorldPoint>(
   t: number,
@@ -107,19 +108,19 @@ export function cometAt<T extends WorldPoint = WorldPoint>(
   return out;
 }
 
-/** The clock time the canvas last placed the signals at (Signals.tsx), for DOM code following the comet */
-let clockTime = 0;
+/** The ambient time the canvas last placed the signals at (Signals.tsx), for DOM code following the comet */
+let placedAt = 0;
 
 export function setSignalTime(t: number) {
-  clockTime = t;
+  placedAt = t;
 }
 
-/** The clock time the comet was last placed for: `cometAt(signalTime())` is where it is drawn */
-export const signalTime = () => clockTime;
+/** The ambient time the comet was last placed for: `cometAt(signalTime())` is where it is drawn */
+export const signalTime = () => placedAt;
 
 /** Where a signal is now (the comet moves along its orbit) */
 export function signalAt(signal: Signal, out: WorldPoint = { x: 0, y: 0, z: 0 }) {
-  if (signal.id === 'comet') return cometAt(clockTime, out);
+  if (signal.id === 'comet') return cometAt(placedAt, out);
   [out.x, out.y, out.z] = signal.position;
   return out;
 }

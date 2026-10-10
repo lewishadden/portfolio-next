@@ -80,7 +80,7 @@ export const colliderCount = shapes.length;
 const toPoint = new Vector3();
 const segment = new Vector3();
 
-/** Fills `out` for the ship at `position` against one solid (`t`: clock time, for the comet) */
+/** Fills `out` for the ship at `position` against one solid (`t`: ambient time, for the comet) */
 function measure(shape: Shape, position: Vector3, t: number, out: Contact) {
   const { normal } = out;
   switch (shape.kind) {

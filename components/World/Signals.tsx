@@ -20,7 +20,7 @@ import {
 
 import { motionLevel } from '@/utils/motion';
 
-import { pastStamp } from './clock';
+import { ambientTime, pastStamp } from './clock';
 import { asGlow, createFresnelMaterial } from './materials';
 import { Antenna, NavLights, partMaterials, SolarArray, Truss } from './parts';
 import { spawnPing } from './Pings';
@@ -456,24 +456,29 @@ export function Signals({ theme }: { theme: WorldTheme }) {
   useEffect(() => applySignalsTheme(assets, theme, gl), [assets, theme, gl]);
   useEffect(() => () => disposeAssets(assets), [assets]);
 
-  useFrame(({ camera, clock }, delta) => {
+  useFrame((root, delta) => {
     const group = groupRef.current;
     if (!group) return;
+    const { camera, clock } = root;
+    // Finds (the burst, the nameplate) are timed by the clock; the craft's
+    // tumble, the glow's pulse and the comet's orbit are idle motion, which
+    // holds at the still level (ambientTime)
     const t = clock.elapsedTime;
+    const idle = ambientTime(root);
     const dt = Math.min(delta, 0.05);
     const exploring = worldMode.get().mode === 'explore';
     const flickers = motionLevel() === 'full';
     let nearest = Infinity;
-    // The HUD and the sector map follow the comet by this clock
-    setSignalTime(t);
+    // The HUD, the sector map and the autopilot follow the comet by this time
+    setSignalTime(idle);
 
     signals.forEach((signal, i) => {
       const node = group.children[i] as Group | undefined;
       if (!node) return;
-      if (signal.id === 'comet') cometAt(t, node.position);
+      if (signal.id === 'comet') cometAt(idle, node.position);
       const model = node.children[0];
       if (model && signal.id !== 'derelict') {
-        model.rotation.set(t * 0.11 + i, t * 0.07 * (i % 2 ? 1 : -1), t * 0.05);
+        model.rotation.set(idle * 0.11 + i, idle * 0.07 * (i % 2 ? 1 : -1), idle * 0.05);
       }
       const glow = node.children[child.glow] as Sprite;
       const logged = node.children[child.logged] as Sprite;
@@ -494,7 +499,7 @@ export function Signals({ theme }: { theme: WorldTheme }) {
       } else {
         const target = exploring && !found ? MathUtils.smoothstep(distance, 10, 40) : 0;
         glowMaterial.opacity = MathUtils.damp(glowMaterial.opacity, target, 3, dt);
-        glow.scale.setScalar(glowSize * (0.85 + 0.15 * Math.sin(t * 2.6 + i)));
+        glow.scale.setScalar(glowSize * (0.85 + 0.15 * Math.sin(idle * 2.6 + i)));
       }
       glow.visible = glowMaterial.opacity > 0.01;
 
