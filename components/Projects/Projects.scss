@@ -170,11 +170,13 @@
     color: var(--text-primary);
   }
 
+  /* Secondary, not muted: the meta row isn't a guarded block, and the
+     muted grey fell to 3.1:1 over the light theme's lattice */
   &__of {
     font-family: var(--font-mono);
     font-size: var(--fs-tiny);
     letter-spacing: 0.1em;
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
 
   &__rule {
@@ -266,6 +268,12 @@
     font-size: var(--fs-xs);
     color: var(--accent-secondary);
     text-underline-offset: 4px;
+
+    /* Small text: the accent is marginal on the light backdrop (4.2:1 with
+       the world off); the HUD's darker cyan isn't */
+    [data-theme='light'] & {
+      color: var(--hud-text);
+    }
 
     &:hover,
     &:focus-visible {
