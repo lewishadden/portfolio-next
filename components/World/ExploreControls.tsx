@@ -107,6 +107,9 @@ const detour = new Vector3();
 const roundWay = new Vector3();
 const radial = new Vector3();
 const across = new Vector3();
+/** Where the course is headed: what it is following, if anything (the comet moves) */
+const targetVelocity = new Vector3();
+const comet = new Vector3();
 
 const dockRange = 18;
 /** Pointer locked: radians of turn per pixel the mouse moves */
@@ -144,6 +147,15 @@ const rounding = 22;
 const autoSpeed = 58;
 const autoBrake = 16;
 const autoTurn = 1.7;
+/**
+ * Autopilot's last stretch: how quickly the ship's speed answers the
+ * autopilot (per second) far out and close in, and the speed it wants per
+ * unit still to go once that close. A quarter of the response is
+ * critically damped, so it eases into where it parks without overshooting
+ * (a signal's craft is only a few units past its stand-off)
+ */
+const autoResponse = { far: 2.6, near: 6 };
+const autoEase = autoResponse.near / 4;
 /** Mouse travel (px, locked) that takes the controls back from the autopilot */
 const takeOver = 80;
 /** Autopilot: points along the course it publishes for the radar and the course line */
@@ -157,10 +169,11 @@ const courseDrift = 4;
 const replanEvery = 0.5;
 /**
  * Autopilot to a signal ('signal:<id>'): parks this far short of it, on
- * the ship's side (further from the derelict, whose wreck spreads wide)
+ * the ship's side (further from the derelict, whose wreck spreads wide and
+ * sits a few units towards the line of stations: colliders.ts)
  */
 const standOff = 6;
-const standOffFor: Partial<Record<Signal['id'], number>> = { derelict: 9 };
+const standOffFor: Partial<Record<Signal['id'], number>> = { derelict: 11 };
 /** Free roam: how far ahead the reticle picks things out (world units), and every how many frames it looks */
 const reach = 60;
 const aimEvery = 3;
@@ -438,12 +451,14 @@ const isStation = (course: string): course is StationKey =>
 
 /**
  * Where a course leads, seen from `from`: into `station` (what to face on
- * arrival) and `goal` (where to park). A station key parks in front of the
- * station; 'signal:<id>' parks a little short of that signal on the ship's
- * side (the comet followed along its orbit, `t` the clock). Which it is,
- * or null for a course that leads nowhere
+ * arrival), `goal` (where to park) and `targetVelocity` (how fast that is
+ * moving). A station key parks in front of the station; 'signal:<id>'
+ * parks a little short of that signal on the ship's side (the comet
+ * followed along its orbit, `t` the clock). Which it is, or null for a
+ * course that leads nowhere
  */
 function resolveCourse(course: string, from: Vector3, t: number): 'station' | 'signal' | null {
+  targetVelocity.set(0, 0, 0);
   if (isStation(course)) {
     station.fromArray(stationPositions[course]);
     goal.copy(station).add(approach);
@@ -453,8 +468,11 @@ function resolveCourse(course: string, from: Vector3, t: number): 'station' | 's
     ? signals.find((s) => s.id === course.slice('signal:'.length))
     : undefined;
   if (!signal) return null;
-  if (signal.id === 'comet') cometAt(t, station);
-  else station.fromArray(signal.position);
+  if (signal.id === 'comet') {
+    // How fast it is moving along its orbit, so the ship can match it
+    cometAt(t, station);
+    targetVelocity.subVectors(cometAt(t + 0.05, comet), station).divideScalar(0.05);
+  } else station.fromArray(signal.position);
   goal.subVectors(from, station);
   if (goal.lengthSq() < 1e-6) goal.set(0, 0, 1);
   goal.setLength(standOffFor[signal.id] ?? standOff).add(station);
@@ -543,15 +561,24 @@ function flyTo(course: string, state: LookState, cam: PerspectiveCamera, t: numb
 
   forward.set(0, 0, -1).applyEuler(euler.set(state.pitch, state.yaw, 0, 'YXZ'));
   const facing = distance > 1e-3 ? forward.dot(view.copy(wish).divideScalar(distance)) : 1;
-  // Faster than it can stop in would overshoot: v² = 2·a·d
+  // Faster than it can stop in would overshoot: v² = 2·a·d. Close in it
+  // eases in like a damped spring, answering faster, so it comes to rest
+  // where it parks rather than coasting on past
+  const response = MathUtils.lerp(
+    autoResponse.far,
+    autoResponse.near,
+    1 - MathUtils.smoothstep(left, 10, 30)
+  );
   const speed =
-    Math.min(autoSpeed, Math.sqrt(2 * autoBrake * left)) *
+    Math.min(autoSpeed, Math.sqrt(2 * autoBrake * left), autoEase * left) *
     (settling ? 1 : MathUtils.smoothstep(facing, 0.35, 0.9));
-  wish.setLength(speed);
-  velocity.lerp(wish, 1 - Math.exp(-2.6 * dt));
+  // Brakes to the target's own speed, so it closes on the comet as it moves
+  wish.setLength(speed).add(targetVelocity);
+  velocity.lerp(wish, 1 - Math.exp(-response * dt));
   const aligned = Math.abs(yaw - state.yaw) < 0.05 && Math.abs(pitch - state.pitch) < 0.05;
-  // A signal can be on the move (the comet): close by and facing it is arrived
-  const still = kind === 'signal' || velocity.length() < 3;
+  // Arrived once close, facing it and moving with it: handing back sooner
+  // would leave the ship coasting on into the craft it stood off from
+  const still = velocity.distanceTo(targetVelocity) < 3;
   return settling && distance < 2 && still && aligned;
 }
 
