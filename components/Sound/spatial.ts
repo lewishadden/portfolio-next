@@ -167,6 +167,10 @@ const powerTime = 0.05;
 /** Seconds the listener takes to follow the live camera, and to glide when there isn't one */
 const followTime = 0.04;
 const glideTime = 1.2;
+/** The smoothing (time constant, seconds) the listener and the placed cues are moved with each frame */
+const moveTime = 0.03;
+/** Seconds the detector's ping and its echo ring */
+const sonarTail = 0.6;
 
 type Point = readonly [number, number, number];
 
@@ -185,9 +189,16 @@ interface Voice {
   at: Point;
 }
 
-/** One of the panners placed cues play through, and when (context time) its last cue dies away */
+/**
+ * A panner placed cues play through: where in the world its cue happens,
+ * where it was last put for that (heardAt), and when (context time) the
+ * cue dies away. While the cue rings it is moved with the listener
+ * (track), so it stays where it is from the camera
+ */
 interface CuePanner {
   panner: PannerNode;
+  at: Point;
+  heard: [number, number, number];
   busyUntil: number;
 }
 
@@ -195,7 +206,7 @@ export interface Space {
   voices: Record<StationKey, Voice>;
   cues: CuePanner[];
   /** The detector's sonar: a panner of its own, set where the nearest unfound signal is */
-  sonar: PannerNode;
+  sonar: CuePanner;
   /** The reverb near hulls (desktop only): its loudness and the level it was last set to */
   reverb: { wet: GainNode; level: number } | null;
   /** The listener, eased towards the camera (forward is kept a unit vector) */
@@ -221,11 +232,40 @@ function place(panner: PannerNode, [x, y, z]: Point, time: number) {
   }
 }
 
+/** Moves a panner smoothly towards a point, from context time `time` */
+function glideTo(node: PannerNode, [x, y, z]: Point, time: number) {
+  if (hasParams(node)) {
+    node.positionX.setTargetAtTime(x, time, moveTime);
+    node.positionY.setTargetAtTime(y, time, moveTime);
+    node.positionZ.setTargetAtTime(z, time, moveTime);
+  } else {
+    node.setPosition(x, y, z);
+  }
+}
+
 /** HRTF on desktop; equal power on lite devices, where HRTF convolvers are a lot for the audio thread */
 function makePanner(ctx: AudioContext, lite: boolean) {
   const panner = ctx.createPanner();
   panner.panningModel = lite ? 'equalpower' : 'HRTF';
   return panner;
+}
+
+/** A panner for placed cues, falling away from `refDistance` units by `rolloffFactor` */
+function cuePanner(
+  ctx: AudioContext,
+  lite: boolean,
+  out: AudioNode,
+  send: AudioNode | null,
+  refDistance: number,
+  rolloffFactor: number
+): CuePanner {
+  const panner = makePanner(ctx, lite);
+  panner.distanceModel = 'inverse';
+  panner.refDistance = refDistance;
+  panner.rolloffFactor = rolloffFactor;
+  panner.connect(out);
+  if (send) panner.connect(send);
+  return { panner, at: [0, 0, 0], heard: [0, 0, 0], busyUntil: 0 };
 }
 
 /** The reverb's impulse: stereo noise dying away over `reverbTail` seconds, darker as it fades */
@@ -319,26 +359,13 @@ export function buildSpace(ctx: AudioContext, out: AudioNode): Space {
 
   const cues: CuePanner[] = [];
   for (let i = 0; i < cuePool; i++) {
-    const panner = makePanner(ctx, lite);
-    panner.distanceModel = 'inverse';
-    panner.refDistance = cueNear;
-    panner.rolloffFactor = cueRolloff;
-    panner.connect(out);
-    if (send) panner.connect(send);
-    cues.push({ panner, busyUntil: 0 });
+    cues.push(cuePanner(ctx, lite, out, send, cueNear, cueRolloff));
   }
-
-  const sonar = makePanner(ctx, lite);
-  sonar.distanceModel = 'inverse';
-  sonar.refDistance = sonarNear;
-  sonar.rolloffFactor = sonarRolloff;
-  sonar.connect(out);
-  if (send) sonar.connect(send);
 
   return {
     voices,
     cues,
-    sonar,
+    sonar: cuePanner(ctx, lite, out, send, sonarNear, sonarRolloff),
     reverb,
     ear: { x: 0, y: 0, z: 0, fx: 0, fy: 0, fz: -1, primed: false },
     params: hasParams(ctx.listener),
@@ -349,10 +376,21 @@ export function buildSpace(ctx: AudioContext, out: AudioNode): Space {
  * Where a cue at `at` is heard from: placed where it is from the camera,
  * not from the listener, which glides after a camera that cut (below full
  * motion, or a new page with the world off) and would hear a cue at the
- * station it cut to from far off
+ * station it cut to from far off. Written into `into`
  */
-function heardAt({ ear }: Space, [x, y, z]: Point): Point {
-  return [x + ear.x - aim.x, y + ear.y - aim.y, z + ear.z - aim.z];
+function heardAt({ ear }: Space, [x, y, z]: Point, into: [number, number, number]) {
+  into[0] = x + ear.x - aim.x;
+  into[1] = y + ear.y - aim.y;
+  into[2] = z + ear.z - aim.z;
+  return into;
+}
+
+/** Holds a panner for a cue at `at`, from context time `start` until `until` */
+function hold(space: Space, cue: CuePanner, at: Point, start: number, until: number) {
+  cue.at = [at[0], at[1], at[2]];
+  cue.busyUntil = until;
+  place(cue.panner, heardAt(space, cue.at, cue.heard), start);
+  return cue.panner;
 }
 
 /**
@@ -363,15 +401,38 @@ function heardAt({ ear }: Space, [x, y, z]: Point): Point {
 export function cueOut(space: Space, at: Point, start: number, tail: number): AudioNode {
   let pick = space.cues[0];
   for (const cue of space.cues) if (cue.busyUntil < pick.busyUntil) pick = cue;
-  pick.busyUntil = start + tail;
-  place(pick.panner, heardAt(space, at), start);
-  return pick.panner;
+  return hold(space, pick, at, start, start + tail);
 }
 
 /** Where the detector's sonar plays into: its own panner, set at the signal from context time `start` */
 export function sonarOut(space: Space, at: Point, start: number): AudioNode {
-  place(space.sonar, heardAt(space, at), start);
-  return space.sonar;
+  return hold(space, space.sonar, at, start, start + sonarTail);
+}
+
+const moved: [number, number, number] = [0, 0, 0];
+
+/** Moves a ringing cue's panner to where its cue is from the camera now, if that has changed */
+function retrack(space: Space, cue: CuePanner, now: number) {
+  if (cue.busyUntil <= now) return;
+  const [x, y, z] = heardAt(space, cue.at, moved);
+  const { heard } = cue;
+  if (Math.abs(x - heard[0]) + Math.abs(y - heard[1]) + Math.abs(z - heard[2]) < 0.01) return;
+  heard[0] = x;
+  heard[1] = y;
+  heard[2] = z;
+  glideTo(cue.panner, heard, now);
+}
+
+/**
+ * Every frame, the cues still ringing follow the listener: placed only as
+ * they start, a long one (the 4.3s launch, a station powering up, the
+ * arrival chime) drifted away and behind as the listener glided after a
+ * camera that cut, and was heard at a third of its level. Moved with the
+ * listener's own smoothing, so the two stay in step
+ */
+function track(space: Space, now: number) {
+  for (const cue of space.cues) retrack(space, cue, now);
+  retrack(space, space.sonar, now);
 }
 
 /** Where a station's voice sings from: cues from the station itself play from here */
@@ -485,18 +546,19 @@ export function listen(space: Space, ctx: AudioContext, dt: number) {
   }
 
   const { listener } = ctx;
+  const now = ctx.currentTime;
   if (space.params) {
-    const now = ctx.currentTime;
-    listener.positionX.setTargetAtTime(ear.x, now, 0.03);
-    listener.positionY.setTargetAtTime(ear.y, now, 0.03);
-    listener.positionZ.setTargetAtTime(ear.z, now, 0.03);
-    listener.forwardX.setTargetAtTime(ear.fx, now, 0.03);
-    listener.forwardY.setTargetAtTime(ear.fy, now, 0.03);
-    listener.forwardZ.setTargetAtTime(ear.fz, now, 0.03);
+    listener.positionX.setTargetAtTime(ear.x, now, moveTime);
+    listener.positionY.setTargetAtTime(ear.y, now, moveTime);
+    listener.positionZ.setTargetAtTime(ear.z, now, moveTime);
+    listener.forwardX.setTargetAtTime(ear.fx, now, moveTime);
+    listener.forwardY.setTargetAtTime(ear.fy, now, moveTime);
+    listener.forwardZ.setTargetAtTime(ear.fz, now, moveTime);
   } else {
     listener.setPosition(ear.x, ear.y, ear.z);
     listener.setOrientation(ear.fx, ear.fy, ear.fz, 0, 1, 0);
   }
+  track(space, now);
   ring(space, ctx);
   tune(space, ctx, dt, live);
 }

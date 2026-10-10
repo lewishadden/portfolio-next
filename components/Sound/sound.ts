@@ -529,7 +529,10 @@ const centred = new Set<Cue>([
   'blip',
 ]);
 
-/** Roughly how long each placed cue rings (seconds), so its panner isn't moved while it does */
+/**
+ * Roughly how long each placed cue rings (seconds): its panner isn't given
+ * to another cue while it does, and follows the listener until it ends
+ */
 const tails: Partial<Record<Cue, number>> = {
   edge: 1.6,
   hail: 1.3,
