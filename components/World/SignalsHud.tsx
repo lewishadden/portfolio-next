@@ -99,6 +99,36 @@ const subscribeOffer = (listener: () => void) => {
 const readOffer = () => !!worldStore.dock && !worldStore.autopilot;
 const noOffer = () => false;
 
+/**
+ * The control with keyboard focus that takes Enter itself (null for none):
+ * the HUD's ↵ hints hide while it has focus, since Enter is its then. A
+ * course or dock change removes HUD buttons, and only some browsers
+ * (Chrome) report a focused one going, so it's read again once drawn
+ */
+const subscribeFocus = (listener: () => void) => {
+  let frame = 0;
+  const stopOffer = subscribeOffer(() => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(listener);
+  });
+  document.addEventListener('focusin', listener);
+  document.addEventListener('focusout', listener);
+  return () => {
+    stopOffer();
+    cancelAnimationFrame(frame);
+    document.removeEventListener('focusin', listener);
+    document.removeEventListener('focusout', listener);
+  };
+};
+const readFocus = () =>
+  document.activeElement instanceof Element ? document.activeElement.closest(enterTargets) : null;
+const noFocus = () => null;
+
+/** The focused control that takes Enter itself, null for none (as the HUD's Enter handlers test it) */
+export function useEnterControl() {
+  return useSyncExternalStore(subscribeFocus, readFocus, noFocus);
+}
+
 /** The ship is parked where the autopilot leaves it in front of `station` */
 function parkedAt(station: StationKey) {
   const [x, y, z] = stationPositions[station];
@@ -355,8 +385,10 @@ export function SignalCard({
   // The find whose card has keyboard focus in it ('' for none): it stays up
   const [focusedOn, setFocusedOn] = useState('');
   const held = !!latest && focusedOn === latest;
-  // Enter docks while a dock is offered, so the card's choices show no ↵ then
+  // Enter docks while a dock is offered, and is a focused control's own
+  // (a station marker, Exit, one of the card's choices), so no ↵ then
   const dockOffered = useSyncExternalStore(subscribeOffer, readOffer, noOffer);
+  const control = useEnterControl();
 
   useEffect(() => {
     if (!latest || held) return;
@@ -457,7 +489,7 @@ export function SignalCard({
     signal.action,
     complete && signal.action?.kind !== 'page' ? allFound.action : undefined,
   ].filter((action): action is SignalAction => !!action);
-  const hint = !touch && !held && !dockOffered;
+  const hint = !touch && !control && !dockOffered;
   return (
     <div
       ref={cardRef}

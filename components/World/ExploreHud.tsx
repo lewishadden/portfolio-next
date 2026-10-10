@@ -24,6 +24,7 @@ import {
   SignalDetector,
   signalName,
   useDockOnArrival,
+  useEnterControl,
 } from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
@@ -606,6 +607,7 @@ export function ExploreHud({
   const course = useAutopilot();
   // A signal's page action sets course for that page's station, to dock on arrival
   const docksOnArrival = useDockOnArrival();
+  const control = useEnterControl();
   const touch = useMediaQuery('(pointer: coarse)');
   // Phones held upright: the thumbsticks fill the bottom, so the autopilot's
   // status and the dock prompt sit under the top bar instead
@@ -671,6 +673,10 @@ export function ExploreHud({
       </div>
     );
   }
+  // The dock prompt's ↵ shows while Enter docks: not while another focused
+  // control takes it, bar the marker of the station here and its own button
+  const enterDocks =
+    !control || !!control.closest(`.waypoint[data-station="${dock}"], .explore-hud__dock`);
   // The autopilot's status replaces the dock prompt until it arrives
   const status = (
     <>
@@ -703,7 +709,7 @@ export function ExploreHud({
             onClick={() => onDockRequest(stationPaths[dock])}
           >
             Dock at {stationNames[dock].page}
-            {!touch && <kbd>↵</kbd>}
+            {!touch && enterDocks && <kbd>↵</kbd>}
           </button>
         </div>
       )}
