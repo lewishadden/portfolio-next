@@ -328,11 +328,21 @@ function stalk(
   ctx.globalAlpha = 1;
 }
 
-/** A ring pulsing out round the destination */
-function pulse(ctx: CanvasRenderingContext2D, x: number, y: number, colour: string, now: number) {
-  const phase = (now / 900) % 1;
+/**
+ * A ring pulsing out round the destination. Below full motion it holds
+ * still, as the map's sway and marching dashes do
+ */
+function pulse(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  colour: string,
+  now: number,
+  still: boolean
+) {
+  const phase = still ? 0.5 : (now / 900) % 1;
   ctx.strokeStyle = colour;
-  ctx.globalAlpha = 1 - phase;
+  ctx.globalAlpha = still ? 0.55 : 1 - phase;
   ctx.beginPath();
   ctx.arc(x, y, 4 + phase * 9, 0, Math.PI * 2);
   ctx.stroke();
@@ -481,7 +491,7 @@ function paint(
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    if (isTarget) pulse(ctx, top[0], top[1], colours.pink, now);
+    if (isTarget) pulse(ctx, top[0], top[1], colours.pink, now, still);
     ctx.fillStyle = isTarget ? colours.pink : colours.violet;
     ctx.shadowColor = ctx.fillStyle;
     ctx.shadowBlur = 6;
@@ -507,7 +517,7 @@ function paint(
     const foot = project(view, at[0], groundY, at[2]);
     const isGoal = !!goal && worldStore.autopilot === `signal:${signal.id}`;
     stalk(ctx, top, foot, found ? colours.cyan : colours.amber, 0.3);
-    if (isGoal) pulse(ctx, top[0], top[1], colours.pink, now);
+    if (isGoal) pulse(ctx, top[0], top[1], colours.pink, now, still);
     if (!found) {
       ctx.fillStyle = colours.amber;
       ctx.shadowColor = colours.amber;
