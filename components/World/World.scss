@@ -118,6 +118,21 @@ html[data-world='off'] {
   }
 }
 
+/* The projects ride on a short landscape screen (Projects.scss, the same
+   query): the screen has the cell on the left and the copy the right, so the
+   wash goes on the copy's side and the screen keeps its own brightness
+   (scoped to the page, not its outgoing ghost) */
+@media (max-height: 520px) and (orientation: landscape) {
+  html:has(#main-content .projects__stage[data-docked]) .world__veil {
+    background: linear-gradient(
+      270deg,
+      color-mix(in oklab, var(--bg-primary) 60%, transparent) 0%,
+      color-mix(in oklab, var(--bg-primary) 40%, transparent) 40%,
+      transparent 52%
+    );
+  }
+}
+
 /* Dark theme: a soft halo of the page's own background behind the lines
    most often set straight over the sky, the page subtitle and the hero's
    tagline (their secondary grey is the first to drop below 4.5:1) */
