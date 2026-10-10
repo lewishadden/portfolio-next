@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import {
   AdditiveBlending,
   Color,
@@ -27,7 +27,10 @@ import type { WorldTheme } from './utils';
    apart, facing the camera) and the 'ping' cue sounds. A small pool,
    one instanced draw, always mounted so it is compiled with the rest.
    The same pool sends a wide ring out round a station as a long flight
-   arrives, timed with its power surge (no flash at its centre).
+   arrives, timed with its power surge (no flash at its centre). Pings
+   age only on frames that are drawn, so the pool asks for frames itself
+   while one is under way: at the still level the canvas draws on demand,
+   and a ping nothing else redrew for froze on its first frame.
    ------------------------------------------------------------------ */
 
 const pool = 8;
@@ -57,6 +60,9 @@ interface Queued {
 
 const queue: Queued[] = [];
 
+/** Asks the canvas for a frame (the mounted pool's invalidate): a new ping draws even on demand */
+let wake: (() => void) | null = null;
+
 type Point = { x: number; y: number; z: number } | readonly [number, number, number];
 
 const toArray = (point: Point): [number, number, number] =>
@@ -72,6 +78,7 @@ export function spawnPing(point: Point, options: PingOptions = {}) {
     life: options.life ?? lifetime,
     flash: options.flash ?? true,
   });
+  wake?.();
   if (options.cue ?? true) emitCue('ping', { at });
 }
 
@@ -145,6 +152,13 @@ export function Pings({ theme }: { theme: WorldTheme }) {
   const meshRef = useRef<InstancedMesh>(null);
   const state = useRef(createPool());
   const palette = palettes[theme];
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    wake = invalidate;
+    return () => {
+      if (wake === invalidate) wake = null;
+    };
+  }, [invalidate]);
 
   const material = useMemo(
     () =>
@@ -171,9 +185,10 @@ export function Pings({ theme }: { theme: WorldTheme }) {
     []
   );
 
-  useFrame((_, delta) => {
+  useFrame((frame, delta) => {
     const mesh = meshRef.current;
-    if (mesh) step(mesh, state.current, attributes, Math.min(delta, 0.05));
+    // Drawn on demand (still), a ping under way asks for its next frame
+    if (mesh && step(mesh, state.current, attributes, Math.min(delta, 0.05))) frame.invalidate();
   });
 
   return (
@@ -213,6 +228,7 @@ function paint(material: ShaderMaterial, color: string, theme: WorldTheme) {
   material.needsUpdate = true;
 }
 
+/** Moves the pool on by `dt`: true while a ping is still under way (or waiting to start) */
 function step(
   mesh: InstancedMesh,
   state: PoolState,
@@ -246,4 +262,5 @@ function step(
     (attributes.ages.array as Float32Array).set(state.ages);
     attributes.ages.needsUpdate = true;
   }
+  return state.ages.some((age) => age < 1);
 }
