@@ -20,6 +20,47 @@ test('sound is off by default, and turning it on is remembered', async ({ page }
   expect(await page.evaluate(() => localStorage.getItem('sound'))).toBeNull();
 });
 
+test.describe('haptics on a touch device that can vibrate', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('are on by default, the palette turns them off and on, and the launch buzzes', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const buzzes: unknown[] = [];
+      (window as unknown as { buzzes: unknown[] }).buzzes = buzzes;
+      navigator.vibrate = (pattern) => {
+        buzzes.push(pattern);
+        return true;
+      };
+    });
+    const buzzes = () => page.evaluate(() => (window as unknown as { buzzes: unknown[] }).buzzes);
+    // The form's send is answered here: nothing is sent
+    await page.route('**/api/sendmail', (route) => route.fulfill({ status: 200, body: '{}' }));
+    await openHydrated(page, '/contact');
+    await page.waitForLoadState('networkidle');
+
+    await page.keyboard.press('ControlOrMeta+k');
+    const dialog = page.getByRole('dialog', { name: 'Command palette' });
+    await dialog.getByRole('combobox', { name: 'Command' }).fill('haptics');
+    await dialog.getByRole('option', { name: 'Turn haptics off' }).click();
+    expect(await page.evaluate(() => localStorage.getItem('haptics'))).toBe('off');
+    // Turning them back on gives a nudge (the tap allows it)
+    await dialog.getByRole('option', { name: 'Turn haptics on' }).click();
+    expect(await page.evaluate(() => localStorage.getItem('haptics'))).toBeNull();
+    expect(await buzzes()).toEqual([[12]]);
+    await dialog.getByRole('combobox', { name: 'Command' }).press('Escape');
+    await expect(dialog).toBeHidden();
+
+    await page.fill('#formFirstName', 'Test');
+    await page.fill('#formLastName', 'Visitor');
+    await page.fill('#formEmail', 'test@example.com');
+    await page.fill('#formMessage', 'Checking the launch buzz');
+    await page.locator('.contact-form__submit').click();
+    await expect.poll(buzzes).toEqual([[12], [70, 30, 70, 30, 140]]);
+  });
+});
+
 test('the skip link stays out of sight until it has focus', async ({ page }) => {
   await openHydrated(page, '/about');
   const skip = page.getByRole('link', { name: 'Skip to content' });
