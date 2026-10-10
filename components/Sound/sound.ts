@@ -2,10 +2,10 @@ import { useSyncExternalStore } from 'react';
 
 import { worldMode } from 'components/World/worldMode';
 import { onCue, onFlight, worldStore } from 'components/World/worldStore';
-import { buildSpace, listen, roam, stationVoices } from './spatial';
+import { buildSpace, cueOut, listen, roam, stationVoices, voiceAt } from './spatial';
 
 import type { StationKey } from 'components/World/routes';
-import type { Cue } from 'components/World/worldStore';
+import type { Cue, CueDetail } from 'components/World/worldStore';
 import type { Space } from './spatial';
 
 /* ------------------------------------------------------------------
@@ -18,7 +18,9 @@ import type { Space } from './spatial';
    flight sets off and a chime in the destination's chord as it docks;
    and short cues for what happens in the world (worldStore `emitCue`):
    HUD blips, clicks and tricks, docking clamps, stations powering up,
-   signals found, the rocket and the comms array transmitting.
+   signals found, the rocket and the comms array transmitting. A cue
+   that happens somewhere in the world (`CueDetail.at`) plays from there;
+   the HUD's and the page's own cues play centred.
 
    Browsers only start audio from a click or key press, so the toggle
    starts it, and a returning visitor who left it on hears it from their
@@ -228,34 +230,40 @@ function stop() {
 
 /* ---------------------------------- Cues ---------------------------------- */
 
+/** Where a sound plays into: the master bus (centred), or a panner placing it in the world */
+interface Out {
+  e: Engine;
+  to: AudioNode;
+}
+
 /** A note (gliding to `glideTo` if given), swelling in over `attack` seconds and dying away */
 function tone(
-  e: Engine,
+  o: Out,
   at: number,
   frequency: number,
   duration: number,
   level: number,
   type: OscillatorType = 'sine',
   glideTo?: number,
-  attack = 0.012,
-  out: AudioNode = e.master
+  attack = 0.012
 ) {
-  const osc = e.ctx.createOscillator();
+  const { ctx } = o.e;
+  const osc = ctx.createOscillator();
   osc.type = type;
   osc.frequency.setValueAtTime(frequency, at);
   if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, at + duration);
-  const gain = e.ctx.createGain();
+  const gain = ctx.createGain();
   gain.gain.setValueAtTime(0.0001, at);
   gain.gain.exponentialRampToValueAtTime(level, at + attack);
   gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
-  osc.connect(gain).connect(out);
+  osc.connect(gain).connect(o.to);
   osc.start(at);
   osc.stop(at + duration + 0.05);
 }
 
 /** A breath of filtered noise, its filter sweeping from `from` to `to` Hz */
 function burst(
-  e: Engine,
+  o: Out,
   at: number,
   duration: number,
   level: number,
@@ -264,122 +272,124 @@ function burst(
   to = from,
   attack = 0.01
 ) {
-  const source = e.ctx.createBufferSource();
-  source.buffer = e.noise;
-  const shape = e.ctx.createBiquadFilter();
+  const { ctx, noise } = o.e;
+  const source = ctx.createBufferSource();
+  source.buffer = noise;
+  const shape = ctx.createBiquadFilter();
   shape.type = filter;
   shape.frequency.setValueAtTime(from, at);
   shape.frequency.exponentialRampToValueAtTime(to, at + duration);
-  const gain = e.ctx.createGain();
+  const gain = ctx.createGain();
   gain.gain.setValueAtTime(0.0001, at);
   gain.gain.exponentialRampToValueAtTime(level, at + attack);
   gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
-  source.connect(shape).connect(gain).connect(e.master);
+  source.connect(shape).connect(gain).connect(o.to);
   source.start(at, Math.random() * 3);
   source.stop(at + duration + 0.05);
 }
 
-type Sound = (e: Engine, at: number) => void;
+/** A sound starting at context time `at` (a cue gets what was emitted with it) */
+type Sound = (o: Out, at: number, detail?: CueDetail) => void;
 
 const silent: Sound = () => undefined;
 
 const cues: Record<Cue, Sound> = {
-  blip: (e, at) => tone(e, at, 1046, 0.09, 0.05, 'sine', 1318),
-  select: (e, at) => {
-    tone(e, at, 659, 0.12, 0.06, 'triangle');
-    tone(e, at + 0.09, 988, 0.18, 0.06, 'triangle');
+  blip: (o, at) => tone(o, at, 1046, 0.09, 0.05, 'sine', 1318),
+  select: (o, at) => {
+    tone(o, at, 659, 0.12, 0.06, 'triangle');
+    tone(o, at + 0.09, 988, 0.18, 0.06, 'triangle');
   },
-  proximity: (e, at) => {
-    tone(e, at, 523, 0.16, 0.045);
-    tone(e, at + 0.13, 784, 0.26, 0.045);
+  proximity: (o, at) => {
+    tone(o, at, 523, 0.16, 0.045);
+    tone(o, at + 0.13, 784, 0.26, 0.045);
   },
-  dock: (e, at) => {
-    tone(e, at, 120, 0.45, 0.28, 'sine', 40);
-    burst(e, at, 0.09, 0.12, 'highpass', 1800);
-    burst(e, at + 0.5, 0.18, 0.1, 'bandpass', 900, 700);
-    tone(e, at + 0.52, 70, 0.3, 0.2, 'sine', 45);
-    burst(e, at + 0.7, 0.9, 0.035, 'highpass', 3000, 6000, 0.05);
+  dock: (o, at) => {
+    tone(o, at, 120, 0.45, 0.28, 'sine', 40);
+    burst(o, at, 0.09, 0.12, 'highpass', 1800);
+    burst(o, at + 0.5, 0.18, 0.1, 'bandpass', 900, 700);
+    tone(o, at + 0.52, 70, 0.3, 0.2, 'sine', 45);
+    burst(o, at + 0.7, 0.9, 0.035, 'highpass', 3000, 6000, 0.05);
   },
-  found: (e, at) => {
+  found: (o, at) => {
     [523.25, 659.25, 783.99, 1046.5].forEach((frequency, i) =>
-      tone(e, at + i * 0.09, frequency, 0.7, 0.055, 'triangle')
+      tone(o, at + i * 0.09, frequency, 0.7, 0.055, 'triangle')
     );
-    tone(e, at + 0.36, 2093, 0.9, 0.012);
+    tone(o, at + 0.36, 2093, 0.9, 0.012);
   },
-  complete: (e, at) => {
+  complete: (o, at) => {
     [392, 523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((frequency, i) =>
-      tone(e, at + i * 0.11, frequency, 1.3, 0.05, 'triangle')
+      tone(o, at + i * 0.11, frequency, 1.3, 0.05, 'triangle')
     );
   },
-  launch: (e, at) => {
-    burst(e, at, 4.2, 0.4, 'lowpass', 90, 900, 0.5);
-    tone(e, at, 46, 3.6, 0.22, 'sine', 30);
+  launch: (o, at) => {
+    burst(o, at, 4.2, 0.4, 'lowpass', 90, 900, 0.5);
+    tone(o, at, 46, 3.6, 0.22, 'sine', 30);
   },
-  transmit: (e, at) => {
+  transmit: (o, at) => {
     for (let i = 0; i < 14; i++) {
-      tone(e, at + i * 0.075, 1200 + Math.random() * 1400, 0.035, 0.022, 'square');
+      tone(o, at + i * 0.075, 1200 + Math.random() * 1400, 0.035, 0.022, 'square');
     }
   },
   // The header HUD: a tick under the pointer, a click, the brackets locking
   // onto a page, and powering on
-  'hud-hover': (e, at) => tone(e, at, 2400, 0.035, 0.01, 'sine', 2900),
-  'hud-click': (e, at) => {
-    tone(e, at, 900, 0.05, 0.025, 'square', 600);
-    burst(e, at, 0.04, 0.03, 'highpass', 3500);
+  'hud-hover': (o, at) => tone(o, at, 2400, 0.035, 0.01, 'sine', 2900),
+  'hud-click': (o, at) => {
+    tone(o, at, 900, 0.05, 0.025, 'square', 600);
+    burst(o, at, 0.04, 0.03, 'highpass', 3500);
   },
-  'hud-lock': (e, at) => {
-    tone(e, at, 1320, 0.04, 0.025, 'square');
-    tone(e, at + 0.06, 1760, 0.12, 0.03, 'sine', 2093);
+  'hud-lock': (o, at) => {
+    tone(o, at, 1320, 0.04, 0.025, 'square');
+    tone(o, at + 0.06, 1760, 0.12, 0.03, 'sine', 2093);
   },
-  'hud-boot': (e, at) => {
-    tone(e, at, 160, 0.7, 0.04, 'sawtooth', 640);
-    burst(e, at + 0.05, 0.55, 0.025, 'bandpass', 900, 5200, 0.2);
-    tone(e, at + 0.62, 1568, 0.18, 0.025, 'triangle');
+  'hud-boot': (o, at) => {
+    tone(o, at, 160, 0.7, 0.04, 'sawtooth', 640);
+    burst(o, at + 0.05, 0.55, 0.025, 'bandpass', 900, 5200, 0.2);
+    tone(o, at + 0.62, 1568, 0.18, 0.025, 'triangle');
   },
   // Something in 3D clicked: a sonar ping and its echo
-  ping: (e, at) => {
-    tone(e, at, 1760, 0.6, 0.035, 'sine', 1700);
-    tone(e, at + 0.17, 1760, 0.5, 0.01, 'sine', 1700);
+  ping: (o, at) => {
+    tone(o, at, 1760, 0.6, 0.035, 'sine', 1700);
+    tone(o, at + 0.17, 1760, 0.5, 0.01, 'sine', 1700);
   },
   // A barrel roll, a helmet spin: a whoosh round, a zip up and a sparkle
-  trick: (e, at) => {
-    burst(e, at, 0.6, 0.05, 'bandpass', 450, 2800, 0.2);
-    tone(e, at, 329.63, 0.45, 0.02, 'triangle', 987.77, 0.08);
-    tone(e, at + 0.38, 1318.5, 0.35, 0.014);
-    tone(e, at + 0.46, 1760, 0.45, 0.012);
+  trick: (o, at) => {
+    burst(o, at, 0.6, 0.05, 'bandpass', 450, 2800, 0.2);
+    tone(o, at, 329.63, 0.45, 0.02, 'triangle', 987.77, 0.08);
+    tone(o, at + 0.38, 1318.5, 0.35, 0.014);
+    tone(o, at + 0.46, 1760, 0.45, 0.012);
   },
   // Free roam: a hull bumped, a dull thud through the frame
-  bump: (e, at) => {
-    tone(e, at, 82, 0.42, 0.3, 'sine', 34);
-    burst(e, at, 0.3, 0.16, 'lowpass', 420, 80, 0.004);
-    burst(e, at + 0.03, 0.14, 0.012, 'bandpass', 1300, 900);
+  bump: (o, at) => {
+    tone(o, at, 82, 0.42, 0.3, 'sine', 34);
+    burst(o, at, 0.3, 0.16, 'lowpass', 420, 80, 0.004);
+    burst(o, at + 0.03, 0.14, 0.012, 'bandpass', 1300, 900);
   },
   // A station powering up as the camera arrives: a relay, then a hum
   // spooling up two octaves with a whine above it, settling on A
-  power: (e, at) => {
-    tone(e, at, 62, 0.25, 0.07, 'sine', 48);
-    burst(e, at, 0.05, 0.02, 'highpass', 2600);
-    tone(e, at + 0.05, 55, 1.2, 0.04, 'triangle', 220, 0.9);
-    tone(e, at + 0.05, 55, 1.2, 0.008, 'sawtooth', 220, 0.9);
-    tone(e, at + 0.1, 440, 1.1, 0.006, 'sine', 1760, 0.85);
-    tone(e, at + 1.1, 220, 0.7, 0.02, 'triangle');
+  power: (o, at) => {
+    tone(o, at, 62, 0.25, 0.07, 'sine', 48);
+    burst(o, at, 0.05, 0.02, 'highpass', 2600);
+    tone(o, at + 0.05, 55, 1.2, 0.04, 'triangle', 220, 0.9);
+    tone(o, at + 0.05, 55, 1.2, 0.008, 'sawtooth', 220, 0.9);
+    tone(o, at + 0.1, 440, 1.1, 0.006, 'sine', 1760, 0.85);
+    tone(o, at + 1.1, 220, 0.7, 0.02, 'triangle');
   },
   // The command palette opening: a hologram fizzing up
-  palette: (e, at) => {
-    tone(e, at, 659.25, 0.16, 0.028, 'sine', 880);
-    tone(e, at + 0.07, 1318.5, 0.32, 0.014, 'triangle');
-    burst(e, at, 0.18, 0.012, 'highpass', 2400, 5200, 0.07);
+  palette: (o, at) => {
+    tone(o, at, 659.25, 0.16, 0.028, 'sine', 880);
+    tone(o, at + 0.07, 1318.5, 0.32, 0.014, 'triangle');
+    burst(o, at, 0.18, 0.012, 'highpass', 2400, 5200, 0.07);
   },
   // The theme switching: a click, then up into the light or down into the
   // dark (read once the switch has landed on the page)
-  theme: (e) => {
+  theme: (o) => {
     window.setTimeout(() => {
-      if (!readWanted() || e.ctx.state !== 'running') return;
-      const at = e.ctx.currentTime + 0.01;
+      if (!readWanted() || o.e.ctx.state !== 'running') return;
+      const at = o.e.ctx.currentTime + 0.01;
       const light = document.documentElement.dataset.theme === 'light';
-      burst(e, at, 0.03, 0.03, 'highpass', 3800);
+      burst(o, at, 0.03, 0.03, 'highpass', 3800);
       (light ? [440, 659.25, 880] : [880, 659.25, 440]).forEach((frequency, i) =>
-        tone(e, at + 0.03 + i * 0.06, frequency, 0.4, 0.02, light ? 'triangle' : 'sine')
+        tone(o, at + 0.03 + i * 0.06, frequency, 0.4, 0.02, light ? 'triangle' : 'sine')
       );
     }, 40);
   },
@@ -397,32 +407,64 @@ const cues: Record<Cue, Sound> = {
 const spacing: Partial<Record<Cue, number>> = { bump: 0.35, ping: 0.06, trick: 0.3 };
 const lastPlayed: Partial<Record<Cue, number>> = {};
 
-/** Plays a sound now, or once a context that is starting up is running */
-function schedule(sound: Sound) {
+/**
+ * The HUD's and the page's own cues: they belong to the visitor's view,
+ * not to anywhere in the world, so they play centred even when emitted
+ * with a place
+ */
+const centred = new Set<Cue>([
+  'hud-hover',
+  'hud-click',
+  'hud-lock',
+  'hud-boot',
+  'palette',
+  'theme',
+  'select',
+  'blip',
+]);
+
+/** Roughly how long each placed cue rings (seconds), so its panner isn't moved while it does */
+const tails: Partial<Record<Cue, number>> = {
+  dock: 1.7,
+  found: 1.4,
+  complete: 1.9,
+  launch: 4.3,
+  power: 1.9,
+};
+
+type Where = readonly [number, number, number];
+
+/**
+ * Plays a sound now, or once a context that is starting up is running:
+ * from `where` in the world (for `tail` seconds), or centred
+ */
+function schedule(sound: Sound, where?: Where, tail = 1, detail?: CueDetail) {
   if (!engine || !readWanted()) return;
   const run = () => {
-    if (engine && readWanted() && engine.ctx.state === 'running') {
-      sound(engine, engine.ctx.currentTime + 0.01);
-    }
+    if (!engine || !readWanted() || engine.ctx.state !== 'running') return;
+    const at = engine.ctx.currentTime + 0.01;
+    const to = where ? cueOut(engine.space, where, at, tail) : engine.master;
+    sound({ e: engine, to }, at, detail);
   };
   if (engine.ctx.state === 'running') run();
   else if (waking) void waking.then(run);
 }
 
-function play(cue: Cue) {
+function play(cue: Cue, detail?: CueDetail) {
   const now = performance.now() / 1000;
   if (now - (lastPlayed[cue] ?? -Infinity) < (spacing[cue] ?? 0)) return;
   lastPlayed[cue] = now;
-  schedule(cues[cue]);
+  const where = centred.has(cue) ? undefined : detail?.at;
+  schedule(cues[cue], where, tails[cue], detail);
 }
 
 /* --------------------------------- Flights --------------------------------- */
 
 /** A flight sets off: a rising whoosh of filtered noise over a low drop, the drive spooling up */
-const swell: Sound = (e, at) => {
-  burst(e, at, 1.7, 0.075, 'bandpass', 160, 2600, 0.85);
-  tone(e, at, 92, 1.3, 0.1, 'sine', 38, 0.06);
-  tone(e, at + 0.3, 880, 1.1, 0.006, 'sine', 1760, 0.6);
+const swell: Sound = (o, at) => {
+  burst(o, at, 1.7, 0.075, 'bandpass', 160, 2600, 0.85);
+  tone(o, at, 92, 1.3, 0.1, 'sine', 38, 0.06);
+  tone(o, at + 0.3, 880, 1.1, 0.006, 'sine', 1760, 0.6);
 };
 
 /**
@@ -430,22 +472,19 @@ const swell: Sound = (e, at) => {
  * chime, played from the station
  */
 function arrival(key: StationKey): Sound {
-  return (e, at) => {
-    burst(e, at, 0.08, 0.03, 'bandpass', 1100, 650, 0.004);
-    tone(e, at, 110, 0.28, 0.06, 'sine', 62);
+  return (o, at) => {
+    burst(o, at, 0.08, 0.03, 'bandpass', 1100, 650, 0.004);
+    tone(o, at, 110, 0.28, 0.06, 'sine', 62);
     const { notes, detune } = stationVoices[key];
-    const from = e.space.voices[key].panner;
+    const from = { e: o.e, to: cueOut(o.e.space, voiceAt(o.e.space, key), at, 1.5) };
     notes.forEach((frequency, i) =>
       tone(
-        e,
+        from,
         at + 0.1 + i * 0.07,
         frequency * 4 * 2 ** (detune[i] / 1200),
         1.2,
         0.016,
-        'triangle',
-        undefined,
-        0.012,
-        from
+        'triangle'
       )
     );
   };
