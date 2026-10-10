@@ -17,6 +17,7 @@ import { motionLevel } from '@/utils/motion';
 
 import { asGlow } from './materials';
 import { stationPower } from './power';
+import { tierRank } from './quality';
 import { contactDish, stationKeys, stationPositions } from './routes';
 import { useThemedMaterials } from './stationHooks';
 import { setUniform } from './utils';
@@ -24,6 +25,7 @@ import { worldMode } from './worldMode';
 import { onFlight, worldStore } from './worldStore';
 
 import type { Camera } from 'three';
+import type { QualityTier } from './quality';
 import type { StationKey } from './routes';
 import type { WorldPalette, WorldTheme } from './utils';
 
@@ -33,7 +35,7 @@ import type { WorldPalette, WorldTheme } from './utils';
    beams run from a point on the craft (an antenna tip, a mast, the
    satellite, the dish) to the corners of the heading block on screen, a
    few units in front of the camera, fading from the emitter to the
-   heading; on the high tier a faint cone fills between them. It lasts
+   heading; from the high tier up a faint cone fills between them. It lasts
    1.4s and follows the station's power-on, so it flickers with its false
    starts. Page flights at full motion only; drawn only while it plays,
    mounted always so it compiles in warm-up. Its materials are built per
@@ -150,7 +152,7 @@ interface Projection {
   /** Set by the flight event, stamped with the clock on the next frame */
   pending: boolean;
   startAt: number;
-  /** Whether the cone fills in (the high tier) */
+  /** Whether the cone fills in (the high tier and above) */
   cone: boolean;
 }
 
@@ -233,7 +235,8 @@ function project(state: Projection, event: string, to: string) {
   if (right - left < 0.01 || top - bottom < 0.01) return;
   state.station = to as StationKey;
   state.pending = true;
-  state.cone = document.documentElement.dataset.worldTier === 'high';
+  const tier = document.documentElement.dataset.worldTier as QualityTier | undefined;
+  state.cone = tier !== undefined && tierRank(tier) >= tierRank('high');
 }
 
 /** The station projects the page heading into space as the camera arrives */
