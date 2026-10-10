@@ -113,8 +113,8 @@ export function LostStation({ theme }: { theme: WorldTheme }) {
         baseHandlers.onPointerOver(e);
         if (isLocked(rescue.current)) worldTip.set(tipFor());
       },
-      onPointerOut() {
-        baseHandlers.onPointerOut();
+      onPointerOut(e: ThreeEvent<PointerEvent>) {
+        baseHandlers.onPointerOut(e);
         const tip = worldTip.get();
         if (tip === lockedTip || tip === loggedTip) worldTip.set(null);
       },

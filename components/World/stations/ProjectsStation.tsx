@@ -48,6 +48,7 @@ import {
   stationPositions,
 } from '../stations';
 import { StationHull } from '../StationHull';
+import { setTipTarget, tipTarget } from '../tipTarget';
 import { palettes, setUniform } from '../utils';
 import { queueUpload } from '../warmup';
 import { prefetch } from '../routes';
@@ -1493,13 +1494,16 @@ export function ProjectsStation({
                     hoveredRef.current = i;
                     setWorldHover(true);
                     worldTip.set(tipFor(i));
+                    // The tooltip brackets this screen (TipProbe)
+                    setTipTarget(e.eventObject);
                   }}
-                  onPointerOut={() => {
+                  onPointerOut={(e) => {
                     if (hoveredRef.current !== i) return;
                     hoveredRef.current = -1;
                     setWorldHover(false);
                     const tip = worldTip.get();
                     if ((Object.values(tips[i]) as unknown[]).includes(tip)) worldTip.set(null);
+                    if (tipTarget()?.object === e.eventObject) setTipTarget(null);
                   }}
                   onClick={(e) => {
                     e.stopPropagation();

@@ -7,6 +7,7 @@ import { motionLevel } from '@/utils/motion';
 import { pastStamp } from './clock';
 import { spawnPing } from './Pings';
 import { flashNavLights } from './power';
+import { setTipTarget, tipTarget } from './tipTarget';
 import { emitCue, onShowcase, setWorldHover, worldStore, worldTip } from './worldStore';
 
 import type { RefObject } from 'react';
@@ -102,9 +103,12 @@ export function useReactionHandlers(state: RefObject<Reaction>, tip: WorldTip, d
       onPointerOver(e: ThreeEvent<PointerEvent>) {
         e.stopPropagation();
         hover(state.current, true, tip);
+        // The tooltip brackets the proxy (TipProbe)
+        setTipTarget(e.eventObject);
       },
-      onPointerOut() {
+      onPointerOut(e: ThreeEvent<PointerEvent>) {
         hover(state.current, false, tip);
+        if (tipTarget()?.object === e.eventObject) setTipTarget(null);
       },
       onClick(e: ThreeEvent<MouseEvent>) {
         e.stopPropagation();

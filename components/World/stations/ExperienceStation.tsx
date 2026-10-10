@@ -42,6 +42,7 @@ import {
   stationModels,
   stationPositions,
 } from '../stations';
+import { setTipTarget, tipTarget } from '../tipTarget';
 import { palettes, setUniform } from '../utils';
 import { queueUpload, useWarmupTask } from '../warmup';
 import { emitCue, focusOnPage, setWorldHover, worldStore, worldTip } from '../worldStore';
@@ -171,10 +172,13 @@ function hoverNode(
     e.stopPropagation();
     setWorldHover(true);
     worldTip.set(tip);
+    // The tooltip brackets the pod's proxy (TipProbe)
+    setTipTarget(e.eventObject);
     hovered.current = index;
   } else {
     setWorldHover(false);
     if (worldTip.get() === tip) worldTip.set(null);
+    if (tipTarget()?.object === e.eventObject) setTipTarget(null);
     if (hovered.current === index) hovered.current = -1;
   }
 }

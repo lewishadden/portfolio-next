@@ -43,6 +43,7 @@ import {
 import { stationInRange, useThemedMaterials, useWide } from '../stationHooks';
 import { StationHull } from '../StationHull';
 import { stationModels, stationPositions } from '../stations';
+import { setTipTarget, tipTarget } from '../tipTarget';
 import { latLngToVector3, palettes, seededRandom, setUniform } from '../utils';
 import { emitCue, onShowcase, setWorldHover, worldStore, worldTip } from '../worldStore';
 
@@ -956,11 +957,14 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
               e.stopPropagation();
               setWorldHover(true, 'grab');
               worldTip.set(globeTip);
+              // The tooltip brackets the globe (TipProbe)
+              setTipTarget(e.eventObject);
               globeHover.current.on = true;
             }}
-            onPointerOut={() => {
+            onPointerOut={(e) => {
               setWorldHover(false);
               if (worldTip.get() === globeTip) worldTip.set(null);
+              if (tipTarget()?.object === e.eventObject) setTipTarget(null);
               globeHover.current.on = false;
             }}
           >
