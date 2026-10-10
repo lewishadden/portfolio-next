@@ -255,7 +255,7 @@ export function ScanButton() {
   );
 }
 
-/** What the HUD calls a signal: its name once found, a contact before */
+/** What the HUD calls a signal: its name once found, its scan's letter before (Signal A…) */
 export function signalName(id: (typeof signals)[number]['id']) {
   return isFound(id) ? signals.find((signal) => signal.id === id)!.name : contactName(id);
 }

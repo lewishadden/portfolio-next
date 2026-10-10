@@ -353,7 +353,7 @@ function HullContact() {
 
 /**
  * What the autopilot is flying to, by name: a station's page, or a signal
- * ('signal:<id>'), named once found and a contact until then
+ * ('signal:<id>'), named once found, and by its scan's letter until then
  */
 function courseName(course: string) {
   if ((stationKeys as readonly string[]).includes(course)) {
@@ -571,8 +571,7 @@ function Coach({ pilot, onDone }: { pilot: Pilot; onDone: () => void }) {
 
 /** Every control, for how the visitor flies */
 function KeyLegend({ pilot }: { pilot: Pilot }) {
-  if (pilot === 'touch')
-    return <>Thumbsticks fly · tap a station for autopilot · Scan finds signals</>;
+  if (pilot === 'touch') return <>Thumbsticks fly · tap a station for autopilot</>;
   return (
     <>
       <kbd>W</kbd>
@@ -753,9 +752,10 @@ export function ExploreHud({
           </button>
         </div>
         <SignalDetector />
-        <ScanStatus />
         {!trained && <Coach pilot={pilot} onDone={finishTraining} />}
         {compact && status}
+        {/* Last: empty, its row moves nothing down (on a phone the head reaches the thumbsticks) */}
+        <ScanStatus />
       </div>
 
       <SignalCard cv={cv} onDock={onDockRequest} />

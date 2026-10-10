@@ -949,7 +949,7 @@ html[data-flight='cruise'] .world__veil {
     }
   }
 
-  /* A sonar scan's status (SignalsHud's ScanStatus), under the detector:
+  /* A sonar scan's status (SignalsHud's ScanStatus), last in the head:
      backed, so it keeps its contrast over the sky. Empty, it takes no room
      but stays a live region */
   &__scan {
@@ -1355,6 +1355,12 @@ html[data-flight='cruise'] .world__veil {
 @media (max-height: 500px) {
   .explore-hud__lift {
     right: 176px;
+    bottom: 60px;
+  }
+
+  /* Beside the rise and sink buttons, where there's no room over them */
+  .explore-hud__scan-button {
+    right: calc(176px + 48px + 12px);
     bottom: 60px;
   }
 }
