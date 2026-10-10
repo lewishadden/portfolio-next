@@ -1,6 +1,13 @@
 'use client';
 
-import { Component, useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  Component,
+  useCallback,
+  useDeferredValue,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import dynamic from 'next/dynamic';
 
 import { useTheme } from '@/contexts/ThemeContext';
@@ -54,7 +61,8 @@ const notReady = () => false;
  * WebGL, or for reduced motion; the two cross-fade.
  */
 export function HeaderMark({ className = '' }: { className?: string }) {
-  const { theme } = useTheme();
+  // The 3D mark follows a theme switch a moment later, off the switch's own frame
+  const theme = useDeferredValue(useTheme().theme);
   const reduced = useReducedMotion();
   const { enabled, supported } = useWorldPreference();
   const ready = useSyncExternalStore(subscribeWorld, worldReady, notReady);

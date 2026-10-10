@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
@@ -41,7 +41,8 @@ export const Header = ({
   // With 3D effects on, the bar is a cockpit HUD (HeaderHud); its flat look
   // stays until the hologram is drawing, and comes back if WebGL fails
   const { enabled, supported } = useWorldPreference();
-  const { theme } = useTheme();
+  // The hologram follows a theme switch a moment later, off the switch's own frame
+  const theme = useDeferredValue(useTheme().theme);
   const reduced = useReducedMotion();
   const [hudFailed, setHudFailed] = useState(false);
   const [hudLive, setHudLive] = useState(false);

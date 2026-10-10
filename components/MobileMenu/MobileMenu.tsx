@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useDeferredValue, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
@@ -49,7 +49,8 @@ export function MobileMenu({
 }) {
   const pathname = usePathname();
   const menuRef = useFocusTrap<HTMLDivElement>(open);
-  const { theme } = useTheme();
+  // The hologram follows a theme switch a moment later, off the switch's own frame
+  const theme = useDeferredValue(useTheme().theme);
   const reduced = useReducedMotion();
   const here = stationForPath(pathname);
 

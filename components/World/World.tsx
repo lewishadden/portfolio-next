@@ -1,6 +1,6 @@
 'use client';
 
-import { Component, useCallback, useEffect, useRef, useState } from 'react';
+import { Component, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -207,7 +207,10 @@ function useWorldInputs() {
 export function World({ content }: { content: WorldContent }) {
   const pathname = usePathname();
   const routeKey = useRouteKey();
-  const { theme } = useTheme();
+  // The world takes a new theme a moment after the page does: the switch's
+  // own frame restyles the page and flips the toggle, and the canvas (every
+  // station's materials) re-renders after, in a render React can interrupt
+  const theme = useDeferredValue(useTheme().theme);
   const motion = useMotionLevel();
   const lite = useMediaQuery(liteQuery);
   const { enabled, supported } = useWorldPreference();
