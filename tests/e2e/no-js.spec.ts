@@ -99,6 +99,8 @@ seeded.describe('when the app never starts', () => {
       await expect(root).not.toHaveAttribute('data-boot');
       await expect(page.locator('.boot')).toBeHidden();
       await expectReadable(page, '/');
+      // Nor will the world run: the 2D renders stand in, and its windows close
+      await expect(root).toHaveAttribute('data-world', 'off');
 
       // The page scrolls again
       const { width, height } = page.viewportSize()!;

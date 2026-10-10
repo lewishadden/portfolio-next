@@ -383,7 +383,8 @@ body {
    World windows (components/WorldWindow): on narrow, stacked layouts
    the copy covers the screen, so these gaps let the camera bring the
    station back into view as they scroll past. Only when the world will
-   run: never without JavaScript, nor with the world off.
+   run: never without JavaScript, nor with the world off (which includes
+   an app that never starts: ThemeScript's failsafe marks the world off).
    ============================================================= */
 .world-window {
   display: none;

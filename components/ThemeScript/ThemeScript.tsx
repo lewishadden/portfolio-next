@@ -78,11 +78,16 @@ export function ThemeScript() {
 
       // Failsafes, until the app starts (ClientProviders sets html[data-hydrated]):
       // what waits for an entrance shows after a few seconds (html[data-failsafe]),
-      // and the loading screen gives up, or lifts when its skip button is pressed
+      // and the loading screen gives up, or lifts when its skip button is pressed.
+      // The world won't run either: marked off, the 2D station renders and the
+      // still sky stand in and the world windows close (World sets the real
+      // value should the app start late)
       var began = Date.now();
       var running = function() { return root.hasAttribute('data-hydrated'); };
       var reveal = function() {
-        if (!running()) root.setAttribute('data-failsafe', '');
+        if (running()) return;
+        root.setAttribute('data-failsafe', '');
+        if (!root.hasAttribute('data-world')) root.setAttribute('data-world', 'off');
       };
       var lift = function() {
         if (running()) return;
