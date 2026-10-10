@@ -32,7 +32,7 @@ import {
 import { Model } from '../Model';
 import { NavLights } from '../parts';
 import { spawnPing } from '../Pings';
-import { StationScope } from '../power';
+import { flashNavLights, StationScope } from '../power';
 import {
   createReaction,
   stepReaction,
@@ -588,14 +588,16 @@ const showPoint = new Vector3();
  * pin pings, the comms array streams a transmission to it for a couple of
  * seconds and the rocket revs (it never launches: that is the form's).
  * The transmission is the station's own, so it never cuts short a real
- * message sending; like one, it holds the camera on the globe. A tour's
- * showcase waits for full motion; at `still` a hail is the ping alone
+ * message sending; like one, it holds the camera on the globe. The rev's
+ * cue plays from the rocket. A tour's showcase waits for full motion; at
+ * `still` a hail is the ping and a blink of the array's nav lights
  */
 function useShowcase(
   globe: RefObject<Group | null>,
   pin: Vector3,
   comms: RefObject<Comms>,
-  rev: RefObject<Reaction>
+  rev: RefObject<Reaction>,
+  rocket: RefObject<Group | null>
 ) {
   const get = useThree((s) => s.get);
   useEffect(
@@ -608,7 +610,8 @@ function useShowcase(
         const sphere = globe.current;
         if (sphere) spawnPing(sphere.localToWorld(showPoint.copy(pin)));
         if (level === 'still') {
-          repaintFor(invalidate, 1000);
+          flashNavLights('contact');
+          repaintFor(invalidate, 1400);
           return;
         }
         comms.current.showUntil = clock.elapsedTime + showcaseTime;
@@ -618,9 +621,10 @@ function useShowcase(
         );
         const [x, y, z] = stationPositions.contact;
         emitCue('transmit', { at: [x + dishFocus.x, y + dishFocus.y, z + dishFocus.z] });
-        trick(rev.current, revTime);
+        const body = rocket.current;
+        trick(rev.current, revTime, body ? body.getWorldPosition(showPoint) : undefined);
       }),
-    [get, globe, pin, comms, rev]
+    [get, globe, pin, comms, rev, rocket]
   );
 }
 
@@ -788,7 +792,7 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
     () => beaconPosition.clone().addScaledVector(beaconPosition.clone().normalize(), 0.72),
     [beaconPosition]
   );
-  useShowcase(globeRef, beaconTip, commsRef, rev);
+  useShowcase(globeRef, beaconTip, commsRef, rev, rocketRef);
   const packetBuffers = useMemo(
     () => ({
       positions: new Float32Array(packetCount * 3),
