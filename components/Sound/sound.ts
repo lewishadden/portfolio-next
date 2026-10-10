@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react';
 
 import { onCue, onFlight, worldStore } from 'components/World/worldStore';
-import { buildSpace, cueOut, listen, stationVoices, voiceAt } from './spatial';
+import { onSonar } from './detector';
+import { buildSpace, cueOut, listen, sonarOut, stationVoices, voiceAt } from './spatial';
 
 import type { StationKey } from 'components/World/routes';
 import type { Cue, CueDetail } from 'components/World/worldStore';
@@ -422,8 +423,14 @@ const cues: Record<Cue, Sound> = {
     tone(o, at, note, 0.55, 0.012, 'triangle');
     tone(o, at + 0.02, note * 2, 0.4, 0.004);
   },
+  // Free roam's sonar (the detector, and a scan's sweep reaching a signal):
+  // a ping gliding down from 1.4kHz and its echo, softer for a far contact
+  sonar: (o, at, detail) => {
+    const level = 0.02 * (0.6 + 0.4 * Math.min(Math.max(detail?.strength ?? 1, 0), 1));
+    tone(o, at, 1400, 0.42, level, 'sine', 1300);
+    tone(o, at + 0.17, 1400, 0.36, level * 0.3, 'sine', 1300);
+  },
   // Not voiced yet: the cues exist so the world can emit them
-  sonar: silent,
   scan: silent,
   arrive: silent,
   edge: silent,
@@ -560,6 +567,12 @@ function wire() {
   wired = true;
   onCue(play);
   onFlight(flightSound);
+  // The detector pings from the nearest unfound signal, through its own panner
+  onSonar((where) => {
+    if (!engine || !readWanted() || engine.ctx.state !== 'running') return;
+    const at = engine.ctx.currentTime + 0.01;
+    cues.sonar({ e: engine, to: sonarOut(engine.space, where, at) }, at);
+  });
   document.addEventListener('visibilitychange', () => {
     if (!engine || !readWanted()) return;
     loop(!document.hidden);

@@ -146,6 +146,12 @@ const cueNear = 20;
 const cueRolloff = 1;
 /** How many cues can sound from different places at once */
 const cuePool = 4;
+/**
+ * The detector's sonar falls away more gently still: it pings from a
+ * signal up to detector range (170 units) away, and is still heard there
+ */
+const sonarNear = 40;
+const sonarRolloff = 0.6;
 /** The reverb's tail (seconds), and how loud it is right by a hull */
 const reverbTail = 1.8;
 const reverbLevel = 0.26;
@@ -188,6 +194,8 @@ interface CuePanner {
 export interface Space {
   voices: Record<StationKey, Voice>;
   cues: CuePanner[];
+  /** The detector's sonar: a panner of its own, set where the nearest unfound signal is */
+  sonar: PannerNode;
   /** The reverb near hulls (desktop only): its loudness and the level it was last set to */
   reverb: { wet: GainNode; level: number } | null;
   /** The listener, eased towards the camera (forward is kept a unit vector) */
@@ -317,9 +325,17 @@ export function buildSpace(ctx: AudioContext, out: AudioNode): Space {
     cues.push({ panner, busyUntil: 0 });
   }
 
+  const sonar = makePanner(ctx, lite);
+  sonar.distanceModel = 'inverse';
+  sonar.refDistance = sonarNear;
+  sonar.rolloffFactor = sonarRolloff;
+  sonar.connect(out);
+  if (send) sonar.connect(send);
+
   return {
     voices,
     cues,
+    sonar,
     reverb,
     ear: { x: 0, y: 0, z: 0, fx: 0, fy: 0, fz: -1, primed: false },
     params: hasParams(ctx.listener),
@@ -337,6 +353,12 @@ export function cueOut(space: Space, at: Point, start: number, tail: number): Au
   pick.busyUntil = start + tail;
   place(pick.panner, at, start);
   return pick.panner;
+}
+
+/** Where the detector's sonar plays into: its own panner, set at the signal from context time `start` */
+export function sonarOut(space: Space, at: Point, start: number): AudioNode {
+  place(space.sonar, at, start);
+  return space.sonar;
 }
 
 /** Where a station's voice sings from: cues from the station itself play from here */

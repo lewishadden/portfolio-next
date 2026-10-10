@@ -2,14 +2,15 @@ import { useSyncExternalStore } from 'react';
 
 import { worldMode } from 'components/World/worldMode';
 import { onCue } from 'components/World/worldStore';
+import { onSonar } from './detector';
 
 import type { Cue, CueDetail } from 'components/World/worldStore';
 
 /* ------------------------------------------------------------------
    Haptics: on a phone or tablet that can vibrate, free roam is felt as
    well as seen and heard (a knock against a hull, docking, a signal
-   found, the last one found), and so is the rocket launching after the
-   contact form sends. They follow the world's cues (worldStore
+   found, the last one found, the detector's sonar once it reads four
+   bars), and so is the rocket launching after the contact form sends. They follow the world's cues (worldStore
    `emitCue`), whether or not sound is on. On by default where the device
    can vibrate; the command palette turns them off (localStorage
    `haptics` = 'off'). Nothing vibrates before the visitor has touched
@@ -26,6 +27,8 @@ export const hapticPatterns = {
   found: [10, 40, 10, 40, 30],
   complete: [20, 40, 20, 40, 20, 40, 80],
   launch: [70, 30, 70, 30, 140],
+  /** The detector's sonar, closing in on a signal (four bars or more) */
+  sonar: [8],
   /** Turning haptics on: a nudge to say they are */
   on: [12],
 };
@@ -82,6 +85,13 @@ function feel(cue: Cue, detail?: CueDetail) {
   else if (cue === 'complete') buzz(hapticPatterns.complete);
 }
 
+/** The detector's sonar ticks once it reads this many bars */
+const tickFrom = 4;
+
+function tick(_at: readonly [number, number, number], bars: number) {
+  if (bars >= tickFrom) buzz(hapticPatterns.sonar);
+}
+
 let wires = 0;
 let unwire: (() => void) | null = null;
 
@@ -91,7 +101,14 @@ let unwire: (() => void) | null = null;
  */
 export function wireHaptics() {
   if (!hapticsSupported()) return () => undefined;
-  if (wires++ === 0) unwire = onCue(feel);
+  if (wires++ === 0) {
+    const stopCues = onCue(feel);
+    const stopSonar = onSonar(tick);
+    unwire = () => {
+      stopCues();
+      stopSonar();
+    };
+  }
   return () => {
     if (--wires > 0) return;
     unwire?.();
