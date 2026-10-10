@@ -342,13 +342,19 @@ export function ExperienceStation({
 
   // Every role's mission patch in one texture, drawn once the page's fonts
   // are in, then uploaded on a frame of its own. Redrawn for a new theme;
-  // the old one stays on until the new one is up
+  // the old one stays on until the new one is up. During the initial
+  // warm-up it is drawn at once; mounting later (on the way here) or for a
+  // new theme, a patch at a time in idle moments, never mid-flight, so it
+  // stays off the flight's first frames (the pods aren't in view until the
+  // approach). Drawn once per theme
   const gl = useThree((s) => s.gl);
+  const get = useThree((s) => s.get);
   const track = useWarmupTask();
   const [patchAtlas, setPatchAtlas] = useState<Texture | null>(null);
   useEffect(() => {
     let alive = true;
-    const task = drawPatchAtlas(roles, theme).then(async ({ canvas }) => {
+    const warming = get().frameloop === 'never';
+    const task = drawPatchAtlas(roles, theme, !warming).then(async ({ canvas }) => {
       if (!alive) return;
       const texture = new CanvasTexture(canvas);
       texture.colorSpace = SRGBColorSpace;
@@ -361,7 +367,7 @@ export function ExperienceStation({
     return () => {
       alive = false;
     };
-  }, [gl, roles, theme, track]);
+  }, [get, gl, roles, theme, track]);
   useEffect(() => () => patchAtlas?.dispose(), [patchAtlas]);
   useEffect(
     () => setUniform(materials.patch, 'uMap', patchAtlas ?? noPatches),

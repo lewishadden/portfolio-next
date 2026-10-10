@@ -1,3 +1,6 @@
+import { worldStore } from './worldStore';
+
+import type { IdleWindow } from './types';
 import type { WorldTheme } from './utils';
 
 /* ------------------------------------------------------------------
@@ -134,19 +137,30 @@ function arcText(ctx: CanvasRenderingContext2D, text: string, radius: number, to
   });
 }
 
+/** The page's lettering for the patches (each a getComputedStyle, so read once per atlas) */
+function patchFonts() {
+  return {
+    mono: cssFontFamily('--font-mono', 'monospace'),
+    display: cssFontFamily('--font-display', 'sans-serif'),
+  };
+}
+
 /**
  * Draws a role's patch (`tone` 0-4 picks its colour, as `.xp__patch--N`
  * does) into a new `patchSize` square canvas, for the given theme
  */
-export function drawPatch(role: PatchRole, tone: number, theme: WorldTheme) {
+export function drawPatch(
+  role: PatchRole,
+  tone: number,
+  theme: WorldTheme,
+  { mono, display } = patchFonts()
+) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = patchSize;
   const ctx = canvas.getContext('2d');
   if (!ctx) return canvas;
   const palette = tokens[theme];
   const patch = palette.tones[tone % palette.tones.length];
-  const mono = cssFontFamily('--font-mono', 'monospace');
-  const display = cssFontFamily('--font-display', 'sans-serif');
 
   ctx.scale(patchSize / 120, patchSize / 120);
   const circle = (x: number, y: number, r: number) => {
@@ -206,20 +220,65 @@ export function drawPatch(role: PatchRole, tone: number, theme: WorldTheme) {
 }
 
 /**
- * Every role's patch in one canvas, `patchColumns` to a row in the order
- * given (role i at column i % patchColumns, row floor(i / patchColumns))
+ * Resolves at an idle moment with no camera flight under way. Drawing a
+ * patch takes a few milliseconds of canvas work (several on a slow phone):
+ * on the frame the station mounts, as a flight to it sets off, that made
+ * the flight's first frame longer
  */
-export async function drawPatchAtlas(roles: PatchRole[], theme: WorldTheme) {
+function quietMoment() {
+  return new Promise<void>((resolve) => {
+    const w = window as IdleWindow;
+    const wait = () => {
+      if (worldStore.flight.active) {
+        window.setTimeout(wait, 200);
+        return;
+      }
+      if (!w.requestIdleCallback) {
+        window.setTimeout(resolve, 0);
+        return;
+      }
+      w.requestIdleCallback(() => (worldStore.flight.active ? wait() : resolve()), {
+        timeout: 600,
+      });
+    };
+    wait();
+  });
+}
+
+/** Atlases drawn so far, by theme and roles: a station mounting again, or the theme coming back, reuses one */
+const atlases = new Map<string, Promise<{ canvas: HTMLCanvasElement; rows: number }>>();
+
+/**
+ * Every role's patch in one canvas, `patchColumns` to a row in the order
+ * given (role i at column i % patchColumns, row floor(i / patchColumns)).
+ * `gentle` (anywhere but the initial warm-up, which wants it at once) draws
+ * one patch per idle moment, never during a flight
+ */
+export function drawPatchAtlas(roles: PatchRole[], theme: WorldTheme, gentle = false) {
+  const key = `${theme}|${roles.map((r) => `${r.mission}:${r.initials}:${r.company}`).join('|')}`;
+  let atlas = atlases.get(key);
+  if (!atlas) {
+    atlas = drawAtlas(roles, theme, gentle);
+    atlases.set(key, atlas);
+    // A failed draw can be tried again
+    atlas.catch(() => atlases.delete(key));
+  }
+  return atlas;
+}
+
+async function drawAtlas(roles: PatchRole[], theme: WorldTheme, gentle: boolean) {
   await patchFontsReady();
+  const fonts = patchFonts();
   const rows = Math.max(1, Math.ceil(roles.length / patchColumns));
   const atlas = document.createElement('canvas');
   atlas.width = patchColumns * patchSize;
   atlas.height = rows * patchSize;
   const ctx = atlas.getContext('2d');
-  roles.forEach((role, i) => {
+  for (let i = 0; i < roles.length; i++) {
+    if (gentle) await quietMoment();
     const x = (i % patchColumns) * patchSize;
     const y = Math.floor(i / patchColumns) * patchSize;
-    ctx?.drawImage(drawPatch(role, i, theme), x, y);
-  });
+    ctx?.drawImage(drawPatch(roles[i], i, theme, fonts), x, y);
+  }
   return { canvas: atlas, rows };
 }
