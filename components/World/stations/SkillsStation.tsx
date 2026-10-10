@@ -31,11 +31,12 @@ import { iconSvg, useIconCollections } from '../icons';
 import { asGlow, chargeWith, createFresnelMaterial, noiseGlsl } from '../materials';
 import { NavLights, SolarArray, Spin } from '../parts';
 import { spawnPing } from '../Pings';
-import { StationScope, stationPower } from '../power';
+import { flashNavLights, StationScope, stationPower } from '../power';
 import { stationInRange, useThemedMaterials } from '../stationHooks';
-import { stationPositions } from '../stations';
+import { isWideViewport, pageCopyShown, stationPositions } from '../stations';
 import { StationHull } from '../StationHull';
 import { orbitTilts } from '../skillsOrbit';
+import { setTipTarget, tipTarget } from '../tipTarget';
 import { palettes, setUniform } from '../utils';
 import { queueUpload, useWarmupTask } from '../warmup';
 import { focusOnPage, onShowcase, setWorldHover, worldStore, worldTip } from '../worldStore';
@@ -45,7 +46,15 @@ import { repaintFor, useStillRepaint } from './stillFrames';
 import type { RefObject } from 'react';
 import type { IconifyJSON } from '@iconify/react';
 import type { ThreeEvent } from '@react-three/fiber';
-import type { Camera, Intersection, LineSegments, Object3D, Raycaster, Texture } from 'three';
+import type {
+  Camera,
+  Intersection,
+  LineSegments,
+  Mesh,
+  Object3D,
+  Raycaster,
+  Texture,
+} from 'three';
 import type { NavLight } from '../parts';
 import type { WorldPalette, WorldTheme } from '../utils';
 
@@ -397,9 +406,11 @@ const swell = 1.6;
 const orbitVertex = /* glsl */ `
   attribute float aAround;
   varying float vAround;
+  varying float vScreenX;
   void main() {
     vAround = aAround;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vScreenX = gl_Position.x / max(gl_Position.w, 1e-4);
   }
 `;
 
@@ -412,13 +423,17 @@ const orbitFragment = /* glsl */ `
   uniform float uLit;
   uniform float uLight;
   uniform float uCharge;
+  uniform float uClear;
   varying float vAround;
+  varying float vScreenX;
   void main() {
     // 0 at the arc's centre, 1 at the far side of the orbit
     float off = abs(fract(vAround - uCentre + 0.5) - 0.5) * 2.0;
     float arc = 1.0 - smoothstep(uLevel - 0.015, uLevel, off);
     vec3 colour = mix(uColor, uArc * mix(1.6, 1.0, uLight), arc * mix(0.55, 1.0, uLit));
     float alpha = uOpacity * (1.0 + arc * mix(0.3, 1.2, uLit));
+    // Faded right down left of the glass at the reading line (uClear, NDC x; -2 for none)
+    alpha *= mix(0.1, 1.0, smoothstep(0.0, 0.08, vScreenX - uClear - 0.06));
     gl_FragColor = vec4(colour * max(uCharge, 1.0), min(alpha, 1.0) * min(uCharge, 1.0));
   }
 `;
@@ -435,6 +450,7 @@ function createOrbitMaterial(theme: WorldTheme, level: number) {
       uLit: { value: 0 },
       uLight: { value: dark ? 0 : 1 },
       uCharge: { value: 1 },
+      uClear: { value: -2 },
     },
     vertexShader: orbitVertex,
     fragmentShader: orbitFragment,
@@ -541,17 +557,37 @@ const orbitMatrix = new Matrix4();
 const facing = new Quaternion();
 
 /**
+ * What the constellation keeps clear of this frame: the page's heading
+ * block (worldStore.copy), only while it is really on screen (pageCopyShown:
+ * touring, exploring and flying to a new page it is measured at opacity 0),
+ * and on wide layouts the glass panels at the reading line (NDC x of their
+ * right edge, worldStore.clearRight; -1 for none): the category cards the
+ * camera keeps the constellation beside
+ */
+const keepClear = { copy: false, right: -1 };
+
+/** NDC kept between a badge and what it keeps clear of before it starts to fade */
+const clearMargin = 0.06;
+
+/**
  * How visible a badge should be where it is on screen (`ndc`, -1..1): faded
- * right down while it sits behind the page's heading block
- * (worldStore.copy), so the constellation never draws through the copy
+ * right down while it sits behind the page's heading block or left of the
+ * glass at the reading line (keepClear), so the constellation never draws
+ * through the copy
  */
 function clearOfCopy(ndc: Vector3) {
+  let clear = 1;
   const copy = worldStore.copy;
-  if (copy.right <= copy.left) return 1;
-  const margin = 0.06;
-  const dx = Math.max(copy.left - margin - ndc.x, ndc.x - copy.right - margin, 0);
-  const dy = Math.max(copy.bottom - margin - ndc.y, ndc.y - copy.top - margin, 0);
-  return MathUtils.lerp(0.1, 1, MathUtils.smoothstep(Math.hypot(dx, dy), 0, 0.08));
+  if (keepClear.copy && copy.right > copy.left) {
+    const dx = Math.max(copy.left - clearMargin - ndc.x, ndc.x - copy.right - clearMargin, 0);
+    const dy = Math.max(copy.bottom - clearMargin - ndc.y, ndc.y - copy.top - clearMargin, 0);
+    clear = MathUtils.smoothstep(Math.hypot(dx, dy), 0, 0.08);
+  }
+  if (keepClear.right > -1) {
+    const dx = Math.max(ndc.x - keepClear.right - clearMargin, 0);
+    clear = Math.min(clear, MathUtils.smoothstep(dx, 0, 0.08));
+  }
+  return MathUtils.lerp(0.1, 1, clear);
 }
 
 /**
@@ -686,6 +722,20 @@ function placeBadges(
 }
 
 /**
+ * Lays the tooltip's anchor over `badge` (a hidden plane in the badge
+ * meshes' frame, as big as the badge and facing the camera, as placeBadges
+ * last placed it): TipProbe brackets the anchor, since the badges are
+ * instances whose slots move every frame
+ */
+function placeTipAnchor(anchor: Object3D, state: BadgeState, badge: number) {
+  badgePoint.fromArray(state.local, badge * 3);
+  badgeScale.setScalar(state.scale[badge]);
+  anchor.matrix.compose(badgePoint, facing, badgeScale);
+  anchor.matrixWorldNeedsUpdate = true;
+  anchor.updateMatrixWorld();
+}
+
+/**
  * An orbit's line and constellation: the category being read, or holding
  * the hovered badge, stays bright (its level's arc brighter still) and its
  * constellation (a star polygon through its badges) lights up
@@ -708,7 +758,8 @@ function stepOrbit(
     constellation.visible = material.opacity > 0.01;
   }
   const orbitLine = (line as LineSegments).material as ShaderMaterial;
-  const { uOpacity, uLit } = orbitLine.uniforms;
+  const { uOpacity, uLit, uClear } = orbitLine.uniforms;
+  uClear.value = keepClear.right > -1 ? keepClear.right : -2;
   const bright = Math.max(lit, flare);
   uOpacity.value = MathUtils.damp(uOpacity.value, orbitLine.userData.base * (1 + bright), 6, dt);
   uLit.value = MathUtils.damp(uLit.value, bright, 6, dt);
@@ -768,7 +819,7 @@ const towardsCamera = new Vector3();
 /**
  * Asked to show off (a tour stop landing, or the visitor hailing it): every
  * constellation flares and the planet pings. A tour's showcase waits for
- * full motion; at `still` a hail is the ping alone
+ * full motion; at `still` a hail is the ping and a blink of the nav lights
  */
 function useShowcase(planet: RefObject<Group | null>, show: RefObject<{ at: number }>) {
   const get = useThree((s) => s.get);
@@ -787,7 +838,9 @@ function useShowcase(planet: RefObject<Group | null>, show: RefObject<{ at: numb
           spawnPing(planetCentre.add(towardsCamera));
         }
         if (level === 'still') {
-          repaintFor(invalidate, 1000);
+          // The ping and a blink of the outpost's nav lights: nothing moves
+          flashNavLights('skills');
+          repaintFor(invalidate, 1400);
           return;
         }
         show.current.at = clock.elapsedTime;
@@ -848,6 +901,8 @@ export function SkillsStation({
   const nearBadgesRef = useRef<InstancedMesh>(null);
   /** The badge under the pointer (-1 for none) */
   const hoveredRef = useRef({ badge: -1 });
+  /** Laid over the hovered badge for the tooltip to bracket (placeTipAnchor) */
+  const tipAnchorRef = useRef<Mesh>(null);
   const materials = useThemedMaterials(buildMaterials, theme, 'skills');
   const invalidate = useThree((s) => s.invalidate);
   useStillRepaint();
@@ -968,8 +1023,11 @@ export function SkillsStation({
     [skills]
   );
 
-  useFrame(({ camera, clock }, delta) => {
+  useFrame(({ camera, clock, size }, delta) => {
     if (!stationInRange(groupRef.current, camera, 'skills')) return;
+    keepClear.copy = pageCopyShown();
+    keepClear.right =
+      keepClear.copy && isWideViewport(size.width, size.height) ? worldStore.clearRight : -1;
     // At `still` nothing moves on its own, and what answers the page snaps
     const still = motionLevel() === 'still';
     const dt = still ? 1 : Math.min(delta, 0.05);
@@ -1008,6 +1066,8 @@ export function SkillsStation({
     if (far && near) {
       placeBadges([far, near], badges, state, atlas, spinners, named, camera, reach, dt);
     }
+    const anchor = tipAnchorRef.current;
+    if (anchor && hovered >= 0) placeTipAnchor(anchor, state, hovered);
     inkBadges(materials.badges, atlas, fadeIcons(state, atlas, dt));
   });
 
@@ -1026,6 +1086,11 @@ export function SkillsStation({
       hovered.badge = badge;
       setWorldHover(true);
       worldTip.set(tips.get(badges[badge].name) ?? null);
+      const anchor = tipAnchorRef.current;
+      if (anchor && badgeState.current) {
+        placeTipAnchor(anchor, badgeState.current, badge);
+        setTipTarget(anchor);
+      }
       invalidate();
     },
     onPointerOut: (e: ThreeEvent<PointerEvent>) => {
@@ -1036,6 +1101,9 @@ export function SkillsStation({
       hovered.badge = -1;
       setWorldHover(false);
       if (worldTip.get() === tip) worldTip.set(null);
+      if (tipAnchorRef.current && tipTarget()?.object === tipAnchorRef.current) {
+        setTipTarget(null);
+      }
       invalidate();
     },
     onClick: (e: ThreeEvent<MouseEvent>) => {
@@ -1116,6 +1184,10 @@ export function SkillsStation({
               </planeGeometry>
             </instancedMesh>
           ))}
+          {/* Never drawn: the hovered badge's stand-in for the tooltip (placeTipAnchor) */}
+          <mesh ref={tipAnchorRef} visible={false} matrixAutoUpdate={false}>
+            <planeGeometry />
+          </mesh>
         </group>
       </group>
     </StationScope>
