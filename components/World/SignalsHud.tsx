@@ -26,7 +26,13 @@ import {
   useLatestSignal,
 } from './signalStore';
 import { worldMode } from './worldMode';
-import { onAutopilot, setAutopilot, worldScanEvent, worldStore } from './worldStore';
+import {
+  onAutopilot,
+  onDock as onDockable,
+  setAutopilot,
+  worldScanEvent,
+  worldStore,
+} from './worldStore';
 
 import type { StationKey } from './routes';
 import type { SignalAction } from './signalStore';
@@ -41,6 +47,9 @@ const enterTargets =
 
 /** The card's choices, in order: what it carries first, Close last */
 const cardActions = '.explore-hud__signal-actions :is(a[href], button)';
+
+/** Keys that work the card (Shift for Shift+Tab, Esc to leave): any other flies on */
+const cardKeys = new Set(['Enter', 'Tab', 'Shift', 'Escape', 'Meta', 'Control', 'Alt', 'CapsLock']);
 
 /* ----------------- A signal's page action: course set, docking on arrival ----------------- */
 
@@ -267,11 +276,13 @@ function ActionButton({
   action,
   cv,
   onCourse,
+  onUsed,
   hint,
 }: {
   action: SignalAction;
   cv: WorldContent['cv'];
   onCourse: (path: string, from: HTMLElement) => void;
+  onUsed: (from: HTMLElement) => void;
   hint: boolean;
 }) {
   const icon = action.kind === 'cv' ? 'ph:file-arrow-down-bold' : 'ph:arrow-up-right-bold';
@@ -293,7 +304,7 @@ function ActionButton({
       ? { href: cv.url, download: cv.name }
       : { href: action.href, target: '_blank', rel: 'noopener noreferrer' };
   return (
-    <a className="btn btn--primary" {...link}>
+    <a className="btn btn--primary" {...link} onClick={(e) => onUsed(e.currentTarget)}>
       <span>{action.label}</span>
       <Icon icon={icon} width={15} height={15} aria-hidden="true" />
       {action.kind === 'link' && <span className="sr-only"> (opens in a new tab)</span>}
@@ -310,7 +321,9 @@ function ActionButton({
  * it has parked there. Taking the controls back on the way cancels it.
  * Enter (on no control, and with no dock offered) brings keyboard focus to
  * the card's first choice, opening the last find's card again if it has
- * closed; the card stays up while focus is in it
+ * closed. The card stays up while focus is in it, until the ship flies on
+ * or a dock is offered: focus then goes back to the HUD (where Enter
+ * docks) and the card closes itself again. Any choice used closes it
  */
 export function SignalCard({
   cv,
@@ -333,6 +346,40 @@ export function SignalCard({
     const id = window.setTimeout(dismissFound, cardTime);
     return () => window.clearTimeout(id);
   }, [latest, held]);
+
+  /** Keyboard focus leaves the card for the HUD, and its timer runs again */
+  const handBack = useEffectEvent(() => {
+    const card = cardRef.current;
+    if (!card?.contains(document.activeElement)) return;
+    card.closest<HTMLElement>('.explore-hud')?.focus({ preventScroll: true });
+    setFocusedOn('');
+  });
+
+  // Flying on hands focus back: with the mouse locked nothing else moves it,
+  // so a card Enter brought focus to would stay up for good
+  useEffect(() => {
+    if (!held) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (cardKeys.has(e.key) || e.metaKey || e.ctrlKey || e.altKey) return;
+      handBack();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [held]);
+
+  // So does a dock being offered: Enter is the dock prompt's then, as its ↵
+  // says, never the focused choice's (a download, a link, a course away)
+  useEffect(() => {
+    const offered = () => {
+      if (worldStore.dock && !worldStore.autopilot && !worldStore.docking) handBack();
+    };
+    const stopDock = onDockable(offered);
+    const stopCourse = onAutopilot(offered);
+    return () => {
+      stopDock();
+      stopCourse();
+    };
+  }, []);
 
   // Enter, with no control focused and no dock offered (the dock prompt has
   // it then), goes to the last find's card: open again if it has closed,
@@ -380,6 +427,9 @@ export function SignalCard({
     dismissFound();
   };
 
+  // A download or link used closes it too, once the browser has followed it
+  const used = (from: HTMLElement) => window.setTimeout(() => close(from));
+
   const setCourse = (path: string, from: HTMLElement) => {
     const station = stationForPath(path);
     close(from);
@@ -423,6 +473,7 @@ export function SignalCard({
             action={action}
             cv={cv}
             onCourse={setCourse}
+            onUsed={used}
             hint={hint && i === 0}
           />
         ))}
