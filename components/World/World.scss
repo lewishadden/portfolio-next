@@ -346,11 +346,6 @@ html[data-world-mode='returning'] {
   }
 }
 
-/* Header.scss hides its scrim for the tour and free roam */
-html[data-world-mode='returning'] .header-scrim {
-  opacity: 0;
-}
-
 .world__veil {
   transition: opacity 0.8s var(--ease-out);
 }
