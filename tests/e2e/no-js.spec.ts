@@ -74,6 +74,23 @@ async function breakTheApp(page: Page) {
   );
 }
 
+/** Every script chunk arrives but can't be parsed (an old browser): the app never starts */
+async function garbleTheApp(page: Page) {
+  await page.route('**/_next/static/chunks/**', (route) =>
+    route.request().resourceType() === 'script'
+      ? route.fulfill({ contentType: 'text/javascript', body: 'const garbled = ;' })
+      : route.continue()
+  );
+}
+
+/** The world windows are closed, and the 2D station render stands in for the world */
+async function expectWorldClosed(page: Page) {
+  const windows = await page.locator('#main-content .world-window').all();
+  expect(windows.length).toBeGreaterThan(0);
+  for (const gap of windows) await expect(gap).toBeHidden();
+  await expect(page.locator('#main-content .station-fallback').first()).toBeVisible();
+}
+
 seeded.describe('when the app never starts', () => {
   seeded('the page shows after a few seconds', async ({ page }) => {
     await breakTheApp(page);
@@ -120,6 +137,31 @@ seeded.describe('when the app never starts', () => {
       await expect(page.locator('.boot')).toBeHidden();
       await expectReadable(page, '/about');
     });
+  });
+
+  seeded.describe('on a narrow screen', () => {
+    // Narrow, so the pages open world windows
+    seeded.use({ world: 'on', viewport: { width: 390, height: 844 } });
+
+    seeded(
+      'chunks that load but cannot be parsed close the world windows at once',
+      async ({ page }) => {
+        await garbleTheApp(page);
+        await page.goto('/', { waitUntil: 'domcontentloaded' });
+        const root = page.locator('html');
+        await expect(root).toHaveAttribute('data-boot', 'loading');
+        // Under the loading screen, before its skip button shows
+        await expect(root).toHaveAttribute('data-world', 'off', { timeout: 5_000 });
+        const skip = page.getByRole('button', { name: 'Skip to the page' });
+        await expect(skip).toBeVisible({ timeout: 10_000 });
+        await skip.click();
+        await expect(root).not.toHaveAttribute('data-boot');
+        await expectReadable(page, '/');
+        await expect(root).toHaveAttribute('data-world', 'off');
+        await expectWorldClosed(page);
+        await expect(root).not.toHaveAttribute('data-hydrated');
+      }
+    );
   });
 });
 

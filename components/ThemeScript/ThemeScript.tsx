@@ -86,9 +86,10 @@ export function ThemeScript() {
       // is left alone: marking it off closes the world windows and brings in the
       // 2D station renders and still sky, which a late start would then undo.
       // Only a clear failure marks it off: one of the app's scripts failing to
-      // load (a chunk that 404s after a deploy, a blocker), or still no app when
-      // the failsafes give up (an old browser that loads the scripts but can't
-      // run them). World sets the real value should the app start after all
+      // load (a chunk that 404s after a deploy, a blocker) or to parse (an old
+      // browser that loads the scripts but can't run them), or still no app
+      // when the failsafes give up. World sets the real value should the app
+      // start after all
       var began = Date.now();
       var running = function() { return root.hasAttribute('data-hydrated'); };
       var reveal = function() {
@@ -118,13 +119,15 @@ export function ThemeScript() {
         var target = e.target;
         if (target && target.closest && target.closest('.boot__skip')) lift();
       });
-      // A script that fails to load fires 'error' on itself, which doesn't
-      // bubble: caught on the way down
+      var ours = function(url) { return (url || '').indexOf('/_next/static/') !== -1; };
       window.addEventListener('error', function(e) {
         var target = e.target;
-        if (target && target.tagName === 'SCRIPT' && (target.src || '').indexOf('/_next/static/') !== -1) {
-          markOff();
-        }
+        // A script that fails to load fires 'error' on itself, which doesn't
+        // bubble: caught on the way down
+        var unloaded = target && target.tagName === 'SCRIPT' && ours(target.src);
+        // One that loads but can't be parsed reports a SyntaxError on window
+        var unparsed = target === window && e.error instanceof SyntaxError && ours(e.filename);
+        if (unloaded || unparsed) markOff();
       }, true);
 
       requestAnimationFrame(function() {
