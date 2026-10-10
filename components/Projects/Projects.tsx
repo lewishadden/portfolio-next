@@ -104,12 +104,15 @@ function ProjectHud({
             </span>
           )}
         </p>
-        <h2 id={`project-${slug}`} className="proj-hud__title">
+        {/* [data-reading]: the world behind the HUD's copy is kept dark (or
+            light) enough to read it by; the meta row above is muted text,
+            which the guard can't serve, so only the title is marked */}
+        <h2 id={`project-${slug}`} className="proj-hud__title" data-reading="large">
           {name}
         </h2>
       </header>
 
-      <ul className="proj-hud__tech" aria-label="Key technologies">
+      <ul className="proj-hud__tech" aria-label="Key technologies" data-reading>
         {techs.map((t) => (
           <li className="chip" key={t.name}>
             <Icon
@@ -152,7 +155,9 @@ function ProjectHud({
         </div>
       </div>
 
-      <p className="proj-hud__desc">{snippet(description)}</p>
+      <p className="proj-hud__desc" data-reading>
+        {snippet(description)}
+      </p>
 
       <div className="proj-hud__actions">
         {/* A real link (crawlable, opens in a new tab) that opens the modal on a plain click */}
@@ -168,7 +173,13 @@ function ProjectHud({
           <Icon icon="ph:arrow-up-right-bold" width={15} height={15} aria-hidden="true" />
         </Link>
         {url && (
-          <a href={url} target="_blank" rel="noopener noreferrer" className="proj-hud__site">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="proj-hud__site"
+            data-reading
+          >
             <Icon icon="ph:globe-hemisphere-west-bold" width={15} height={15} aria-hidden="true" />
             <span>{siteHost(url)}</span>
             <span className="sr-only"> (opens in a new tab)</span>
