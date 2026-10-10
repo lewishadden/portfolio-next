@@ -17,9 +17,11 @@ import type { StationKey } from 'components/World/routes';
    off) its voice is the one you hear; its neighbours, 60–100 units
    away, are faint, so a flight crossfades one into the next and pans
    them as the camera turns. The 404 derelict's voice is off key,
-   detuned and warbling, and only sounds in free roam. With the world
-   off there is no camera: the listener sits at the page's station and
-   glides to the next one on navigation.
+   detuned and warbling, and only sounds on its own page and in free
+   roam. A station that isn't fully powered (worldStore.charge: standby,
+   or surging as it powers up) sings quieter, or louder, with it. With
+   the world off there is no camera: the listener sits at the page's
+   station and glides to the next one on navigation.
 
    Cues that happen somewhere (a click on a hull, a station powering up,
    a signal found) play through a small pool of panners placed where they
@@ -152,6 +154,10 @@ const hullFar = 55;
 const hullNear = 20;
 /** With the world off, how far in front of the page's station the listener sits */
 const docked = 14;
+/** Seconds the derelict's voice takes to come in or fade away */
+const heardTime = 1.2;
+/** Seconds a voice takes to follow its station's power */
+const powerTime = 0.05;
 /** Seconds the listener takes to follow the live camera, and to glide when there isn't one */
 const followTime = 0.04;
 const glideTime = 1.2;
@@ -164,6 +170,10 @@ interface Voice {
   /** How far the breath moves `amp` */
   sway: GainNode;
   level: number;
+  /** How much of it is heard (0..1, eased): the derelict only on its page and in free roam */
+  heard: number;
+  /** The loudness `amp` was last set to */
+  gain: number;
   panner: PannerNode;
   /** Where it sings from: cues from the station (its chime, its answer to a hail) play from here */
   at: Point;
@@ -241,7 +251,7 @@ export function buildSpace(ctx: AudioContext, out: AudioNode): Space {
     place(panner, at, 0);
     panner.connect(out);
 
-    // Silent until roam() lets the derelict in
+    // The derelict is silent until tune() lets it in
     const level = voiceLevel * spec.level;
     const heard = key === 'lost' ? 0 : 1;
     const amp = ctx.createGain();
@@ -280,7 +290,7 @@ export function buildSpace(ctx: AudioContext, out: AudioNode): Space {
       osc.start();
     });
 
-    voices[key] = { amp, sway, level, panner, at };
+    voices[key] = { amp, sway, level, heard, gain: level * heard, panner, at };
   }
 
   // The reverb: placed cues send into it, and it rings louder the nearer a hull is
@@ -367,12 +377,33 @@ function ring(space: Space, ctx: AudioContext) {
   reverb.wet.gain.setTargetAtTime(level, ctx.currentTime, 0.4);
 }
 
-/** The derelict sings only in free roam */
-export function roam(space: Space, ctx: AudioContext, on: boolean) {
-  const { amp, sway, level } = space.voices.lost;
+/**
+ * Every animation frame, each voice's loudness: the derelict sings only on
+ * its own page (the 404) and in free roam, and a station that isn't fully
+ * powered (worldStore.charge, written while the world runs: standby, or
+ * up to 1.4 surging as it powers up) sings at 0.2 + 0.8 x its charge
+ * (held at 1.3) of its level
+ */
+function tune(space: Space, ctx: AudioContext, dt: number, live: boolean) {
+  const derelict =
+    worldMode.get().mode === 'explore' || stationForPath(window.location.pathname) === 'lost';
+  const k = 1 - Math.exp(-dt / heardTime);
   const now = ctx.currentTime;
-  amp.gain.setTargetAtTime(on ? level : 0, now, 1.2);
-  sway.gain.setTargetAtTime(on ? level * swayDepth : 0, now, 1.2);
+  for (const key of stationKeys) {
+    const voice = space.voices[key];
+    const heard = key !== 'lost' || derelict ? 1 : 0;
+    voice.heard += (heard - voice.heard) * k;
+    if (Math.abs(heard - voice.heard) < 1e-3) voice.heard = heard;
+    const charge = live ? worldStore.charge[key] : undefined;
+    const power = charge === undefined ? 1 : 0.2 + 0.8 * Math.min(Math.max(charge, 0), 1.3);
+    const gain = voice.level * voice.heard * power;
+    if (Math.abs(gain - voice.gain) < voice.level * 0.004 && (gain > 0 || voice.gain === 0)) {
+      continue;
+    }
+    voice.gain = gain;
+    voice.amp.gain.setTargetAtTime(gain, now, powerTime);
+    voice.sway.gain.setTargetAtTime(gain * swayDepth, now, powerTime);
+  }
 }
 
 const aim = { x: 0, y: 0, z: 0, fx: 0, fy: 0, fz: -1 };
@@ -434,4 +465,5 @@ export function listen(space: Space, ctx: AudioContext, dt: number) {
     listener.setOrientation(ear.fx, ear.fy, ear.fz, 0, 1, 0);
   }
   ring(space, ctx);
+  tune(space, ctx, dt, live);
 }

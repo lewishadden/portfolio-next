@@ -1,8 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
-import { worldMode } from 'components/World/worldMode';
 import { onCue, onFlight, worldStore } from 'components/World/worldStore';
-import { buildSpace, cueOut, listen, roam, stationVoices, voiceAt } from './spatial';
+import { buildSpace, cueOut, listen, stationVoices, voiceAt } from './spatial';
 
 import type { StationKey } from 'components/World/routes';
 import type { Cue, CueDetail } from 'components/World/worldStore';
@@ -160,7 +159,6 @@ function build(): Engine {
   }
 
   const space = buildSpace(ctx, master);
-  roam(space, ctx, worldMode.get().mode === 'explore');
 
   return { ctx, master, rush, rushFilter, noise, hum, space };
 }
@@ -535,9 +533,6 @@ function wire() {
   wired = true;
   onCue(play);
   onFlight(flightSound);
-  worldMode.subscribe(() => {
-    if (engine) roam(engine.space, engine.ctx, worldMode.get().mode === 'explore');
-  });
   document.addEventListener('visibilitychange', () => {
     if (!engine || !readWanted()) return;
     loop(!document.hidden);
