@@ -595,7 +595,7 @@ function arrival(key: StationKey): Sound {
 }
 
 let lastSwell = -Infinity;
-/** The station the last flight set off for, until it docks ('' for none) */
+/** The station the last flight set off for, until an 'end' ('' for none) */
 let flyingTo = '';
 
 function flightSound(event: 'start' | 'approach' | 'end', to: string) {
@@ -609,8 +609,12 @@ function flightSound(event: 'start' | 'approach' | 'end', to: string) {
   } else if (event === 'end' && to in stationVoices) {
     const key = to as StationKey;
     // Flown in, it docks with the clamps and chime; cut there (motion held
-    // back), with no 'start', it just arrives
-    const flown = flyingTo === key;
+    // back), with no 'start', it just arrives. A flight dropped on the way
+    // (free roam taking over, the world switched off) ends with no 'end',
+    // so `flyingTo` can still name it: only a flight that finished docks
+    // (CameraRig sets progress to 1 just before its 'end', flown or cut
+    // short). A cut arrival leaves progress where a dropped flight left it
+    const flown = flyingTo === key && worldStore.flight.progress === 1;
     flyingTo = '';
     if (flown) schedule(arrival(key));
     else play('arrive', { at: stationPositions[key] });
