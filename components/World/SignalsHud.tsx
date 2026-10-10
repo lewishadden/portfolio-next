@@ -84,6 +84,21 @@ export function useDockOnArrival() {
   return useSyncExternalStore(subscribeArrival, readArrival, noArrival);
 }
 
+/**
+ * A dock is offered (the dock prompt shows, and Enter docks): near a
+ * station with no course set. Either changing re-reads it
+ */
+const subscribeOffer = (listener: () => void) => {
+  const stopDock = onDockable(listener);
+  const stopCourse = onAutopilot(listener);
+  return () => {
+    stopDock();
+    stopCourse();
+  };
+};
+const readOffer = () => !!worldStore.dock && !worldStore.autopilot;
+const noOffer = () => false;
+
 /** The ship is parked where the autopilot leaves it in front of `station` */
 function parkedAt(station: StationKey) {
   const [x, y, z] = stationPositions[station];
@@ -269,7 +284,7 @@ export function signalName(id: (typeof signals)[number]['id']) {
   return isFound(id) ? signals.find((signal) => signal.id === id)!.name : contactName(id);
 }
 
-/** Enter reaches the card's choices (shown while keyboard focus is elsewhere) */
+/** Enter reaches the card's choices (shown while focus is elsewhere and no dock is offered) */
 const enterHint = <kbd aria-hidden="true">↵</kbd>;
 
 function ActionButton({
@@ -340,6 +355,8 @@ export function SignalCard({
   // The find whose card has keyboard focus in it ('' for none): it stays up
   const [focusedOn, setFocusedOn] = useState('');
   const held = !!latest && focusedOn === latest;
+  // Enter docks while a dock is offered, so the card's choices show no ↵ then
+  const dockOffered = useSyncExternalStore(subscribeOffer, readOffer, noOffer);
 
   useEffect(() => {
     if (!latest || held) return;
@@ -369,17 +386,13 @@ export function SignalCard({
 
   // So does a dock being offered: Enter is the dock prompt's then, as its ↵
   // says, never the focused choice's (a download, a link, a course away)
-  useEffect(() => {
-    const offered = () => {
-      if (worldStore.dock && !worldStore.autopilot && !worldStore.docking) handBack();
-    };
-    const stopDock = onDockable(offered);
-    const stopCourse = onAutopilot(offered);
-    return () => {
-      stopDock();
-      stopCourse();
-    };
-  }, []);
+  useEffect(
+    () =>
+      subscribeOffer(() => {
+        if (readOffer() && !worldStore.docking) handBack();
+      }),
+    []
+  );
 
   // Enter, with no control focused and no dock offered (the dock prompt has
   // it then), goes to the last find's card: open again if it has closed,
@@ -390,7 +403,7 @@ export function SignalCard({
       if (e.key !== 'Enter' || e.repeat || e.defaultPrevented) return;
       if (worldMode.get().mode !== 'explore' || worldStore.docking) return;
       if (e.target instanceof Element && e.target.closest(enterTargets)) return;
-      if ((worldStore.dock && !worldStore.autopilot) || !recentFound()) return;
+      if (readOffer() || !recentFound()) return;
       e.preventDefault();
       reopenFound();
       requestAnimationFrame(() =>
@@ -444,7 +457,7 @@ export function SignalCard({
     signal.action,
     complete && signal.action?.kind !== 'page' ? allFound.action : undefined,
   ].filter((action): action is SignalAction => !!action);
-  const hint = !touch && !held;
+  const hint = !touch && !held && !dockOffered;
   return (
     <div
       ref={cardRef}
