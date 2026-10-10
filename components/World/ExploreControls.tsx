@@ -6,7 +6,7 @@ import { CatmullRomCurve3, Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } f
 
 import { motionLevel } from '@/utils/motion';
 
-import { colliderCount, contactWith, shipMargin } from './colliders';
+import { colliderCount, contactWith, courseBlock, shipMargin } from './colliders';
 import {
   aimingReticle,
   clickTarget,
@@ -43,7 +43,7 @@ import {
 
 import type { RootState } from '@react-three/fiber';
 import type { Scene } from 'three';
-import type { Contact } from './colliders';
+import type { Contact, CourseBlock } from './colliders';
 import type { StationKey } from './routes';
 import type { Signal } from './signalStore';
 
@@ -103,6 +103,10 @@ const point = new Vector3();
 const view = new Vector3();
 const centre = new Vector3(...sectorCentre);
 const outward = new Vector3();
+const detour = new Vector3();
+const roundWay = new Vector3();
+const radial = new Vector3();
+const across = new Vector3();
 
 const dockRange = 18;
 /** Pointer locked: radians of turn per pixel the mouse moves */
@@ -341,6 +345,94 @@ function roundsSide(from: Vector3, at: Vector3, out: Vector3) {
   return from.distanceTo(out) > 8;
 }
 
+const block: CourseBlock = { centre: new Vector3(), radius: 0, along: 0 };
+const candidate: CourseBlock = { centre: new Vector3(), radius: 0, along: 0 };
+const candidateWay = new Vector3();
+const straight = new Vector3();
+/** Autopilot: how far ahead along its way round a solid the course aims */
+const roundLookAhead = 12;
+
+/**
+ * The side of `centre` a course from `from` passes on to reach `other`:
+ * across `out` from the solid to the ship, towards where it is going (over
+ * the top when that lies straight beyond the solid)
+ */
+function sideOf(centre: Vector3, from: Vector3, other: Vector3, out: Vector3) {
+  radial.subVectors(from, centre).normalize();
+  out.subVectors(other, centre).addScaledVector(radial, -out.dot(radial));
+  if (out.lengthSq() < 1e-6) {
+    out.set(0, 1, 0).addScaledVector(radial, -radial.y);
+    if (out.lengthSq() < 1e-6) out.set(1, 0, 0);
+  }
+  return out.normalize();
+}
+
+/**
+ * The way round a solid in a course's path (`solid`), as a direction:
+ * along the line from the ship that just grazes the solid's clearance, on
+ * the side where it is going, or straight round it once that close. As the
+ * ship flies it this meets the straight course the moment that clears the
+ * solid, so the course never jumps from one to the other
+ */
+function roundSolid(solid: CourseBlock, from: Vector3, toward: Vector3, out: Vector3) {
+  const distance = from.distanceTo(solid.centre);
+  sideOf(solid.centre, from, toward, across);
+  const sin = Math.min(1, solid.radius / Math.max(distance, 1e-3));
+  return out
+    .copy(radial)
+    .multiplyScalar(-Math.sqrt(1 - sin * sin))
+    .addScaledVector(across, sin);
+}
+
+/**
+ * Autopilot: what stands in the way of the straight course from `from` to
+ * `toward` (the hull of the station it is leaving, most often). Of the
+ * solids it runs too close to, the one it has to turn furthest to round
+ * goes into `block`, and the way round it into `way`; false when the way
+ * is clear
+ */
+function inTheWay(from: Vector3, toward: Vector3, way: Vector3) {
+  let found = false;
+  let turn = 2;
+  straight.subVectors(toward, from).normalize();
+  for (let i = 0; i < colliderCount; i++) {
+    if (!courseBlock(i, from, toward, candidate)) continue;
+    const ahead = roundSolid(candidate, from, toward, candidateWay).dot(straight);
+    if (found && ahead >= turn) continue;
+    found = true;
+    turn = ahead;
+    block.centre.copy(candidate.centre);
+    block.radius = candidate.radius;
+    block.along = candidate.along;
+    way.copy(candidateWay);
+  }
+  return found;
+}
+
+/**
+ * Where a course from `from` meets the clearance round `block` on its way
+ * to `other` (the point its grazing line touches): with `from` the ship,
+ * where it starts round the solid; with `from` the goal, where it leaves it
+ */
+function grazePoint(from: Vector3, other: Vector3, out: Vector3) {
+  const distance = from.distanceTo(block.centre);
+  sideOf(block.centre, from, other, across);
+  const cos = Math.min(1, block.radius / Math.max(distance, 1e-3));
+  return out
+    .copy(radial)
+    .multiplyScalar(cos * block.radius)
+    .addScaledVector(across, Math.sqrt(1 - cos * cos) * block.radius)
+    .add(block.centre);
+}
+
+/** The course line's way from `from` to `to`: the points it rounds anything in its path by */
+function legPoints(from: Vector3, to: Vector3, points: Vector3[]) {
+  if (inTheWay(from, to, roundWay)) {
+    points.push(grazePoint(from, to, new Vector3()), grazePoint(to, from, new Vector3()));
+  }
+  points.push(to.clone());
+}
+
 const isStation = (course: string): course is StationKey =>
   (stationKeys as readonly string[]).includes(course);
 
@@ -369,26 +461,25 @@ function resolveCourse(course: string, from: Vector3, t: number): 'station' | 's
   return 'signal';
 }
 
-const coursePoints = [new Vector3(), new Vector3(), new Vector3()];
 const noCourse = new Float32Array(0);
 
 /**
  * The autopilot's course, as the radar and the course line draw it: from
- * the camera, round the station's side if flyTo will, to where it parks.
+ * the camera, round anything in its way (the station it is leaving, say)
+ * and round the station's side if flyTo will, to where it parks.
  * `courseSamples` points (x, y, z triples) along a curve through them
  */
 function planCourse(course: string, from: Vector3, t: number) {
   const kind = resolveCourse(course, from, t);
   if (!kind) return noCourse;
-  const [start, round, end] = coursePoints;
-  start.copy(from);
-  end.copy(goal);
-  const rounds = kind === 'station' && roundsSide(from, station, round);
-  const curve = new CatmullRomCurve3(
-    rounds ? [start, round, end] : [start, end],
-    false,
-    'centripetal'
-  );
+  const end = goal.clone();
+  const points = [from.clone()];
+  const round = new Vector3();
+  if (kind === 'station' && roundsSide(from, station, round)) {
+    legPoints(from, round, points);
+    legPoints(round, end, points);
+  } else legPoints(from, end, points);
+  const curve = new CatmullRomCurve3(points, false, 'centripetal');
   const path = new Float32Array(courseSamples * 3);
   for (let i = 0; i < courseSamples; i++) {
     curve.getPointAt(i / (courseSamples - 1), point).toArray(path, i * 3);
@@ -420,7 +511,8 @@ function trackCourse(course: string, from: Vector3, t: number, state: LookState)
 
 /**
  * Autopilot: turns towards where it is going (round the station's side
- * first when coming from behind it), burns once roughly facing that way and
+ * first when coming from behind it, and round anything in the way, such as
+ * the hull of the station it is leaving), burns once roughly facing that way and
  * brakes to park in front of the station (or short of the signal), turning
  * to face it on the last stretch. Returns true once it is parked and facing
  * it, or at once for a course that leads nowhere.
@@ -434,6 +526,11 @@ function flyTo(course: string, state: LookState, cam: PerspectiveCamera, t: numb
   if (kind === 'station' && roundsSide(cam.position, station, point)) {
     toward = point;
     left = cam.position.distanceTo(point) + point.distanceTo(goal);
+  }
+  // Anything in the way (the hull of the station it is leaving, most
+  // often): the course goes round it, grazing its clearance
+  if (inTheWay(cam.position, toward, roundWay)) {
+    toward = detour.copy(cam.position).addScaledVector(roundWay, roundLookAhead);
   }
   wish.subVectors(toward, cam.position);
   const distance = wish.length();

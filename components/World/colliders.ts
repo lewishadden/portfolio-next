@@ -145,3 +145,105 @@ export function contactWith(index: number, position: Vector3, t: number, out: Co
   measure(shapes[index], position, t, out);
   return out.gap < shipMargin;
 }
+
+/**
+ * Autopilot courses keep this much further from each solid than the ship
+ * is held (shipMargin), so a course flown with the ship's lag still never
+ * touches a hull
+ */
+export const courseClearance = 2.5;
+
+/** Where a straight course meets a solid it would run too close to */
+export interface CourseBlock {
+  /** The nearest point on the solid's core (its centre, or on its axis) */
+  centre: Vector3;
+  /** How far from `centre` the course must stay */
+  radius: number;
+  /** How far along the course (0..1) it comes nearest */
+  along: number;
+}
+
+const legDir = new Vector3();
+const axisDir = new Vector3();
+const between = new Vector3();
+const nearOnLeg = new Vector3();
+const nearOnAxis = new Vector3();
+const axisStart = new Vector3();
+const axisEnd = new Vector3();
+
+/** A solid's core as a segment (a sphere's is a point) and how far from it the ship is held, or null for the comet */
+function core(shape: Shape) {
+  switch (shape.kind) {
+    case 'sphere':
+      if (shape.comet) return null;
+      axisStart.copy(shape.centre);
+      axisEnd.copy(shape.centre);
+      return shape.surface + shipMargin;
+    case 'capsule':
+      axisStart.copy(shape.a);
+      axisEnd.copy(shape.b);
+      return shape.surface + shipMargin;
+    case 'cylinder':
+      axisStart.set(shape.x, shape.y0, shape.z);
+      axisEnd.set(shape.x, shape.y1, shape.z);
+      return shape.surface + shipMargin;
+  }
+}
+
+/** Nearest points between the course `from`→`to` and the core segment (Ericson's segment–segment test) */
+function nearestPoints(from: Vector3, to: Vector3) {
+  legDir.subVectors(to, from);
+  axisDir.subVectors(axisEnd, axisStart);
+  between.subVectors(from, axisStart);
+  const a = legDir.lengthSq();
+  const e = axisDir.lengthSq();
+  const f = axisDir.dot(between);
+  let s = 0;
+  let u = 0;
+  if (a > 1e-8 && e > 1e-8) {
+    const c = legDir.dot(between);
+    const b = legDir.dot(axisDir);
+    const denom = a * e - b * b;
+    s = denom > 1e-8 ? Math.min(1, Math.max(0, (b * f - c * e) / denom)) : 0;
+    u = (b * s + f) / e;
+    if (u < 0) {
+      u = 0;
+      s = Math.min(1, Math.max(0, -c / a));
+    } else if (u > 1) {
+      u = 1;
+      s = Math.min(1, Math.max(0, (b - c) / a));
+    }
+  } else if (a > 1e-8) {
+    s = Math.min(1, Math.max(0, -legDir.dot(between) / a));
+  } else if (e > 1e-8) {
+    u = Math.min(1, Math.max(0, f / e));
+  }
+  nearOnLeg.copy(from).addScaledVector(legDir, s);
+  nearOnAxis.copy(axisStart).addScaledVector(axisDir, u);
+  return s;
+}
+
+/**
+ * Autopilot: does the straight course from `from` to `to` pass nearer to
+ * collider `index` than `courseClearance` beyond where the ship is held?
+ * When it does, `out` says where. A solid the ship is already inside (it
+ * started free roam there) or the course ends close to (a stand-off beside
+ * a craft) doesn't count: there is no way round it, and the hull holds the
+ * ship off.
+ */
+export function courseBlock(index: number, from: Vector3, to: Vector3, out: CourseBlock) {
+  const held = core(shapes[index]);
+  if (held === null) return false;
+  const radius = held + courseClearance;
+  nearestPoints(from, from);
+  if (from.distanceTo(nearOnAxis) < held) return false;
+  nearestPoints(to, to);
+  if (to.distanceTo(nearOnAxis) < radius) return false;
+  const along = nearestPoints(from, to);
+  // Nearest where the ship already is: it is heading away (or past it)
+  if (along < 1e-3 || nearOnLeg.distanceTo(nearOnAxis) >= radius) return false;
+  out.centre.copy(nearOnAxis);
+  out.radius = radius;
+  out.along = along;
+  return true;
+}
