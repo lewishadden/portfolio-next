@@ -19,6 +19,7 @@ import { cometAt, signals } from './signalStore';
 import { canLockPointer, lockPointer } from './pointerLock';
 import {
   navigableStations,
+  parkingOffset,
   sectorCentre,
   sectorRadius,
   stationForPath,
@@ -131,8 +132,8 @@ const edgeSlack = 4;
 const edgeWarning = 60;
 /** Fog in free roam: pushed out this far so the whole line of stations stays in sight */
 const exploreFog = { near: 70, far: 460, liteFar: 300 };
-/** Autopilot: parks this far in front of the station's face (pages frame it from +Z) */
-const approach = new Vector3(0, 1.5, 16);
+/** Autopilot: parks this far in front of the station's face (routes.ts) */
+const approach = new Vector3(...parkingOffset);
 /** Autopilot: coming from behind a station it rounds its side, this far out, rather than through it */
 const rounding = 22;
 /** Autopilot: top speed, braking (units/s²) and turn rate cap (rad/s) */

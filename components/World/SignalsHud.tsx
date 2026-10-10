@@ -5,7 +5,7 @@ import { Icon } from '@iconify/react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
-import { stationForPath, stationPaths, stationPositions } from './routes';
+import { parkingOffset, stationForPath, stationPaths, stationPositions } from './routes';
 import {
   allFound,
   contactName,
@@ -54,11 +54,11 @@ const cardKeys = new Set(['Enter', 'Tab', 'Shift', 'Escape', 'Meta', 'Control', 
 /* ----------------- A signal's page action: course set, docking on arrival ----------------- */
 
 /**
- * Where the autopilot parks in front of a station (ExploreControls'
- * `approach`), and how close to it and how slow the ship has to be for a
- * course handed back there to count as arrived rather than taken over
+ * How close to where the autopilot parks in front of a station
+ * (parkingOffset) and how slow the ship has to be for a course handed back
+ * there to count as arrived rather than taken over
  */
-const parking = { x: 0, y: 1.5, z: 16, near: 4, slow: 5 };
+const parking = { near: 4, slow: 5 };
 
 /** The station a signal's page action set course for: the ship docks there on arrival ('' for none) */
 let dockOnArrival: StationKey | '' = '';
@@ -133,11 +133,8 @@ export function useEnterControl() {
 function parkedAt(station: StationKey) {
   const [x, y, z] = stationPositions[station];
   const { camera } = worldStore;
-  const off = Math.hypot(
-    camera.x - x - parking.x,
-    camera.y - y - parking.y,
-    camera.z - z - parking.z
-  );
+  const [px, py, pz] = parkingOffset;
+  const off = Math.hypot(camera.x - x - px, camera.y - y - py, camera.z - z - pz);
   return off < parking.near && worldStore.velocity < parking.slow;
 }
 

@@ -35,6 +35,13 @@ export const stationPositions: Record<StationKey, [number, number, number]> = {
 export const sectorCentre: [number, number, number] = [0, 0, -110];
 export const sectorRadius = 520;
 
+/**
+ * Free roam's autopilot parks this far in front of a station's face (pages
+ * frame it from +Z): ExploreControls flies there, and the signals HUD
+ * counts a course as arrived once the ship is parked there
+ */
+export const parkingOffset: readonly [number, number, number] = [0, 1.5, 16];
+
 /** Distance between two stations, centre to centre, in whole world units (the HUD's "km") */
 export function rangeBetween(a: StationKey, b: StationKey) {
   const [ax, ay, az] = stationPositions[a];
