@@ -58,6 +58,30 @@ test.describe('project modal', () => {
     await expect(page).toHaveURL(/\/projects\/sidenote$/);
   });
 
+  test('closing a project opened away from the ride rides back to it and focuses its details', async ({
+    page,
+  }) => {
+    await openHydrated(page, '/projects');
+    await pick(page, 'Sidenote');
+    await page.getByRole('link', { name: 'View details for Sidenote' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Sidenote' });
+    await expect(dialog).toBeVisible();
+    await page.goBack();
+    await expect(dialog).toBeHidden();
+
+    // Ride on to another project, then go forward to Sidenote's dialog again
+    await pick(page, 'Drive King');
+    await page.goForward();
+    await expect(dialog).toBeVisible();
+
+    // Closed, the page rides back to Sidenote (once the dialog has let go of
+    // the scroll) and its details link takes focus
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('heading', { level: 2, name: 'Sidenote' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View details for Sidenote' })).toBeFocused();
+  });
+
   test('keeps the scroll position', async ({ page }) => {
     await openHydrated(page, '/projects');
     await pick(page, 'Audex');
@@ -443,6 +467,41 @@ test.describe('the helix ride', () => {
       await page.getByRole('button', { name: 'Close project details' }).click();
       await expect(dialog).toBeHidden();
       await expect(page).toHaveURL(/\/projects$/);
+    }
+  );
+
+  test(
+    'closing a project opened away from the ride rides back to it once the dialog lets go',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/projects');
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 120_000 });
+      await page
+        .locator('.brand-mark-live--3d')
+        .waitFor({ state: 'attached', timeout: 60_000 })
+        .catch(() => {});
+      const index = page.getByRole('navigation', { name: 'Projects' });
+      const title = page.locator('.proj-hud__title');
+
+      await index.getByRole('link', { name: 'Sidenote', exact: true }).click();
+      await expect(title).toHaveText('Sidenote', { timeout: 40_000 });
+      await page.getByRole('link', { name: 'View details for Sidenote' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Sidenote' });
+      await expect(dialog).toBeVisible();
+      await page.goBack();
+      await expect(dialog).toBeHidden();
+      await index.getByRole('link', { name: 'Drive King', exact: true }).click();
+      await expect(title).toHaveText('Drive King', { timeout: 40_000 });
+      await page.goForward();
+      await expect(dialog).toBeVisible();
+
+      // With the world on, the gallery flies back into its screen first, and
+      // the dialog lets go of the page's scroll only as it unmounts: the ride
+      // back used to be asked for before then, and was dropped
+      await page.getByRole('button', { name: 'Close project details' }).click();
+      await expect(dialog).toBeHidden();
+      await expect(title).toHaveText('Sidenote', { timeout: 40_000 });
+      await expect(page.getByRole('link', { name: 'View details for Sidenote' })).toBeFocused();
     }
   );
 });

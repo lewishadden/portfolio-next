@@ -213,6 +213,10 @@ const snapAfter = 160;
 const snapCommit = 60;
 const snapCommitTop = 24;
 const snapEase = (t: number) => 1 - Math.pow(1 - t, 3);
+/** Frames a closed modal waits for the page's scroll lock to lift before it rides (about half a second) */
+const unlockFrames = 30;
+/** Longest (ms) the world holds a closed modal's project in front, whatever becomes of the glide to it */
+const rideHoldLimit = 4000;
 
 /**
  * The projects page is a ride down the helix. A runway of scroll (one step
@@ -263,6 +267,35 @@ export const Projects = ({
     };
   }, [items.length]);
 
+  // A modal just closed (see afterClose): the project it showed, and the
+  // project the world keeps in front (worldStore.projectFocus) until the
+  // page's glide back to it ends, -1 when it keeps none. Without it the
+  // camera set off back to where the page was scrolled the moment the
+  // modal closed, then turned round to follow the glide to the project
+  const closed = useRef(-1);
+  const rideHold = useRef(-1);
+  const rideHoldTimer = useRef(0);
+  /** Asks the scroll effect below to write the focus again (its schedule) */
+  const rideUpdate = useRef<() => void>(() => undefined);
+  const lastSelected = useRef(selected);
+  const releaseHold = useCallback(() => {
+    window.clearTimeout(rideHoldTimer.current);
+    if (rideHold.current < 0) return;
+    rideHold.current = -1;
+    rideUpdate.current();
+  }, []);
+  // Declared before the scroll effect, which reads the hold as it re-runs
+  useEffect(() => {
+    if (selected < 0 && lastSelected.current >= 0) {
+      closed.current = rideHold.current = lastSelected.current;
+      // Never held for good, whatever happens to the glide
+      window.clearTimeout(rideHoldTimer.current);
+      rideHoldTimer.current = window.setTimeout(releaseHold, rideHoldLimit);
+    }
+    lastSelected.current = selected;
+  }, [selected, releaseHold]);
+  useEffect(() => () => window.clearTimeout(rideHoldTimer.current), []);
+
   // Scroll position → the project the camera faces (an open project wins)
   useEffect(() => {
     const tour = tourRef.current;
@@ -292,7 +325,7 @@ export const Projects = ({
         Math.max((window.scrollY - lane.docked) / lane.step, 0),
         items.length - 1
       );
-      worldStore.projectFocus = focus;
+      worldStore.projectFocus = rideHold.current >= 0 ? rideHold.current : focus;
       rideStage(stage, focus);
       // Past the last project the camera descends with the page, so the last
       // screen scrolls away with its copy
@@ -324,6 +357,7 @@ export const Projects = ({
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(update);
     };
+    rideUpdate.current = schedule;
     const resize = new ResizeObserver(() => {
       lane = runway();
       schedule();
@@ -360,25 +394,33 @@ export const Projects = ({
           !reduce && !lenis.isStopped && !lenis.isLocked && Math.abs(y - lenis.targetScroll) > 1;
         worldStore.projectRideTo = glides ? index : -1;
         lenis.scrollTo(y, { immediate: reduce, userData: { rideTo: y } });
-      } else window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
+        // No glide to wait for: the world follows the page from here
+        if (!glides) releaseHold();
+      } else {
+        window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
+        releaseHold();
+      }
     },
-    [lenis, runway]
+    [lenis, runway, releaseHold]
   );
 
   // The project goTo names for the camera's ride stays named until its
-  // glide ends or anything else takes the scroll over
+  // glide ends or anything else takes the scroll over; so does a closed
+  // modal's project the world is holding in front
   useEffect(() => {
     if (!lenis) return;
     const named = () => {
-      if (lenis.isScrolling !== 'smooth' || typeof lenis.userData.rideTo !== 'number')
+      if (lenis.isScrolling !== 'smooth' || typeof lenis.userData.rideTo !== 'number') {
         worldStore.projectRideTo = -1;
+        releaseHold();
+      }
     };
     lenis.on('scroll', named);
     return () => {
       lenis.off('scroll', named);
       worldStore.projectRideTo = -1;
     };
-  }, [lenis]);
+  }, [lenis, releaseHold]);
 
   // Snapping: once scroll comes to rest on the ride, glide to a project (or
   // back to the top of the page): the next one in the direction of the
@@ -509,13 +551,7 @@ export const Projects = ({
   // Closing a project's modal leaves the visitor at that project: the ride
   // comes to it if it wasn't the one in front (opened from its screen, or
   // by going forward in history), and its "View details" link gets focus
-  const closed = useRef(-1);
   const focusOn = useRef(-1);
-  const lastSelected = useRef(selected);
-  useEffect(() => {
-    if (selected < 0 && lastSelected.current >= 0) closed.current = lastSelected.current;
-    lastSelected.current = selected;
-  }, [selected]);
   const focusDetails = useCallback(() => {
     stageRef.current?.querySelector<HTMLElement>('.proj-hud__btn')?.focus({ preventScroll: true });
   }, []);
@@ -526,13 +562,24 @@ export const Projects = ({
     focusOn.current = -1;
     focusDetails();
   }, [active, focusDetails]);
-  // Once the dialog has gone (and given the page its scroll back)
+  // Once the dialog has gone and given the page its scroll back. The exit
+  // completes before the dialog unmounts, and only then does its scroll
+  // lock lift: a glide asked for while Lenis is still held is dropped, and
+  // a modal closed off the project in front never rode to it. So it waits,
+  // a frame at a time, until Lenis runs again and the page can scroll
   const afterClose = useCallback(() => {
     const index = closed.current;
     closed.current = -1;
     if (index < 0) return;
-    requestAnimationFrame(() => {
+    let frames = 0;
+    const whenFree = () => {
+      const held = !!lenis?.isStopped || document.documentElement.style.overflow === 'hidden';
+      if (held && ++frames < unlockFrames) {
+        requestAnimationFrame(whenFree);
+        return;
+      }
       if (index === activeRef.current) {
+        releaseHold();
         if (!stageRef.current?.contains(document.activeElement)) focusDetails();
         return;
       }
@@ -543,8 +590,9 @@ export const Projects = ({
         if (focusOn.current === index) focusOn.current = -1;
       }, 4000);
       goTo(index);
-    });
-  }, [focusDetails, goTo]);
+    };
+    requestAnimationFrame(whenFree);
+  }, [focusDetails, goTo, lenis, releaseHold]);
 
   const open = useCallback((e: MouseEvent<HTMLAnchorElement>, slug: string) => {
     if (!plainClick(e)) return;
