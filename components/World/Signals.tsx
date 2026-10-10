@@ -526,7 +526,7 @@ export function Signals({ theme }: { theme: WorldTheme }) {
         if (markFound(signal.id)) {
           find.foundAt = t;
           const at = [node.position.x, node.position.y, node.position.z] as const;
-          spawnPing(node.position, { scale: signal.id === 'derelict' ? 4 : 2.5, cue: false });
+          spawnPing(node.position, { scale: signal.id === 'derelict' ? 2.6 : 1.8, cue: false });
           emitCue(signals.every((s) => isFound(s.id)) ? 'complete' : 'found', { at });
         }
         return;
