@@ -70,7 +70,10 @@ function answerLocked(rescue: Rescue) {
   const tip = worldTip.get();
   if (tip === lockedTip || tip === loggedTip) worldTip.set(lostTip);
   if (worldMode.get().mode === 'explore') {
-    if (markFound('derelict')) emitCue(signals.every((s) => isFound(s.id)) ? 'complete' : 'found');
+    if (markFound('derelict')) {
+      const cue = signals.every((s) => isFound(s.id)) ? 'complete' : 'found';
+      emitCue(cue, { at: stationPositions.lost });
+    }
     return;
   }
   navigateTo('/');

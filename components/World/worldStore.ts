@@ -1,3 +1,5 @@
+import { stationForPath, stationKeys, stationPositions } from './routes';
+
 import type { StationKey } from './routes';
 
 /**
@@ -269,7 +271,9 @@ export function onDock(listener: () => void) {
 export function setDock(station: string) {
   if (worldStore.dock === station) return;
   worldStore.dock = station;
-  if (station) emitCue('proximity');
+  if (stationKeys.includes(station as StationKey)) {
+    emitCue('proximity', { at: stationPositions[station as StationKey] });
+  }
   dockListeners.forEach((listener) => listener());
 }
 
@@ -287,7 +291,7 @@ export function onDocking(listener: () => void) {
 export function setDocking(path: string) {
   if (worldStore.docking === path) return;
   worldStore.docking = path;
-  if (path) emitCue('dock');
+  if (path) emitCue('dock', { at: stationPositions[stationForPath(path)] });
   dockingListeners.forEach((listener) => listener());
 }
 
@@ -313,7 +317,7 @@ export function setAutopilot(station: string) {
 export function requestLaunch() {
   worldStore.launchRequested = true;
   worldStore.showcaseUntil = performance.now() + 6500;
-  emitCue('launch');
+  emitCue('launch', { at: stationPositions.contact });
 }
 
 /** Called by the contact form while a message is sending */
@@ -322,7 +326,7 @@ export function setTransmitting(on: boolean) {
   worldStore.transmitting = on;
   // Hold on the globe a little after a failed send too, so it doesn't jerk away
   worldStore.showcaseUntil = Math.max(worldStore.showcaseUntil, performance.now() + 1800);
-  if (on) emitCue('transmit');
+  if (on) emitCue('transmit', { at: stationPositions.contact });
 }
 
 /* ----------------- Page chrome covering the world ----------------- */

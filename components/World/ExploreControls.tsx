@@ -293,8 +293,9 @@ function bump(speed: number, t: number, state: LookState, hit: Contact, incoming
   worldStore.shake = Math.max(worldStore.shake, strength);
   emitCue('bump', { at: [hit.point.x, hit.point.y, hit.point.z], strength });
   window.dispatchEvent(new CustomEvent(worldBumpEvent, { detail: strength }));
-  // A ring of light where the hull was struck, and sparks off it (full motion)
-  spawnPing(hit.point);
+  // A ring of light where the hull was struck, and sparks off it (full
+  // motion). The thud is its sound: the ring doesn't chime as a click's does
+  spawnPing(hit.point, { cue: false });
   spawnSparks(hit.point, hit.normal, incoming, strength);
 }
 

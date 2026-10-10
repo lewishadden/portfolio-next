@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 
 import { flightUnderWay, watchCourse } from 'components/HeaderHud/course';
+import { useHaptics } from 'components/Sound/haptics';
 import { useSound } from 'components/Sound/sound';
 import { answersHail, canHail, hail } from 'components/StationReadout/hail';
 import { statsOverlay } from 'components/StatsOverlay/statsStore';
@@ -278,6 +279,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
   useLenisHold(open);
 
   const { on: soundOn, setSound } = useSound();
+  const { supported: canBuzz, on: hapticsOn, setHaptics } = useHaptics();
   const motionPref = useMotionPref();
   const switchTheme = useCallback(() => {
     toggleTheme();
@@ -522,6 +524,19 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           return true;
         },
       })),
+      // Haptics (components/Sound/haptics.ts): only on a device that can vibrate
+      ...(canBuzz
+        ? [
+            {
+              id: 'haptics',
+              group: 'Actions' as const,
+              label: hapticsOn ? 'Turn haptics off' : 'Turn haptics on',
+              icon: 'ph:vibrate-bold',
+              keywords: 'vibration vibrate buzz rumble touch feedback',
+              run: () => setHaptics(!hapticsOn),
+            },
+          ]
+        : []),
       {
         id: 'email',
         group: 'Actions',
@@ -579,15 +594,18 @@ export function CommandPalette({ data }: { data: PaletteData }) {
       })),
     ];
   }, [
+    canBuzz,
     close,
     data,
     enabled,
+    hapticsOn,
     here,
     motionPref,
     navigate,
     pathname,
     print,
     setEnabled,
+    setHaptics,
     setSound,
     soundOn,
     startExplore,
