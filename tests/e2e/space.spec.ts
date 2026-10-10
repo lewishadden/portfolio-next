@@ -200,6 +200,10 @@ test.describe('the scene for screen readers', () => {
       'In view:',
       { useInnerText: true }
     );
+    // The 2D render standing in for the world says what it shows instead
+    await expect(
+      page.getByRole('img', { name: 'An astronaut floats in space, typing on a laptop.' })
+    ).toBeVisible();
   });
 
   test.describe('with the world on', () => {

@@ -19,8 +19,10 @@ const answerFor = 4500;
 
 /**
  * What the 3D world shows at each station, in a line, for screen readers
- * (the canvas itself is aria-hidden). Only while the world is on: the 2D
- * render that stands in for it otherwise keeps its own alt text
+ * (the canvas itself is aria-hidden). Only while the world is on: with it
+ * off, the 2D render that stands in for it says what it shows in its own
+ * alt text (StationFallback). /projects has none, its HUD showing the
+ * screenshots instead
  */
 const scenes: Record<StationKey, string> = {
   home: 'An astronaut with a laptop floats before a swirling portal.',
