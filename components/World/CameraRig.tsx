@@ -23,6 +23,7 @@ import {
   rideProjectFocus,
   stationCamera,
   stationKeys,
+  stationLens,
   stationPositions,
   stepRide,
 } from './stations';
@@ -83,6 +84,8 @@ interface RigState {
   /** Where the settled camera is heading and looking, never faster than `followSpeed` */
   follow: Vector3;
   followLook: Vector3;
+  /** Where across the view (NDC x) the lens puts its axis (stationLens), eased */
+  lens: number;
 }
 
 /**
@@ -160,6 +163,7 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     cutTimers: [],
     follow: new Vector3(),
     followLook: new Vector3(),
+    lens: 0,
   });
 
   // A cut or a flight under way when the world goes (switched off, a
@@ -194,9 +198,15 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
     }
 
     if (mode === 'explore') {
-      // ExploreControls flies the camera; resume from wherever it leaves off
+      // ExploreControls flies the camera; resume from wherever it leaves off.
+      // Its lens looks straight ahead
       if (rig.flight) endFlight(rig, station, false);
       rig.mode = mode;
+      if (rig.lens !== 0 || cam.filmOffset !== 0) {
+        rig.lens = 0;
+        cam.filmOffset = 0;
+        cam.updateProjectionMatrix();
+      }
       record(cam);
       return;
     }
@@ -342,6 +352,14 @@ export function CameraRig({ station, motion }: { station: StationKey; motion: Mo
 
     const fov = baseFov + (snap ? 0 : Math.min(speed * 0.3, 24));
     easing.damp(cam, 'fov', fov, 0.3, dt);
+    // The lens shifts the picture sideways where the pose asks it to
+    // (stationLens: the projects ride's screen in its cell beside the copy),
+    // so the camera still looks straight at what it frames
+    const lens = mode === 'page' ? stationLens(station, size.width, size.height) : 0;
+    if (snap) rig.lens = lens;
+    else easing.damp(rig, 'lens', lens, 0.2, dt);
+    if (Math.abs(rig.lens) < 1e-4) rig.lens = 0;
+    cam.filmOffset = filmOffsetFor(cam, rig.lens);
     cam.updateProjectionMatrix();
     applyShake(cam, t, dt, snap);
     record(cam);
@@ -478,6 +496,17 @@ function planPreview(rig: RigState, cam: PerspectiveCamera, width: number, heigh
   const path = new Float32Array(26 * 3);
   for (let i = 0; i <= 25; i++) toPoint.copy(plan.curve.getPointAt(i / 25)).toArray(path, i * 3);
   worldStore.previewPath = path;
+}
+
+/**
+ * The film offset that puts the camera's axis at `axis` across the view
+ * (NDC x): three shifts the frustum by near x offset / film width, so the
+ * axis lands at -offset / (film width x tan(fov / 2) x aspect / zoom)
+ */
+function filmOffsetFor(cam: PerspectiveCamera, axis: number) {
+  if (axis === 0) return 0;
+  const halfWidth = (Math.tan(MathUtils.degToRad(cam.fov / 2)) * cam.aspect) / cam.zoom;
+  return -axis * cam.getFilmWidth() * halfWidth;
 }
 
 /** Publishes the camera's position and heading for the radar */

@@ -452,17 +452,23 @@ export function stationFraming(
  */
 export const isShortLandscape = (width: number, height: number) => height <= 520 && width > height;
 
-/** The projects ride's framing in its screen cell: as Framing, plus the sideways shift (world units, + right) */
+/**
+ * The projects ride's framing in its screen cell: as Framing, plus where
+ * across the view (NDC x) the lens puts its axis, with the screen on it
+ */
 interface CellFraming extends Framing {
-  shift: number;
+  axis: number;
 }
 
 /**
  * The projects ride on a short landscape screen: frames the screen in front
  * inside the page's cell for it (worldStore.screenSlot), fitted to the
  * cell's width and height and centred on it, so it sits beside the copy
- * rather than behind it. Null anywhere else (another layout, a project
- * page, or no cell measured)
+ * rather than behind it. Sideways the camera keeps looking straight at the
+ * screen and the lens shifts the picture (stationLens): moved sideways
+ * instead, the camera saw the screen a quarter-turn off its axis, which
+ * stretched it and pushed it out past the cell's edge. Null anywhere else
+ * (another layout, a project page, or no cell measured)
  */
 function screenCellFraming(width: number, height: number, out: CellFraming) {
   const slot = worldStore.screenSlot;
@@ -481,12 +487,25 @@ function screenCellFraming(width: number, height: number, out: CellFraming) {
   const centreY = 1 - (slot.top + slot.bottom) / height;
   out.zoom = distance / shot.distance;
   out.lift = centreY * distance * tanHalfFov - shot.offsetY;
-  out.shift = centreX * distance * tanHalfFov * aspect;
+  out.axis = centreX;
   return out;
 }
 
 const framing: Framing = { zoom: 1, lift: 0 };
-const cellFraming: CellFraming = { zoom: 1, lift: 0, shift: 0 };
+const cellFraming: CellFraming = { zoom: 1, lift: 0, axis: 0 };
+
+/**
+ * Where across the view (NDC x, -1..1) the camera's lens puts its axis for
+ * a station's pose: 0 (the middle) everywhere but the projects ride on a
+ * short landscape screen, where the screen in front is framed in the cell
+ * beside the copy (screenCellFraming), coming into it as the ride begins.
+ * CameraRig turns it into the camera's film offset
+ */
+export function stationLens(key: StationKey, width: number, height: number, reading = true) {
+  if (key !== 'projects' || !reading) return 0;
+  const cell = screenCellFraming(width, height, cellFraming);
+  return cell ? cell.axis * (1 - projectIntro()) : 0;
+}
 const windowFraming: Framing = { zoom: 1, lift: 0 };
 const windowEye = new Vector3();
 const windowLook = new Vector3();
@@ -833,7 +852,8 @@ export function stationCamera(
           : clearRoom(key, pos, look, width / height, reading ? worldStore.clearRight : -1)
       )
     : 0;
-  if (cell) shiftX = MathUtils.lerp(shiftX, cell.shift, inCell);
+  // In the cell the lens moves the picture instead (stationLens)
+  if (cell) shiftX = MathUtils.lerp(shiftX, 0, inCell);
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   // Centred in the space below the header, not the whole viewport
