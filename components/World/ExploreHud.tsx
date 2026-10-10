@@ -16,7 +16,16 @@ import {
   stationPaths,
 } from './routes';
 import { signals, useFoundSignals } from './signalStore';
-import { SignalCard, SignalCount, SignalDetector } from './SignalsHud';
+import {
+  ScanButton,
+  ScanStatus,
+  SignalCard,
+  SignalCount,
+  SignalDetector,
+  signalName,
+  useDockOnArrival,
+  useEnterControl,
+} from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
 import { useWorldMode, worldMode } from './worldMode';
 import {
@@ -343,12 +352,16 @@ function HullContact() {
   );
 }
 
-/** What the autopilot is flying to, by name: a station's page, or a signal ('signal:<id>') */
+/**
+ * What the autopilot is flying to, by name: a station's page, or a signal
+ * ('signal:<id>'), named once found, and by its scan's letter until then
+ */
 function courseName(course: string) {
   if ((stationKeys as readonly string[]).includes(course)) {
     return stationNames[course as StationKey].page;
   }
-  return signals.find((signal) => `signal:${signal.id}` === course)?.name ?? course;
+  const signal = signals.find((s) => `signal:${s.id}` === course);
+  return signal ? signalName(signal.id) : course;
 }
 
 /** The edge warning shows once worldStore.edge reaches this, and goes once it falls back below that */
@@ -567,8 +580,8 @@ function KeyLegend({ pilot }: { pilot: Pilot }) {
       <kbd>S</kbd>
       <kbd>D</kbd> fly · mouse {pilot === 'lock' ? 'looks' : 'steers'} · <kbd>Space</kbd>
       <kbd>C</kbd> up/down · <kbd>R</kbd>
-      <kbd>V</kbd> pitch · <kbd>⇧</kbd> boost · <kbd>E</kbd> click · <kbd>0</kbd>–<kbd>5</kbd>{' '}
-      autopilot
+      <kbd>V</kbd> pitch · <kbd>⇧</kbd> boost · <kbd>E</kbd> click · <kbd>F</kbd> scan ·{' '}
+      <kbd>0</kbd>–<kbd>5</kbd> autopilot
     </>
   );
 }
@@ -592,6 +605,9 @@ export function ExploreHud({
   const dock = useSyncExternalStore(onDock, readDock, noDock) as StationKey | '';
   const docking = useSyncExternalStore(onDocking, readDocking, noDock);
   const course = useAutopilot();
+  // A signal's page action sets course for that page's station, to dock on arrival
+  const docksOnArrival = useDockOnArrival();
+  const control = useEnterControl();
   const touch = useMediaQuery('(pointer: coarse)');
   // Phones held upright: the thumbsticks fill the bottom, so the autopilot's
   // status and the dock prompt sit under the top bar instead
@@ -657,15 +673,25 @@ export function ExploreHud({
       </div>
     );
   }
+  // The dock prompt's ↵ shows while Enter docks: not while another focused
+  // control takes it, bar the marker of the station here and its own button
+  const enterDocks =
+    !control || !!control.closest(`.waypoint[data-station="${dock}"], .explore-hud__dock`);
   // The autopilot's status replaces the dock prompt until it arrives
   const status = (
     <>
       {course && (
         <div className="explore-hud__autopilot glass" role="status">
           <span className="explore-hud__autopilot-dot" aria-hidden="true" />
-          <span>
-            Autopilot to <b>{courseName(course)}</b>
-          </span>
+          {docksOnArrival && course === docksOnArrival ? (
+            <span>
+              Course set for <b>{stationNames[docksOnArrival].craft}</b> · docking on arrival
+            </span>
+          ) : (
+            <span>
+              Autopilot to <b>{courseName(course)}</b>
+            </span>
+          )}
           <button type="button" className="explore-hud__exit" onClick={() => setAutopilot('')}>
             Take the controls
           </button>
@@ -683,7 +709,7 @@ export function ExploreHud({
             onClick={() => onDockRequest(stationPaths[dock])}
           >
             Dock at {stationNames[dock].page}
-            {!touch && <kbd>↵</kbd>}
+            {!touch && enterDocks && <kbd>↵</kbd>}
           </button>
         </div>
       )}
@@ -702,6 +728,7 @@ export function ExploreHud({
       <Waypoints />
       {/* Over the markers, under the rest of the HUD */}
       {touch && <TouchSticks />}
+      {touch && <ScanButton />}
 
       <div className="explore-hud__head">
         <div className="explore-hud__top glass">
@@ -733,9 +760,11 @@ export function ExploreHud({
         <SignalDetector />
         {!trained && <Coach pilot={pilot} onDone={finishTraining} />}
         {compact && status}
+        {/* Last: empty, its row moves nothing down (on a phone the head reaches the thumbsticks) */}
+        <ScanStatus />
       </div>
 
-      <SignalCard cv={cv} onPage={onDockRequest} />
+      <SignalCard cv={cv} onDock={onDockRequest} />
       <BoostStatus />
       <HullContact />
       <EdgeWarning />

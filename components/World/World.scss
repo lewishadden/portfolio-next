@@ -128,8 +128,13 @@ html[data-world='off'] {
     0 0 18px color-mix(in oklab, var(--bg-primary) 70%, transparent);
 }
 
-/* Sector map shown while the camera flies (and during tours / explore mode) */
+/* Sector map shown while the camera flies to a new page (and during tours /
+   explore mode). An opaque panel, no backdrop blur: its small type keeps its
+   contrast whatever flies behind it, and it costs no blur pass mid-flight */
 .nav-radar {
+  /* Free roam's signal colour (the HUD's), for the edge of the world */
+  --signal: #fbbf24;
+
   position: fixed;
   bottom: 24px;
   left: 24px;
@@ -138,16 +143,42 @@ html[data-world='off'] {
   gap: 6px;
   padding: 10px 10px 8px;
   pointer-events: none;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-card);
   opacity: 0;
   transform: translateY(8px) scale(0.97);
   transition:
     opacity 0.45s var(--ease-out),
     transform 0.45s var(--ease-out);
 
+  [data-theme='light'] & {
+    --signal: #92400e;
+  }
+
   &--on {
     opacity: 1;
     transform: none;
+  }
+
+  /* Over the element that has keyboard focus (NavRadar): out of its way */
+  &--on.nav-radar--clear {
+    opacity: 0;
+    transition-duration: 0.2s;
+  }
+
+  /* The tour's card has the bottom of the screen: the map goes top left,
+     where the hidden header was. Small screens have no room for both */
+  [data-world-mode='tour'] & {
+    top: 24px;
+    right: auto;
+    bottom: auto;
+    left: 24px;
+
+    @media (max-width: 760px) {
+      display: none;
+    }
   }
 
   /* Free roam on touch: the move stick has its corner. Tablets lift the map
@@ -918,6 +949,56 @@ html[data-flight='cruise'] .world__veil {
     }
   }
 
+  /* A sonar scan's status (SignalsHud's ScanStatus), last in the head:
+     backed, so it keeps its contrast over the sky. Empty, it takes no room
+     but stays a live region */
+  &__scan {
+    margin: 0;
+    padding: 2px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--signal);
+    border: 1px solid color-mix(in oklab, var(--signal) 45%, transparent);
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--bg-primary) 88%, transparent);
+
+    &:empty {
+      padding: 0;
+      border: 0;
+      background: none;
+    }
+  }
+
+  /* Touch's Scan button, over the rise and sink buttons (TouchSticks) */
+  &__scan-button {
+    position: absolute;
+    right: 64px;
+    bottom: calc(200px + 2 * 48px + 0.5rem + 16px);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 44px;
+    padding: 0 0.9rem;
+    border: 1px solid color-mix(in oklab, var(--signal) 55%, transparent);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--signal);
+    background: color-mix(in oklab, var(--surface-strong) 80%, transparent);
+    pointer-events: auto;
+    touch-action: manipulation;
+
+    &:focus-visible {
+      outline: 2px solid var(--signal);
+      outline-offset: 2px;
+    }
+  }
+
   &__signal {
     position: absolute;
     top: 50%;
@@ -1276,6 +1357,12 @@ html[data-flight='cruise'] .world__veil {
     right: 176px;
     bottom: 60px;
   }
+
+  /* Beside the rise and sink buttons, where there's no room over them */
+  .explore-hud__scan-button {
+    right: calc(176px + 48px + 12px);
+    bottom: 60px;
+  }
 }
 
 /* A station marker: a diamond on its beacon with its number, name and
@@ -1394,6 +1481,15 @@ html[data-flight='cruise'] .world__veil {
       left: auto;
       right: calc(cos(var(--turn)) * 34px);
       transform: translateX(calc(50% - cos(var(--turn)) * 50%));
+    }
+  }
+
+  /* A contact a sonar scan picked out: amber, round */
+  &--contact {
+    --tone: var(--signal);
+
+    .waypoint__mark {
+      border-radius: 50%;
     }
   }
 

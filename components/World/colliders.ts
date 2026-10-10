@@ -1,8 +1,7 @@
 import { Vector3 } from 'three';
 
 import { navigableStations, stationPositions } from './routes';
-import { signals } from './signalStore';
-import { cometAt } from './Signals';
+import { cometAt, signals } from './signalStore';
 import { helix, helixScreenY } from './stations';
 
 /* ------------------------------------------------------------------

@@ -461,6 +461,43 @@ test.describe('free roam controls', () => {
   );
 
   test(
+    'a sonar scan picks out nearby signals as contacts to set course for',
+    { tag: '@webgl' },
+    async ({ page }) => {
+      await openHydrated(page, '/');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      await page.getByRole('button', { name: 'Free roam' }).click();
+      const hud = page.getByRole('region', { name: 'Explore mode' });
+      await expect(hud).toBeVisible();
+      await page.evaluate(() => document.exitPointerLock());
+
+      // F scans; the status line says what the sweep picked out. From Home
+      // the derelict and the probe are in range
+      await page.keyboard.press('KeyF');
+      const scan = hud.getByRole('status').filter({ hasText: /^Scan/ });
+      await expect(scan).toHaveText(/^Scan: \d contacts? · nearest \d+ km, \w+/, {
+        timeout: 30_000,
+      });
+      // Straight away again, the scanner is still recharging
+      await page.keyboard.press('KeyF');
+      await expect(scan).toHaveText(/^Scanner recharging · \d s$/);
+
+      // Each contact is marked, named until it is found by a letter; its
+      // marker sets the autopilot for it
+      const contacts = hud.getByRole('list', { name: 'Contacts' }).getByRole('button');
+      await expect(contacts.first()).toHaveAttribute('aria-label', /^Autopilot to Signal A/);
+      await contacts.first().focus();
+      await page.keyboard.press('Enter');
+      await expect(contacts.first()).toHaveAttribute('aria-pressed', 'true');
+      await expect(
+        hud.getByRole('status').filter({ hasText: 'Autopilot to Signal A' })
+      ).toBeVisible();
+      await expect(hud.getByText('Docking at')).toHaveCount(0);
+    }
+  );
+
+  test(
     'the first free roam coaches, then keeps the keys behind a Controls button',
     { tag: '@webgl' },
     async ({ page }) => {

@@ -3,15 +3,20 @@ import { useSyncExternalStore } from 'react';
 import { githubRepoUrl } from 'config';
 
 import { stationPositions } from './routes';
+import { emitCue, worldStore } from './worldStore';
 
 /* ------------------------------------------------------------------
    Signals: five things hidden out in the world for free roam to find,
    off the line of stations. Flying close to one finds it: the HUD shows
    what it says (some carry something: the CV, the source code), counts
    how many of the five you have found (remembered between visits), and
-   a detector warms up as you get near one you haven't. The canvas side
-   (Signals.tsx) draws them and reports distances here. No three.js: the
-   HUD uses this.
+   a detector warms up as you get near one you haven't. A sonar scan (F,
+   or the Scan button on touch; one every 8s) sweeps out from the ship to
+   detector range and picks out the unfound signals it passes as
+   contacts: the HUD marks them, the sector map plots them and the
+   autopilot can fly to them. The canvas side (Signals.tsx) draws them,
+   runs the sweep and reports distances here. No three.js: the HUD uses
+   this.
    ------------------------------------------------------------------ */
 
 export type SignalAction =
@@ -23,7 +28,7 @@ export interface Signal {
   id: 'probe' | 'derelict' | 'capsule' | 'relay' | 'comet';
   name: string;
   message: string;
-  /** Where it drifts (the comet orbits instead, see Signals.tsx) */
+  /** Where it drifts (the comet orbits round it instead, see cometAt) */
   position: [number, number, number];
   /** How close you have to fly to find it */
   reach: number;
@@ -76,6 +81,49 @@ export const signals: readonly Signal[] = [
 
 export const signalCount = signals.length;
 
+/** A point in the world: three's Vector3 is one, so canvas code can pass its own */
+export interface WorldPoint {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/** The comet's orbit round its signal's position: radii and period (s) */
+export const cometOrbit = { x: 170, y: 24, z: 120, period: 150 };
+const cometCentre = signals.find((signal) => signal.id === 'comet')!.position;
+
+/**
+ * Where the comet is at clock time `t` (the world canvas's clock: see
+ * `signalTime`), written into `out` (a fresh point by default)
+ */
+export function cometAt<T extends WorldPoint = WorldPoint>(
+  t: number,
+  out: T = { x: 0, y: 0, z: 0 } as T
+): T {
+  const angle = (t / cometOrbit.period) * Math.PI * 2;
+  out.x = cometCentre[0] + Math.cos(angle) * cometOrbit.x;
+  out.y = cometCentre[1] + Math.sin(angle * 2) * cometOrbit.y;
+  out.z = cometCentre[2] + Math.sin(angle) * cometOrbit.z;
+  return out;
+}
+
+/** The clock time the canvas last placed the signals at (Signals.tsx), for DOM code following the comet */
+let clockTime = 0;
+
+export function setSignalTime(t: number) {
+  clockTime = t;
+}
+
+/** The clock time the comet was last placed for: `cometAt(signalTime())` is where it is drawn */
+export const signalTime = () => clockTime;
+
+/** Where a signal is now (the comet moves along its orbit) */
+export function signalAt(signal: Signal, out: WorldPoint = { x: 0, y: 0, z: 0 }) {
+  if (signal.id === 'comet') return cometAt(clockTime, out);
+  [out.x, out.y, out.z] = signal.position;
+  return out;
+}
+
 /** What the last signal said once you have found them all */
 export const allFound: Pick<Signal, 'name' | 'message' | 'action'> = {
   name: 'All signals found',
@@ -90,6 +138,8 @@ const detectorBars = 5;
 const storageKey = 'signals';
 let found: readonly string[] | undefined;
 let latest = '';
+/** The last signal found this visit, whether or not its card is still up */
+let recent: Signal['id'] | '' = '';
 let bars = 0;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((listener) => listener());
@@ -112,6 +162,7 @@ export function markFound(id: Signal['id']) {
   if (isFound(id)) return false;
   found = [...readFound(), id];
   latest = id;
+  recent = id;
   try {
     localStorage.setItem(storageKey, JSON.stringify(found));
   } catch {
@@ -126,6 +177,124 @@ export function dismissFound() {
   if (!latest) return;
   latest = '';
   notify();
+}
+
+/** The last signal found this visit ('' for none), whether or not its card is still up */
+export const recentFound = () => recent;
+
+/** Shows the card for the last signal found this visit again, if one was */
+export function reopenFound() {
+  if (!recent || latest === recent) return;
+  latest = recent;
+  notify();
+}
+
+/* ----------------- Sonar scans ----------------- */
+
+/** Seconds a scan takes to recharge, and its sweep to reach detector range */
+export const scanCooldown = 8;
+export const scanSweep = 1.8;
+
+/**
+ * The scan in progress or last made: when (seconds on the page's clock,
+ * performance.now(); -Infinity before the first), where the ship was (the
+ * sweep's centre), and the contacts it has picked out so far
+ */
+export interface Scan {
+  at: number;
+  from: readonly [number, number, number];
+  hits: readonly Signal['id'][];
+  /** The canvas has swept it out to detector range: `hits` is every contact it will pick out */
+  swept: boolean;
+}
+
+const noScan: Scan = { at: -Infinity, from: [0, 0, 0], hits: [], swept: true };
+let scan = noScan;
+/** Every signal a scan has picked out this visit, in the order they were */
+let scannedIds: readonly Signal['id'][] = [];
+
+/** Seconds on the clock scans run by */
+export const scanClock = () => performance.now() / 1000;
+
+/**
+ * Starts a sonar scan from where the ship is, with the `scan` cue: false
+ * while the last one is still recharging
+ */
+export function requestScan() {
+  const now = scanClock();
+  if (now - scan.at < scanCooldown) return false;
+  const { x, y, z } = worldStore.camera;
+  scan = { at: now, from: [x, y, z], hits: [], swept: false };
+  emitCue('scan', { at: scan.from });
+  notify();
+  return true;
+}
+
+/** The scan in progress or last made */
+export const currentScan = () => scan;
+
+/** When the current scan began (seconds on scanClock), -Infinity before the first */
+export const scanAt = () => scan.at;
+
+/** Seconds until another scan can be made (0 when one can) */
+export const scanRecharge = () => Math.max(0, scanCooldown - (scanClock() - scan.at));
+
+/** The sweep has reached a signal: it is a contact (Signals.tsx calls this) */
+export function markScanned(id: Signal['id']) {
+  if (scan.hits.includes(id)) return;
+  scan = { ...scan, hits: [...scan.hits, id] };
+  if (!scannedIds.includes(id)) scannedIds = [...scannedIds, id];
+  notify();
+}
+
+/** The canvas has swept the current scan out to detector range */
+export function finishSweep() {
+  if (scan.swept) return;
+  scan = { ...scan, swept: true };
+  notify();
+}
+
+/** Every signal a scan has picked out this visit (found since or not) */
+export const scanned = () => scannedIds;
+
+export const isScanned = (id: string) => scannedIds.includes(id as Signal['id']);
+
+/**
+ * What the HUD calls a signal a scan picked out until it is found (its
+ * name is what finding it tells you): Signal A, B… in the order scans
+ * picked them out. Not "Contact", which is a page (and its station)
+ */
+export function contactName(id: Signal['id']) {
+  const index = scannedIds.indexOf(id);
+  return index < 0 ? 'Unknown signal' : `Signal ${String.fromCharCode(65 + index)}`;
+}
+
+/**
+ * Where free roam's contacts are on screen, written each frame by the
+ * canvas (Signals.tsx) for the HUD's markers, as worldStore.waypoints is
+ * for the stations: present only for contacts not yet found
+ */
+export const contactMarks: Partial<
+  Record<Signal['id'], { x: number; y: number; onScreen: boolean; distance: number }>
+> = {};
+
+interface ScanSnapshot {
+  scan: Scan;
+  scanned: readonly Signal['id'][];
+}
+
+let scanSnapshot: ScanSnapshot = { scan, scanned: scannedIds };
+const readScan = () => {
+  if (scanSnapshot.scan !== scan || scanSnapshot.scanned !== scannedIds) {
+    scanSnapshot = { scan, scanned: scannedIds };
+  }
+  return scanSnapshot;
+};
+const serverScan: ScanSnapshot = { scan: noScan, scanned: [] };
+
+/** The scan in progress or last made, and every signal scans have picked out */
+export function useScan() {
+  return useSyncExternalStore(subscribe, readScan, () => serverScan);
 }
 
 /** Where the nearest unfound signal is while one is in detector range */
@@ -158,6 +327,9 @@ const subscribe = (listener: () => void) => {
   };
 };
 const none: readonly string[] = [];
+
+/** Calls `listener` whenever anything here changes (a find, a scan, the detector); returns the unsubscribe */
+export const subscribeSignals = subscribe;
 
 export function useFoundSignals() {
   return useSyncExternalStore(subscribe, readFound, () => none);
