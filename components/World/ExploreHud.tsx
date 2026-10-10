@@ -48,6 +48,12 @@ const readDock = () => worldStore.dock;
 const stickReach = 56;
 /** The move stick boosts with the thumb pushed on past its rim, this many reaches out */
 const boostAt = 1.8;
+/**
+ * …and keeps boosting until the thumb comes back in past this: a thumb
+ * resting on the boost ring flicked boost (the engine flare, the stick's
+ * ring) on and off as its reported position jittered
+ */
+const boostOff = 1.6;
 /** How far the look stick has to be pushed to take the controls back from the autopilot */
 const lookTakeOver = 0.35;
 /** Where the sticks wait, in from the bottom corners (px) */
@@ -138,7 +144,7 @@ function TouchSticks() {
       }
       tilt(stick, dx, dy);
       if (stick === move) {
-        const boost = length >= boostAt;
+        const boost = length >= (exploreInput.boost ? boostOff : boostAt);
         // A ring follows the thumb out from the rim to the boost ring
         stick.el.style.setProperty('--thumb', `${Math.min(length, boostAt) * stickReach * 2}px`);
         stick.el.style.setProperty(
@@ -254,11 +260,17 @@ function TouchSticks() {
   );
 }
 
+/** How long (ms) boost has to be let go before the next boost is announced again */
+const boostQuiet = 1000;
+
 /**
  * Boosting (Shift, or the move stick pushed out to its boost ring) while
  * thrusting: the ship's engines flare at the corners of the view (Cockpit,
- * in the canvas), and this says so for screen readers. Read each frame,
- * not rendered by React
+ * in the canvas), and this says so for screen readers, once per boost.
+ * Holding Shift while tapping W starts and stops boosting with every tap,
+ * which said "Boost" every time: it is said again only once boost has been
+ * let go for a second, or the autopilot or docking took the controls. Read
+ * each frame, not rendered by React (data-on follows every frame)
  */
 function BoostStatus() {
   const ref = useRef<HTMLSpanElement>(null);
@@ -268,15 +280,26 @@ function BoostStatus() {
     if (!el) return;
     let frame = 0;
     let on = false;
-    const tick = () => {
+    let said = false;
+    /** When the boost control was last held (ms) */
+    let held = 0;
+    const tick = (now: number) => {
       frame = requestAnimationFrame(tick);
       const thrusting = exploreInput.forward || exploreInput.strafe || exploreInput.lift;
-      const boosting =
-        exploreInput.boost && !!thrusting && !worldStore.autopilot && !worldStore.docking;
-      if (boosting === on) return;
-      on = boosting;
-      el.toggleAttribute('data-on', on);
-      el.textContent = on ? 'Boost' : '';
+      const taken = !!worldStore.autopilot || !!worldStore.docking;
+      const boosting = exploreInput.boost && !!thrusting && !taken;
+      if (exploreInput.boost) held = now;
+      if (boosting !== on) {
+        on = boosting;
+        el.toggleAttribute('data-on', on);
+      }
+      if (boosting && !said) {
+        said = true;
+        el.textContent = 'Boost';
+      } else if (said && !boosting && (taken || now - held > boostQuiet)) {
+        said = false;
+        el.textContent = '';
+      }
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
