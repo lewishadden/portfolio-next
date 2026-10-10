@@ -1149,15 +1149,25 @@ html[data-flight='cruise'] .world__veil {
     animation: dock-sweep 1.3s 0.25s var(--ease-in-out) both;
   }
 
+  /* On a plate of its own: the docking beam (DockingBeam) runs from the
+     port down through the middle of the screen, right where this sits, and
+     the overlay's dimming is clear at its centre */
   &__docking-text {
     display: grid;
     justify-items: center;
     gap: 0.35rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
     font-family: var(--font-mono);
     font-size: var(--fs-tiny);
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--text-secondary);
+    color: var(--text-primary);
+    background: radial-gradient(
+      closest-side,
+      color-mix(in oklab, var(--bg-primary) 85%, transparent) 60%,
+      color-mix(in oklab, var(--bg-primary) 0%, transparent)
+    );
 
     b {
       font-family: var(--font-display);
