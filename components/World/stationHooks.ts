@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import { Camera, Material, Object3D, ShaderMaterial, Vector3 } from 'three';
 
-import { applyGlowTheme, chargeWith, disposeAfterDraw } from './materials';
+import { applyGlowTheme, chargeWith, retireMaterials } from './materials';
 import { stationPower } from './power';
 import { isWideViewport, stationPositions } from './stations';
 import { palettes } from './utils';
@@ -23,11 +23,13 @@ export function useWide() {
 }
 
 /**
- * Builds a station's materials for the current theme and disposes the
- * previous set once the new one has drawn (disposeAfterDraw), so a theme
- * switch relinks no programs. `factory` must be a stable module-level
- * function. With `station`, its glows follow that station's power
- * (power.tsx); never key it on a station that changes at runtime.
+ * Builds a station's materials for the current theme. The previous set is
+ * retired (retireMaterials): disposed only once a compile of the whole
+ * scene has handed its programs to the new one, so a theme switch relinks
+ * no programs, even for a station hidden at the time. `factory` must be a
+ * stable module-level function. With `station`, its glows follow that
+ * station's power (power.tsx); never key it on a station that changes at
+ * runtime.
  */
 export function useThemedMaterials<T extends Record<string, Material>>(
   factory: (palette: WorldPalette) => T,
@@ -44,7 +46,7 @@ export function useThemedMaterials<T extends Record<string, Material>>(
     return built;
   }, [factory, theme, station]);
 
-  useEffect(() => () => disposeAfterDraw(Object.values(materials)), [materials]);
+  useEffect(() => () => retireMaterials(Object.values(materials)), [materials]);
 
   return materials;
 }

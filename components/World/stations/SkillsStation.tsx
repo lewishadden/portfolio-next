@@ -32,8 +32,8 @@ import {
   asGlow,
   chargeWith,
   createFresnelMaterial,
-  disposeAfterDraw,
   noiseGlsl,
+  retireMaterials,
 } from '../materials';
 import { NavLights, SolarArray, Spin } from '../parts';
 import { spawnPing } from '../Pings';
@@ -998,7 +998,7 @@ export function SkillsStation({
       ),
     };
   }, [orbits, theme]);
-  useEffect(() => () => disposeAfterDraw([...lines.orbits, ...lines.constellations]), [lines]);
+  useEffect(() => () => retireMaterials([...lines.orbits, ...lines.constellations]), [lines]);
 
   // One stable tooltip per skill (the tooltip store compares by identity)
   const tips = useMemo(

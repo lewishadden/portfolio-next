@@ -63,6 +63,7 @@ import { Traffic } from './Traffic';
 import { palettes } from './utils';
 import {
   Precompiled,
+  ThemeRetire,
   WarmupGate,
   WarmupProvider,
   createWarmupTracker,
@@ -570,6 +571,7 @@ export default function WorldCanvas({
           <Pings theme={theme} />
           <StatsProbe station={station} />
           <Effects theme={theme} tier={tier} />
+          <ThemeRetire theme={theme} />
           {/* Last, so every sibling has mounted and queued its own warm-up first */}
           <WarmupGate onWarm={onWarm} />
         </LiteContext.Provider>

@@ -11,18 +11,31 @@ import {
 import type { Material } from 'three';
 import type { WorldTheme } from './utils';
 
+/** Replaced materials waiting for the compile that hands their programs on (ThemeRetire) */
+let retiring: Material[] = [];
+
 /**
- * Disposes materials once whatever replaced them has drawn (two animation
- * frames on). Disposed first, as a theme switch swaps a set, the program
- * the old and new materials share is deleted, then relinked for the new
- * set on the switch's frame (a long frame); still in use when the new set
- * draws, three's program cache hands it straight over
+ * Queues materials a theme switch replaced, for ThemeRetire (warmup.tsx) to
+ * dispose once a compile of the whole scene has handed the programs they
+ * share to their replacements. Disposed any sooner, a program used by
+ * nothing else would be deleted while its new owner had yet to draw (a far
+ * station, the heading projector, anything hidden or under a paused
+ * canvas), then linked again, synchronously, on the frame it next drew:
+ * mid-flight, or on an approach
  */
-export function disposeAfterDraw(materials: Iterable<Material>) {
-  const gone = [...materials];
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => gone.forEach((material) => material.dispose()))
-  );
+export function retireMaterials(materials: Iterable<Material>) {
+  retiring.push(...materials);
+}
+
+/** Takes everything queued so far (retireMaterials) */
+export function takeRetired() {
+  const taken = retiring;
+  retiring = [];
+  return taken;
+}
+
+export function disposeMaterials(materials: Iterable<Material>) {
+  for (const material of materials) material.dispose();
 }
 
 /* ------------------------------------------------------------------
