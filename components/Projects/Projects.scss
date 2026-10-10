@@ -65,6 +65,10 @@
     list-style: none;
   }
 
+  /* Small text straight over the world: muted grey and the light theme's
+     cyan accent fell to 2-4.4:1 over the sky and the helix there, so these
+     use the secondary text and the HUD's darker cyan, and the index is a
+     [data-reading] block the guard keeps the world behind in check for */
   &__index-link {
     position: relative;
     display: block;
@@ -72,7 +76,7 @@
     font-family: var(--font-mono);
     font-size: var(--fs-tiny);
     letter-spacing: 0.1em;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     transition: color var(--dur-fast) ease;
 
     &::before {
@@ -95,6 +99,10 @@
 
     &[aria-current='true'] {
       color: var(--accent-secondary);
+
+      [data-theme='light'] & {
+        color: var(--hud-text);
+      }
 
       &::before {
         width: 0.7rem;

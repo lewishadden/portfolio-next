@@ -661,8 +661,9 @@ export const Projects = ({
           <nav className="projects__index" aria-label="Projects">
             {/* In narrow layouts a row that scrolls sideways: sideways swipes
                 scroll it natively (Lenis took any with a little vertical
-                drift for the page), vertical ones still ride the page */}
-            <ol ref={indexRef} data-lenis-prevent-horizontal>
+                drift for the page), vertical ones still ride the page.
+                [data-reading]: its small numbers sit straight over the world */}
+            <ol ref={indexRef} data-lenis-prevent-horizontal data-reading>
               {items.map((project, i) => (
                 <li key={project.slug}>
                   <Link
