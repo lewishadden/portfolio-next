@@ -15,14 +15,13 @@ import {
   stationNames,
   stationPaths,
 } from './routes';
-import { signals, useFoundSignals } from './signalStore';
+import { contactName, signals, useFoundSignals } from './signalStore';
 import {
   ScanButton,
   ScanStatus,
   SignalCard,
   SignalCount,
   SignalDetector,
-  signalName,
   useDockOnArrival,
   useEnterControl,
 } from './SignalsHud';
@@ -354,14 +353,16 @@ function HullContact() {
 
 /**
  * What the autopilot is flying to, by name: a station's page, or a signal
- * ('signal:<id>'), named once found, and by its scan's letter until then
+ * ('signal:<id>'), named once found (`found`, subscribed, so the name
+ * changes the moment it is), and by its scan's letter until then
  */
-function courseName(course: string) {
+function courseName(course: string, found: readonly string[]) {
   if ((stationKeys as readonly string[]).includes(course)) {
     return stationNames[course as StationKey].page;
   }
   const signal = signals.find((s) => `signal:${s.id}` === course);
-  return signal ? signalName(signal.id) : course;
+  if (!signal) return course;
+  return found.includes(signal.id) ? signal.name : contactName(signal.id);
 }
 
 /** The edge warning shows once worldStore.edge reaches this, and goes once it falls back below that */
@@ -605,6 +606,7 @@ export function ExploreHud({
   const dock = useSyncExternalStore(onDock, readDock, noDock) as StationKey | '';
   const docking = useSyncExternalStore(onDocking, readDocking, noDock);
   const course = useAutopilot();
+  const found = useFoundSignals();
   // A signal's page action sets course for that page's station, to dock on arrival
   const docksOnArrival = useDockOnArrival();
   const control = useEnterControl();
@@ -693,7 +695,7 @@ export function ExploreHud({
             </span>
           ) : (
             <span>
-              Autopilot to <b>{courseName(course)}</b>
+              Autopilot to <b>{courseName(course, found)}</b>
             </span>
           )}
           <button type="button" className="explore-hud__exit" onClick={() => setAutopilot('')}>

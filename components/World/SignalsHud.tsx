@@ -8,7 +8,6 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { parkingOffset, stationForPath, stationPaths, stationPositions } from './routes';
 import {
   allFound,
-  contactName,
   currentScan,
   dismissFound,
   isFound,
@@ -304,11 +303,6 @@ export function ScanButton() {
       <span>Scan</span>
     </button>
   );
-}
-
-/** What the HUD calls a signal: its name once found, its scan's letter before (Signal A…) */
-export function signalName(id: (typeof signals)[number]['id']) {
-  return isFound(id) ? signals.find((signal) => signal.id === id)!.name : contactName(id);
 }
 
 /** Enter reaches the card's choices (shown while focus is elsewhere and no dock is offered) */
