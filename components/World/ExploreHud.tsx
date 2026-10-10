@@ -446,7 +446,7 @@ const coachCopy: Record<CoachStep, Record<Pilot, ReactNode>> = {
   look: {
     lock: <>Look around: move the mouse</>,
     steer: <>Steer: rest the mouse away from the middle</>,
-    touch: <>Look around: hold the right thumbstick over</>,
+    touch: <>Look around: hold the right thumbstick to one side</>,
   },
   fly: {
     lock: (
