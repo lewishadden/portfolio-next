@@ -69,6 +69,8 @@
       border: 1px solid var(--accent-secondary);
       border-radius: 50%;
       animation: roam-fab-ping 2.8s var(--ease-out) infinite;
+      /* Scaled out to 1.6x and faded, it would still take taps meant for whatever is beside it */
+      pointer-events: none;
     }
   }
 
@@ -112,6 +114,21 @@
   @media (hover: none) {
     &--compact:not(:focus-visible) {
       @include compact;
+    }
+  }
+
+  /* Short screens (a phone on its side): even at the top of home the
+     label stays folded, or the pill would cover the hero's readout and its
+     Hail button. Hover and focus still bring it out where there is hover */
+  @media (max-height: 520px) {
+    &:not(.roam-fab--on, :hover, :focus-visible) {
+      @include compact;
+    }
+
+    @media (hover: none) {
+      &:not(.roam-fab--on, :focus-visible) {
+        @include compact;
+      }
     }
   }
 
