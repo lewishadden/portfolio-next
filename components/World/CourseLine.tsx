@@ -243,10 +243,16 @@ function step(
   const level = motionLevel();
   const course = level === 'still' ? { source: '' as Source, path: null } : currentCourse();
   if (course.source && (course.path !== line.path || course.source !== line.source)) {
+    // Re-planned from where the camera is (free roam re-plans a comet's
+    // course every 0.7s): the dashes carry on where they were in space
+    // rather than starting again. The new path starts at the camera, the
+    // stretch of the old one already flown back
+    const replanned = course.source === line.source && line.path !== null;
+    const along = replanned ? flown(geometry, camera) * line.length : 0;
     line.path = course.path;
     line.source = course.source;
     line.length = build(geometry, course.path!);
-    line.march = 0;
+    line.march = replanned ? line.march - along : 0;
   }
   line.shown += ((course.source ? 1 : 0) - line.shown) * (1 - Math.exp(-dt * 7));
   if (!course.source && line.shown < 0.002) line.shown = 0;
