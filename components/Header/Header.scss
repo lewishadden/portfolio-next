@@ -236,6 +236,11 @@
     animation-delay: calc(450ms + var(--hud-i, 0) * 55ms);
   }
 
+  /* Under the lifting loading screen the logo is the mark flying in */
+  &[data-hud-boot='docked'] .header__logo {
+    animation: none;
+  }
+
   .header__links {
     border-color: transparent;
     background: none;
@@ -385,28 +390,32 @@
 /* ---------- Scrim: the bar stays readable over the page ----------
    The HUD is see-through (deliberately no backdrop blur), and round the
    flat bar's glass pill the page shows too, so once the page scrolls under
-   it a band of the page's own background fades in behind the bar: solid
-   at the top of the screen, gone a little below it. Strong on narrow
-   screens, where the hero's huge name would otherwise read straight
-   through the logo and buttons; subtle on wide ones. A plain gradient (no
-   backdrop-filter), under the header and over the page */
+   it a band of the page's own background fades in behind the bar. It is
+   solid all the way down to the bar's bottom edge plus the spring's trail
+   (Header.tsx lets the bar lag the page a little), at every width: a
+   gradient that started fading inside the bar let the hero's huge name and
+   the station's lit parts read through the logo and buttons. Below that it
+   fades out over ~40px. A plain gradient (no backdrop-filter), under the
+   header and over the page */
 .header-scrim {
-  --scrim: 0.85;
+  --scrim: 1;
+  --scrim-solid: calc(var(--header-h) + 4px);
 
   position: fixed;
   top: 0;
   right: 0;
   left: 0;
   z-index: 39;
-  height: calc(var(--header-h) + 28px);
+  height: calc(var(--scrim-solid) + 40px);
   pointer-events: none;
   opacity: 0;
   background: linear-gradient(
     180deg,
-    var(--bg-primary) 0%,
-    color-mix(in oklab, var(--bg-primary) 92%, transparent) 42%,
-    color-mix(in oklab, var(--bg-primary) 72%, transparent) 64%,
-    color-mix(in oklab, var(--bg-primary) 34%, transparent) 83%,
+    var(--bg-primary) 0,
+    var(--bg-primary) var(--scrim-solid),
+    color-mix(in oklab, var(--bg-primary) 78%, transparent) calc(var(--scrim-solid) + 10px),
+    color-mix(in oklab, var(--bg-primary) 40%, transparent) calc(var(--scrim-solid) + 22px),
+    color-mix(in oklab, var(--bg-primary) 12%, transparent) calc(var(--scrim-solid) + 32px),
     transparent 100%
   );
   transition: opacity var(--dur-med) ease;
@@ -415,13 +424,11 @@
     opacity: var(--scrim);
   }
 
-  @media (max-width: 900px) {
-    --scrim: 0.96;
-  }
-
-  /* The tour and free roam hide the header (World.scss), and this with it */
+  /* The tour and free roam hide the header (World.scss), and this with it,
+     as does the page coming back from them */
   html[data-world-mode='tour'] &,
-  html[data-world-mode='explore'] & {
+  html[data-world-mode='explore'] &,
+  html[data-world-mode='returning'] & {
     opacity: 0;
   }
 }

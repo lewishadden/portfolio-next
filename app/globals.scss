@@ -91,6 +91,14 @@ html {
   }
 }
 
+/* The skip link's target (and where focus lands after a mode hands the page
+   back): focusable from code only (tabindex -1), so it needs no ring of its
+   own, which would frame the whole page */
+#main-content:focus,
+#main-content:focus-visible {
+  outline: none;
+}
+
 /* Focus visible styles for better keyboard navigation */
 *:focus-visible {
   outline: 3px solid var(--accent-primary);

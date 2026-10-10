@@ -1,5 +1,6 @@
 /* Telemetry line under a page heading (see StationReadout) */
 .station-readout {
+  position: relative;
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
@@ -25,6 +26,65 @@
 
   &__sep {
     opacity: 0.5;
+  }
+
+  /* Home's readout says "Home port", unless the camera is on its way there */
+  &__range--home:not([data-en-route]) {
+    display: none;
+  }
+
+  &__range--home[data-en-route] + &__port {
+    display: none;
+  }
+
+  /* The scene, for screen readers: only while the world is on */
+  html:not([data-world='on']) &__scene {
+    display: none;
+  }
+
+  /* Hail: only once the world is up to hear it (3D on, the canvas drawing) */
+  &__hail {
+    display: none;
+    align-items: center;
+    gap: 0.3rem;
+    min-height: 28px;
+    padding: 0 0.6rem;
+    border: 1px solid color-mix(in oklab, var(--accent-secondary) 45%, transparent);
+    border-radius: var(--radius-pill);
+    font: inherit;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    background: color-mix(in oklab, var(--bg-primary) 55%, transparent);
+    cursor: pointer;
+    transition:
+      color var(--dur-fast) ease,
+      border-color var(--dur-fast) ease;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--text-primary);
+      border-color: var(--accent-secondary);
+    }
+
+    html[data-world='on']:has(.world--ready) & {
+      display: inline-flex;
+    }
+  }
+
+  /* What the hail did, said for a moment (a polite status) */
+  &__answer {
+    color: var(--text-secondary);
+
+    /* Out of sight while empty, but kept in the accessibility tree, so
+       screen readers hear the next answer */
+    &:empty {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
   }
 
   &__km {

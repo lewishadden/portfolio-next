@@ -66,9 +66,11 @@ test.describe('with storage blocked', () => {
       const html = page.locator('html');
       const before = await html.getAttribute('data-theme');
       const next = before === 'light' ? 'dark' : 'light';
-      await page.getByRole('switch', { name: `Switch to ${next} mode` }).click();
+      const toggle = page.getByRole('switch', { name: 'Light theme' });
+      await expect(toggle).toHaveAttribute('aria-checked', String(before === 'light'));
+      await toggle.click();
       await expect(html).toHaveAttribute('data-theme', next);
-      await expect(page.getByRole('switch', { name: `Switch to ${before} mode` })).toBeVisible();
+      await expect(toggle).toHaveAttribute('aria-checked', String(next === 'light'));
       expect(errors).toEqual([]);
     });
   }
@@ -173,4 +175,16 @@ test.describe('with the world on', () => {
       expect(frames >= 12 || wait >= 6_500, detail).toBe(true);
     }
   );
+});
+
+test('analytics stays off for local and automated visits', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', (request) => {
+    const url = request.url();
+    if (url.includes('googletagmanager') || url.includes('/api/geo')) requests.push(url);
+  });
+  await openHydrated(page, '/');
+  // It would load once the browser is idle, within 4s
+  await page.waitForTimeout(4_500);
+  expect(requests).toEqual([]);
 });

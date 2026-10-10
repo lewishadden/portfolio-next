@@ -272,7 +272,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* Fixed bottom right, but early in the tab order: free roam is a
               few tab stops in, not after the whole page */}
           <RoamButton />
-          <main id="main-content">
+          <main id="main-content" tabIndex={-1}>
             <PageTransition>{children}</PageTransition>
           </main>
           <Footer footer={content.footer} navItems={content.global.navItems} />

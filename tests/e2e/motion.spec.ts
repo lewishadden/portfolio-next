@@ -152,3 +152,39 @@ plain.describe('motion without JavaScript', () => {
     });
   }
 });
+
+test.describe('choosing a motion level', () => {
+  test('from the footer console, remembered', async ({ page }) => {
+    await openHydrated(page, '/about');
+    const motion = page.getByRole('group', { name: 'Motion' });
+    await expect(motion.getByRole('radio', { name: 'System' })).toBeChecked();
+    await motion.getByRole('radio', { name: 'Calm' }).check();
+    await expect(page.locator('html')).toHaveAttribute('data-motion', 'calm');
+    expect(await page.evaluate(() => localStorage.getItem('motion'))).toBe('calm');
+    // One tab stop: the arrow keys move along the group
+    await page.keyboard.press('ArrowRight');
+    await expect(motion.getByRole('radio', { name: 'Still' })).toBeChecked();
+    await expect(page.locator('html')).toHaveAttribute('data-motion', 'still');
+
+    await page.reload();
+    await page.waitForSelector('body[data-theme]', { state: 'attached' });
+    await expect(
+      page.getByRole('group', { name: 'Motion' }).getByRole('radio', { name: 'Still' })
+    ).toBeChecked();
+  });
+
+  test('from the command palette, the current one marked', async ({ page }) => {
+    await openHydrated(page, '/');
+    await page.keyboard.press('ControlOrMeta+k');
+    const dialog = page.getByRole('dialog', { name: 'Command palette' });
+    const input = dialog.getByRole('combobox', { name: 'Command' });
+    await input.fill('motion');
+    await expect(dialog.getByRole('option', { name: /follow system/ })).toContainText('Current');
+    await dialog.getByRole('option', { name: /^Motion: still/ }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-motion', 'still');
+    await expect(dialog.getByRole('option', { name: /^Motion: still/ })).toContainText('Current');
+    await expect(dialog.getByRole('option', { name: /follow system/ })).not.toContainText(
+      'Current'
+    );
+  });
+});

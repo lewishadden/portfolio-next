@@ -1,7 +1,14 @@
 @use '../../app/motion' as *;
+@use '../HeaderHud/frame' as *;
 
 /* =============================================================
-   Command palette: ⌘K / Ctrl+K
+   Command palette: ⌘K / Ctrl+K. An opaque panel in the header HUD's
+   style (a hairline frame and corner brackets) over a dimmed page:
+   no backdrop blur, which re-blurred the live 3D world under it every
+   frame. Small text is --text-secondary and the HUD's own cyan: on the
+   opaque --bg-secondary panel (darker than the old near-white glass in
+   light theme) --text-muted and --accent-secondary fell under 4.5:1,
+   and to 3.5:1 on the selected row
    ============================================================= */
 html.palette-open {
   overflow: hidden;
@@ -15,22 +22,33 @@ html.palette-open {
   justify-items: center;
   align-items: start;
   padding: clamp(4rem, 14vh, 9rem) 16px 16px;
-  background: color-mix(in oklab, var(--bg-primary) 55%, transparent);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background: color-mix(in oklab, var(--bg-primary) 72%, transparent);
   animation: palette-fade 0.18s ease-out both;
 
   &__dialog {
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    @include hud-frame;
+
+    /* The list takes what's left and scrolls; the prompt, log and keys
+       keep their height (a grid's fixed rows misplaced the list whenever
+       the log was empty, pushing the keys out of the frame) */
+    display: flex;
+    flex-direction: column;
     width: min(640px, 100%);
     max-height: min(560px, 74vh);
-    overflow: hidden;
-    background: var(--surface-strong);
     box-shadow:
       0 30px 90px -20px rgba(0, 0, 0, 0.75),
-      0 0 0 1px color-mix(in oklab, var(--accent-primary) 30%, transparent);
+      0 0 24px -8px var(--hud-glow);
     animation: palette-rise 0.28s var(--ease-out) both;
+
+    &::before {
+      @include hud-brackets;
+    }
+
+    /* Long rows and log lines shrink to the frame rather than widen it */
+    > * {
+      flex: none;
+      min-width: 0;
+    }
   }
 
   &__prompt {
@@ -51,7 +69,7 @@ html.palette-open {
     flex-shrink: 0;
     font-family: var(--font-mono);
     font-size: var(--fs-caption);
-    color: var(--accent-secondary);
+    color: var(--hud-text);
   }
 
   &__input {
@@ -70,7 +88,7 @@ html.palette-open {
     caret-color: var(--accent-secondary);
 
     &::placeholder {
-      color: var(--text-muted);
+      color: var(--text-secondary);
     }
   }
 
@@ -120,6 +138,7 @@ html.palette-open {
   }
 
   &__list {
+    flex: 1 1 auto;
     min-height: 0;
     margin: 0;
     padding: 0.4rem;
@@ -135,7 +154,7 @@ html.palette-open {
     font-size: var(--fs-tiny);
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
 
   &__item {
@@ -167,13 +186,23 @@ html.palette-open {
     flex-shrink: 0;
     font-family: var(--font-mono);
     font-size: var(--fs-tiny);
-    color: var(--text-muted);
+    color: var(--text-secondary);
+
+    &--docked {
+      color: var(--hud-text);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+  }
+
+  &__item.is-active &__hint--docked {
+    color: var(--hud-text-strong);
   }
 
   &__empty {
     padding: 1rem 0.7rem;
     font-size: var(--fs-caption);
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
 
   &__foot {
@@ -183,7 +212,7 @@ html.palette-open {
     padding: 0.55rem 1rem;
     border-top: 1px solid var(--border-color);
     font-size: var(--fs-tiny);
-    color: var(--text-muted);
+    color: var(--text-secondary);
 
     span {
       display: inline-flex;

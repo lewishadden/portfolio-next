@@ -1,38 +1,16 @@
-@use 'sass:list';
-@use 'sass:math';
 @use '../../app/motion' as *;
+@use '../../app/stars' as *;
 
 /* =============================================================
    Loading screen: the header's orbit mark, blown up, over stars
    flying past, with the load drawn as a flight path. It only
    shows while html[data-boot] is set (ThemeScript, before first
-   paint). Lifting, the stars streak past and the screen dissolves
-   into the camera's warp in. Every loop is transform or opacity, so
-   it stays smooth while the main thread compiles shaders.
+   paint). Lifting, the stars streak past, the mark flies up into
+   the header's logo slot and the screen dissolves into the camera's
+   warp in. Every loop is transform or opacity, so it stays smooth
+   while the main thread compiles shaders. Star tiles come from
+   app/_stars.scss.
    ============================================================= */
-
-/** A tile of scattered stars, as gradient images for a repeating background */
-@function star-tile($count, $tile) {
-  $images: ();
-
-  @for $i from 1 through $count {
-    $x: math.random($tile);
-    $y: math.random($tile);
-    $r: 1.1px;
-
-    @if math.random(10) > 7 {
-      $r: 1.9px;
-    }
-
-    $images: list.append(
-      $images,
-      radial-gradient(#{$r} #{$r} at #{$x}px #{$y}px, var(--star) 35%, transparent),
-      $separator: comma
-    );
-  }
-
-  @return $images;
-}
 
 .boot {
   --progress: 0;
@@ -45,16 +23,24 @@
   place-items: center;
   overflow: hidden;
   color: var(--text-primary);
-  background:
-    radial-gradient(
-      ellipse 70% 55% at 50% 52%,
-      color-mix(in oklab, var(--accent-primary) 14%, transparent),
-      transparent 70%
-    ),
-    var(--bg-primary);
 
   html[data-boot] & {
     display: grid;
+  }
+
+  /* The screen's own background, on a layer of its own so it can fade
+     out from under the mark as the mark flies to the header */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(
+        ellipse 70% 55% at 50% 52%,
+        color-mix(in oklab, var(--accent-primary) 14%, transparent),
+        transparent 70%
+      ),
+      var(--bg-primary);
   }
 
   &__sky {
@@ -274,7 +260,8 @@
     }
   }
 
-  /* ---------- Lifting: streak past, then dissolve into the warp ---------- */
+  /* ---------- Lifting: streak past, then dissolve into the warp ----------
+     Only at full motion (below it the screen is cleared at once) */
   html[data-boot='leaving'] & {
     pointer-events: none;
     animation: boot-lift 1s cubic-bezier(0.5, 0, 0.75, 0) both;
@@ -291,6 +278,36 @@
       animation: boot-recede 0.55s var(--ease-out) both;
     }
   }
+
+  /* With the header's logo slot to fly to (BootScreen measures it into
+     --dock-x / --dock-y / --dock-scale), the mark docks there over 0.8s
+     while the rest recedes and the background fades from under it; the
+     header's own mark stays hidden until the screen goes, just after it
+     lands */
+  html[data-boot='leaving'] &--docking {
+    animation: none;
+
+    &::before {
+      animation: boot-lift 1s cubic-bezier(0.5, 0, 0.75, 0) both;
+    }
+
+    .boot__content {
+      animation: none;
+
+      > :not(.boot__mark) {
+        animation: boot-recede 0.55s var(--ease-out) both;
+      }
+    }
+
+    .boot__mark {
+      animation: boot-dock 0.8s cubic-bezier(0.65, 0, 0.2, 1) both;
+    }
+  }
+}
+
+/* The header's mark waits for the loading screen's to land in its place */
+html[data-boot] .header__logo-mark {
+  visibility: hidden;
 }
 
 /* The page waits underneath: no scrolling, and its entrance animations hold */
@@ -380,6 +397,13 @@ html[data-boot='loading'] {
   }
 }
 
+@keyframes boot-dock {
+  to {
+    transform: translate(var(--dock-x, 0), var(--dock-y, 0)) scale(var(--dock-scale, 1));
+    filter: drop-shadow(0 0 8px var(--glow-violet));
+  }
+}
+
 @keyframes boot-recede {
   to {
     opacity: 0;
@@ -396,17 +420,5 @@ html[data-boot='loading'] {
   .boot__stars {
     opacity: 1;
     animation: none !important;
-  }
-}
-
-html[data-boot='leaving'] .boot {
-  @include reduced-motion {
-    animation: boot-lift 0.5s ease both;
-
-    .boot__sky,
-    .boot__streaks,
-    .boot__content {
-      animation: none;
-    }
   }
 }

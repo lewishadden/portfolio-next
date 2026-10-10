@@ -32,6 +32,28 @@ test.describe('mobile menu', () => {
     await expect(menu).toBeHidden();
   });
 
+  test("numbers its rows as the pages number their eyebrows, with each one's range", async ({
+    page,
+  }) => {
+    await openHydrated(page, '/');
+    await page.getByRole('button', { name: 'Open navigation menu' }).click();
+    const rows = page.locator('#mobile-menu .mobile-menu__link');
+    await expect(rows).toHaveCount(6);
+    const menu = await rows.evaluateAll((links) =>
+      links.map((link) => ({
+        href: link.getAttribute('href')!,
+        index: link.querySelector('.mobile-menu__index')!.textContent!.trim(),
+        range: link.querySelector('.mobile-menu__range')!.textContent!.trim(),
+      }))
+    );
+    expect(menu[0]).toEqual({ href: '/', index: '00', range: 'Docked' });
+    for (const { href, index, range } of menu.slice(1)) {
+      expect(range).toMatch(/^\d+ km$/);
+      await page.goto(href);
+      await expect(page.locator('#main-content .eyebrow__index').first()).toHaveText(index);
+    }
+  });
+
   test('closes when the window widens past it (a tablet turned to landscape)', async ({ page }) => {
     await page.setViewportSize({ width: 820, height: 1180 });
     await openHydrated(page, '/about');
@@ -61,6 +83,30 @@ test.describe('mobile menu', () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(menu).toBeHidden();
     await expect(page.locator('html')).not.toHaveClass(/menu-open/);
+  });
+
+  test('the page stays held under the menu after the palette opens over it and closes', async ({
+    page,
+  }) => {
+    await openHydrated(page, '/about');
+    const html = page.locator('html');
+    await page.getByRole('button', { name: 'Open navigation menu' }).click();
+    await expect(page.locator('#mobile-menu')).toBeVisible();
+    await expect(html).toHaveClass(/lenis-stopped/);
+
+    // The palette opens above the menu; a tap on its backdrop closes only it
+    await page.getByRole('button', { name: 'Open command palette' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Command palette' });
+    await expect(dialog).toBeVisible();
+    await page.mouse.click(8, 830);
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('#mobile-menu')).toBeVisible();
+    await expect(html).toHaveClass(/lenis-stopped/);
+
+    // Once the menu closes too, the page scrolls again
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#mobile-menu')).toBeHidden();
+    await expect(html).not.toHaveClass(/lenis-stopped/);
   });
 
   test.describe('with 3D effects on', () => {

@@ -1,17 +1,31 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
 
+import { flightUnderWay, watchCourse } from 'components/HeaderHud/course';
 import { useSound } from 'components/Sound/sound';
+import { answersHail, canHail, hail } from 'components/StationReadout/hail';
 import { statsOverlay } from 'components/StatsOverlay/statsStore';
-import { snapshotPage } from 'components/PageTransition/pageSnapshot';
-import { launchWorldMode } from 'components/World/worldMode';
-import { emitCue, onFlight, requestLaunch } from 'components/World/worldStore';
+import { rangeBetween, stationForPath, stationNames } from 'components/World/routes';
+import { launchWorldMode, navigateFromMode } from 'components/World/worldMode';
+import {
+  emitCue,
+  onFlight,
+  requestLaunch,
+  setPreview,
+  worldStore,
+} from 'components/World/worldStore';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useLenisHold } from '@/hooks/useLenisHold';
+import { useMotionPref } from '@/hooks/useMotion';
 import { useWorldPreference } from '@/hooks/useWorldPreference';
+import { setMotionPref } from '@/utils/motion';
+
+import type { StationKey } from 'components/World/routes';
+import type { MotionPref } from '@/utils/motion';
 
 import './CommandPalette.scss';
 
@@ -33,6 +47,16 @@ interface Command {
   icon: string;
   hint?: string;
   keywords?: string;
+  /** The station a page or project lives at: selecting the row previews the course there */
+  station?: StationKey;
+  /** The page you're on (it isn't where the selection starts) */
+  current?: boolean;
+  /**
+   * At the station docked at: the hint reads "Docked" (the Projects row
+   * too on a project page, where it isn't the current page but the way back
+   * to the list)
+   */
+  docked?: boolean;
   /** Return true to keep the palette open */
   run: () => boolean | void;
 }
@@ -73,6 +97,77 @@ const terminalWords = [
   'theme',
 ];
 
+/**
+ * `sudo hire lewis` while it types itself out, before it navigates: its
+ * timers, cleared if the palette closes first (there is one palette)
+ */
+const hire = { timers: [] as number[] };
+
+/** Stops `sudo hire lewis` if it hasn't navigated yet; true if it was running */
+function cancelHire() {
+  if (!hire.timers.length) return false;
+  hire.timers.forEach((id) => window.clearTimeout(id));
+  hire.timers = [];
+  return true;
+}
+
+/** The motion levels (utils/motion.ts) as palette commands */
+const motionChoices: { pref: MotionPref; label: string; icon: string }[] = [
+  { pref: 'system', label: 'Motion: follow system', icon: 'ph:gear-six-bold' },
+  { pref: 'full', label: 'Motion: full', icon: 'ph:wind-bold' },
+  { pref: 'calm', label: 'Motion: calm', icon: 'ph:feather-bold' },
+  { pref: 'still', label: 'Motion: still', icon: 'ph:pause-bold' },
+];
+
+/** How long a row must stay selected before the world previews the course to it (as link hovers do) */
+const previewDelay = 140;
+
+/** The first row to start on: the first that isn't the page you're on */
+const firstActive = (rows: Command[]) =>
+  Math.max(
+    0,
+    rows.findIndex((row) => !row.current)
+  );
+
+/**
+ * After a palette navigation, focus the new page's heading once it shows
+ * (the route has changed, the page is back in page mode and not inert,
+ * and any flight is on its final approach), so a keyboard or screen
+ * reader user lands at the top of what they asked for. Gives up after 8s,
+ * or if focus has moved on meanwhile
+ */
+function focusHeadingOnArrival(path: string) {
+  const started = performance.now();
+  let from: Element | null | undefined;
+  const step = () => {
+    if (performance.now() - started > 8000) return;
+    // Where focus went as the palette closed (its opener, or the body)
+    from ??= document.activeElement;
+    if (document.activeElement !== from && document.activeElement !== document.body) return;
+    const main = document.getElementById('main-content');
+    const heading = main?.querySelector<HTMLElement>('h1');
+    const mode = document.documentElement.dataset.worldMode ?? 'page';
+    // Not the store's flight.active: one cut off with the canvas stays
+    // active, short of its approach, even once 3D is back on (course.ts)
+    const flying = flightUnderWay() && !worldStore.flight.approached;
+    const shown =
+      window.location.pathname === path &&
+      main &&
+      heading &&
+      !main.inert &&
+      mode === 'page' &&
+      !flying &&
+      heading.getClientRects().length > 0;
+    if (!shown) {
+      requestAnimationFrame(step);
+      return;
+    }
+    if (!heading.hasAttribute('tabindex')) heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  };
+  requestAnimationFrame(step);
+}
+
 /** Case-insensitive match: substring beats in-order letters; 0 means no match */
 function score(text: string, query: string) {
   const haystack = text.toLowerCase();
@@ -91,48 +186,80 @@ function score(text: string, query: string) {
  * keys move, Enter runs, Escape closes.
  */
 export function CommandPalette({ data }: { data: PaletteData }) {
-  const router = useRouter();
+  const pathname = usePathname();
+  const here = stationForPath(pathname);
   const { toggleTheme } = useTheme();
   const { enabled, supported, setEnabled } = useWorldPreference();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [active, setActive] = useState(0);
+  /** The selected row; -1 until arrows or the pointer pick one (then the first that isn't this page) */
+  const [active, setActive] = useState(-1);
   const [lines, setLines] = useState<Line[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const dialogRef = useFocusTrap<HTMLDivElement>(open);
   const baseId = useId();
 
-  const close = useCallback(() => {
-    setOpen(false);
-    setQuery('');
-    setActive(0);
-  }, []);
-
   const print = useCallback((text: string, tone?: Line['tone']) => {
     const id = nextLineId();
     setLines((current) => [...current.slice(-40), { id, text, tone }]);
   }, []);
 
-  // Global shortcuts: ⌘K / Ctrl+K toggles; Alt+Shift+S toggles the stats overlay
+  const close = useCallback(() => {
+    if (cancelHire()) print('^C', 'dim');
+    setOpen(false);
+    setQuery('');
+    setActive(-1);
+  }, [print]);
+
   useEffect(() => {
+    // Heading focus after a navigation waits out a flight (flightUnderWay),
+    // which only course.ts can tell: watched from the start, header HUD or not
+    watchCourse();
+    return () => {
+      cancelHire();
+    };
+  }, []);
+
+  /** Flies to a page (leaving the tour or free roam if on), then focuses its heading */
+  const navigate = useCallback(
+    (href: string) => {
+      close();
+      navigateFromMode(href);
+      if (href !== window.location.pathname) focusHeadingOnArrival(href);
+    },
+    [close]
+  );
+
+  // Global shortcuts: ⌘K / Ctrl+K toggles; Alt+Shift+S toggles the stats overlay.
+  // Closing goes through close(), like Escape: toggling the state alone left
+  // `sudo hire lewis` running (it still flew to /contact) and the old query
+  // and selection in place. Nothing opens under the loading screen, where the
+  // palette would be hidden and only take focus from it. A held shortcut
+  // toggles once: its auto-repeats flipped the full-screen dim and the panel
+  // in and out at the key-repeat rate (unfaded at calm and still)
+  useEffect(() => {
+    const show = () => {
+      if (document.documentElement.dataset.boot !== 'loading') setOpen(true);
+    };
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setOpen((current) => !current);
+        if (e.repeat) return;
+        if (open) close();
+        else show();
       } else if (e.altKey && e.shiftKey && e.code === 'KeyS') {
         e.preventDefault();
-        statsOverlay.toggle();
+        if (!e.repeat) statsOverlay.toggle();
       }
     };
-    const onOpen = () => setOpen(true);
     window.addEventListener('keydown', onKey);
-    openListeners.add(onOpen);
+    openListeners.add(show);
     return () => {
       window.removeEventListener('keydown', onKey);
-      openListeners.delete(onOpen);
+      openListeners.delete(show);
     };
-  }, []);
+  }, [open, close]);
 
   useEffect(() => {
     if (!open) return;
@@ -145,7 +272,13 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     };
   }, [open]);
 
+  // The page behind holds still: Lenis would otherwise scroll it under a
+  // wheel over the backdrop. A shared hold, so closing the palette over the
+  // mobile menu or a project doesn't free the page under those
+  useLenisHold(open);
+
   const { on: soundOn, setSound } = useSound();
+  const motionPref = useMotionPref();
   const switchTheme = useCallback(() => {
     toggleTheme();
     emitCue('theme');
@@ -155,18 +288,20 @@ export function CommandPalette({ data }: { data: PaletteData }) {
   const startExplore = useCallback(() => launchWorldMode('explore', enableWorld), [enableWorld]);
 
   const hireSequence = useCallback(() => {
+    cancelHire();
     const steps: [number, string, Line['tone']][] = [
       [0, '[sudo] password for recruiter: ********', 'dim'],
       [650, 'Verifying clearance… granted.', 'ok'],
       [1200, 'Plotting course to the comms array…', 'dim'],
       [1800, 'Launch sequence armed. Say hello 👋', 'ok'],
     ];
-    steps.forEach(([delay, text, tone]) => window.setTimeout(() => print(text, tone), delay));
-    window.setTimeout(() => {
-      // The page leaves with the camera (PageTransition)
-      snapshotPage('/contact');
-      close();
-      router.push('/contact');
+    hire.timers = steps.map(([delay, text, tone]) =>
+      window.setTimeout(() => print(text, tone), delay)
+    );
+    const go = window.setTimeout(() => {
+      // Done typing: from here on it isn't cancelled by the palette closing
+      hire.timers = [];
+      navigate('/contact');
       // Fire the rocket once the camera has arrived (or soon, without the world)
       let fired = false;
       const fire = () => {
@@ -180,7 +315,8 @@ export function CommandPalette({ data }: { data: PaletteData }) {
       });
       window.setTimeout(fire, document.querySelector('.world--ready') ? 4200 : 1200);
     }, 2300);
-  }, [close, print, router]);
+    hire.timers.push(go);
+  }, [navigate, print]);
 
   /** Runs a terminal line; returns true when it handled it */
   const runTerminal = useCallback(
@@ -212,9 +348,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
             print(`cd: no such page: ${arg || '(none)'}`, 'warn');
             return true;
           }
-          snapshotPage(target?.href ?? '/');
-          close();
-          router.push(target?.href ?? '/');
+          navigate(target?.href ?? '/');
           return false;
         }
         case 'sudo':
@@ -266,25 +400,33 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           return true;
       }
     },
-    [close, data, hireSequence, print, router, startExplore, startTour, switchTheme]
+    [close, data, hireSequence, navigate, print, startExplore, startTour, switchTheme]
   );
 
   const commands = useMemo<Command[]>(() => {
-    const go = (href: string) => () => {
-      snapshotPage(href);
-      close();
-      router.push(href);
-    };
+    const go = (href: string) => () => navigate(href);
     const worldHint = !supported ? 'Unavailable' : enabled ? undefined : 'Turns 3D on';
+    /** Where a station is from here: its craft and range, or docked */
+    const bearing = (station: StationKey) =>
+      station === here
+        ? 'Docked'
+        : `${stationNames[station].craft} · ${rangeBetween(here, station)} km`;
     return [
-      ...data.pages.map((page, i) => ({
-        id: `page-${page.href}`,
-        group: 'Navigate' as const,
-        label: page.label,
-        icon: 'ph:arrow-elbow-down-right-bold',
-        hint: String(i).padStart(2, '0'),
-        run: go(page.href),
-      })),
+      ...data.pages.map((page) => {
+        const station = stationForPath(page.href);
+        const current = station === here && (page.href !== '/projects' || pathname === page.href);
+        return {
+          id: `page-${page.href}`,
+          group: 'Navigate' as const,
+          label: page.label,
+          icon: 'ph:arrow-elbow-down-right-bold',
+          hint: bearing(station),
+          station,
+          current,
+          docked: station === here,
+          run: go(page.href),
+        };
+      }),
       {
         id: 'tour',
         group: 'World',
@@ -309,6 +451,27 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           startExplore();
         },
       },
+      ...(answersHail(here)
+        ? [
+            {
+              id: 'hail',
+              group: 'World' as const,
+              label: 'Hail the station',
+              icon: 'ph:broadcast-bold',
+              hint: stationNames[here].craft,
+              keywords: 'hail hello wave trick show off',
+              run: () => {
+                if (!canHail()) {
+                  print('Nothing out there can hear you with 3D effects off.', 'warn');
+                  return true;
+                }
+                // Closed first, so the trick is seen; the readout says what it did
+                close();
+                hail(here);
+              },
+            },
+          ]
+        : []),
       {
         id: 'world',
         group: 'World',
@@ -347,6 +510,18 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           switchTheme();
         },
       },
+      ...motionChoices.map(({ pref, label, icon }) => ({
+        id: `motion-${pref}`,
+        group: 'Actions' as const,
+        label,
+        icon,
+        hint: pref === motionPref ? 'Current' : undefined,
+        keywords: 'motion animation reduce reduced calm still accessibility vestibular',
+        run: () => {
+          setMotionPref(pref);
+          return true;
+        },
+      })),
       {
         id: 'email',
         group: 'Actions',
@@ -375,13 +550,22 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           close();
         },
       },
-      ...data.projects.map((project) => ({
-        id: `project-${project.slug}`,
-        group: 'Projects' as const,
-        label: project.title.trim(),
-        icon: 'ph:cube-focus-bold',
-        run: go(`/projects/${project.slug}`),
-      })),
+      ...data.projects.map((project) => {
+        const href = `/projects/${project.slug}`;
+        const current = pathname === href;
+        const km = rangeBetween(here, 'projects');
+        return {
+          id: `project-${project.slug}`,
+          group: 'Projects' as const,
+          label: project.title.trim(),
+          icon: 'ph:cube-focus-bold',
+          hint: current ? 'Docked' : km ? `${km} km` : undefined,
+          station: 'projects' as const,
+          current,
+          docked: current,
+          run: go(href),
+        };
+      }),
       ...data.links.map((link) => ({
         id: `link-${link.name}`,
         group: 'Links' as const,
@@ -398,8 +582,11 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     close,
     data,
     enabled,
+    here,
+    motionPref,
+    navigate,
+    pathname,
     print,
-    router,
     setEnabled,
     setSound,
     soundOn,
@@ -445,13 +632,32 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     return [...terminal, ...matched];
   }, [commands, query, runTerminal]);
 
-  const current = Math.min(active, Math.max(results.length - 1, 0));
+  const current =
+    active < 0 ? firstActive(results) : Math.min(active, Math.max(results.length - 1, 0));
 
   useEffect(() => {
     listRef.current
       ?.querySelector<HTMLElement>(`[data-index="${current}"]`)
       ?.scrollIntoView({ block: 'nearest' });
   }, [current]);
+
+  // The selected row's station: the world plots the course there (the
+  // radar, the beacon, the header's aim), after a moment so arrowing down
+  // the list doesn't flicker it; none for this station or for other rows,
+  // and none once the palette closes
+  const previewTo = open ? results[current]?.station : undefined;
+  useEffect(() => {
+    if (!previewTo || previewTo === here) {
+      setPreview('');
+      return;
+    }
+    const id = window.setTimeout(() => setPreview(previewTo), previewDelay);
+    return () => window.clearTimeout(id);
+  }, [previewTo, here]);
+  useEffect(() => {
+    if (!open) return;
+    return () => setPreview('');
+  }, [open]);
 
   const execute = (command: Command | undefined) => {
     if (!command) {
@@ -486,7 +692,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     <div className="palette" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div
         ref={dialogRef}
-        className="palette__dialog glass"
+        className="palette__dialog"
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
@@ -502,7 +708,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
-              setActive(0);
+              setActive(-1);
             }}
             onKeyDown={onKeyDown}
             placeholder="Search pages, projects, actions… or type help"
@@ -564,7 +770,13 @@ export function CommandPalette({ data }: { data: PaletteData }) {
                 >
                   <Icon icon={command.icon} width={16} height={16} aria-hidden="true" />
                   <span className="palette__label">{command.label}</span>
-                  {command.hint && <span className="palette__hint">{command.hint}</span>}
+                  {command.hint && (
+                    <span
+                      className={`palette__hint${command.docked ? ' palette__hint--docked' : ''}`}
+                    >
+                      {command.hint}
+                    </span>
+                  )}
                 </div>
               </li>
             );

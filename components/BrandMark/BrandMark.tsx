@@ -122,7 +122,7 @@ export function BrandMark({
     };
 
     const tick = (now: number) => {
-      frame = requestAnimationFrame(tick);
+      frame = visible ? requestAnimationFrame(tick) : 0;
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
       const pose = motion.step(dt, hoverRef.current, motionLevel() !== 'full');
@@ -135,8 +135,21 @@ export function BrandMark({
       notch?.setAttribute('d', notchPath(pose.notch));
       svg.classList.toggle('brand-mark--lost', pose.station === 'lost');
     };
+    // Only while it's on screen (the footer's copy is out of sight mostly)
+    let visible = true;
+    const view = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible && !frame) {
+        last = performance.now();
+        frame = requestAnimationFrame(tick);
+      }
+    });
+    view.observe(svg);
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      view.disconnect();
+    };
   }, [orbit]);
 
   const filter = `url(#${id}-glow)`;

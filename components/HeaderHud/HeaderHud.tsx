@@ -2,7 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 
+import { stationKeys, stationNames } from 'components/World/routes';
 import { emitCue, worldStore } from 'components/World/worldStore';
+
+import { flightUnderWay, rangeToGo, watchCourse } from './course';
+
+import type { StationKey } from 'components/World/routes';
 
 import './HeaderHud.scss';
 
@@ -61,6 +66,13 @@ uniform float uLockPing;
 uniform vec3 uLine;
 uniform vec3 uFillColour;
 uniform float uFill;
+uniform vec4 uRows[2];
+uniform float uFloor;
+uniform float uProgress;
+uniform float uTicks[6];
+uniform float uTickCount;
+uniform float uReading;
+uniform float uFlight;
 uniform float uGlow;
 uniform float uMotion;
 uniform float uLineAlpha;
@@ -79,6 +91,11 @@ float rectDist(vec2 p, vec4 r) {
   vec2 c = r.xy + r.zw * 0.5;
   vec2 q = abs(p - c) - r.zw * 0.5;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+}
+
+/** 1 inside a box, feathered to 0 a few pixels outside it */
+float within(vec2 p, vec4 r) {
+  return smoothstep(6.0, 0.0, rectDist(p, r));
 }
 
 /** Corner brackets round a box: its outline, only near the ends */
@@ -144,6 +161,31 @@ float lines(vec2 p, float t) {
   light += lockOn * span * (smoothstep(2.0, 0.0, abs(p.y - baseline)) * (0.9 + uLockFlash) + exp(-abs(p.y - baseline) / 4.0) * 0.25 * uGlow);
   vec4 ping = vec4(uLock.xy - 5.0 - uLockPing * 18.0, uLock.zw + 10.0 + uLockPing * 36.0);
   light += lockOn * smoothstep(1.4, 0.3, abs(rectDist(p, ping))) * (1.0 - uLockPing) * step(0.001, uLockPing) * 0.8;
+
+  // Along the bottom edge, how far through the page you are: a 1px fill
+  // with a bright head, and a tick at each of the page's sections, the one
+  // being read glowing. In flight it's the course instead: the fill is how
+  // far you've come and the rest runs on ahead, dashed (the ticks belong to
+  // the page you left, so they fade)
+  if (abs(p.y - uSize.y) < 9.0) {
+    float edgeY = uSize.y - 1.0;
+    float headX = uSize.x * clamp(uProgress, 0.0, 1.0);
+    float onLine = smoothstep(1.3, 0.3, abs(p.y - edgeY)) * step(0.0, p.x) * step(p.x, uSize.x);
+    float filled = onLine * step(p.x, headX) * 0.55;
+    float ahead = onLine * step(headX, p.x) * step(0.5, fract(p.x / 7.0 - t * 1.2)) * 0.45 * uFlight;
+    vec2 d = (p - vec2(headX, edgeY)) / vec2(6.0, 2.2);
+    float head = exp(-dot(d, d)) * 1.3 * step(0.002, uProgress + uFlight);
+    float ticks = 0.0;
+    for (int i = 0; i < 6; i++) {
+      if (float(i) >= uTickCount) break;
+      float x = uTicks[i] * uSize.x;
+      float mark = smoothstep(1.1, 0.3, abs(p.x - x)) * step(edgeY - 5.0, p.y) * step(p.y, edgeY + 0.5);
+      float lit = 1.0 - min(abs(float(i) - uReading), 1.0);
+      float glow = exp(-length(p - vec2(x, edgeY - 2.0)) / 4.0) * lit;
+      ticks += mark * (0.45 + lit * 0.9) + glow * 0.6;
+    }
+    light += (filled + ahead + head + ticks * (1.0 - uFlight)) * settle;
+  }
   return light;
 }
 
@@ -197,7 +239,10 @@ void main() {
   float inside = step(rectDist(p, vec4(0.0, 0.0, uSize)), 0.0);
   float row = 0.5 + 0.5 * exp(-pow((p.y - uSize.y * 0.5) / (uSize.y * 0.3), 2.0));
   float ripple = 0.92 + 0.08 * sin(p.y * 0.9 + p.x * 0.05 - t * 3.0);
-  float fill = uFill * inside * row * ripple * smoothstep(0.35, 0.8, uBoot);
+  // Never thinner than uFloor over the row of links and buttons themselves,
+  // so a lit hull or the hero's name behind the bar can't swallow them
+  float targets = max(within(p, uRows[0]), within(p, uRows[1]));
+  float fill = max(uFill * row * ripple, uFloor * targets) * inside * smoothstep(0.35, 0.8, uBoot);
   // Premultiplied; with uLineAlpha under 1 the lines add light to what's behind
   gl_FragColor = vec4(colour + uFillColour * fill * (1.0 - a), a * uLineAlpha + glowAlpha + fill * (1.0 - a));
 }
@@ -218,7 +263,9 @@ const rgb = (hex: string): Rgb => {
  * The hologram per theme. It's see-through: `clear` is its tint over open
  * space and `dense` once the page is under it (thickest along the row of
  * links, so they stay readable; no backdrop blur, which is costly under a
- * bar that moves every frame and glitched on Android). `lineAlpha` below 1
+ * bar that moves every frame and glitched on Android). `floor` is the least
+ * it ever is over the links and buttons themselves, so a lit hull or the
+ * hero's name behind the bar never swallows them. `lineAlpha` below 1
  * makes its lines add light to what's behind, like a projection
  */
 const palettes = {
@@ -227,6 +274,7 @@ const palettes = {
     fill: rgb('#05091a'),
     clear: 0.05,
     dense: 0.78,
+    floor: 0.6,
     glow: 1,
     lineAlpha: 0.55,
   },
@@ -235,6 +283,7 @@ const palettes = {
     fill: rgb('#f2f6fc'),
     clear: 0.08,
     dense: 0.84,
+    floor: 0.72,
     glow: 0.45,
     lineAlpha: 1,
   },
@@ -251,6 +300,13 @@ interface Frame {
   fill: number;
   motion: number;
   hover: Box;
+  /** The row of links and the row of buttons (each one box round them all), as 8 floats */
+  rows: Float32Array;
+  /** 0..1 along the bottom edge: how far through the page, or through the flight */
+  progress: number;
+  ticks: Ticks;
+  /** 0..1: how much the bottom edge shows the flight's course rather than the page */
+  flight: number;
   /** 0..1: how far the brackets have closed on a hovered link to another station */
   aim: number;
   lock: Box;
@@ -271,17 +327,44 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
   return shader;
 }
 
-/** Sets up the shader on a canvas; null where WebGL can't start */
-function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
-  const gl = canvas.getContext('webgl', {
-    alpha: true,
-    premultipliedAlpha: true,
-    antialias: false,
-    depth: false,
-    stencil: false,
-    powerPreference: 'low-power',
-  });
-  if (!gl || gl.isContextLost()) return null;
+const uniformNames = [
+  'uRes',
+  'uDpr',
+  'uSize',
+  'uMargin',
+  'uTime',
+  'uHoverRect',
+  'uAim',
+  'uLock',
+  'uLockOpen',
+  'uLockFlash',
+  'uLockPing',
+  'uLine',
+  'uFillColour',
+  'uFill',
+  'uRows',
+  'uFloor',
+  'uProgress',
+  'uTicks',
+  'uTickCount',
+  'uReading',
+  'uFlight',
+  'uGlow',
+  'uMotion',
+  'uLineAlpha',
+  'uBoot',
+  'uSplit',
+  'uTear',
+  'uTilt',
+] as const;
+type Uniforms = Record<(typeof uniformNames)[number], WebGLUniformLocation | null>;
+
+/**
+ * Compiles and links the HUD's program, with the full-screen triangle, and
+ * reads its uniform locations from that program: locations belong to the
+ * program they came from, so they are read afresh with every one linked
+ */
+function link(gl: WebGLRenderingContext) {
   const vertex = compile(gl, gl.VERTEX_SHADER, vertexShader);
   const fragment = compile(gl, gl.FRAGMENT_SHADER, fragmentShader);
   const program = gl.createProgram();
@@ -296,35 +379,35 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
   const position = gl.getAttribLocation(program, 'position');
   gl.enableVertexAttribArray(position);
   gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+  const u = Object.fromEntries(
+    uniformNames.map((name) => [name, gl.getUniformLocation(program, name)])
+  ) as Uniforms;
+  return { program, u };
+}
 
-  const at = (name: string) => gl.getUniformLocation(program, name);
-  const names = [
-    'uRes',
-    'uDpr',
-    'uSize',
-    'uMargin',
-    'uTime',
-    'uHoverRect',
-    'uAim',
-    'uLock',
-    'uLockOpen',
-    'uLockFlash',
-    'uLockPing',
-    'uLine',
-    'uFillColour',
-    'uFill',
-    'uGlow',
-    'uMotion',
-    'uLineAlpha',
-    'uBoot',
-    'uSplit',
-    'uTear',
-    'uTilt',
-  ] as const;
-  const u = Object.fromEntries(names.map((name) => [name, at(name)])) as Record<
-    (typeof names)[number],
-    WebGLUniformLocation | null
-  >;
+/** Sets up the shader on a canvas; null where WebGL can't start */
+function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
+  const gl = canvas.getContext('webgl', {
+    alpha: true,
+    premultipliedAlpha: true,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    powerPreference: 'low-power',
+  });
+  if (!gl || gl.isContextLost()) return null;
+  const linked = link(gl);
+  if (!linked) return null;
+  const { program, u } = linked;
+  /**
+   * Set once this instance is done with. React runs effects twice in
+   * development on the same canvas, so the same context: the second run
+   * links a program of its own, and anything the first run left waiting (a
+   * fonts.ready re-measure) would set this program's uniforms with the
+   * other one in use (INVALID_OPERATION). A disposed instance touches
+   * nothing
+   */
+  let disposed = false;
 
   const lost = (e: Event) => {
     e.preventDefault();
@@ -334,12 +417,14 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
 
   return {
     resize(width: number, height: number, dpr: number) {
+      if (disposed) return;
       const w = Math.round((width + hudMargin * 2) * dpr);
       const h = Math.round((height + hudMargin * 2) * dpr);
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
       }
+      gl.useProgram(program);
       gl.viewport(0, 0, w, h);
       gl.uniform2f(u.uRes, w, h);
       gl.uniform1f(u.uDpr, dpr);
@@ -347,7 +432,9 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
       gl.uniform1f(u.uMargin, hudMargin);
     },
     draw(f: Frame) {
+      if (disposed) return;
       const palette = palettes[f.theme];
+      gl.useProgram(program);
       gl.uniform1f(u.uTime, f.time);
       gl.uniform4fv(u.uHoverRect, f.hover);
       gl.uniform1f(u.uAim, f.aim);
@@ -358,6 +445,13 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
       gl.uniform3fv(u.uLine, palette.line);
       gl.uniform3fv(u.uFillColour, palette.fill);
       gl.uniform1f(u.uFill, palette.clear + (palette.dense - palette.clear) * f.fill);
+      gl.uniform4fv(u.uRows, f.rows);
+      gl.uniform1f(u.uFloor, palette.floor);
+      gl.uniform1f(u.uProgress, f.progress);
+      gl.uniform1fv(u.uTicks, f.ticks.at);
+      gl.uniform1f(u.uTickCount, f.ticks.count);
+      gl.uniform1f(u.uReading, f.ticks.reading);
+      gl.uniform1f(u.uFlight, f.flight);
       gl.uniform1f(u.uGlow, palette.glow);
       gl.uniform1f(u.uMotion, f.motion);
       gl.uniform1f(u.uLineAlpha, palette.lineAlpha);
@@ -372,6 +466,7 @@ function createHud(canvas: HTMLCanvasElement, onLost: () => void) {
     // The context goes with the canvas; losing it here would break a remount
     // that reuses the canvas (React runs effects twice in development)
     dispose() {
+      disposed = true;
       canvas.removeEventListener('webglcontextlost', lost);
       gl.deleteProgram(program);
     },
@@ -389,6 +484,16 @@ function boxIn(node: HTMLElement, bar: HTMLElement): Box {
     n = n.offsetParent as HTMLElement | null;
   }
   return [x, y, node.offsetWidth, node.offsetHeight];
+}
+
+/** One box round all of these (none for none) */
+function around(list: Box[]): Box {
+  if (!list.length) return none;
+  const x0 = Math.min(...list.map((b) => b[0]));
+  const y0 = Math.min(...list.map((b) => b[1]));
+  const x1 = Math.max(...list.map((b) => b[0] + b[2]));
+  const y1 = Math.max(...list.map((b) => b[1] + b[3]));
+  return [x0, y0, x1 - x0, y1 - y0];
 }
 
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -460,11 +565,11 @@ function aimLock(lock: Lock, index: number, box: Box, now: number, still: boolea
 /** Moves the lock along: in step with the camera's flight, or on its own if there's none */
 function stepLock(lock: Lock, now: number) {
   if (!lock.travelling) return 0;
-  const { flight } = worldStore;
   let progress: number;
-  if (flight.active) {
+  // A flight cut off with the canvas no longer counts (course.ts): the lock lands
+  if (flightUnderWay()) {
     lock.flightSeen = true;
-    progress = smootherstep(flight.progress);
+    progress = smootherstep(worldStore.flight.progress);
   } else if (lock.flightSeen) {
     progress = 1;
   } else {
@@ -502,6 +607,13 @@ interface Sway {
   roll: Axis;
   rx: Axis;
   ry: Axis;
+  /**
+   * A jolt from the camera's shake (worldStore.shake: the rocket's launch),
+   * on top of the springs: px, and degrees of roll; `burst` (0..1) is how
+   * hard the picture splits and tears as a shake hits, dying away fast,
+   * and `last` the shake seen the frame before
+   */
+  jolt: { x: number; y: number; roll: number; burst: number; last: number };
 }
 
 const axis = (): Axis => ({ at: 0, speed: 0 });
@@ -515,6 +627,7 @@ const createSway = (): Sway => ({
   roll: axis(),
   rx: axis(),
   ry: axis(),
+  jolt: { x: 0, y: 0, roll: 0, burst: 0, last: 0 },
 });
 
 /**
@@ -540,7 +653,7 @@ function spring(a: Axis, target: number, dt: number) {
  * the flight is when you're watching). Springs bring it home; it then holds
  * still
  */
-function stepSway(s: Sway, dt: number, t: number) {
+function stepSway(s: Sway, dt: number, t: number, hold: boolean) {
   const cam = worldStore.camera;
   const pitch = Math.asin(clamp(cam.fy, -1, 1));
   const last = s.camera;
@@ -573,7 +686,10 @@ function stepSway(s: Sway, dt: number, t: number) {
   last.heading = cam.heading;
   last.pitch = pitch;
 
-  s.flying += (Number(worldStore.flight.active) - s.flying) * (1 - Math.exp(-5 * dt));
+  // Held still while the loading screen's mark flies into the logo slot
+  // (the warp in is a flight): it eases in once the screen has gone
+  const following = flightUnderWay() && !hold;
+  s.flying += (Number(following) - s.flying) * (1 - Math.exp(-5 * dt));
   if (s.flying < 0.001) s.flying = 0;
   const f = s.flying;
   const shake = clamp(worldStore.velocity / 180, 0, 1) * f;
@@ -593,10 +709,21 @@ function stepSway(s: Sway, dt: number, t: number) {
   // Only a hint of 3D twist: tilted text renders soft
   spring(s.ry, clamp(yawRate * 1.5, -2, 2) * f, dt);
   spring(s.rx, clamp(pitchRate * 1.5, -1.5, 1.5) * f, dt);
+
+  // The camera's shake knocks it about directly, flight or not: at most
+  // 3px and 1° of roll, jittering faster than the springs could follow.
+  // As a shake hits, the picture splits and tears in a short burst
+  const jolt = clamp(worldStore.shake, 0, 1);
+  s.jolt.x = (Math.sin(t * 53.1) * 0.6 + Math.sin(t * 31.7) * 0.4) * 3 * jolt;
+  s.jolt.y = (Math.cos(t * 47.3) * 0.6 + Math.sin(t * 23.9) * 0.4) * 2 * jolt;
+  s.jolt.roll = (Math.sin(t * 39.4) * 0.7 + Math.cos(t * 17.2) * 0.3) * jolt;
+  s.jolt.burst = Math.max(s.jolt.burst * Math.exp(-5 * dt), jolt - s.jolt.last > 0.15 ? jolt : 0);
+  if (s.jolt.burst < 0.01) s.jolt.burst = 0;
+  s.jolt.last = jolt;
 }
 
-const swayTransform = (s: Sway) =>
-  `perspective(900px) translate3d(${s.x.at.toFixed(2)}px, ${s.y.at.toFixed(2)}px, ${s.z.at.toFixed(2)}px) rotate(${s.roll.at.toFixed(3)}deg) rotateX(${s.rx.at.toFixed(3)}deg) rotateY(${s.ry.at.toFixed(3)}deg)`;
+const swayTransform = ({ x, y, z, roll, rx, ry, jolt }: Sway) =>
+  `perspective(900px) translate3d(${(x.at + jolt.x).toFixed(2)}px, ${(y.at + jolt.y).toFixed(2)}px, ${z.at.toFixed(2)}px) rotate(${(roll.at + jolt.roll).toFixed(3)}deg) rotateX(${rx.at.toFixed(3)}deg) rotateY(${ry.at.toFixed(3)}deg)`;
 
 /** How hard it's swinging, 0..1: colour fringes and the hum follow it */
 const swing = (s: Sway) =>
@@ -606,6 +733,64 @@ const swing = (s: Sway) =>
     0,
     1
   );
+
+/* ---------- Progress along the bottom edge ---------- */
+
+/** At most this many section ticks (the shader's uTicks) */
+const maxTicks = 6;
+/** Where a section counts as being read: the world's reading line (pageInputs) */
+const readingLine = 0.45;
+
+/**
+ * The page's sections as ticks along the bar: `at` is how far through the
+ * page (0..1 of its scroll) each one reaches the reading line, `reading`
+ * the one being read (-1 for none)
+ */
+interface Ticks {
+  at: Float32Array;
+  count: number;
+  reading: number;
+}
+
+/**
+ * What a page's sections are: the parts the camera moves round
+ * ([data-world-section]), the skills categories and the experience roles.
+ * Scoped to the page itself (the outgoing page's copy keeps its classes)
+ */
+const sectionSelector =
+  '#main-content :is([data-world-section], [data-world-category], [data-world-target^="role:"])';
+
+/** Measures where the page's sections fall (up to six, spread evenly over more) */
+function measureTicks(ticks: Ticks) {
+  const sections = [...document.querySelectorAll<HTMLElement>(sectionSelector)];
+  const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+  const picked =
+    sections.length <= maxTicks
+      ? sections
+      : Array.from(
+          { length: maxTicks },
+          (_, i) => sections[Math.round((i * (sections.length - 1)) / (maxTicks - 1))]
+        );
+  ticks.count = scrollable > 0 ? picked.length : 0;
+  ticks.at.fill(0);
+  picked.forEach((el, i) => {
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    ticks.at[i] = clamp((top - window.innerHeight * readingLine) / scrollable, 0, 1);
+  });
+}
+
+/** The section being read at `progress`: the last tick reached */
+function readingAt(ticks: Ticks, progress: number) {
+  let reading = -1;
+  for (let i = 0; i < ticks.count; i++) if (ticks.at[i] <= progress + 0.002) reading = i;
+  return reading;
+}
+
+const isStation = (key: string): key is StationKey => stationKeys.includes(key as StationKey);
+
+/** What the label riding the travelling lock says: where to, and how far still to go */
+const courseLabel = (to: StationKey, km: number) =>
+  `→ ${stationNames[to].page.toUpperCase()} · ${km} KM`;
 
 /** What the loop reads from React, handed over through a ref */
 interface HudProps {
@@ -626,6 +811,7 @@ export function HeaderHud({
   onLive,
 }: HudProps & { onLive: (live: boolean) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const courseRef = useRef<HTMLSpanElement>(null);
   const props = useRef<HudProps>({ theme, dense, still });
   /** Set when something the hologram shows has changed (drawing on demand for reduced motion) */
   const dirty = useRef(true);
@@ -654,8 +840,17 @@ export function HeaderHud({
     const root = document.documentElement;
     let elements: HTMLElement[] = [];
     let boxes: Box[] = [];
+    /** One box round the links and one round the buttons, for the fill's floor */
+    const rows = new Float32Array([...none, ...none]);
     let hover = -1;
     let fill = props.current.dense ? 1 : 0;
+    const ticks: Ticks = { at: new Float32Array(maxTicks), count: 0, reading: -1 };
+    let progress = 0;
+    /** 0..1: how much the bottom edge shows the flight's course, eased */
+    let flightBlend = 0;
+    watchCourse();
+    const label = courseRef.current;
+    let labelText = '';
     const sway = createSway();
     const lock = createLock();
     /** When the power-on began (s), -1 until the HUD is first in sight */
@@ -670,11 +865,31 @@ export function HeaderHud({
       [bar.querySelector<HTMLElement>('.header__logo'), ...elements].forEach((el, i) =>
         el?.style.setProperty('--hud-i', String(i))
       );
+      const isLink = elements.map((el) => el.classList.contains('header__link'));
+      rows.set(around(boxes.filter((box, i) => isLink[i] && box[2] > 0)), 0);
+      rows.set(around(boxes.filter((box, i) => !isLink[i] && box[2] > 0)), 4);
       const active = elements.findIndex((el) => el.getAttribute('aria-current') === 'page');
       aimLock(lock, active, active >= 0 ? boxes[active] : none, seconds(), props.current.still);
       hud.resize(bar.offsetWidth, bar.offsetHeight, Math.min(window.devicePixelRatio || 1, 2));
+      measureTicks(ticks);
       dirty.current = true;
     };
+    // The page's sections move as it lays out, loads and reveals: measured
+    // again whenever the page changes size (a new page included), and once
+    // its entrance has settled
+    const main = document.getElementById('main-content');
+    let tickTimer = 0;
+    const remeasureTicks = () => {
+      measureTicks(ticks);
+      dirty.current = true;
+      window.clearTimeout(tickTimer);
+      tickTimer = window.setTimeout(() => {
+        measureTicks(ticks);
+        dirty.current = true;
+      }, 1200);
+    };
+    const pageSize = new ResizeObserver(remeasureTicks);
+    if (main) pageSize.observe(main);
 
     // What you point at (or focus), by delegation; ticks and clicks for the sound
     const targetOf = (node: EventTarget | null) =>
@@ -710,10 +925,27 @@ export function HeaderHud({
     if (header) mutations.observe(header, { attributes: true, attributeFilter: ['class'] });
     document.fonts?.ready.then(measure);
 
-    /** Nothing to draw while the header is out of sight: tour, free roam, the loading screen */
+    /**
+     * Nothing to draw while the header is out of sight: tour, free roam,
+     * the loading screen while it covers the page. As it lifts the HUD
+     * powers on, under the mark flying into its logo slot
+     */
     const away = () =>
       (root.dataset.worldMode !== undefined && root.dataset.worldMode !== 'page') ||
-      root.hasAttribute('data-boot');
+      root.dataset.boot === 'loading';
+
+    /** Shows the course label under the lock's box ('' hides it) */
+    const showLabel = (text: string, box?: Box) => {
+      if (!label) return;
+      if (text !== labelText) {
+        labelText = text;
+        label.textContent = text;
+        label.hidden = !text;
+      }
+      if (text && box) {
+        label.style.transform = `translate3d(${(box[0] + box[2] / 2).toFixed(1)}px, ${(box[1] + box[3] + 9).toFixed(1)}px, 0) translateX(-50%)`;
+      }
+    };
 
     let frame = 0;
     let last = performance.now();
@@ -727,6 +959,7 @@ export function HeaderHud({
       if (away()) {
         worldStore.hudHum = 0;
         dirty.current = true;
+        showLabel('');
         return;
       }
       const now = nowMs / 1000;
@@ -737,7 +970,9 @@ export function HeaderHud({
         if (!calm) {
           emitCue('hud-boot');
           if (header) {
-            header.dataset.hudBoot = '';
+            // Powering on under the loading screen's mark as it docks: the
+            // logo arrives with the mark rather than flickering on
+            header.dataset.hudBoot = root.dataset.boot === 'leaving' ? 'docked' : '';
             bootTimer = window.setTimeout(
               () => delete header.dataset.hudBoot,
               bootTime * 1000 + 700
@@ -749,8 +984,19 @@ export function HeaderHud({
       const target = thick ? 1 : 0;
       const sinceLock = now - lock.lockedAt;
       const hoverBox = hover >= 0 && boxes[hover] ? boxes[hover] : none;
+      const scrolled = clamp(worldStore.scroll, 0, 1);
 
       if (calm) {
+        showLabel('');
+        if (Math.abs(scrolled - progress) > 0.0005) {
+          progress = scrolled;
+          dirty.current = true;
+        }
+        const reading = readingAt(ticks, progress);
+        if (reading !== ticks.reading) {
+          ticks.reading = reading;
+          dirty.current = true;
+        }
         if (bar.style.transform) bar.style.transform = '';
         if (fill !== target) {
           fill = target;
@@ -769,6 +1015,10 @@ export function HeaderHud({
           fill,
           motion: 0,
           hover: hoverBox,
+          rows,
+          progress,
+          ticks,
+          flight: 0,
           aim,
           lock: lock.at,
           lockOpen: 0,
@@ -788,14 +1038,39 @@ export function HeaderHud({
       const aimWas = aim;
       aim += (aimTarget - aim) * (1 - Math.exp(-10 * dt));
       if (Math.abs(aim - aimWas) > 0.002) dirty.current = true;
-      stepSway(sway, dt, now);
+      stepSway(sway, dt, now, root.dataset.boot === 'leaving');
       bar.style.transform = swayTransform(sway);
       const open = stepLock(lock, now);
       const swinging = swing(sway);
+
+      // The bottom edge: the page's progress, or the flight's course
+      const { flight } = worldStore;
+      const flying = flightUnderWay() && isStation(flight.to);
+      flightBlend += (Number(flying) - flightBlend) * (1 - Math.exp(-6 * dt));
+      if (Math.abs(flightBlend - Number(flying)) < 0.002) flightBlend = Number(flying);
+      // Eased towards the course whether or not it's still flying: progress
+      // stays at 1 after an arrival, so the fill drains back to the page's
+      // scroll with the blend (cut to 0 on docking, it vanished in a frame)
+      const along = mix(scrolled, flight.progress, flightBlend);
+      if (Math.abs(along - progress) > 0.0005) {
+        progress = along;
+        dirty.current = true;
+      }
+      ticks.reading = readingAt(ticks, scrolled);
+      // Riding the travelling lock: where to, and the range still to go
+      const toGo = lock.travelling && flying ? rangeToGo() : null;
+      if (toGo) showLabel(courseLabel(toGo.to, toGo.km), lock.at);
+      else showLabel('');
       worldStore.hudHum = boot < 1 ? boot : 0.5 + swinging * 0.5;
       // The sway moves every frame; the hologram only needs every other
       // one, unless something on it is changing
-      const busy = boot < 1 || lock.travelling || sinceLock < 0.6;
+      const busy =
+        boot < 1 ||
+        lock.travelling ||
+        sinceLock < 0.6 ||
+        sway.jolt.burst > 0 ||
+        sway.jolt.last > 0 ||
+        (flightBlend > 0 && flightBlend < 1);
       odd = !odd;
       if (!odd && !dirty.current && !busy) return;
       dirty.current = false;
@@ -808,14 +1083,28 @@ export function HeaderHud({
         fill,
         motion: 1,
         hover: hoverBox,
+        rows,
+        progress,
+        ticks,
+        flight: flightBlend,
         aim,
         lock: lock.at,
         lockOpen: open + shut,
         lockFlash: flash,
         lockPing: sinceLock < 0.6 ? sinceLock / 0.6 : 0,
         boot,
-        split: Math.max(swinging, clamp(worldStore.velocity / 260, 0, 0.5)),
-        tear: clamp((worldStore.velocity - 80) / 160, 0, 1),
+        // Speed only splits and tears the picture during a flight between
+        // pages (a fast scroll along the projects ride moves the camera
+        // too); the shake's jolt does at any time
+        split: Math.max(
+          swinging,
+          clamp(worldStore.velocity / 260, 0, 0.5) * sway.flying,
+          sway.jolt.burst * 0.7
+        ),
+        tear: Math.max(
+          clamp((worldStore.velocity - 80) / 160, 0, 1) * sway.flying,
+          sway.jolt.burst * 0.8
+        ),
         tilt: [sway.ry.at, sway.rx.at],
       });
     };
@@ -827,6 +1116,9 @@ export function HeaderHud({
       if (header) delete header.dataset.hudBoot;
       resize.disconnect();
       mutations.disconnect();
+      pageSize.disconnect();
+      window.clearTimeout(tickTimer);
+      showLabel('');
       bar.removeEventListener('pointerover', over);
       bar.removeEventListener('pointerout', out);
       bar.removeEventListener('focusin', over);
@@ -838,7 +1130,13 @@ export function HeaderHud({
     };
   }, [onLive]);
 
-  return <canvas ref={canvasRef} className="header-hud" aria-hidden="true" />;
+  return (
+    <>
+      <canvas ref={canvasRef} className="header-hud" aria-hidden="true" />
+      {/* Rides the target lock as it travels: where to, and how far still to go */}
+      <span ref={courseRef} className="header-hud__course" aria-hidden="true" hidden />
+    </>
+  );
 }
 
 export default HeaderHud;
