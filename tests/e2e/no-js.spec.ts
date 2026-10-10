@@ -8,7 +8,8 @@ import type { Locator, Page } from '@playwright/test';
  * Entrance animations render their starting state (opacity 0) into the
  * server HTML. Nothing may stay hidden because the app isn't running: not
  * without JavaScript, and not when the app never starts (ThemeScript's
- * failsafes).
+ * failsafes). Nor may those failsafes mistake an app that is only slow to
+ * start for one that never will.
  */
 
 const pages = [...routes, '/projects/drive-king'];
@@ -119,5 +120,97 @@ seeded.describe('when the app never starts', () => {
       await expect(page.locator('.boot')).toBeHidden();
       await expectReadable(page, '/about');
     });
+  });
+});
+
+/** Every script chunk arrives late (a slow phone or connection): the app starts, after the failsafes */
+async function slowTheApp(page: Page, delay: number) {
+  await page.route('**/_next/static/chunks/**', async (route) => {
+    if (route.request().resourceType() === 'script') {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+    await route.continue();
+  });
+}
+
+interface WorldSeen {
+  frames: number;
+  /** html[data-world='off'] */
+  off: boolean;
+  /** A world window closed */
+  closed: boolean;
+  /** A 2D station render shown */
+  rendered: boolean;
+}
+
+/** Checks every painted frame, from the first, for any sign of the world being taken for off */
+async function watchTheWorld(page: Page) {
+  await page.addInitScript(() => {
+    const seen = { frames: 0, off: false, closed: false, rendered: false };
+    (window as unknown as { worldSeen: typeof seen }).worldSeen = seen;
+    const shown = (selector: string) => {
+      const el = document.querySelector(`#main-content ${selector}`);
+      return el ? getComputedStyle(el).display !== 'none' : undefined;
+    };
+    const frame = () => {
+      seen.frames += 1;
+      if (document.documentElement.getAttribute('data-world') === 'off') seen.off = true;
+      if (shown('.world-window') === false) seen.closed = true;
+      if (shown('.station-fallback')) seen.rendered = true;
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+const worldSeen = (page: Page) =>
+  page.evaluate(() => (window as unknown as { worldSeen: WorldSeen }).worldSeen);
+
+seeded.describe('when the app starts late', () => {
+  // Narrow, so the pages open world windows
+  seeded.use({ world: 'on', viewport: { width: 390, height: 844 } });
+  seeded.afterEach(({ page }) => page.unrouteAll({ behavior: 'ignoreErrors' }));
+
+  seeded('the failsafe shows the copy but keeps the world windows open', async ({ page }) => {
+    await slowTheApp(page, 6_000);
+    await watchTheWorld(page);
+    // A returning visitor: no loading screen
+    await page.addInitScript(() => localStorage.setItem('world-loaded-at', String(Date.now())));
+    await page.goto('/contact', { waitUntil: 'domcontentloaded' });
+    const root = page.locator('html');
+    await expect(root).not.toHaveAttribute('data-boot');
+    await expect(root).toHaveAttribute('data-failsafe', '', { timeout: 8_000 });
+    await expect(root).not.toHaveAttribute('data-hydrated');
+    // The app is only late: the world's window stays open, with no 2D render in it
+    await expect(page.locator('#main-content .world-window')).toHaveCSS('display', 'block');
+    await expect(root).not.toHaveAttribute('data-world', 'off');
+
+    await expect(root).toHaveAttribute('data-hydrated', '', { timeout: 15_000 });
+    await expect(root).toHaveAttribute('data-world', 'on');
+    const seen = await worldSeen(page);
+    expect(seen.frames).toBeGreaterThan(0);
+    expect(seen).toMatchObject({ off: false, closed: false, rendered: false });
+  });
+
+  seeded('skipping the loading screen keeps the world windows open', async ({ page }) => {
+    await slowTheApp(page, 8_000);
+    await watchTheWorld(page);
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const root = page.locator('html');
+    await expect(root).toHaveAttribute('data-boot', 'loading');
+    const skip = page.getByRole('button', { name: 'Skip to the page' });
+    await expect(skip).toBeVisible({ timeout: 10_000 });
+    await skip.click();
+    await expect(root).not.toHaveAttribute('data-boot');
+    await expect(root).not.toHaveAttribute('data-hydrated');
+    await expectReadable(page, '/');
+    await expect(page.locator('#main-content .world-window')).toHaveCSS('display', 'block');
+    await expect(root).not.toHaveAttribute('data-world', 'off');
+
+    await expect(root).toHaveAttribute('data-hydrated', '', { timeout: 15_000 });
+    await expect(root).toHaveAttribute('data-world', 'on');
+    const seen = await worldSeen(page);
+    expect(seen.frames).toBeGreaterThan(0);
+    expect(seen).toMatchObject({ off: false, closed: false, rendered: false });
   });
 });

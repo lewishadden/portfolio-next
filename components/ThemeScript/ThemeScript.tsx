@@ -5,8 +5,11 @@ import { motionStorageKey } from '@/utils/motion';
 const pageFailsafe = 4_000;
 /** The same behind the loading screen, which covers the page in the meantime */
 const coverFailsafe = 22_000;
-/** When the loading screen gives up without the app (React's own gives up at 20s) */
-const coverGiveUp = 25_000;
+/**
+ * When the failsafes give up on the app: the loading screen lifts and the
+ * world is marked off (BootScreen's own give-up, once the app runs, is 20s)
+ */
+const appGiveUp = 25_000;
 
 /**
  * Entrance animations render their starting state into the server HTML
@@ -79,15 +82,20 @@ export function ThemeScript() {
       // Failsafes, until the app starts (ClientProviders sets html[data-hydrated]):
       // what waits for an entrance shows after a few seconds (html[data-failsafe]),
       // and the loading screen gives up, or lifts when its skip button is pressed.
-      // The world won't run either: marked off, the 2D station renders and the
-      // still sky stand in and the world windows close (World sets the real
-      // value should the app start late)
+      // None of that means the app has failed (it may only be slow), so the world
+      // is left alone: marking it off closes the world windows and brings in the
+      // 2D station renders and still sky, which a late start would then undo.
+      // Only a clear failure marks it off: one of the app's scripts failing to
+      // load (a chunk that 404s after a deploy, a blocker), or still no app when
+      // the failsafes give up (an old browser that loads the scripts but can't
+      // run them). World sets the real value should the app start after all
       var began = Date.now();
       var running = function() { return root.hasAttribute('data-hydrated'); };
       var reveal = function() {
-        if (running()) return;
-        root.setAttribute('data-failsafe', '');
-        if (!root.hasAttribute('data-world')) root.setAttribute('data-world', 'off');
+        if (!running()) root.setAttribute('data-failsafe', '');
+      };
+      var markOff = function() {
+        if (!running() && !root.hasAttribute('data-world')) root.setAttribute('data-world', 'off');
       };
       var lift = function() {
         if (running()) return;
@@ -104,11 +112,20 @@ export function ThemeScript() {
       setTimeout(wait, ${pageFailsafe});
       setTimeout(function() {
         if (root.hasAttribute('data-boot')) lift();
-      }, ${coverGiveUp});
+        markOff();
+      }, ${appGiveUp});
       document.addEventListener('click', function(e) {
         var target = e.target;
         if (target && target.closest && target.closest('.boot__skip')) lift();
       });
+      // A script that fails to load fires 'error' on itself, which doesn't
+      // bubble: caught on the way down
+      window.addEventListener('error', function(e) {
+        var target = e.target;
+        if (target && target.tagName === 'SCRIPT' && (target.src || '').indexOf('/_next/static/') !== -1) {
+          markOff();
+        }
+      }, true);
 
       requestAnimationFrame(function() {
         requestAnimationFrame(function() {

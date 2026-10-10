@@ -384,7 +384,9 @@ body {
    the copy covers the screen, so these gaps let the camera bring the
    station back into view as they scroll past. Only when the world will
    run: never without JavaScript, nor with the world off (which includes
-   an app that never starts: ThemeScript's failsafe marks the world off).
+   an app that never starts: ThemeScript marks the world off when one of
+   its scripts fails to load, or when it gives up on the app). An app
+   that is only slow to start leaves them open, so nothing shifts twice.
    ============================================================= */
 .world-window {
   display: none;
