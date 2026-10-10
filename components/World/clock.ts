@@ -5,13 +5,13 @@ import type { RootState } from '@react-three/fiber';
    isn't steady:
    - at the still level the canvas draws on demand, and the clock counts
      the whole wall time between the frames it draws;
-   - it restarts at 0 whenever the canvas's frameloop changes. CoverPause
-     (WorldCanvas) carries it across a cover, but nothing carries it across
-     the still level's switches between drawing on demand and every frame:
-     entering or leaving free roam, or a change of motion level.
+   - R3F restarts it at 0 whenever the canvas's frameloop changes.
+     CoverPause (WorldCanvas) carries it on across those: a cover, and the
+     still level's switches between drawing on demand and every frame
+     (entering or leaving free roam, a change of motion level).
    Idle motion runs on `ambientTime()`; timing that answers an event (a
    click's trick, a power-on, a ping, a flight) stays on the clock, with
-   its stamps passed through `pastStamp()`.
+   its stamps passed through `pastStamp()` should the clock ever go back.
 */
 
 /**

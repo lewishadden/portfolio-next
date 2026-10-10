@@ -109,7 +109,9 @@ function dropQueuedFrames(state: RootState) {
  * clock at 0 whenever the frameloop changes, which would throw everything
  * timed by it (the rocket's launch, the tour's sway, shader time) back to
  * the start: when the cover lifts, the world's time carries on from where
- * it stopped instead, and a frame is asked for. A frame R3F still had
+ * it stopped instead, and a frame is asked for. So it does across the
+ * still level's switches between drawing on demand and every frame
+ * (entering or leaving free roam, a change of motion level). A frame R3F still had
  * queued as it paused would draw once more with its "never" mode's own
  * timing (the clock set to the raw frame timestamp, a delta of the page's
  * whole life), so the queue is dropped as the cover goes up.
@@ -127,6 +129,8 @@ function CoverPause({ covered }: { covered: boolean }) {
   const time = useRef(0);
   const paused = useRef(false);
   const resumed = useRef(false);
+  /** The frameloop the last layout effect saw */
+  const loop = useRef(frameloop);
 
   useFrame((state) => {
     if (state.frameloop === 'never') {
@@ -147,14 +151,21 @@ function CoverPause({ covered }: { covered: boolean }) {
 
   useLayoutEffect(() => {
     const state = get();
+    const was = loop.current;
+    loop.current = frameloop;
     if (covered) {
       paused.current = true;
       dropQueuedFrames(state);
       return;
     }
-    if (!paused.current || frameloop === 'never') return;
-    paused.current = false;
-    resumed.current = true;
+    if (frameloop === 'never') return;
+    if (paused.current) {
+      paused.current = false;
+      resumed.current = true;
+    } else if (was === frameloop || was === 'never') {
+      // Nothing restarted the clock (or it starts here, at warm-up's end)
+      return;
+    }
     setClockTime(state.clock, time.current);
     state.invalidate();
   }, [covered, frameloop, get]);
