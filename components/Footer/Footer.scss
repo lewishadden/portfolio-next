@@ -303,9 +303,17 @@
       background: var(--accent-secondary);
     }
 
+    /* Keyboard focus sits on the checked segment (a radio group moves focus
+       and the choice together), so the ring is drawn in the colour that
+       reads on its fill, inset far enough that the fill shows either side
+       of it: the violet accent on the cyan fill was 1.3-1.5:1 */
     &:has(input:focus-visible) {
-      outline: 3px solid var(--accent-primary);
-      outline-offset: -3px;
+      outline: 2px solid var(--accent-contrast);
+      outline-offset: -6px;
+    }
+
+    &:has(input:focus-visible:not(:checked)) {
+      outline-color: var(--accent-primary);
     }
   }
 
