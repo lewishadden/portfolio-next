@@ -333,7 +333,8 @@ const podNotes = stationVoices.experience.notes
   .filter((note) => note >= 160 && note <= 800)
   .sort((a, b) => b - a);
 
-const silent: Sound = () => undefined;
+/** Clamps a cue's strength to 0..1 */
+const unit = (x: number) => Math.min(Math.max(x, 0), 1);
 
 const cues: Record<Cue, Sound> = {
   blip: (o, at) => tone(o, at, 1046, 0.09, 0.05, 'sine', 1318),
@@ -454,7 +455,7 @@ const cues: Record<Cue, Sound> = {
   // Free roam's sonar (the detector, and a scan's sweep reaching a signal):
   // a ping gliding down from 1.4kHz and its echo, softer for a far contact
   sonar: (o, at, detail) => {
-    const level = 0.02 * (0.6 + 0.4 * Math.min(Math.max(detail?.strength ?? 1, 0), 1));
+    const level = 0.02 * (0.6 + 0.4 * unit(detail?.strength ?? 1));
     tone(o, at, 1400, 0.42, level, 'sine', 1300);
     tone(o, at + 0.17, 1400, 0.36, level * 0.3, 'sine', 1300);
   },
@@ -467,15 +468,40 @@ const cues: Record<Cue, Sound> = {
     }
     tone(o, at + 0.1, voiceNote(key, 0, 3), 0.9, 0.006);
   },
-  // Not voiced yet: the cues exist so the world can emit them
-  scan: silent,
-  edge: silent,
-  hail: silent,
+  // A sonar scan sweeping out from the ship to detector range over 1.8s:
+  // a low pulse with a ping on it, and a breath of noise opening out as
+  // the sweep travels
+  scan: (o, at) => {
+    tone(o, at, 196, 0.5, 0.045, 'sine', 98);
+    tone(o, at, 1046.5, 0.5, 0.012, 'sine', 988);
+    burst(o, at + 0.05, 1.8, 0.028, 'bandpass', 500, 3200, 0.5);
+  },
+  // Nearing the edge of the world (once per approach): a low warning
+  // swelling in, two notes a whisker apart so it pulses slowly (twice a
+  // second), under a thin shimmer; firmer the nearer the edge
+  edge: (o, at, detail) => {
+    const level = 0.018 * (0.6 + 0.4 * unit(detail?.strength ?? 1));
+    tone(o, at, 110, 1.5, level, 'triangle', undefined, 0.45);
+    tone(o, at, 112, 1.5, level * 0.8, 'triangle', undefined, 0.45);
+    burst(o, at + 0.1, 1.2, 0.01, 'highpass', 4000, 7000, 0.4);
+  },
+  // A station answering a hail, from the station: a burst of comms
+  // squelch, a two-blip chirp, and its chord rising two octaves up
+  hail: (o, at, detail) => {
+    const key = detail?.at ? stationNear(detail.at) : stationForPath(window.location.pathname);
+    burst(o, at, 0.07, 0.022, 'bandpass', 2200, 1200, 0.004);
+    tone(o, at + 0.06, 1318.5, 0.05, 0.012, 'square');
+    tone(o, at + 0.13, 1760, 0.07, 0.012, 'square');
+    for (let i = 0; i < 3; i++) {
+      tone(o, at + 0.24 + i * 0.09, voiceNote(key, i, 2), 0.8, 0.014, 'triangle');
+    }
+  },
 };
 
 /** The fewest seconds between two of the same cue (a scrape along a hull bumps every frame) */
 const spacing: Partial<Record<Cue, number>> = {
   arrive: 0.3,
+  edge: 1,
   bump: 0.35,
   ping: 0.06,
   trick: 0.3,
@@ -502,6 +528,9 @@ const centred = new Set<Cue>([
 
 /** Roughly how long each placed cue rings (seconds), so its panner isn't moved while it does */
 const tails: Partial<Record<Cue, number>> = {
+  edge: 1.6,
+  hail: 1.3,
+  scan: 2,
   dock: 1.7,
   found: 1.4,
   complete: 1.9,
