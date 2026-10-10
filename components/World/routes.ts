@@ -42,6 +42,9 @@ export const sectorRadius = 520;
  */
 export const parkingOffset: readonly [number, number, number] = [0, 1.5, 16];
 
+/** /contact: the comms array's dish rim, from the station's centre (its transmissions set off there) */
+export const contactDish: readonly [number, number, number] = [3.85, 0.65, -2.9];
+
 /** Distance between two stations, centre to centre, in whole world units (the HUD's "km") */
 export function rangeBetween(a: StationKey, b: StationKey) {
   const [ax, ay, az] = stationPositions[a];

@@ -42,6 +42,7 @@ import {
 } from '../reaction';
 import { stationInRange, useThemedMaterials, useWide } from '../stationHooks';
 import { StationHull } from '../StationHull';
+import { contactDish } from '../routes';
 import { stationModels, stationPositions } from '../stations';
 import { setTipTarget, tipTarget } from '../tipTarget';
 import { latLngToVector3, palettes, seededRandom, setUniform } from '../utils';
@@ -58,7 +59,7 @@ import type { WorldPalette, WorldTheme } from '../utils';
 
 /** Where the dish array sits, and the point on it the data link leaves from */
 const arrayPosition = new Vector3(4.3, -0.9, -3.2);
-const dishFocus = new Vector3(3.85, 0.65, -2.9);
+const dishFocus = new Vector3(...contactDish);
 /** Relative to the array, which sweeps about its base */
 const arrayLights: NavLight[] = [
   { position: [-0.95, -0.65, 0], kind: 'red' },

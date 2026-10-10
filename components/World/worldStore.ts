@@ -1,4 +1,4 @@
-import { stationForPath, stationKeys, stationPositions } from './routes';
+import { contactDish, stationForPath, stationKeys, stationPositions } from './routes';
 
 import type { StationKey } from './routes';
 
@@ -332,7 +332,11 @@ export function setTransmitting(on: boolean) {
   worldStore.transmitting = on;
   // Hold on the globe a little after a failed send too, so it doesn't jerk away
   worldStore.showcaseUntil = Math.max(worldStore.showcaseUntil, performance.now() + 1800);
-  if (on) emitCue('transmit', { at: stationPositions.contact });
+  if (!on) return;
+  // From the dish, where the transmission sets off
+  const [x, y, z] = stationPositions.contact;
+  const [dx, dy, dz] = contactDish;
+  emitCue('transmit', { at: [x + dx, y + dy, z + dz] });
 }
 
 /* ----------------- Page chrome covering the world ----------------- */

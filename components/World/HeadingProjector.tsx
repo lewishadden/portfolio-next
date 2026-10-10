@@ -17,7 +17,7 @@ import { motionLevel } from '@/utils/motion';
 
 import { asGlow } from './materials';
 import { stationPower } from './power';
-import { stationKeys, stationPositions } from './routes';
+import { contactDish, stationKeys, stationPositions } from './routes';
 import { useThemedMaterials } from './stationHooks';
 import { setUniform } from './utils';
 import { worldMode } from './worldMode';
@@ -55,13 +55,13 @@ const outlineAlpha = 0.25;
  * tip, the habitat's mast, the satellite, the projects yard's front screen
  * top, the near edge of the skills ring, the comms dish and the wreck
  */
-const emitterOffsets: Record<StationKey, [number, number, number]> = {
+const emitterOffsets: Record<StationKey, readonly [number, number, number]> = {
   home: [4.83, 9.34, -14.99],
   about: [-3.78, 9.17, -13.65],
   experience: [2.3, 1.6, 0],
   projects: [0, 3.05, 5.4],
   skills: [-3.82, -0.74, -0.23],
-  contact: [3.85, 0.65, -2.9],
+  contact: contactDish,
   lost: [-2.9, 2.25, -5.6],
 };
 
