@@ -36,7 +36,7 @@ const tokens: Record<
     text: '#eef0ff',
   },
   light: {
-    tones: ['#6d28d9', '#0e7490', '#be185d', '#f59e0b', '#356b09'],
+    tones: ['#6d28d9', '#0e7490', '#be185d', '#f59e0b', '#2a5506'],
     bgPrimary: '#eef0f8',
     bgSecondary: '#e4e7f4',
     text: '#0b0d1f',
