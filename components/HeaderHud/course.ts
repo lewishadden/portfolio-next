@@ -1,6 +1,12 @@
-import { rangeBetween, stationKeys, stationPositions } from 'components/World/routes';
+import {
+  rangeBetween,
+  stationForPath,
+  stationKeys,
+  stationPositions,
+} from 'components/World/routes';
 import { worldMode } from 'components/World/worldMode';
 import { onFlight, worldStore } from 'components/World/worldStore';
+import { motionLevel, subscribeMotion } from '@/utils/motion';
 
 import type { StationKey } from 'components/World/routes';
 
@@ -34,7 +40,8 @@ const smootherstep = (x: number) => {
 /**
  * Starts keeping track (call it when a component that shows the course
  * mounts). The camera is docked at a station once a flight or cut arrives
- * there, and nowhere once it leaves without arriving: into free roam (a
+ * there (or, placed there by a snap below full motion, once motion is back
+ * to full), and nowhere once it leaves without arriving: into free roam (a
  * flight cut short by it announces no arrival), or with the world switched
  * off (pages visited meanwhile announce nothing, and switching it back on
  * warps in from deep space)
@@ -49,6 +56,20 @@ export function watchCourse() {
   new MutationObserver(() => {
     if (root.dataset.world !== 'on') course.docked = '';
   }).observe(root, { attributes: true, attributeFilter: ['data-world'] });
+  // Below full motion the camera's first placement is a snap, which
+  // announces no arrival: docked stayed '' with the camera at the page's
+  // station, and the first flight once motion was back to full counted down
+  // from the camera's distance to the destination, not rangeBetween. On the
+  // way back to full in page mode, the camera is at the page's station.
+  // Not before the canvas is up: its first frame will warp in from deep space
+  let level = motionLevel();
+  subscribeMotion(() => {
+    const was = level;
+    level = motionLevel();
+    if (was === 'full' || level !== 'full' || course.docked) return;
+    if (root.dataset.world !== 'on' || worldMode.get().mode !== 'page') return;
+    if (document.querySelector('.world__canvas')) course.docked = stationForPath(location.pathname);
+  });
   onFlight((event, to) => {
     if (!isStation(to)) return;
     if (event === 'start') {
