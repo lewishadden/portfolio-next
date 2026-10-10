@@ -44,7 +44,7 @@ import {
   helix,
   helixScreenY,
   projectIntro,
-  settleFocus,
+  riddenProjectFocus,
   stationPositions,
 } from '../stations';
 import { StationHull } from '../StationHull';
@@ -1281,6 +1281,8 @@ export function ProjectsStation({
   const powering = useRef({ live: -1, flickerAt: -Infinity });
   /** The screen the ride last settled on (its detent's tick), -1 off the ride */
   const ticked = useRef(-1);
+  /** The front focus on the last frame: the ride has come to rest on a screen once it holds */
+  const lastFront = useRef(-1);
   const opened = focus >= 0 && focus < screens.length ? focus : -1;
   useHullTimings(groupRef, hubRef);
 
@@ -1297,14 +1299,21 @@ export function ProjectsStation({
     const instant = snap || first;
     settled.current = true;
 
-    // The project in front: an open one, else wherever the page has scrolled to
+    // The project in front: where the camera has got to on its ride down
+    // the helix (riddenProjectFocus), so after a hop (prev / next, a modal
+    // opening another project, the index) a screen lights as the camera
+    // arrives rather than the moment the page jumps. An open project before
+    // its page has said so (the address changes first)
     const scrolled = worldStore.projectFocus;
     const front =
-      opened >= 0
-        ? opened
-        : scrolled >= 0
-          ? Math.min(settleFocus(scrolled), screens.length - 1)
+      scrolled >= 0
+        ? Math.min(riddenProjectFocus(), screens.length - 1)
+        : opened >= 0
+          ? opened
           : -1;
+    // On a screen and holding there: the ride has come to rest on it
+    const resting = front >= 0 && Math.abs(front - lastFront.current) < 0.002;
+    lastFront.current = front;
     // At the top of the projects page the camera holds back on the whole
     // yard: the first screen only comes forward (and lights up) on scroll
     const ride = front >= 0 ? 1 - (opened >= 0 ? 0 : projectIntro()) : 0;
@@ -1422,13 +1431,13 @@ export function ProjectsStation({
         // Screens orbit with the helix but always turn to face the viewer
         screen.lookAt(camera.position);
       });
-      // A detent: the ride settling on another screen ticks, from that
-      // screen (not as the station first draws; still motion too, it is a
-      // sound). An open project (its page or its modal) never does: its
-      // front screen changes the moment the address does, as the camera
-      // only sets off, and those hops have their own cues. Without the
-      // world, Projects ticks instead
-      const settledOn = live >= 0 && Math.abs(front - live) < 0.02 ? live : -1;
+      // A detent: the ride coming to rest on another screen ticks, from
+      // that screen (not as the station first draws; still motion too, it
+      // is a sound). Only at rest: a long hop passes screens without a tick
+      // each, and ticks once as it lands. An open project (its page or its
+      // modal) never does: its hops have their own cues. Without the world,
+      // Projects ticks instead
+      const settledOn = live >= 0 && resting && Math.abs(front - live) < 0.02 ? live : -1;
       if (opened >= 0) ticked.current = opened;
       else if (live < 0) ticked.current = -1;
       else if (settledOn >= 0 && settledOn !== ticked.current) {
@@ -1439,9 +1448,11 @@ export function ProjectsStation({
         ticked.current = settledOn;
       }
 
-      // Where the screen in front is on the page, for the project modal
+      // Where the screen in front is on the page, for the project modal's
+      // gallery to fly out of: only once the ride is on it (mid-hop the
+      // screen in front is one the camera is passing, and it moves)
       const inFront = front >= 0 ? spiral.children[Math.round(front)] : undefined;
-      if (worldStore.projectFocus >= 0 && inFront)
+      if (worldStore.projectFocus >= 0 && inFront && Math.abs(front - Math.round(front)) < 0.02)
         measureScreen(inFront, camera, size.width, size.height);
       else worldStore.screenRect.on = false;
     }
