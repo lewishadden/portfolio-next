@@ -258,8 +258,9 @@ test.describe('the guided tour', () => {
       await expect(tour).not.toContainText('Paused');
       await page.keyboard.press('ArrowRight');
       // Escape closing the palette over the tour closes only the palette
+      // (pressed once its input has focus, as it does a frame after opening)
       await page.keyboard.press('ControlOrMeta+k');
-      await expect(palette).toBeVisible();
+      await expect(palette.getByRole('combobox', { name: 'Command' })).toBeFocused();
       await page.keyboard.press('Escape');
       await expect(palette).toBeHidden();
       await expect(page.locator('html')).toHaveAttribute('data-world-mode', 'tour');
