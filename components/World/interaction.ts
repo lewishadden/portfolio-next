@@ -57,6 +57,9 @@ export function isOpenSpace(target: EventTarget | null) {
   if (document.pointerLockElement) return aimingReticle();
   if (!(target instanceof Element)) return true;
   if (worldMode.get().mode !== 'page') return !target.closest('a, button, input, .glass');
+  // The empty slot stacked layouts frame the station in, above the page
+  // head's copy: open space, though it sits inside <header class="page-head">
+  if (target.closest('.page-head__stage')) return true;
   return !target.closest(content);
 }
 

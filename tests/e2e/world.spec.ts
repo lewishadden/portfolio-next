@@ -666,3 +666,52 @@ test.describe('warming the next station on a phone', () => {
     }
   );
 });
+
+test.describe('the station framed above the page head on a phone', () => {
+  test.use({
+    world: 'on',
+    reducedMotion: 'reduce',
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+
+  test(
+    'answers a touch: the contact globe takes hold to turn',
+    { tag: '@webgl' },
+    async ({ page, context }) => {
+      await openHydrated(page, '/contact');
+      await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+      await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+      // The empty slot the globe is framed in sits inside <header class="page-head">
+      const stage = page.locator('#main-content .page-head__stage');
+      await expect(stage).toBeVisible();
+      const box = (await stage.boundingBox())!;
+      const [x, y] = [box.x + box.width / 2, box.y + box.height / 2];
+      expect(
+        await page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.className, [x, y])
+      ).toContain('page-head__stage');
+
+      const cdp = await context.newCDPSession(page);
+      const touch = (type: 'touchStart' | 'touchEnd', points: number[][]) =>
+        cdp.send('Input.dispatchTouchEvent', {
+          type,
+          touchPoints: points.map(([px, py], id) => ({ x: px, y: py, id })),
+        });
+      // Held until the press lands (the globe has to be on screen first)
+      await expect
+        .poll(
+          async () => {
+            await touch('touchStart', [[x, y]]);
+            const held = await page.evaluate(() =>
+              document.documentElement.classList.contains('world-dragging')
+            );
+            await touch('touchEnd', []);
+            return held;
+          },
+          { timeout: 30_000 }
+        )
+        .toBe(true);
+    }
+  );
+});
