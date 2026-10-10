@@ -173,7 +173,14 @@ function CoverPause({ covered }: { covered: boolean }) {
   return null;
 }
 
-/** With frameloop="demand" (the still motion level), repaint on scroll, resize and route changes */
+/**
+ * With frameloop="demand" (the still motion level), repaint on scroll,
+ * resize and route changes. Each repaint asks for a second frame on the
+ * next animation frame: the page measures where it is read (pageInputs,
+ * the experience page's role focus) in its own animation frame, which can
+ * run after the first, so that frame drew the last measure's pose and
+ * nothing asked for another
+ */
 function DemandDriver({
   station,
   theme,
@@ -187,7 +194,15 @@ function DemandDriver({
 
   useEffect(() => {
     invalidate();
-    const repaint = () => invalidate();
+    let frame = 0;
+    const again = () => {
+      frame = 0;
+      invalidate();
+    };
+    const repaint = () => {
+      invalidate();
+      if (!frame) frame = requestAnimationFrame(again);
+    };
     window.addEventListener('scroll', repaint, { passive: true });
     window.addEventListener('resize', repaint);
     // Models stream in after the first paint
@@ -196,6 +211,7 @@ function DemandDriver({
       window.removeEventListener('scroll', repaint);
       window.removeEventListener('resize', repaint);
       timers.forEach(clearTimeout);
+      cancelAnimationFrame(frame);
     };
   }, [invalidate, station, theme, focusProject]);
 
