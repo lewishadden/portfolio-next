@@ -9,7 +9,7 @@ import type { Locator, Page } from '@playwright/test';
  * server HTML. Nothing may stay hidden because the app isn't running: not
  * without JavaScript, and not when the app never starts (ThemeScript's
  * failsafes). Nor may those failsafes mistake an app that is only slow to
- * start for one that never will.
+ * start, or that fetches a dropped chunk again, for one that never will.
  */
 
 const pages = [...routes, '/projects/drive-king'];
@@ -108,6 +108,50 @@ async function garbleTheApp(page: Page) {
   );
 }
 
+/**
+ * Drops the connection to one of the chunks the app asks its loader for (one
+ * of the root layout's, which the page's payload names for each of its client
+ * components) `times` times, then lets it through. The first drop waits until
+ * the loader listens for it, as the loader fetches again only a chunk it has
+ * asked for. Returns how many times the chunk was asked for
+ */
+async function dropAChunk(page: Page, path: string, times: number) {
+  const html = await (await page.request.get(path)).text();
+  const named = (src: string) => html.split(src).length - 1;
+  const chunk = [
+    ...html
+      .slice(0, html.indexOf('<script>'))
+      .matchAll(/<script src="(\/_next\/static\/chunks\/[^"]+\.js)" async/g),
+  ]
+    .map((match) => match[1])
+    .reduce((most, src) => (named(src) > named(most) ? src : most));
+  expect(named(chunk), 'a chunk the page payload names').toBeGreaterThan(2);
+  await page.addInitScript((src) => {
+    const listen = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function (
+      this: EventTarget,
+      ...args: Parameters<typeof listen>
+    ) {
+      if (args[0] === 'error' && this instanceof HTMLScriptElement && this.src.endsWith(src)) {
+        (window as unknown as { chunkAsked: boolean }).chunkAsked = true;
+      }
+      return listen.apply(this, args);
+    };
+  }, chunk);
+  let requests = 0;
+  await page.route(`**${chunk}`, async (route) => {
+    requests += 1;
+    if (requests > times) return route.continue();
+    if (requests === 1) {
+      await expect
+        .poll(() => page.evaluate(() => 'chunkAsked' in window), { timeout: 15_000 })
+        .toBe(true);
+    }
+    await route.abort('connectionreset');
+  });
+  return () => requests;
+}
+
 /** The world windows are closed, and the 2D station render stands in for the world */
 async function expectWorldClosed(page: Page) {
   const windows = await page.locator('#main-content .world-window').all();
@@ -203,6 +247,22 @@ seeded.describe('when the app never starts', () => {
         await expect(root).not.toHaveAttribute('data-hydrated');
       }
     );
+
+    seeded(
+      'a chunk that fails again when fetched again closes the world windows',
+      async ({ page }) => {
+        const requested = await dropAChunk(page, '/contact', 2);
+        // A returning visitor: no loading screen
+        await page.addInitScript(() => localStorage.setItem('world-loaded-at', String(Date.now())));
+        await page.goto('/contact', { waitUntil: 'domcontentloaded' });
+        const root = page.locator('html');
+        await expect(root).toHaveAttribute('data-world', 'off', { timeout: 10_000 });
+        // Dropped, fetched again and dropped again: the loader gives up
+        expect(requested()).toBe(2);
+        await expectWorldClosed(page);
+        await expect(root).not.toHaveAttribute('data-hydrated');
+      }
+    );
   });
 });
 
@@ -274,6 +334,25 @@ seeded.describe('when the app starts late', () => {
     expect(seen.frames).toBeGreaterThan(0);
     expect(seen).toMatchObject({ off: false, closed: false, rendered: false });
   });
+
+  seeded(
+    'a chunk fetched again after a dropped connection keeps the world windows open',
+    async ({ page }) => {
+      const requested = await dropAChunk(page, '/contact', 1);
+      await watchTheWorld(page);
+      // A returning visitor: no loading screen
+      await page.addInitScript(() => localStorage.setItem('world-loaded-at', String(Date.now())));
+      await page.goto('/contact', { waitUntil: 'domcontentloaded' });
+      const root = page.locator('html');
+      await expect(root).toHaveAttribute('data-hydrated', '', { timeout: 15_000 });
+      await expect(root).toHaveAttribute('data-world', 'on');
+      // Dropped once, then fetched again by the loader
+      expect(requested()).toBe(2);
+      const seen = await worldSeen(page);
+      expect(seen.frames).toBeGreaterThan(0);
+      expect(seen).toMatchObject({ off: false, closed: false, rendered: false });
+    }
+  );
 
   seeded('skipping the loading screen keeps the world windows open', async ({ page }) => {
     await slowTheApp(page, 8_000);

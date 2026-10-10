@@ -86,10 +86,10 @@ export function ThemeScript() {
       // is left alone: marking it off closes the world windows and brings in the
       // 2D station renders and still sky, which a late start would then undo.
       // Only a clear failure marks it off: one of the app's scripts failing to
-      // load (a chunk that 404s after a deploy, a blocker) or to parse (an old
-      // browser that loads the scripts but can't run them), or still no app
-      // when the failsafes give up. World sets the real value should the app
-      // start after all
+      // load with nothing left to load it again (a chunk that 404s after a
+      // deploy, a blocker) or to parse (an old browser that loads the scripts
+      // but can't run them), or still no app when the failsafes give up.
+      // World sets the real value should the app start after all
       var began = Date.now();
       var running = function() { return root.hasAttribute('data-hydrated'); };
       var reveal = function() {
@@ -120,29 +120,46 @@ export function ThemeScript() {
         if (target && target.closest && target.closest('.boot__skip')) lift();
       });
       var ours = function(url) { return (url || '').indexOf('/_next/static/') !== -1; };
+      var failed = {};
       window.addEventListener('error', function(e) {
         var target = e.target;
-        // A script that fails to load fires 'error' on itself, which doesn't
-        // bubble: caught on the way down
-        var unloaded = target && target.tagName === 'SCRIPT' && ours(target.src);
         // One that loads but can't be parsed reports a SyntaxError on window
-        var unparsed = target === window && e.error instanceof SyntaxError && ours(e.filename);
-        if (unloaded || unparsed) markOff();
+        if (target === window) {
+          if (e.error instanceof SyntaxError && ours(e.filename)) markOff();
+          return;
+        }
+        // A script that fails to load fires 'error' on itself, which doesn't
+        // bubble: caught on the way down, ahead of the app's own listener.
+        // Turbopack's loader retries a chunk the app asked for once (a dropped
+        // connection usually comes good), removing the failed <script> in the
+        // same dispatch, so only a script still in the page a moment later
+        // (one nothing retries: the runtime's own, or one that failed before
+        // the app asked for it) or a second failure of the same chunk is final
+        if (!target || target.tagName !== 'SCRIPT' || !ours(target.src)) return;
+        var chunk = target.src.split(/[?#]/)[0];
+        var again = failed[chunk];
+        failed[chunk] = true;
+        setTimeout(function() {
+          if (again || target.isConnected) markOff();
+        }, 0);
       }, true);
+      var listening = performance.now();
       // Next puts its first chunks' <script> tags ahead of this one, so one can
       // fail before the listener above exists, and error events aren't replayed.
-      // Resource timings are (buffered), so a chunk that failed to load is found
-      // there whenever it failed, in browsers that report the response's status
-      // (0 when none arrived: a blocker, a dropped connection). Any other failure
-      // missed before this script ran (in other browsers, or a chunk that can't
-      // be parsed) waits for the give-up
+      // Resource timings are (buffered), so a chunk that had failed to load by
+      // then is found there, in browsers that report the response's status (0
+      // when none arrived: a blocker, a dropped connection; Safari reports
+      // none). The loader never retries those: they failed before it was
+      // listening. Later failures are the listener's, which knows about
+      // retries. Any other failure missed before this script ran (in Safari,
+      // or a chunk that can't be parsed) waits for the give-up
       try {
         new PerformanceObserver(function(list, observer) {
           if (running()) return observer.disconnect();
           list.getEntries().forEach(function(entry) {
             var status = entry.responseStatus;
-            if (entry.initiatorType === 'script' && ours(entry.name) && typeof status === 'number'
-              && (status === 0 || status >= 400)) {
+            if (entry.initiatorType === 'script' && ours(entry.name) && entry.responseEnd <= listening
+              && typeof status === 'number' && (status === 0 || status >= 400)) {
               markOff();
             }
           });
