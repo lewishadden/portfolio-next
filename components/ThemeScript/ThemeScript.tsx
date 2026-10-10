@@ -88,20 +88,23 @@ export function ThemeScript() {
       // Only a clear failure marks it off: one of the app's scripts failing to
       // load with nothing left to load it again (a chunk that 404s after a
       // deploy, a blocker) or to parse (an old browser that loads the scripts
-      // but can't run them), or still no app when the failsafes give up.
+      // but can't run them), or still no app when the failsafes give up. It
+      // lifts the loading screen too, as the world it waits for won't come.
       // World sets the real value should the app start after all
       var began = Date.now();
       var running = function() { return root.hasAttribute('data-hydrated'); };
       var reveal = function() {
         if (!running()) root.setAttribute('data-failsafe', '');
       };
-      var markOff = function() {
-        if (!running() && !root.hasAttribute('data-world')) root.setAttribute('data-world', 'off');
-      };
       var lift = function() {
         if (running()) return;
         root.removeAttribute('data-boot');
         reveal();
+      };
+      var fail = function() {
+        if (running()) return;
+        if (!root.hasAttribute('data-world')) root.setAttribute('data-world', 'off');
+        if (root.hasAttribute('data-boot')) lift();
       };
       var wait = function() {
         if (running()) return;
@@ -111,10 +114,7 @@ export function ThemeScript() {
         reveal();
       };
       setTimeout(wait, ${pageFailsafe});
-      setTimeout(function() {
-        if (root.hasAttribute('data-boot')) lift();
-        markOff();
-      }, ${appGiveUp});
+      setTimeout(fail, ${appGiveUp});
       document.addEventListener('click', function(e) {
         var target = e.target;
         if (target && target.closest && target.closest('.boot__skip')) lift();
@@ -125,7 +125,7 @@ export function ThemeScript() {
         var target = e.target;
         // One that loads but can't be parsed reports a SyntaxError on window
         if (target === window) {
-          if (e.error instanceof SyntaxError && ours(e.filename)) markOff();
+          if (e.error instanceof SyntaxError && ours(e.filename)) fail();
           return;
         }
         // A script that fails to load fires 'error' on itself, which doesn't
@@ -140,7 +140,7 @@ export function ThemeScript() {
         var again = failed[chunk];
         failed[chunk] = true;
         setTimeout(function() {
-          if (again || target.isConnected) markOff();
+          if (again || target.isConnected) fail();
         }, 0);
       }, true);
       var listening = performance.now();
@@ -160,7 +160,7 @@ export function ThemeScript() {
             var status = entry.responseStatus;
             if (entry.initiatorType === 'script' && ours(entry.name) && entry.responseEnd <= listening
               && typeof status === 'number' && (status === 0 || status >= 400)) {
-              markOff();
+              fail();
             }
           });
         }).observe({ type: 'resource', buffered: true });

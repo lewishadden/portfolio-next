@@ -74,6 +74,13 @@ async function breakTheApp(page: Page) {
   );
 }
 
+/** No script chunk ever arrives (a connection that stalls): the app never starts, nor clearly fails */
+async function hangTheApp(page: Page) {
+  await page.route('**/_next/static/chunks/**', (route) =>
+    route.request().resourceType() === 'script' ? new Promise<void>(() => {}) : route.continue()
+  );
+}
+
 /**
  * Holds the page's HTML up just before ThemeScript, as a stalled connection
  * can, and fails the first of the chunks whose tags come ahead of it in the
@@ -173,17 +180,14 @@ seeded.describe('when the app never starts', () => {
 
   seeded.describe('behind the loading screen', () => {
     seeded.use({ world: 'on' });
+    seeded.afterEach(({ page }) => page.unrouteAll({ behavior: 'ignoreErrors' }));
 
-    seeded('its skip button still lifts it', async ({ page }) => {
+    seeded('a clear failure lifts it at once', async ({ page }) => {
       await breakTheApp(page);
-      await page.goto('/');
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
       const root = page.locator('html');
-      await expect(root).toHaveAttribute('data-boot', 'loading');
-      // In the server HTML, appearing after a few seconds
-      const skip = page.getByRole('button', { name: 'Skip to the page' });
-      await expect(skip).toBeVisible({ timeout: 10_000 });
-      await skip.click();
-      await expect(root).not.toHaveAttribute('data-boot');
+      // Nothing left to wait for: no skip press, nor the give-up at 25s
+      await expect(root).not.toHaveAttribute('data-boot', { timeout: 5_000 });
       await expect(page.locator('.boot')).toBeHidden();
       await expectReadable(page, '/');
       // Nor will the world run: the 2D renders stand in, and its windows close
@@ -196,15 +200,39 @@ seeded.describe('when the app never starts', () => {
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
     });
 
+    seeded('its skip button still lifts it', async ({ page }) => {
+      await hangTheApp(page);
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      const root = page.locator('html');
+      await expect(root).toHaveAttribute('data-boot', 'loading');
+      // In the server HTML, appearing after a few seconds
+      const skip = page.getByRole('button', { name: 'Skip to the page' });
+      await expect(skip).toBeVisible({ timeout: 10_000 });
+      await skip.click();
+      // The app may yet start: the world is left alone (until the give-up)
+      await expect(root).not.toHaveAttribute('data-world', 'off');
+      await expect(root).not.toHaveAttribute('data-boot');
+      await expect(page.locator('.boot')).toBeHidden();
+      await expectReadable(page, '/');
+
+      // The page scrolls again
+      const { width, height } = page.viewportSize()!;
+      await page.mouse.move(width / 2, height / 2);
+      await page.mouse.wheel(0, 600);
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    });
+
     seeded('it gives up on its own', async ({ page }) => {
       seeded.slow();
-      await breakTheApp(page);
-      await page.goto('/about');
+      await hangTheApp(page);
+      await page.goto('/about', { waitUntil: 'domcontentloaded' });
       const root = page.locator('html');
       await expect(root).toHaveAttribute('data-boot', 'loading');
       await expect(root).not.toHaveAttribute('data-boot', { timeout: 35_000 });
       await expect(page.locator('.boot')).toBeHidden();
       await expectReadable(page, '/about');
+      // Still no app by then: the world is off
+      await expect(root).toHaveAttribute('data-world', 'off');
     });
   });
 
@@ -234,13 +262,9 @@ seeded.describe('when the app never starts', () => {
         await garbleTheApp(page);
         await page.goto('/', { waitUntil: 'domcontentloaded' });
         const root = page.locator('html');
-        await expect(root).toHaveAttribute('data-boot', 'loading');
-        // Under the loading screen, before its skip button shows
-        await expect(root).toHaveAttribute('data-world', 'off', { timeout: 5_000 });
-        const skip = page.getByRole('button', { name: 'Skip to the page' });
-        await expect(skip).toBeVisible({ timeout: 10_000 });
-        await skip.click();
-        await expect(root).not.toHaveAttribute('data-boot');
+        // The loading screen lifts on its own, with no skip press
+        await expect(root).not.toHaveAttribute('data-boot', { timeout: 5_000 });
+        await expect(page.locator('.boot')).toBeHidden();
         await expectReadable(page, '/');
         await expect(root).toHaveAttribute('data-world', 'off');
         await expectWorldClosed(page);
