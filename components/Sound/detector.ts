@@ -14,7 +14,10 @@ import { worldStore } from 'components/World/worldStore';
 type Point = readonly [number, number, number];
 type SonarListener = (at: Point, bars: number) => void;
 
-/** How often the detector checks whether the next ping is due (ms) */
+/**
+ * How often (ms) the detector looks for a signal coming into range or the
+ * bars changing. A ping due sooner than that is timed to the moment
+ */
 const checkEvery = 100;
 /** Seconds between pings at one bar and at five */
 const slowest = 2.4;
@@ -34,20 +37,37 @@ export function detectorBars(distance: number) {
 /** Seconds between pings at `bars` (1-5) */
 export const sonarInterval = (bars: number) => slowest + (fastest - slowest) * ((bars - 1) / 4);
 
-function check() {
+/** Pings if one is due; returns the seconds until the next one could be */
+function ping() {
   const at = nearestAt();
   if (!at) {
     // Nothing in range: the next signal to come into range pings at once
     last = -Infinity;
-    return;
+    return Infinity;
   }
-  if (document.hidden) return;
+  if (document.hidden) return Infinity;
   const { x, y, z } = worldStore.camera;
   const bars = detectorBars(Math.hypot(at[0] - x, at[1] - y, at[2] - z));
+  if (!bars) return Infinity;
   const now = performance.now() / 1000;
-  if (!bars || now - last < sonarInterval(bars)) return;
+  const wait = last + sonarInterval(bars) - now;
+  if (wait > 0) return wait;
   last = now;
   listeners.forEach((listener) => listener(at, bars));
+  return sonarInterval(bars);
+}
+
+/**
+ * Checks again in `checkEvery` ms, or when the next ping is due if that is
+ * sooner: polled alone, every gap rounded up to the next check (0.4s
+ * rather than 0.35s at five bars). Re-reading the bars as it fires, a
+ * signal closing in or falling behind before then is still heard right
+ */
+function check() {
+  const wait = ping();
+  // Stopped by a listener as it pinged
+  if (!timer) return;
+  timer = window.setTimeout(check, Math.min(checkEvery, wait * 1000));
 }
 
 /** Runs the detector while free roam is on and something listens */
@@ -55,9 +75,9 @@ function run() {
   const on = listeners.size > 0 && worldMode.get().mode === 'explore';
   if (on && !timer) {
     last = -Infinity;
-    timer = window.setInterval(check, checkEvery);
+    timer = window.setTimeout(check, checkEvery);
   } else if (!on && timer) {
-    window.clearInterval(timer);
+    window.clearTimeout(timer);
     timer = 0;
   }
 }
