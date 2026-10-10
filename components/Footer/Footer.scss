@@ -109,7 +109,11 @@
   /* ---------- Columns ---------- */
   &__inner {
     display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 0.8fr) minmax(0, 1fr);
+    /* The console's column never narrower than its controls (the motion
+       segments keep their labels' width) */
+    grid-template-columns:
+      minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 0.8fr)
+      minmax(min-content, 1fr);
     gap: 2.5rem;
     padding: 2.5rem;
     border-radius: var(--radius-xl);
@@ -245,7 +249,10 @@
 
   &__motion-options {
     display: inline-grid;
-    grid-template-columns: repeat(4, auto);
+    /* Each segment as wide as its label and padding (min-width a floor, so
+       the short ones match): auto tracks shrank to the min-width, and SYSTEM
+       ran out of its segment into the divider */
+    grid-template-columns: repeat(4, max-content);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
     overflow: hidden;
@@ -407,7 +414,7 @@ html:has(.header--hud) {
 
 @media (max-width: 1080px) {
   .footer__inner {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(min-content, 1fr));
   }
 }
 
