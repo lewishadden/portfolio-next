@@ -40,9 +40,10 @@ import type { Signal, WorldPoint } from './signalStore';
    pointing the way it looks. The view sways a little so it reads as 3D.
    Hovering or focusing a link to another station plots the course there
    first (worldStore.preview), marching towards it, before anything is
-   clicked. It never shows over the page's copy: not for the warp in
-   (whose page is already showing), and never over the element that has
-   keyboard focus.
+   clicked: on wide layouts only, where the map opens beside the station
+   (stacked layouts have the copy all the way across). It never shows
+   over the page's copy: not for the warp in (whose page is already
+   showing), and never over the element that has keyboard focus.
    In free roam it follows the autopilot (its course, worldStore.
    autopilotPath, marching to its goal, a station or a signal, and the
    distance left), plots the signals found (hollow rings, the comet where
@@ -698,6 +699,8 @@ export function NavRadar() {
     let covering = false;
     let colours = readColours(root);
     const zoom: Zoom = { scale: fitScale, at: 0 };
+    // Wide layouts (app/page.scss): the copy keeps to the left, the station to the right
+    const wide = window.matchMedia('(min-width: 900px) and (min-aspect-ratio: 11 / 10)');
     const font =
       getComputedStyle(document.documentElement).getPropertyValue('--font-geist-mono').trim() ||
       'ui-monospace, monospace';
@@ -705,10 +708,11 @@ export function NavRadar() {
     const tick = (now: number) => {
       const active = flying();
       if (active) lastActive = now;
-      if (previewed()) lastPreview = now;
+      // A preview opens it only where it is clear of the page's copy: under
+      // the header beside the station on a wide layout (a stacked one has the
+      // copy there). It stays there if the course is then flown
+      if (previewed() && wide.matches) lastPreview = now;
       const show = now - lastActive < linger || now - lastPreview < previewLinger;
-      // A preview opens it up under the header, clear of the page's copy, and
-      // it stays there if the course is then flown
       if (!root.classList.contains('nav-radar--on'))
         root.classList.toggle('nav-radar--aside', !active && now - lastPreview < previewLinger);
       root.classList.toggle('nav-radar--on', show);
