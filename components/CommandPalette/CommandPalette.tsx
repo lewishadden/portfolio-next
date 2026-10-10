@@ -10,7 +10,7 @@ import { useSound } from 'components/Sound/sound';
 import { answersHail, canHail, hail } from 'components/StationReadout/hail';
 import { statsOverlay } from 'components/StatsOverlay/statsStore';
 import { rangeBetween, stationForPath, stationNames } from 'components/World/routes';
-import { launchWorldMode, navigateFromMode } from 'components/World/worldMode';
+import { launchWorldMode, navigateFromMode, useWorldMode } from 'components/World/worldMode';
 import {
   emitCue,
   onFlight,
@@ -189,6 +189,7 @@ function score(text: string, query: string) {
 export function CommandPalette({ data }: { data: PaletteData }) {
   const pathname = usePathname();
   const here = stationForPath(pathname);
+  const { mode } = useWorldMode();
   const { toggleTheme } = useTheme();
   const { enabled, supported, setEnabled } = useWorldPreference();
   const [open, setOpen] = useState(false);
@@ -453,7 +454,9 @@ export function CommandPalette({ data }: { data: PaletteData }) {
           startExplore();
         },
       },
-      ...(answersHail(here)
+      // Only while the page shows: its readout is what says how the station
+      // answered, and the tour and free roam hide it (inert, so unannounced)
+      ...(mode === 'page' && answersHail(here)
         ? [
             {
               id: 'hail',
@@ -465,6 +468,11 @@ export function CommandPalette({ data }: { data: PaletteData }) {
               run: () => {
                 if (!canHail()) {
                   print('Nothing out there can hear you with 3D effects off.', 'warn');
+                  return true;
+                }
+                // The page still on its way back from the tour or free roam
+                if ((document.documentElement.dataset.worldMode ?? 'page') !== 'page') {
+                  print('The station will answer once the page is back.', 'warn');
                   return true;
                 }
                 // Closed first, so the trick is seen; the readout says what it did
@@ -600,6 +608,7 @@ export function CommandPalette({ data }: { data: PaletteData }) {
     enabled,
     hapticsOn,
     here,
+    mode,
     motionPref,
     navigate,
     pathname,
