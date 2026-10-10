@@ -309,6 +309,7 @@ export function Waypoints() {
           heights[i] = label?.offsetHeight || room.y - labelGap;
         });
       }
+      const focused = document.activeElement;
       markers.forEach((marker, i) => {
         const waypoint = markOf(marker);
         live[i] = false;
@@ -338,8 +339,13 @@ export function Waypoints() {
           marker.style.setProperty('--turn', `${turns[i]}rad`);
         }
         marker.classList.toggle('waypoint--edge', !waypoint.onScreen);
-        // Fade out on arrival: the station fills the view by then
-        const presence = presenceOf(marker, waypoint.distance);
+        // Fade out on arrival: the station fills the view by then. Not while
+        // it has keyboard focus (Enter on it set the course, and keeps it
+        // there to dock): faded, the focused control would be invisible
+        const presence =
+          marker === focused && marker.matches(':focus-visible')
+            ? 1
+            : presenceOf(marker, waypoint.distance);
         live[i] = presence > 0.05;
         marker.style.opacity = presence.toFixed(2);
         marker.style.pointerEvents = presence > 0.3 ? '' : 'none';

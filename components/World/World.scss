@@ -1555,6 +1555,13 @@ html[data-flight='cruise'] .world__veil {
     }
   }
 
+  /* Keyboard focus rings the label too; the marker stays shown meanwhile
+     however near its station is (Waypoints) */
+  &:focus-visible .waypoint__text {
+    outline: 2px solid var(--tone);
+    outline-offset: 2px;
+  }
+
   /* Off screen: the arrow points the way; the label sits inwards of it */
   &--edge {
     .waypoint__mark {
