@@ -304,6 +304,8 @@ export function setWorldHover(on: boolean, kind: 'point' | 'grab' = 'point') {
 export interface WorldTip {
   label: string;
   sub?: string;
+  /** World-space point projected by the scene for object-attached prompts. */
+  anchor?: [number, number, number];
 }
 
 let tip: WorldTip | null = null;

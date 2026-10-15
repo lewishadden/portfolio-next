@@ -7,6 +7,7 @@ import { AdditiveBlending, Group, NormalBlending } from 'three';
 
 import { createHaloMaterial, createRingMaterial } from '../materials';
 import { Model } from '../Model';
+import { StationConsole } from './StationConsole';
 import { HabitatRing, NavLights, SolarArray, Spin } from '../parts';
 import { StationScope } from '../power';
 import {
@@ -127,6 +128,13 @@ export function AboutStation({ theme }: { theme: WorldTheme }) {
   return (
     <StationScope station="about">
       <group ref={groupRef} position={stationPositions.about}>
+        <StationConsole
+          station="about"
+          title="Personal dossier"
+          subtitle="Story and recommendations"
+          position={[2.8, -1.4, 0.7]}
+          theme={theme}
+        />
         {/* The crew habitat, cupola turned towards the visitor */}
         <group position={[-3.4, 3.7, -15]} rotation={[0.2, 0.55, 0.08]}>
           <Spin>

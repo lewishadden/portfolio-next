@@ -11,6 +11,7 @@ import { PageHead } from 'components/PageHead/PageHead';
 import { illustrations } from 'components/World/StationFallback';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 import { requestLaunch } from 'components/World/worldStore';
+import { InspectButton } from 'components/World/InspectButton';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
 
@@ -145,6 +146,12 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
         sub={tagline}
       />
 
+      <div className="contact__terminal-entry">
+        <span>Comms array / message terminal</span>
+        <InspectButton selection={{ kind: 'station', id: 'contact', station: 'contact' }}>
+          Open comms terminal
+        </InspectButton>
+      </div>
       <div className="contact__grid" data-world-section="message">
         <aside className="contact__side">
           <Reveal className="contact__intro">
@@ -175,6 +182,10 @@ export const Contact = ({ contact }: { contact: ContactProps }) => {
           y={50}
         >
           <span className="contact__panel-glow" aria-hidden="true" />
+          <div className="contact__terminal-rail" aria-hidden="true">
+            <span>COMMS / 05</span>
+            <span>{submitted ? 'MESSAGE RECEIVED' : 'CHANNEL OPEN'}</span>
+          </div>
           <AnimatePresence mode="wait" initial={false}>
             {submitted ? (
               <m.div

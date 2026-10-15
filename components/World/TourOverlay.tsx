@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 
+import { useInspection } from './inspection';
+import { hasWorldInputOwner } from './inputOwnership';
 import { stationNames, stationPaths } from './routes';
 import { tourStops, useWorldMode, worldMode } from './worldMode';
 import { navigateTo, onFlight } from './worldStore';
@@ -20,13 +22,15 @@ const arrivalFallback = 5000;
  * station's page, Escape (or Exit) ends it and returns to the page.
  */
 export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
-  const { mode, tourStop } = useWorldMode();
+  const inspecting = useInspection() !== null;
+  const { mode, tourStop, tourHeld, tourSession } = useWorldMode();
   const touring = mode === 'tour';
   const station = tourStops[tourStop];
   const caption = captions.find((c) => c.station === station);
   const [arrivedAt, setArrivedAt] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const arrived = arrivedAt === `${tourStop}`;
+  const stopKey = `${tourSession}:${tourStop}`;
+  const arrived = arrivedAt === stopKey;
 
   // Wait for the camera to land, linger, then move on. The countdown holds
   // while the pointer is over the card or a control in it has keyboard
@@ -44,6 +48,9 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
       if (!panel) return false;
       const focused = document.activeElement;
       return (
+        worldMode.get().tourHeld ||
+        document.hidden ||
+        hasWorldInputOwner() ||
         panel.matches(':hover') ||
         (focused !== panel && panel.contains(focused) && !!focused?.matches(':focus-visible'))
       );
@@ -66,6 +73,7 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
     const update = () => {
       window.clearTimeout(check);
       check = window.setTimeout(() => {
+        if (panel) panel.dataset.held = String(isHeld());
         if (isHeld()) {
           if (!held) hold();
         } else if (held) {
@@ -77,7 +85,7 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
     const land = () => {
       window.clearTimeout(fallback);
       if (remaining >= 0) return;
-      setArrivedAt(`${tourStop}`);
+      setArrivedAt(stopKey);
       remaining = dwell;
       run();
     };
@@ -88,23 +96,39 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
     fallback = window.setTimeout(land, arrivalFallback);
     const events = ['pointerenter', 'pointerleave', 'focusin', 'focusout'] as const;
     events.forEach((type) => panel?.addEventListener(type, update));
+    const stopMode = worldMode.subscribe(update);
+    const observer = new MutationObserver(update);
+    observer.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('visibilitychange', update);
+    update();
     return () => {
       stop();
+      stopMode();
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', update);
       events.forEach((type) => panel?.removeEventListener(type, update));
       window.clearTimeout(fallback);
       window.clearTimeout(advance);
       window.clearTimeout(check);
     };
-  }, [touring, tourStop, station]);
+  }, [touring, tourStop, station, stopKey]);
 
   useEffect(() => {
     if (!touring) return;
+    const previousFocus = document.activeElement;
     panelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') worldMode.exit();
+      if (e.key === 'Escape' && !e.defaultPrevented && !hasWorldInputOwner()) worldMode.exit();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      requestAnimationFrame(() => {
+        if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+          previousFocus.focus({ preventScroll: true });
+        }
+      });
+    };
   }, [touring]);
 
   if (!touring || !caption) return null;
@@ -121,6 +145,8 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
       role="region"
       aria-label="Guided tour"
       aria-live="polite"
+      aria-hidden={inspecting || undefined}
+      inert={inspecting}
       tabIndex={-1}
     >
       <p className="tour__step">
@@ -139,6 +165,22 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
         />
       </span>
       <div className="tour__actions">
+        <button
+          type="button"
+          className="btn btn--ghost tour__btn"
+          onClick={worldMode.previousTour}
+          disabled={tourStop === 0}
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost tour__btn"
+          onClick={tourHeld ? worldMode.resumeCountdown : worldMode.holdTour}
+          aria-pressed={tourHeld}
+        >
+          {tourHeld ? 'Resume' : 'Hold'}
+        </button>
         <button type="button" className="btn btn--primary tour__btn" onClick={visit}>
           <span>Visit {names.page}</span>
           <Icon icon="ph:arrow-right-bold" width={15} height={15} aria-hidden="true" />

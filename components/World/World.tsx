@@ -16,10 +16,14 @@ import { projectSlugFromPath } from '@/utils/projectPaths';
 import { readyBoot, reportBoot, useBooted } from './boot';
 import { rememberLoaded } from './bootMemory';
 import { ExploreHud } from './ExploreHud';
+import { inspectionOwnsCamera, useInspection, useInspectionHistory } from './inspection';
 import { NavRadar } from './NavRadar';
 import { usePageReading, useRoutePreview, useSkillHover, useTilt } from './pageInputs';
 import { TourOverlay } from './TourOverlay';
+import { SpatialInspector } from './SpatialInspector';
+import { useTravelPreference } from './travelPreference';
 import { WorldTooltip } from './WorldTooltip';
+import { WorldUtilities } from './WorldUtilities';
 import { liteQuery, prefetchStationModel, stationForPath } from './routes';
 import { useWorldMode, worldMode } from './worldMode';
 import { setDocking, worldNavigateEvent, worldStore } from './worldStore';
@@ -89,7 +93,7 @@ function useWorldInputs() {
       worldStore.screens = window.scrollY / Math.max(1, window.innerHeight);
     };
     const onPointer = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse') return;
+      if (e.pointerType !== 'mouse' || inspectionOwnsCamera()) return;
       worldStore.pointerX = (e.clientX / window.innerWidth) * 2 - 1;
       worldStore.pointerY = -((e.clientY / window.innerHeight) * 2 - 1);
     };
@@ -114,6 +118,8 @@ export function World({ content }: { content: WorldContent }) {
   const routeKey = useRouteKey();
   const { theme } = useTheme();
   const reducedMotion = useReducedMotion();
+  const travelPreference = useTravelPreference();
+  const calm = reducedMotion || travelPreference === 'calm';
   const lite = useMediaQuery(liteQuery);
   const { enabled, supported } = useWorldPreference();
   const active = enabled && supported;
@@ -123,6 +129,18 @@ export function World({ content }: { content: WorldContent }) {
   const { mode } = useWorldMode();
   const router = useRouter();
   const booted = useBooted();
+  const selection = useInspection();
+
+  useInspectionHistory(content.inspection, pathname);
+
+  // Following an inspector's normal page link ends the world overlay once
+  // that route arrives, so its article is visible and keyboard accessible.
+  const previousPath = useRef(pathname);
+  useEffect(() => {
+    if (previousPath.current === pathname) return;
+    previousPath.current = pathname;
+    worldMode.exit();
+  }, [pathname]);
 
   useWorldInputs();
   useModelPrefetch(active);
@@ -130,7 +148,7 @@ export function World({ content }: { content: WorldContent }) {
   useRoutePreview(active && ready);
   usePageReading(active, routeKey);
   useSkillHover(active && ready);
-  useTilt(active && ready, reducedMotion);
+  useTilt(active && ready, calm);
 
   // Navigation requested from inside the canvas (screens, docking): the page
   // being left flies off with the camera, as a clicked link's does
@@ -167,9 +185,9 @@ export function World({ content }: { content: WorldContent }) {
     const away = active && mode !== 'page';
     document.documentElement.dataset.worldMode = away ? mode : 'page';
     for (const el of document.querySelectorAll('#main-content, .header, .footer')) {
-      el.toggleAttribute('inert', away || !booted);
+      el.toggleAttribute('inert', away || !booted || !!selection);
     }
-  }, [active, mode, booted]);
+  }, [active, mode, booted, selection]);
 
   // Loaded: a visit soon after skips the loading screen (it's all cached)
   useEffect(() => {
@@ -201,7 +219,7 @@ export function World({ content }: { content: WorldContent }) {
         pendingDock.current = path;
         router.push(path);
       };
-      if (reducedMotion || worldMode.get().mode !== 'explore') {
+      if (calm || worldMode.get().mode !== 'explore') {
         open();
         return;
       }
@@ -211,7 +229,7 @@ export function World({ content }: { content: WorldContent }) {
         if (worldStore.docking === path) open();
       }, dockTime);
     },
-    [pathname, reducedMotion, router]
+    [pathname, calm, router]
   );
   useEffect(() => {
     if (pendingDock.current === pathname) {
@@ -258,6 +276,8 @@ export function World({ content }: { content: WorldContent }) {
       {showCanvas && ready && <WorldTooltip />}
       {showCanvas && ready && <TourOverlay captions={content.tour} />}
       {showCanvas && ready && <ExploreHud onDockRequest={onDockRequest} cv={content.cv} />}
+      <WorldUtilities cv={content.cv} />
+      <SpatialInspector catalog={content.inspection} />
     </>
   );
 }

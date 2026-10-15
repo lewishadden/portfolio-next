@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures';
+import { expect, openHydrated, test } from './fixtures';
 
 // The two tilted ticker bands must never overlap or push the page sideways
 for (const [width, height] of [
@@ -42,3 +42,53 @@ for (const [width, height] of [
     expect(geometry.overflowX).toBe(false);
   });
 }
+
+test.describe('skill evidence', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('published evidence replaces proficiency ratings and opens from the keyboard', async ({
+    page,
+  }) => {
+    await openHydrated(page, '/skills');
+    const react = page.getByRole('button', {
+      name: 'Inspect React: 9 projects · 7 roles',
+      exact: true,
+    });
+    await react.scrollIntoViewIfNeeded();
+    await expect(react.locator('.skills__tile-evidence')).toHaveText('9 projects · 7 roles');
+    await expect(
+      page.getByRole('article', { name: 'Frontend', exact: true }).locator('.skills__proof')
+    ).toHaveText('13 linked projects');
+    await expect(page.locator('.skills__tile-level, .skills__gauge, .skills__avg')).toHaveCount(0);
+    await react.focus();
+    await page.keyboard.press('Enter');
+
+    const inspector = page.getByRole('dialog', { name: 'React', exact: true });
+    await expect(inspector).toBeVisible();
+    await expect(page).toHaveURL(/inspect=skill%3AReact/);
+    await expect(inspector.getByRole('button', { name: /Inspect project/ })).toHaveCount(9);
+    await expect(inspector.getByRole('button', { name: /Read mission log/ })).toHaveCount(7);
+    await expect(inspector.getByRole('button', { name: /^Sidenote / })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(inspector).toBeHidden();
+    await expect(react).toBeFocused();
+  });
+
+  test('a listed tool without published evidence makes no invented project claim', async ({
+    page,
+  }) => {
+    await openHydrated(page, '/skills');
+    const linux = page.getByRole('button', { name: 'Inspect Linux: Explore skill', exact: true });
+    await linux.click();
+    const inspector = page.getByRole('dialog', { name: 'Linux', exact: true });
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toContainText('a specific project or role is not documented yet');
+    await expect(
+      inspector.getByRole('button', { name: /Inspect project|Read mission log/ })
+    ).toHaveCount(0);
+    await expect(inspector.getByRole('link', { name: /Browse the toolkit/ })).toHaveAttribute(
+      'href',
+      '/skills'
+    );
+  });
+});

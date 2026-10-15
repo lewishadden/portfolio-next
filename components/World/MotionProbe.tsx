@@ -4,6 +4,9 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
 
+import { inspectionOwnsCamera } from './inspection';
+import { getTravelPreference } from './travelPreference';
+
 import type { Camera } from 'three';
 
 /**
@@ -39,8 +42,17 @@ function measure(
   // could manage in a frame is a cut, not motion
   const cut = !previous.started || still || raw.length() > 15;
   previous.started = true;
-  if (cut || dt <= 0) raw.set(0, 0, 0);
-  else raw.divideScalar(dt);
+  if (cut || dt <= 0) {
+    // A calm cut or reading transition must also clear the previous flight's
+    // streaks immediately, rather than easing them across a stationary panel.
+    motion.velocity.set(0, 0, 0);
+    motion.speed = 0;
+    motion.focusX = 0;
+    motion.focusY = 0;
+    motion.ahead = 0;
+    return;
+  }
+  raw.divideScalar(dt);
   // Ease towards the measured velocity: frame-time jitter would flicker the streaks
   motion.velocity.lerp(raw, 1 - Math.exp(-14 * dt));
   motion.speed = motion.velocity.length();
@@ -60,7 +72,12 @@ function measure(
 export function MotionProbe({ reducedMotion }: { reducedMotion: boolean }) {
   const previous = useRef({ position: new Vector3(), started: false });
   useFrame(({ camera }, delta) =>
-    measure(camera, previous.current, Math.min(delta, 0.1), reducedMotion)
+    measure(
+      camera,
+      previous.current,
+      Math.min(delta, 0.1),
+      reducedMotion || getTravelPreference() === 'calm' || inspectionOwnsCamera()
+    )
   );
   return null;
 }
