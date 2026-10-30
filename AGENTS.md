@@ -19,7 +19,7 @@ The visual design ("Orbit" — dark sci-fi glow + light "daylight lab" theme) is
 - **Linting:** ESLint, Stylelint, Prettier
 - **Testing:** Playwright end-to-end tests (`tests/e2e`) with `@axe-core/playwright`; GitHub Actions CI (`.github/workflows/ci.yml`)
 - **Package Manager:** npm
-- **Node Version:** See `.nvmrc` (v24.x)
+- **Node Version:** See `.nvmrc` (v26.x)
 - **Email:** `nodemailer` via Next.js API route (`app/api/sendmail/route.ts`)
 - **Geolocation:** `@vercel/functions` (used in `app/layout.tsx` to pass geo data to analytics)
 - **Open Graph images:** `next/og`, one `opengraph-image.tsx` per route built on `app/_og/OgImage.tsx`

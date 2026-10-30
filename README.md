@@ -6,7 +6,7 @@ This repo contains the code for my online web portfolio. It is built using [Next
 
 ### Pre-requisites
 
-- Ensure you are running Node 24 (`v24.13.1`, see `.nvmrc`). If you have NVM installed, you can simply run `nvm use`
+- Ensure you are running Node 26 (`v26.13.0`, see `.nvmrc`). If you have NVM installed, you can simply run `nvm use`
 - Copy `.env.SAMPLE` to `.env` and configure your environment variables
 
 ### Install project dependencies
