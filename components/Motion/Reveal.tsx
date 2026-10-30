@@ -9,17 +9,7 @@ import type { HTMLMotionProps } from 'framer-motion';
 const ease = [0.16, 1, 0.3, 1] as const;
 
 type RevealTag =
-  | 'div'
-  | 'li'
-  | 'article'
-  | 'aside'
-  | 'section'
-  | 'nav'
-  | 'p'
-  | 'h2'
-  | 'h3'
-  | 'span'
-  | 'ul';
+  'div' | 'li' | 'article' | 'aside' | 'section' | 'nav' | 'p' | 'h2' | 'h3' | 'span' | 'ul';
 
 type RevealProps = Omit<HTMLMotionProps<'div'>, 'initial' | 'whileInView'> & {
   as?: RevealTag;
