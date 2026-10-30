@@ -10,7 +10,7 @@ Lewis Hadden's portfolio: Next.js 16 (App Router), React 19, TypeScript, SCSS. S
 
 ## Commands
 
-Node 24 (`.nvmrc`), npm 11. Copy `.env.SAMPLE` to `.env` (`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_GOOGLE_ANALYTICS_ID`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL`, `SMTP_PASS`).
+Node 26 (`.nvmrc`), npm 12. Copy `.env.SAMPLE` to `.env` (`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_GOOGLE_ANALYTICS_ID`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL`, `SMTP_PASS`).
 
 ```sh
 npm run dev               # dev server on :3000

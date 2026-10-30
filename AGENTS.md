@@ -19,7 +19,7 @@ The visual design ("Orbit" — dark sci-fi glow + light "daylight lab" theme) is
 - **Linting:** ESLint, Stylelint, Prettier
 - **Testing:** Playwright end-to-end tests (`tests/e2e`) with `@axe-core/playwright`; GitHub Actions CI (`.github/workflows/ci.yml`)
 - **Package Manager:** npm
-- **Node Version:** See `.nvmrc` (v24.x)
+- **Node Version:** See `.nvmrc` (v26.x)
 - **Email:** `nodemailer` via Next.js API route (`app/api/sendmail/route.ts`)
 - **Geolocation:** `@vercel/functions` (used in `app/layout.tsx` to pass geo data to analytics)
 - **Open Graph images:** `next/og`, one `opengraph-image.tsx` per route built on `app/_og/OgImage.tsx`
@@ -180,7 +180,7 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 npm run test:e2e   # against a running
 - **WCAG 2.1 Level AA** compliance is a priority
 - Use semantic HTML elements (`<section>`, `<nav>`, `<header>`, `<footer>`, `<main>`)
 - All sections use `aria-labelledby` pointing to heading IDs
-- Interactive elements need `aria-label` when visible text is insufficient
+- Interactive elements need `aria-label` when visible text is insufficient, and an `aria-label` must start with the visible text (WCAG 2.5.3 Label in Name: "Get in touch on the contact page" for a "Get in Touch" link). axe checks this (`label-content-name-mismatch`), so where the visible text is split across sibling elements (a label over a value, as on the contact cards), keep a space between them in the markup or axe reads them as one word
 - Decorative icons use `aria-hidden="true"`
 - Forms must have proper labels, error messages, and validation
 - Support keyboard navigation with visible focus indicators

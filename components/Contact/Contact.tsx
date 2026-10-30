@@ -50,7 +50,10 @@ const ContactCard = ({ info }: { info: ContactInfo }) => {
         <Icon icon={info.class} width={20} height={20} />
       </span>
       <span className="contact__card-text">
-        <span className="contact__card-label">{info.name}</span>
+        {/* The space keeps "Email" and the address apart in the link's text, so the
+            aria-label below still contains it (WCAG 2.5.3 Label in Name, which axe checks).
+            The grid ignores it. */}
+        <span className="contact__card-label">{info.name}</span>{' '}
         <span className="contact__card-value">{info.value}</span>
       </span>
       {info.link && (
