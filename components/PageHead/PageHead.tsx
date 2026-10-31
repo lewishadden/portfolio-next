@@ -42,7 +42,7 @@ export function PageHead({
         className={`page-head${stage ? ' page-head--stage' : ''}${center ? ' page-head--center' : ''}`}
       >
         {stage && <div className="page-head__stage" aria-hidden="true" />}
-        <Reveal className="page-head__eyebrow" y={16}>
+        <Reveal className="page-head__eyebrow" y={16} data-reading>
           <p className="eyebrow">
             <span className="eyebrow__index">{index}</span>
             <span className="eyebrow__line" aria-hidden="true" />
@@ -53,7 +53,7 @@ export function PageHead({
           </div>
         </Reveal>
         <Reveal delay={0.08}>
-          <h1 id={id} className="page-title">
+          <h1 id={id} className="page-title" data-reading="large">
             {title}
             {accent && (
               <>
@@ -65,7 +65,9 @@ export function PageHead({
         </Reveal>
         {sub && (
           <Reveal delay={0.16}>
-            <p className="page-sub">{sub}</p>
+            <p className="page-sub" data-reading>
+              {sub}
+            </p>
           </Reveal>
         )}
         {children}

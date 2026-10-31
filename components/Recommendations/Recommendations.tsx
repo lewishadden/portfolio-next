@@ -33,7 +33,7 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
         <span className="recs__quote-mark" aria-hidden="true">
           &ldquo;
         </span>
-        <blockquote className="recs__quote" cite={rec.source.url}>
+        <blockquote className="recs__quote" cite={rec.source.url} data-reading>
           {rec.text.map((paragraph) => (
             <p key={paragraph.slice(0, 24)}>{paragraph}</p>
           ))}
@@ -72,7 +72,7 @@ export function Recommendations({ items }: { items: Recommendation[] }) {
   if (!items.length) return null;
   return (
     <section className="recs" aria-labelledby="recs-heading" data-world-section="recommendations">
-      <Reveal as="h2" id="recs-heading" className="recs__title">
+      <Reveal as="h2" id="recs-heading" className="recs__title" data-reading="large">
         <span className="recs__eyebrow" aria-hidden="true">
           {'// '}
         </span>

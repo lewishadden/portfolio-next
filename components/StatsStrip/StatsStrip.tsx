@@ -19,8 +19,13 @@ const StatCell = ({ value, suffix, label, index }: StatItem & { index: number })
           {String(index + 1).padStart(2, '0')}
         </span>
         <div className="stats__value" ref={ref}>
-          <span className="text-gradient">
+          {/* Screen readers get the real number, never the count on its way up */}
+          <span className="text-gradient" aria-hidden="true">
             {v}
+            {suffix}
+          </span>
+          <span className="sr-only">
+            {value}
             {suffix}
           </span>
         </div>

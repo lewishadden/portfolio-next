@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import {
   AdditiveBlending,
   CanvasTexture,
@@ -18,65 +18,277 @@ import {
   Vector3,
 } from 'three';
 
+import { motionLevel } from '@/utils/motion';
+
+import { ambientTime, pastStamp } from './clock';
 import { asGlow, createFresnelMaterial } from './materials';
 import { Antenna, NavLights, partMaterials, SolarArray, Truss } from './parts';
-import { isFound, markFound, reportNearest, signals } from './signalStore';
+import { spawnPing } from './Pings';
+import {
+  cometAt,
+  contactMarks,
+  currentScan,
+  detectorRange,
+  finishSweep,
+  isFound,
+  isScanned,
+  markFound,
+  markScanned,
+  reportNearest,
+  scanClock,
+  scanSweep,
+  setSignalTime,
+  signals,
+} from './signalStore';
 import { sunDirection } from './sky';
 import { useThemedMaterials } from './stationHooks';
 import { palettes } from './utils';
+import { queueUpload } from './warmup';
 import { worldMode } from './worldMode';
 import { emitCue } from './worldStore';
 
+import type { Camera, WebGLRenderer } from 'three';
 import type { Signal } from './signalStore';
 import type { WorldPalette, WorldTheme } from './utils';
 
 /* ------------------------------------------------------------------
-   The signals hidden in free roam (see signals.ts): a probe, a supply
+   The signals hidden in free roam (see signalStore.ts): a probe, a supply
    capsule, an open-source relay and a comet out among the asteroids,
    plus the 404 derelict (LostStation, mounted for free roam). Each
    unfound one carries a faint amber glow, only in free roam, so the
-   world's other views stay as they were. Flying within reach finds it.
+   world's other views stay as they were. Flying within reach finds it:
+   a ping rings out from it, its glow bursts out to three times its size
+   and fades, and a faint cyan ring stays round it from then on (free
+   roam only), logged. Its nameplate flickers on for 4s, and shows again
+   whenever the ship comes within 40 units of it.
    ------------------------------------------------------------------ */
 
 const amber: Record<WorldTheme, string> = { dark: '#fbbf24', light: '#b45309' };
-/** The comet's orbit: centre, radii and period (s) */
-const cometOrbit = { centre: new Vector3(0, 64, -112), x: 170, y: 24, z: 120, period: 150 };
 
-const position = new Vector3();
 const tailUp = new Vector3(0, 1, 0);
 const tailAway = new Vector3().copy(sunDirection).negate();
 
-function glowTexture(color: string) {
-  const size = 96;
+/** The burst as a signal is found: seconds, and how big the glow grows by its end */
+const burstTime = 1.2;
+const burstGrowth = 3;
+/** The logged ring fades in after the burst, to this opacity */
+const loggedOpacity = 0.3;
+/** A find's nameplate: seconds it stays up, and how close (units) brings it back */
+const plateTime = 4;
+const plateRange = 40;
+/** Glow sprites' size on screen (sizeAttenuation off: a share of the view's height) */
+const glowSize = 0.03;
+const loggedSize = 0.05;
+const plateWidth = 0.22;
+/** Each signal's group: its craft, then its glow, logged ring and nameplate */
+const child = { glow: 1, logged: 2, plate: 3 };
+
+const plateCanvas = { width: 512, height: 128 };
+
+function canvasTexture(width: number, height: number) {
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    gradient.addColorStop(0, '#ffffff');
-    gradient.addColorStop(0.15, color);
-    gradient.addColorStop(0.45, `${color}44`);
-    gradient.addColorStop(1, `${color}00`);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
-  }
+  canvas.width = width;
+  canvas.height = height;
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   return texture;
 }
 
-/** Where the comet is at time `t` */
-export function cometAt(t: number, out: Vector3) {
-  const angle = (t / cometOrbit.period) * Math.PI * 2;
-  return out
-    .copy(cometOrbit.centre)
-    .add(
-      position.set(
-        Math.cos(angle) * cometOrbit.x,
-        Math.sin(angle * 2) * cometOrbit.y,
-        Math.sin(angle) * cometOrbit.z
-      )
-    );
+/** A soft round glow in `color`, white at its heart */
+function paintGlow(texture: CanvasTexture, color: string) {
+  const canvas = texture.image as HTMLCanvasElement;
+  const size = canvas.width;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, size, size);
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, '#ffffff');
+  gradient.addColorStop(0.15, color);
+  gradient.addColorStop(0.45, `${color}44`);
+  gradient.addColorStop(1, `${color}00`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  texture.needsUpdate = true;
+}
+
+/** The logged mark: a thin ring with a soft glow either side */
+function paintRing(texture: CanvasTexture, color: string) {
+  const canvas = texture.image as HTMLCanvasElement;
+  const size = canvas.width;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, size, size);
+  ctx.strokeStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = size * 0.06;
+  ctx.lineWidth = size * 0.035;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size * 0.36, 0, Math.PI * 2);
+  ctx.stroke();
+  texture.needsUpdate = true;
+}
+
+/** A signal's name over "Signal logged", in the site's mono face, for the theme */
+function paintPlate(texture: CanvasTexture, name: string, theme: WorldTheme, family: string) {
+  const canvas = texture.image as HTMLCanvasElement;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const { width, height } = plateCanvas;
+  const dark = theme === 'dark';
+  ctx.clearRect(0, 0, width, height);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = dark ? 'rgba(5, 6, 13, 0.9)' : 'rgba(238, 240, 248, 0.9)';
+  ctx.shadowBlur = 12;
+  ctx.font = `600 40px ${family}`;
+  ctx.fillStyle = dark ? '#fef3c7' : '#451a03';
+  ctx.fillText(name.toUpperCase(), width / 2, 46);
+  ctx.font = `500 26px ${family}`;
+  ctx.fillStyle = dark ? '#67e8f9' : '#0e7490';
+  ctx.fillText('SIGNAL LOGGED', width / 2, 94);
+  texture.needsUpdate = true;
+}
+
+interface SignalAssets {
+  glow: CanvasTexture;
+  coma: CanvasTexture;
+  ring: CanvasTexture;
+  comaMaterial: SpriteMaterial;
+  /** Per signal: its amber glow, logged ring and nameplate */
+  glows: SpriteMaterial[];
+  logged: SpriteMaterial[];
+  plates: SpriteMaterial[];
+  plateTextures: CanvasTexture[];
+}
+
+const glowSprite = (map: CanvasTexture, opacity: number) =>
+  new SpriteMaterial({
+    map,
+    transparent: true,
+    depthWrite: false,
+    sizeAttenuation: false,
+    fog: false,
+    toneMapped: false,
+    opacity,
+  });
+
+/** Built once: a theme change repaints and reblends them in place (applySignalsTheme) */
+function buildAssets(): SignalAssets {
+  const glow = canvasTexture(96, 96);
+  const coma = canvasTexture(96, 96);
+  const ring = canvasTexture(128, 128);
+  const plateTextures = signals.map(() => canvasTexture(plateCanvas.width, plateCanvas.height));
+  return {
+    glow,
+    coma,
+    ring,
+    comaMaterial: new SpriteMaterial({
+      map: coma,
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+      opacity: 0.9,
+    }),
+    glows: signals.map(() => glowSprite(glow, 0)),
+    logged: signals.map(() => glowSprite(ring, 0)),
+    plates: plateTextures.map((map) => glowSprite(map, 0)),
+    plateTextures,
+  };
+}
+
+/**
+ * Paints the textures for the theme and uploads them a frame apart
+ * (queueUpload), and sets the glows' blending. Rebuilding the materials
+ * would dispose the old before the new had drawn
+ */
+function applySignalsTheme(assets: SignalAssets, theme: WorldTheme, gl: WebGLRenderer) {
+  const palette = palettes[theme];
+  paintGlow(assets.glow, amber[theme]);
+  paintGlow(assets.coma, palette.cyan);
+  paintRing(assets.ring, palette.cyan);
+  for (const texture of [assets.glow, assets.coma, assets.ring]) queueUpload(gl, texture);
+  const blending = theme === 'dark' ? AdditiveBlending : NormalBlending;
+  for (const material of [assets.comaMaterial, ...assets.glows, ...assets.logged]) {
+    material.blending = blending;
+  }
+  const family =
+    getComputedStyle(document.documentElement).getPropertyValue('--font-geist-mono').trim() ||
+    'ui-monospace, monospace';
+  const paintPlates = () =>
+    signals.forEach((signal, i) => {
+      paintPlate(assets.plateTextures[i], signal.name, theme, family);
+      queueUpload(gl, assets.plateTextures[i]);
+    });
+  paintPlates();
+  // The web font may not have loaded for the first paint
+  document.fonts?.load(`600 40px ${family}`).then(paintPlates, () => undefined);
+}
+
+function disposeAssets(assets: SignalAssets) {
+  for (const texture of [assets.glow, assets.coma, assets.ring, ...assets.plateTextures]) {
+    texture.dispose();
+  }
+  for (const material of [
+    assets.comaMaterial,
+    ...assets.glows,
+    ...assets.logged,
+    ...assets.plates,
+  ]) {
+    material.dispose();
+  }
+}
+
+/**
+ * Per signal: when it was found (clock time, -Infinity before), and whether
+ * that find has been seen here yet (null until the first frame, which
+ * takes finds stored from an earlier visit as old)
+ */
+interface FindState {
+  foundAt: number;
+  seen: boolean | null;
+}
+
+/** Where the nearest unfound signal is, reported to the detector each frame */
+const nearestAt: [number, number, number] = [0, 0, 0];
+
+const sweepFrom = new Vector3();
+const seen = new Vector3();
+const onView = new Vector3();
+
+/**
+ * A sonar scan sweeping out from where the ship was (currentScan): each
+ * unfound signal is picked out as the sweep's radius, detector range in
+ * `scanSweep` seconds, passes it, with a ping where it is and the sonar's
+ * cue from there
+ */
+function sweep(signal: Signal, at: Vector3) {
+  const scan = currentScan();
+  const age = scanClock() - scan.at;
+  if (scan.swept || age < 0 || scan.hits.includes(signal.id)) return;
+  const distance = at.distanceTo(sweepFrom.fromArray(scan.from));
+  if (distance > detectorRange || distance > (age / scanSweep) * detectorRange) return;
+  markScanned(signal.id);
+  spawnPing(at, { scale: 1.6, flash: false, cue: false });
+  emitCue('sonar', { at: [at.x, at.y, at.z], strength: 1 - distance / detectorRange });
+}
+
+/** Where a contact (scanned, not yet found) is on screen, for the HUD's marker */
+function markContact(signal: Signal, at: Vector3, camera: Camera) {
+  const mark = (contactMarks[signal.id] ??= { x: 0, y: 0, onScreen: false, distance: 0 });
+  mark.distance = camera.position.distanceTo(at);
+  onView.copy(at).applyMatrix4(camera.matrixWorldInverse);
+  seen.copy(at).project(camera);
+  if (onView.z < 0 && Math.abs(seen.x) <= 1 && Math.abs(seen.y) <= 1) {
+    mark.x = seen.x;
+    mark.y = seen.y;
+    mark.onScreen = true;
+  } else {
+    // Off screen: the way to turn (straight behind reads as "turn round", downwards)
+    const length = Math.hypot(onView.x, onView.y);
+    mark.x = length > 1e-3 ? onView.x / length : 0;
+    mark.y = length > 1e-3 ? onView.y / length : -1;
+    mark.onScreen = false;
+  }
 }
 
 const tailVertex = /* glsl */ `
@@ -231,84 +443,129 @@ function Comet({
   );
 }
 
+/**
+ * A find, as it happens: a ping at the signal, its glow bursting (from
+ * `foundAt`) and its nameplate blinking on, and the find's sound from where
+ * it is (the last one's own)
+ */
+function celebrate(signal: Signal, node: Group, find: FindState, t: number) {
+  find.foundAt = t;
+  const at = [node.position.x, node.position.y, node.position.z] as const;
+  spawnPing(node.position, { scale: signal.id === 'derelict' ? 2.6 : 1.8, cue: false });
+  emitCue(signals.every((s) => isFound(s.id)) ? 'complete' : 'found', { at });
+}
+
+/** How a find's nameplate flickers on (full motion): on, off, on over its first 0.3s */
+function flicker(s: number) {
+  if (s < 0.08) return 1;
+  if (s < 0.16) return 0.15;
+  return 1;
+}
+
 /** Draws the signals and finds them as the explorer flies close */
 export function Signals({ theme }: { theme: WorldTheme }) {
+  const gl = useThree((s) => s.gl);
   const groupRef = useRef<Group>(null);
   const materials = useThemedMaterials(buildMaterials, theme);
-  const glow = useMemo(() => {
-    const map = glowTexture(amber[theme]);
-    const comaMap = glowTexture(palettes[theme].cyan);
-    return {
-      map,
-      comaMap,
-      coma: new SpriteMaterial({
-        map: comaMap,
-        blending: theme === 'dark' ? AdditiveBlending : NormalBlending,
-        transparent: true,
-        depthWrite: false,
-        toneMapped: false,
-        opacity: 0.9,
-      }),
-      materials: signals.map(
-        () =>
-          new SpriteMaterial({
-            map,
-            blending: theme === 'dark' ? AdditiveBlending : NormalBlending,
-            transparent: true,
-            depthWrite: false,
-            sizeAttenuation: false,
-            fog: false,
-            toneMapped: false,
-            opacity: 0,
-          })
-      ),
-    };
-  }, [theme]);
-  useEffect(
-    () => () => {
-      glow.map.dispose();
-      glow.comaMap.dispose();
-      glow.coma.dispose();
-      glow.materials.forEach((material) => material.dispose());
-    },
-    [glow]
-  );
+  const assets = useMemo(() => buildAssets(), []);
+  const finds = useRef<FindState[]>(signals.map(() => ({ foundAt: -Infinity, seen: null })));
 
-  useFrame(({ camera, clock }, delta) => {
+  useEffect(() => applySignalsTheme(assets, theme, gl), [assets, theme, gl]);
+  useEffect(() => () => disposeAssets(assets), [assets]);
+
+  useFrame((root, delta) => {
     const group = groupRef.current;
     if (!group) return;
+    const { camera, clock } = root;
+    // Finds (the burst, the nameplate) are timed by the clock; the craft's
+    // tumble, the glow's pulse and the comet's orbit are idle motion, which
+    // holds at the still level (ambientTime)
     const t = clock.elapsedTime;
+    const idle = ambientTime(root);
     const dt = Math.min(delta, 0.05);
     const exploring = worldMode.get().mode === 'explore';
+    const flickers = motionLevel() === 'full';
     let nearest = Infinity;
+    // The HUD, the sector map and the autopilot follow the comet by this time
+    setSignalTime(idle);
 
     signals.forEach((signal, i) => {
       const node = group.children[i] as Group | undefined;
       if (!node) return;
-      if (signal.id === 'comet') cometAt(t, node.position);
+      if (signal.id === 'comet') cometAt(idle, node.position);
       const model = node.children[0];
       if (model && signal.id !== 'derelict') {
-        model.rotation.set(t * 0.11 + i, t * 0.07 * (i % 2 ? 1 : -1), t * 0.05);
+        model.rotation.set(idle * 0.11 + i, idle * 0.07 * (i % 2 ? 1 : -1), idle * 0.05);
       }
-      const sprite = node.children[node.children.length - 1] as Sprite;
+      const glow = node.children[child.glow] as Sprite;
+      const logged = node.children[child.logged] as Sprite;
+      const plate = node.children[child.plate] as Sprite;
+      const find = finds.current[i];
+      find.foundAt = pastStamp(find.foundAt, t);
       const found = isFound(signal.id);
+      // A find made elsewhere in free roam (the derelict logged through the
+      // lost astronaut's tractor beam) plays out here like one flown into
+      if (found && find.seen === false && exploring) celebrate(signal, node, find, t);
+      find.seen = found;
       const distance = camera.position.distanceTo(node.position);
-      // A faint amber glow, free roam only, until found
-      const target = exploring && !found ? MathUtils.smoothstep(distance, 10, 40) : 0;
-      const material = glow.materials[i];
-      material.opacity = MathUtils.damp(material.opacity, target, 3, dt);
-      sprite.visible = material.opacity > 0.01;
-      sprite.scale.setScalar(0.03 * (0.85 + 0.15 * Math.sin(t * 2.6 + i)));
-      if (!exploring || found) return;
+
+      // Found just now: the glow bursts out and fades. Otherwise a faint
+      // amber glow, free roam only, until found
+      const since = t - find.foundAt;
+      const glowMaterial = assets.glows[i];
+      if (since < burstTime) {
+        const k = since / burstTime;
+        glowMaterial.opacity = (1 - k) * (1 - k);
+        glow.scale.setScalar(glowSize * (1 + (burstGrowth - 1) * (1 - (1 - k) ** 3)));
+      } else {
+        const target = exploring && !found ? MathUtils.smoothstep(distance, 10, 40) : 0;
+        glowMaterial.opacity = MathUtils.damp(glowMaterial.opacity, target, 3, dt);
+        glow.scale.setScalar(glowSize * (0.85 + 0.15 * Math.sin(idle * 2.6 + i)));
+      }
+      glow.visible = glowMaterial.opacity > 0.01;
+
+      // Logged: a faint cyan ring round it, in free roam, once the burst is over
+      const loggedMaterial = assets.logged[i];
+      const ring = exploring && found ? MathUtils.smoothstep(since, burstTime, burstTime + 0.5) : 0;
+      loggedMaterial.opacity = ring * loggedOpacity;
+      logged.visible = loggedMaterial.opacity > 0.005;
+      logged.scale.setScalar(loggedSize);
+
+      // Its nameplate: on for a few seconds as it is found (flickering on at
+      // full motion), and again whenever the ship comes near
+      const plateMaterial = assets.plates[i];
+      const fresh = since < plateTime ? (flickers ? flicker(since) : 1) : 0;
+      const near = MathUtils.smoothstep(plateRange - distance, 0, 8);
+      const shown = exploring && found ? Math.max(fresh, near) : 0;
+      plateMaterial.opacity =
+        since < plateTime ? shown : MathUtils.damp(plateMaterial.opacity, shown, 4, dt);
+      plate.visible = plateMaterial.opacity > 0.01;
+      plate.scale.set(plateWidth, plateWidth / 4, 1);
+
+      if (!exploring || found) {
+        delete contactMarks[signal.id];
+        return;
+      }
+      sweep(signal, node.position);
+      if (isScanned(signal.id)) markContact(signal, node.position, camera);
       if (distance < signal.reach) {
         if (markFound(signal.id)) {
-          emitCue(signals.every((s) => isFound(s.id)) ? 'complete' : 'found');
+          find.seen = true;
+          celebrate(signal, node, find, t);
         }
         return;
       }
-      nearest = Math.min(nearest, distance);
+      if (distance < nearest) {
+        nearest = distance;
+        // Where it is (the comet's live position), for the detector's sonar to sound from
+        node.position.toArray(nearestAt);
+      }
     });
-    reportNearest(exploring ? nearest : Infinity);
+    reportNearest(exploring ? nearest : Infinity, nearestAt);
+    // Every signal has been passed at full range: the scan has swept (or
+    // free roam ended mid-sweep, and there is nothing more to find)
+    const scan = currentScan();
+    if (!scan.swept && (!exploring || scanClock() - scan.at >= scanSweep)) finishSweep();
   });
 
   return (
@@ -319,11 +576,23 @@ export function Signals({ theme }: { theme: WorldTheme }) {
           {signal.id === 'capsule' && <Capsule window={materials.window} />}
           {signal.id === 'relay' && <Relay />}
           {signal.id === 'comet' && (
-            <Comet coma={glow.coma} ionTail={materials.ionTail} dustTail={materials.dustTail} />
+            <Comet
+              coma={assets.comaMaterial}
+              ionTail={materials.ionTail}
+              dustTail={materials.dustTail}
+            />
           )}
           {/* The derelict is LostStation itself; it only needs the glow */}
           {signal.id === 'derelict' && <group />}
-          <sprite material={glow.materials[i]} renderOrder={5} />
+          <sprite material={assets.glows[i]} renderOrder={5} />
+          <sprite material={assets.logged[i]} renderOrder={5} visible={false} />
+          {/* Above the craft: its bottom edge a little over the centre */}
+          <sprite
+            material={assets.plates[i]}
+            renderOrder={6}
+            center={[0.5, -0.9]}
+            visible={false}
+          />
         </group>
       ))}
     </group>

@@ -20,6 +20,22 @@ type GeoData = {
 const emptyGeoData: GeoData = { ip: '', geo: {} };
 
 /**
+ * Visits that shouldn't be counted: a local server (development, or a
+ * production build run locally) and automated browsers (the e2e suite, for
+ * one, which would otherwise send a page view per test)
+ */
+function untracked() {
+  const host = window.location.hostname;
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '[::1]' ||
+    host.endsWith('.localhost') ||
+    navigator.webdriver === true
+  );
+}
+
+/**
  * Defers Google Analytics loading until the browser is idle,
  * keeping gtag out of Lighthouse's critical rendering path.
  * Geo data comes from /api/geo so the rest of the site can stay static.
@@ -28,7 +44,7 @@ export const GoogleAnalyticsDeferred = ({ gaId }: { gaId: string }) => {
   const [geoData, setGeoData] = useState<GeoData | null>(null);
 
   useEffect(() => {
-    if (!gaId) return;
+    if (!gaId || untracked()) return;
 
     let cancelled = false;
     const load = async () => {

@@ -5,10 +5,12 @@ import { Formik } from 'formik';
 import { object, string } from 'yup';
 import { Icon } from '@iconify/react';
 
-import { setTransmitting } from 'components/World/worldStore';
+import { setTransmitting, worldStore } from 'components/World/worldStore';
 import { contactLimits, honeypotField } from 'utils/contactValidation';
 
 import { Contact as ContactProps } from '@/types';
+
+import type { FocusEvent } from 'react';
 
 import './ContactForm.scss';
 
@@ -28,7 +30,27 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
 
   useEffect(() => {
     startedAt.current = Date.now();
+    // Gone (sent, or another page): the comms array stops listening
+    return () => {
+      worldStore.commsFocus = false;
+      worldStore.composing = 0;
+    };
   }, []);
+
+  // The comms array on /contact listens while a field has focus, and buffers what's written
+  const onFormFocus = (e: FocusEvent<HTMLFormElement>) => {
+    if (e.target.matches('input:not([tabindex="-1"]), textarea')) worldStore.commsFocus = true;
+  };
+  const onFormBlur = (e: FocusEvent<HTMLFormElement>) => {
+    const next = e.relatedTarget;
+    if (
+      !(next instanceof Element) ||
+      !next.matches('input, textarea') ||
+      !e.currentTarget.contains(next)
+    ) {
+      worldStore.commsFocus = false;
+    }
+  };
 
   const maxMessageLength = contactLimits.message;
 
@@ -119,7 +141,14 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
             : '';
 
         return (
-          <form noValidate onSubmit={formikSubmit} className="contact-form" aria-busy={loading}>
+          <form
+            noValidate
+            onSubmit={formikSubmit}
+            onFocus={onFormFocus}
+            onBlur={onFormBlur}
+            className="contact-form"
+            aria-busy={loading}
+          >
             <div aria-live="assertive" aria-atomic="true" className="sr-only">
               {errorSummary}
             </div>
@@ -223,7 +252,10 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
                 placeholder="Tell me about the project, the team and the timeline…"
                 name="message"
                 value={values.message}
-                onChange={handleChange}
+                onChange={(e) => {
+                  handleChange(e);
+                  worldStore.composing = Math.min(e.target.value.length / maxMessageLength, 1);
+                }}
                 onBlur={handleBlur}
                 maxLength={maxMessageLength}
                 aria-required="true"

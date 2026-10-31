@@ -111,10 +111,15 @@ export const createFlightView = (): FlightView => ({
   bearingPitch: 0,
 });
 
-/** Zero velocity and acceleration at both ends */
+/**
+ * Zero velocity and acceleration at both ends. Never past 1: just under 1
+ * the polynomial rounds to a hair over (smootherstep(1 - 1.3e-15) is
+ * 1 + 1.3e-15), and a curve's getPointAt past 1 is NaN, so the flight's last
+ * frame put the camera nowhere (a blank frame, and a NaN FOV after it)
+ */
 export const smootherstep = (x: number) => {
   const t = MathUtils.clamp(x, 0, 1);
-  return t * t * t * (t * (t * 6 - 15) + 10);
+  return Math.min(t * t * t * (t * (t * 6 - 15) + 10), 1);
 };
 
 /** Shortest signed angle from `a` to `b` */

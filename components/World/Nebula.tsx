@@ -1,16 +1,19 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
   BackSide,
+  BufferGeometry,
   Color,
   DataTexture,
   HalfFloatType,
   LinearFilter,
+  MathUtils,
   Mesh,
   MeshBasicMaterial,
   OrthographicCamera,
+  PerspectiveCamera,
   PlaneGeometry,
   PMREMGenerator,
   RepeatWrapping,
@@ -22,10 +25,22 @@ import {
   WebGLRenderTarget,
 } from 'three';
 
+import { motionLevel } from '@/utils/motion';
+
 import { noiseGlsl } from './materials';
-import { galacticCentre, galacticEast, galacticNormal, nebulae, sunDirection } from './sky';
-import { palettes } from './utils';
+import {
+  backdropDirection,
+  backdropMajor,
+  backdropMinor,
+  galacticCentre,
+  galacticEast,
+  galacticNormal,
+  nebulae,
+  sunDirection,
+} from './sky';
+import { palettes, setUniform } from './utils';
 import { useWarmupTask } from './warmup';
+import { worldStore } from './worldStore';
 
 import type { Texture, WebGLRenderer } from 'three';
 import type { WorldTheme } from './utils';
@@ -42,6 +57,9 @@ import type { WorldTheme } from './utils';
    absorb and redden whatever lies behind them. Noise for anything in
    the band is sampled with the plane direction stretched, so features
    run along it the way they really do.
+
+   Far beyond it, behind the stations' cameras, a tilted spiral galaxy
+   (sky.ts backdropDirection): seen on the way back towards Home.
 
    Nebulae are local: a handful of star-forming complexes strung along
    the plane, each with a ragged outline, billowy gas threaded with
@@ -68,11 +86,15 @@ const bakeFragment = /* glsl */ `
   uniform vec3 uOxygen;
   uniform vec3 uHydrogen;
   uniform vec3 uDust;
+  uniform float uDetail;
   uniform vec3 uMilky;
   uniform vec3 uSun;
   uniform vec3 uGalactic;
   uniform vec3 uCentre;
   uniform vec3 uEast;
+  uniform vec3 uBackdrop;
+  uniform vec3 uBackdropMajor;
+  uniform vec3 uBackdropMinor;
   uniform vec4 uNebula[NEBULAE];
   uniform float uNebulaKind[NEBULAE];
   varying vec2 vUv;
@@ -153,14 +175,17 @@ const bakeFragment = /* glsl */ `
     float grain = 0.82 + 0.36 * snoise(along * 46.0) * disc;
     float band = (disc * clouds * grain + wings) * (0.4 + 0.6 * toCentre) + bulge * 1.1;
     // Cool white out in the arms, warming to cream only around the bulge
-    vec3 bandColour = mix(uMilky, vec3(1.0, 0.88, 0.7), clamp(bulge * 0.9 + toCentre * toCentre * 0.2, 0.0, 1.0));
+    // A bake too small to resolve the band (uDetail) gets a warmer, more coloured bulge instead
+    vec3 bulgeColour = mix(vec3(1.0, 0.88, 0.7), vec3(1.0, 0.76, 0.5), uDetail);
+    vec3 bandColour = mix(uMilky, bulgeColour, clamp(bulge * (0.9 + 0.4 * uDetail) + toCentre * toCentre * 0.2, 0.0, 1.0));
 
     // Dust lanes: ridged filaments hugging the plane, and the great rift off the centre
     float lanes = ridged(along * 4.2 + vec3(0.6 * fbm(along * 1.3 + 7.0)));
     float laneMask = exp(-(ab * ab) / 0.012);
     float riftPath = abs(b - 0.025 - 0.02 * snoise(along * 2.0 + 5.0));
     float rift = smoothstep(0.07, 0.015, riftPath) * smoothstep(-0.15, 0.15, glon) * smoothstep(1.9, 1.2, glon);
-    float dust = smoothstep(0.25, 0.95, clamp(lanes * 1.4 * laneMask + rift * (0.6 + 0.5 * lanes), 0.0, 1.0));
+    // …and darker, wider dust around it, so the band never reads as a smooth grey
+    float dust = smoothstep(0.25 - 0.1 * uDetail * toCentre, 0.95, clamp(lanes * 1.4 * laneMask + rift * (0.6 + 0.5 * lanes), 0.0, 1.0));
     float absorb = dust * 0.9 * (1.0 - uLight * 0.7);
 
     // ----- Nebula complexes -----
@@ -182,11 +207,49 @@ const bakeFragment = /* glsl */ `
 
     // ----- Compose, back to front -----
     vec3 col = uBase;
+    // Daylight: the sky deepens a little and cools along the galactic plane,
+    // paling towards its poles, and warms on the sun's side
+    vec3 day = mix(uBase * vec3(0.93, 0.94, 0.985), mix(uBase, vec3(1.0), 0.4), smoothstep(0.0, 1.1, ab));
+    day += vec3(1.0, 0.82, 0.62) * pow(max(dot(dir, uSun), 0.0), 4.0) * 0.12;
+    col = mix(col, day, uLight);
     // A faint diffuse glow, so the deep sky is never flat
     col += uReflection * 0.07 * dark * smoothstep(-0.3, 0.8, fbm(dir * 0.9 + 17.0));
     // Kept under the bloom threshold: only the bulge's core is allowed to glow,
     // or the whole band blooms into a halo of fog
-    col += bandColour * band * 0.14 * (1.0 - uLight * 0.65);
+    col += bandColour * band * 0.14 * dark;
+    // In daylight the band is a soft wash of ink instead of light
+    float wash = clamp(disc * clouds * (0.5 + 0.5 * toCentre) + wings * 1.5 + bulge * 0.7, 0.0, 1.0);
+    col = mix(col, col * vec3(0.82, 0.83, 0.92), wash * 0.5 * uLight);
+
+    // ----- A distant spiral galaxy, tilted, in the backdrop -----
+    // Gnomonic coordinates on the sky in galaxy radii, then unsquashed onto
+    // its disc: an exponential disc, two log-spiral arms broken into clumps,
+    // a warm bulge, and a dust lane along the near side of the centre
+    float facing = dot(dir, uBackdrop);
+    if (facing > 0.98) {
+      vec2 p = vec2(dot(dir, uBackdropMajor), dot(dir, uBackdropMinor)) / (facing * 0.14);
+      vec2 q = vec2(p.x, p.y / 0.42);
+      float r = length(q);
+      float phi = atan(q.y, q.x);
+      float clumps = turbulence(vec3(q * 5.0, 3.7));
+      float galaxyDisc = exp(-r / 0.22) * smoothstep(1.2, 0.5, r);
+      // Clamped: 0.5 + 0.5 * cos() can round just below 0, and pow() of a
+      // negative base is NaN on Apple GPUs (a NaN texel blacks out the frame)
+      float spiral = clamp(0.5 + 0.5 * cos(2.0 * (phi - 3.4 * log(max(r, 1e-3)))), 0.0, 1.0);
+      float arms = pow(spiral, 2.5) * (0.4 + 0.9 * clumps) * smoothstep(0.06, 0.28, r) *
+        exp(-r / 0.42) * smoothstep(1.1, 0.65, r);
+      float galaxyBulge = exp(-r * r / 0.014);
+      float laneY = (p.y - 0.05) / 0.06;
+      float galaxyLane = exp(-laneY * laneY) * smoothstep(0.8, 0.12, abs(p.x)) * (0.55 + 0.6 * clumps);
+      float knots = arms * smoothstep(0.62, 0.9, clumps);
+      // Its core well under the bloom threshold, like the band's
+      vec3 glow = vec3(0.55, 0.6, 0.78) * galaxyDisc * 0.12 + vec3(0.7, 0.78, 1.0) * arms * 0.16 +
+        vec3(1.0, 0.84, 0.6) * galaxyBulge * 0.4 + uHydrogen * knots * 0.12;
+      col += glow * (1.0 - 0.8 * clamp(galaxyLane, 0.0, 1.0)) * dark;
+      // Light sky: a soft wash of ink, deepest in the lane
+      float ink = clamp(galaxyDisc * 0.7 + arms * 1.1 + galaxyBulge * 0.9 + galaxyLane * 0.4, 0.0, 1.0);
+      col = mix(col, col * vec3(0.72, 0.74, 0.9), ink * 0.7 * uLight);
+    }
 
     // Faint stars, denser in the band
     float s = stars(dir, 420.0, 0.012 + 0.04 * disc) + stars(dir, 900.0, 0.02 + 0.06 * disc) * 0.6;
@@ -242,11 +305,16 @@ const domeVertex = /* glsl */ `
 // B-spline (four bilinear taps) keeps the sky smooth, and the band gets
 // the fine grain of unresolved stars added at screen resolution (the
 // bake's alpha says where), so it never reads as a soft smear up close.
+// A theme change crossfades from one bake (uMapA) to the next (uMapB):
+// only while uMix is between 0 and 1 does it read both.
 const domeFragment = /* glsl */ `
-  uniform sampler2D uMap;
+  uniform sampler2D uMapA;
+  uniform sampler2D uMapB;
+  uniform float uMix;
   uniform sampler2D uGrainMap;
   uniform vec2 uSize;
   uniform float uGrain;
+  uniform float uWarp;
   varying vec3 vDir;
 
   vec4 cubic(float v) {
@@ -258,7 +326,7 @@ const domeFragment = /* glsl */ `
     return vec4(x, y, z, 6.0 - x - y - z) * (1.0 / 6.0);
   }
 
-  vec4 bicubic(vec2 uv) {
+  vec4 bicubic(sampler2D map, vec2 uv) {
     uv = uv * uSize - 0.5;
     vec2 f = fract(uv);
     uv -= f;
@@ -267,10 +335,10 @@ const domeFragment = /* glsl */ `
     vec4 c = uv.xxyy + vec2(-0.5, 1.5).xyxy;
     vec4 s = vec4(xc.xz + xc.yw, yc.xz + yc.yw);
     vec4 o = (c + vec4(xc.yw, yc.yw) / s) / uSize.xxyy;
-    vec4 s0 = texture2D(uMap, o.xz);
-    vec4 s1 = texture2D(uMap, o.yz);
-    vec4 s2 = texture2D(uMap, o.xw);
-    vec4 s3 = texture2D(uMap, o.yw);
+    vec4 s0 = texture2D(map, o.xz);
+    vec4 s1 = texture2D(map, o.yz);
+    vec4 s2 = texture2D(map, o.xw);
+    vec4 s3 = texture2D(map, o.yw);
     float sx = s.x / (s.x + s.y);
     float sy = s.z / (s.z + s.w);
     return mix(mix(s3, s2, sx), mix(s1, s0, sx), sy);
@@ -281,13 +349,19 @@ const domeFragment = /* glsl */ `
     float lon = atan(dir.z, dir.x);
     float lat = asin(clamp(dir.y, -1.0, 1.0));
     vec2 uv = vec2(fract(lon / 6.2831853 + 0.5), lat / 3.1415926 + 0.5);
-    vec4 sky = bicubic(uv);
+    vec4 sky = bicubic(uMapA, uv);
+    if (uMix > 0.0) sky = mix(sky, bicubic(uMapB, uv), uMix);
     vec3 col = sky.rgb;
-    if (uGrain > 0.0 && sky.a > 0.003) {
+    // At warp speed the band and bulge (where the alpha is) dim to 45% and
+    // lose their grain: magnified, streaked and blurred, they smeared the
+    // whole frame into a flat grey
+    col *= 1.0 - 0.55 * uWarp * smoothstep(0.0, 0.5, sky.a);
+    float grain = uGrain * (1.0 - uWarp);
+    if (grain > 0.0 && sky.a > 0.003) {
       // Random texels, bilinear between them: value noise at ~4px and ~12px on screen
       float g = texture2D(uGrainMap, uv * vec2(9.0, 4.5)).r * 0.55 +
         texture2D(uGrainMap, uv * vec2(3.0, 1.5)).g * 0.45;
-      col *= 1.0 + uGrain * sky.a * (g - 0.5) * 1.1;
+      col *= 1.0 + grain * sky.a * (g - 0.5) * 1.1;
     }
     gl_FragColor = vec4(col, 1.0);
   }
@@ -308,34 +382,66 @@ function createGrainMap() {
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-/** Strips per bake: each is one frame's work, so no single draw stalls the GPU */
-const stripsFor = (height: number) => Math.max(8, Math.round(height / 128));
+/**
+ * Strips per bake, each one frame's work, so no single draw holds the GPU
+ * for long. A strip's cost follows its area, plus a small fixed cost for
+ * binding the target: on an M3 Pro the whole desktop bake is ~40ms of GPU
+ * work, a 600k-pixel strip ~6ms and a 250k-pixel phone strip ~3ms
+ */
+const stripsFor = (width: number, height: number, budget: number) =>
+  Math.max(1, Math.round((width * height) / budget));
 
-/** Compiles the (heavy) bake shader in the background, then renders the sky a strip per frame */
-async function bakeNebula(
-  renderer: WebGLRenderer,
-  target: WebGLRenderTarget,
-  theme: WorldTheme,
-  octaves: number,
-  isCurrent: () => boolean
-) {
-  const palette = palettes[theme];
+/**
+ * Pixels per bake strip: eight strips for the desktop's 3072 bake and for a
+ * phone's 2048. Phones' GPUs are several times slower, so theirs are smaller
+ */
+const stripBudget = { desktop: 600_000, phone: 250_000 };
+
+/**
+ * The bake's size. Phones ask for 1024, which magnified on a narrow screen
+ * blurs the band into a smooth grey; they get 2048 where memory allows (16MB
+ * per target, two after a theme change), else a richer bulge (uDetail)
+ */
+function bakeSizeFor(requested: number, renderer: WebGLRenderer) {
+  if (requested >= 2048) return { size: requested, detail: 0 };
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  const roomy =
+    (memory === undefined || memory >= 4) && renderer.capabilities.maxTextureSize >= 4096;
+  return roomy ? { size: 2048, detail: 0 } : { size: requested, detail: 1 };
+}
+
+/** Seconds the dome takes to crossfade from one theme's sky to the next */
+const crossfade = 0.9;
+
+/** The bake: one material for the canvas's life, compiled once, its uniforms set per theme */
+interface Bake {
+  /** Pixels per strip */
+  budget: number;
+  material: ShaderMaterial;
+  geometry: PlaneGeometry;
+  scene: Scene;
+  camera: OrthographicCamera;
+}
+
+function createBake(octaves: number, detail: number, budget: number): Bake {
   const material = new ShaderMaterial({
     uniforms: {
-      uStrength: { value: palette.nebulaStrength },
-      uLight: { value: theme === 'light' ? 1 : 0 },
-      uBase: { value: new Color(palette.background) },
-      // The three gases: reflection violet, oxygen teal, hydrogen pink. They glow
-      // on the dark sky (the accents) and tint the light one (its pastels)
-      uReflection: { value: new Color(theme === 'light' ? palette.nebula[0] : palette.violet) },
-      uOxygen: { value: new Color(theme === 'light' ? palette.nebula[1] : palette.cyan) },
-      uHydrogen: { value: new Color(theme === 'light' ? palette.nebula[2] : palette.pink) },
-      uDust: { value: new Color(theme === 'light' ? '#d4cde6' : '#120b0a') },
-      uMilky: { value: new Color(theme === 'light' ? '#ffffff' : '#cfd3ff') },
+      uStrength: { value: 0 },
+      uLight: { value: 0 },
+      uBase: { value: new Color() },
+      uReflection: { value: new Color() },
+      uOxygen: { value: new Color() },
+      uHydrogen: { value: new Color() },
+      uDust: { value: new Color() },
+      uMilky: { value: new Color() },
+      uDetail: { value: detail },
       uSun: { value: sunDirection },
       uGalactic: { value: galacticNormal },
       uCentre: { value: galacticCentre },
       uEast: { value: galacticEast },
+      uBackdrop: { value: backdropDirection },
+      uBackdropMajor: { value: backdropMajor },
+      uBackdropMinor: { value: backdropMinor },
       uNebula: {
         value: nebulae.map(
           (n) => new Vector4(n.direction.x, n.direction.y, n.direction.z, n.radius)
@@ -352,87 +458,389 @@ async function bakeNebula(
   const geometry = new PlaneGeometry(2, 2);
   const scene = new Scene();
   scene.add(new Mesh(geometry, material));
-  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  return {
+    budget,
+    material,
+    geometry,
+    scene,
+    camera: new OrthographicCamera(-1, 1, 1, -1, 0, 1),
+  };
+}
 
+/** The bake's colours for a theme */
+function themeBake(bake: Bake, theme: WorldTheme) {
+  const palette = palettes[theme];
+  const light = theme === 'light';
+  const uniforms = bake.material.uniforms;
+  uniforms.uStrength.value = palette.nebulaStrength;
+  uniforms.uLight.value = light ? 1 : 0;
+  (uniforms.uBase.value as Color).set(palette.background);
+  // The three gases: reflection violet, oxygen teal, hydrogen pink. They glow
+  // on the dark sky (the accents) and tint the light one (its pastels)
+  (uniforms.uReflection.value as Color).set(light ? palette.nebula[0] : palette.violet);
+  (uniforms.uOxygen.value as Color).set(light ? palette.nebula[1] : palette.cyan);
+  (uniforms.uHydrogen.value as Color).set(light ? palette.nebula[2] : palette.pink);
+  (uniforms.uDust.value as Color).set(light ? '#d4cde6' : '#120b0a');
+  (uniforms.uMilky.value as Color).set(light ? '#ffffff' : '#cfd3ff');
+}
+
+/**
+ * Renders a theme's sky into `target` a strip per frame, so no single draw
+ * stalls the GPU. The first call compiles the bake shader in the background;
+ * later ones find it compiled. Resolves true once the whole sky is baked,
+ * false if a newer request took over on the way
+ */
+async function bakeSky(
+  renderer: WebGLRenderer,
+  bake: Bake,
+  theme: WorldTheme,
+  target: WebGLRenderTarget,
+  isCurrent: () => boolean
+) {
+  themeBake(bake, theme);
   const previous = renderer.getRenderTarget();
   renderer.setRenderTarget(target);
-  const compiled = renderer.compileAsync(scene, camera);
+  const compiled = renderer.compileAsync(bake.scene, bake.camera);
   renderer.setRenderTarget(previous);
   await compiled;
 
   const { width, height } = target;
-  const strips = stripsFor(height);
-  for (let i = 0; i < strips && isCurrent(); i++) {
-    const restore = renderer.getRenderTarget();
-    renderer.setRenderTarget(target);
+  const strips = stripsFor(width, height, bake.budget);
+  for (let i = 0; i < strips; i++) {
+    if (!isCurrent()) return false;
+    // Another bake may have set the uniforms for its theme between strips
+    themeBake(bake, theme);
+    // The strip's scissor goes on the target before it is bound: three only
+    // copies a target's scissor into GL state in setRenderTarget, so set after
+    // the bind, every strip shaded (and cleared) the whole sky
     const y = Math.floor((i * height) / strips);
     const h = Math.floor(((i + 1) * height) / strips) - y;
     target.scissor.set(0, y, width, h);
     target.scissorTest = true;
-    renderer.render(scene, camera);
-    target.scissorTest = false;
+    const restore = renderer.getRenderTarget();
+    renderer.setRenderTarget(target);
+    renderer.render(bake.scene, bake.camera);
     renderer.setRenderTarget(restore);
+    target.scissorTest = false;
     await nextFrame();
   }
-
-  geometry.dispose();
-  material.dispose();
+  return isCurrent();
 }
 
 /**
- * Filters the baked sky (plus a bright panel where the sun is) into the
- * environment map, so metal and painted hulls reflect the sky they sit in.
+ * What the environment map is filtered from: the baked sky on a small dome,
+ * plus a bright panel where the sun is and a soft bounce opposite it, so
+ * metal and painted hulls reflect the sky they sit in. One generator and one
+ * set of materials for the canvas's life: a fresh PMREMGenerator compiles
+ * its filter shaders again, which stalled every theme change
  */
-function buildEnvironment(renderer: WebGLRenderer, sky: WebGLRenderTarget, theme: WorldTheme) {
+interface EnvironmentKit {
+  generator: PMREMGenerator;
+  scene: Scene;
+  dome: ShaderMaterial;
+  sun: MeshBasicMaterial;
+  bounce: MeshBasicMaterial;
+  geometries: BufferGeometry[];
+}
+
+function createEnvironmentKit(renderer: WebGLRenderer, size: Vector2): EnvironmentKit {
   const scene = new Scene();
   const domeGeometry = new SphereGeometry(10, 48, 24);
-  const domeMaterial = new ShaderMaterial({
+  const dome = new ShaderMaterial({
     uniforms: {
-      uMap: { value: sky.texture },
-      uSize: { value: new Vector2(sky.width, sky.height) },
+      uMapA: { value: null },
+      uMapB: { value: null },
+      uMix: { value: 0 },
+      uGrainMap: { value: null },
+      uSize: { value: size },
       uGrain: { value: 0 },
+      uWarp: { value: 0 },
     },
     vertexShader: domeVertex,
     fragmentShader: domeFragment,
     side: BackSide,
     depthWrite: false,
   });
-  scene.add(new Mesh(domeGeometry, domeMaterial));
-
-  // The sun as a bright disc, and a soft bounce from the opposite side
+  scene.add(new Mesh(domeGeometry, dome));
   const panelGeometry = new SphereGeometry(1, 16, 8);
-  const sunMaterial = new MeshBasicMaterial({
-    color: new Color('#fff1dc').multiplyScalar(theme === 'light' ? 22 : 34),
-  });
-  const sun = new Mesh(panelGeometry, sunMaterial);
-  sun.position.copy(sunDirection).multiplyScalar(8);
-  sun.scale.setScalar(1.1);
-  scene.add(sun);
-  const bounceMaterial = new MeshBasicMaterial({
-    color: new Color(theme === 'light' ? '#c9d4ff' : '#4b3b9a').multiplyScalar(
-      theme === 'light' ? 1.2 : 2
-    ),
-  });
-  const bounce = new Mesh(panelGeometry, bounceMaterial);
-  bounce.position.copy(sunDirection).multiplyScalar(-8);
-  bounce.scale.setScalar(3.5);
-  scene.add(bounce);
+  const sun = new MeshBasicMaterial();
+  const sunPanel = new Mesh(panelGeometry, sun);
+  sunPanel.position.copy(sunDirection).multiplyScalar(8);
+  sunPanel.scale.setScalar(1.1);
+  scene.add(sunPanel);
+  const bounce = new MeshBasicMaterial();
+  const bouncePanel = new Mesh(panelGeometry, bounce);
+  bouncePanel.position.copy(sunDirection).multiplyScalar(-8);
+  bouncePanel.scale.setScalar(3.5);
+  scene.add(bouncePanel);
+  return {
+    generator: new PMREMGenerator(renderer),
+    scene,
+    dome,
+    sun,
+    bounce,
+    geometries: [domeGeometry, panelGeometry],
+  };
+}
 
-  const generator = new PMREMGenerator(renderer);
-  const target = generator.fromScene(scene, 0, 0.1, 30);
-  generator.dispose();
-  domeGeometry.dispose();
-  domeMaterial.dispose();
-  panelGeometry.dispose();
-  sunMaterial.dispose();
-  bounceMaterial.dispose();
+/** Filters a baked sky into a new environment map (the caller applies it and retires the old one) */
+function buildEnvironment(kit: EnvironmentKit, sky: Texture, theme: WorldTheme) {
+  const light = theme === 'light';
+  kit.dome.uniforms.uMapA.value = sky;
+  kit.dome.uniforms.uMapB.value = sky;
+  kit.sun.color.set('#fff1dc').multiplyScalar(light ? 22 : 34);
+  kit.bounce.color.set(light ? '#c9d4ff' : '#4b3b9a').multiplyScalar(light ? 1.2 : 2);
+  return kit.generator.fromScene(kit.scene, 0, 0.1, 30);
+}
+
+function disposeEnvironmentKit(kit: EnvironmentKit) {
+  kit.generator.dispose();
+  kit.dome.dispose();
+  kit.sun.dispose();
+  kit.bounce.dispose();
+  kit.geometries.forEach((geometry) => geometry.dispose());
+}
+
+function createSkyTarget(size: number) {
+  // Half-float keeps the dark, linear-space gradients free of banding
+  const target = new WebGLRenderTarget(size, size / 2, {
+    type: HalfFloatType,
+    minFilter: LinearFilter,
+    magFilter: LinearFilter,
+    generateMipmaps: false,
+    depthBuffer: false,
+  });
+  // Wraps round the seam, so the filter's outer taps meet up
+  target.texture.wrapS = RepeatWrapping;
   return target;
+}
+
+/**
+ * The deep sky's state: two bake targets (the second made on the first
+ * theme change), which theme each holds, the one on show (`front`) and how
+ * far the dome has faded towards the other (`mix`, heading for `goal`).
+ * A theme change bakes into the back target while the front stays on show,
+ * fades the dome across, then swaps them and only then rebuilds the
+ * environment map from the new sky, retiring the old map a frame after the
+ * new one is applied, so hulls never draw a frame without reflections.
+ * Plain data changed only through the functions below (never in render)
+ */
+interface Sky {
+  size: number;
+  bake: Bake;
+  kit: EnvironmentKit;
+  dome: ShaderMaterial;
+  grainMap: DataTexture;
+  targets: [WebGLRenderTarget, WebGLRenderTarget | null];
+  holds: [WorldTheme | null, WorldTheme | null];
+  front: 0 | 1;
+  mix: number;
+  goal: 0 | 1;
+  /** Bumped by every request, so a bake a newer request overtook stops */
+  generation: number;
+  environment: WebGLRenderTarget | null;
+  environmentTheme: WorldTheme | null;
+  /** Environment maps replaced this frame, disposed on the next */
+  retired: WebGLRenderTarget[];
+  /** 0..1, how far into warp speed the camera is (eased) */
+  warp: number;
+}
+
+function createSky(renderer: WebGLRenderer, requested: number, octaves: number): Sky {
+  const { size, detail } = bakeSizeFor(requested, renderer);
+  const front = createSkyTarget(size);
+  const uSize = new Vector2(front.width, front.height);
+  const grainMap = createGrainMap();
+  // Bound to the front target before it is baked, but never drawn before:
+  // the sky is made once per canvas, and warm-up (which waits for the first
+  // bake) holds the frameloop until then
+  const dome = new ShaderMaterial({
+    uniforms: {
+      uMapA: { value: front.texture },
+      uMapB: { value: front.texture },
+      uMix: { value: 0 },
+      uGrainMap: { value: grainMap },
+      uSize: { value: uSize },
+      uGrain: { value: 1 },
+      uWarp: { value: 0 },
+    },
+    vertexShader: domeVertex,
+    fragmentShader: domeFragment,
+    side: BackSide,
+    depthWrite: false,
+    fog: false,
+  });
+  return {
+    size,
+    bake: createBake(octaves, detail, requested < 2048 ? stripBudget.phone : stripBudget.desktop),
+    warp: 0,
+    kit: createEnvironmentKit(renderer, uSize),
+    dome,
+    grainMap,
+    targets: [front, null],
+    holds: [null, null],
+    front: 0,
+    mix: 0,
+    goal: 0,
+    generation: 0,
+    environment: null,
+    environmentTheme: null,
+    retired: [],
+  };
+}
+
+function disposeSky(sky: Sky) {
+  sky.generation++;
+  if (skyMap.value === sky.targets[0].texture || skyMap.value === sky.targets[1]?.texture) {
+    skyMap.value = null;
+  }
+  sky.targets.forEach((target) => target?.dispose());
+  sky.bake.material.dispose();
+  sky.bake.geometry.dispose();
+  disposeEnvironmentKit(sky.kit);
+  sky.dome.dispose();
+  sky.grainMap.dispose();
+  sky.environment?.dispose();
+  sky.retired.forEach((target) => target.dispose());
+}
+
+/**
+ * Points the dome at the front bake (and the back one to fade to), and
+ * shares the front as skyMap. A target still being baked is never bound:
+ * drawing with a texture bound that is also being rendered into, even
+ * unread, made the GPU synchronise on every strip (ANGLE on Metal), which
+ * cost each strip of a theme change's bake a dropped frame or two
+ */
+function bindSky(sky: Sky) {
+  const front = sky.targets[sky.front]!;
+  const back = (sky.holds[1 - sky.front] && sky.targets[1 - sky.front]) || front;
+  sky.dome.uniforms.uMapA.value = front.texture;
+  sky.dome.uniforms.uMapB.value = back.texture;
+  sky.dome.uniforms.uMix.value = sky.mix;
+  skyMap.value = front.texture;
+}
+
+/** Rebuilds the environment map from the sky on show and applies it */
+function refreshEnvironment(sky: Sky, scene: Scene, theme: WorldTheme) {
+  const next = buildEnvironment(sky.kit, sky.targets[sky.front]!.texture, theme);
+  applyEnvironment(scene, next.texture);
+  if (sky.environment) sky.retired.push(sky.environment);
+  sky.environment = next;
+  sky.environmentTheme = theme;
+}
+
+/**
+ * A same-sized stand-in environment, so everything compiles against the
+ * final environment's shader variant before the bake finishes. Filtering it
+ * compiles the generator's own shaders, and the environment scene's
+ * materials are compiled alongside, all during warm-up
+ */
+function installPlaceholder(sky: Sky, renderer: WebGLRenderer, scene: Scene) {
+  if (sky.environment) return null;
+  sky.environment = sky.kit.generator.fromScene(new Scene(), 0, 0.1, 30);
+  applyEnvironment(scene, sky.environment.texture);
+  // Compiled as it will be drawn: into a half-float target
+  const previous = renderer.getRenderTarget();
+  renderer.setRenderTarget(sky.targets[0]);
+  const compiled = renderer.compileAsync(sky.kit.scene, new PerspectiveCamera());
+  renderer.setRenderTarget(previous);
+  return compiled;
+}
+
+/**
+ * Asks for a theme's sky. The first bakes straight into the front target
+ * and builds the environment at once (it runs during warm-up); later ones
+ * bake into the back target and leave the crossfade to stepSky. Returns
+ * the bake, for warm-up tracking, or null when the sky is already baked
+ */
+function requestSky(
+  sky: Sky,
+  renderer: WebGLRenderer,
+  scene: Scene,
+  theme: WorldTheme,
+  invalidate: () => void
+) {
+  const generation = ++sky.generation;
+  const isCurrent = () => sky.generation === generation;
+  const front = sky.front;
+  const back = (1 - front) as 0 | 1;
+
+  if (sky.holds[front] === theme || sky.holds[back] === theme) {
+    sky.goal = sky.holds[front] === theme ? 0 : 1;
+    invalidate();
+    return null;
+  }
+
+  if (sky.holds[front] === null) {
+    return bakeSky(renderer, sky.bake, theme, sky.targets[front]!, isCurrent).then((done) => {
+      if (!done) return;
+      sky.holds[front] = theme;
+      sky.mix = 0;
+      sky.goal = 0;
+      bindSky(sky);
+      refreshEnvironment(sky, scene, theme);
+      invalidate();
+    });
+  }
+
+  // Bake the new theme behind the one on show (never while it's fading in)
+  sky.goal = 0;
+  sky.mix = 0;
+  sky.holds[back] = null;
+  bindSky(sky);
+  const target = sky.targets[back] ?? createSkyTarget(sky.size);
+  sky.targets[back] = target;
+  return bakeSky(renderer, sky.bake, theme, target, isCurrent).then((done) => {
+    if (!done) return;
+    sky.holds[back] = theme;
+    sky.goal = 1;
+    bindSky(sky);
+    invalidate();
+  });
+}
+
+/**
+ * Per frame: disposes environment maps replaced last frame (that frame drew
+ * with the new one), moves the crossfade on (at once when nothing may move),
+ * swaps the targets when it completes, and rebuilds the environment from
+ * the sky on show once the fade has settled
+ */
+function stepSky(sky: Sky, scene: Scene, delta: number, invalidate: () => void) {
+  if (sky.retired.length) {
+    sky.retired.forEach((target) => target.dispose());
+    sky.retired.length = 0;
+  }
+  if (sky.mix === sky.goal) return;
+  const step = motionLevel() === 'still' ? 1 : Math.min(delta, 0.1) / crossfade;
+  sky.mix =
+    sky.goal > sky.mix ? Math.min(sky.goal, sky.mix + step) : Math.max(sky.goal, sky.mix - step);
+  if (sky.mix >= 1) {
+    sky.front = (1 - sky.front) as 0 | 1;
+    sky.mix = 0;
+    sky.goal = 0;
+  }
+  bindSky(sky);
+  const shown = sky.holds[sky.front];
+  if (sky.mix === sky.goal && shown && shown !== sky.environmentTheme) {
+    refreshEnvironment(sky, scene, shown);
+  }
+  // A frame to dispose what was retired (rendering on demand, none would come)
+  invalidate();
+}
+
+/** Eases the dome's warp (band dimmed, grain off) towards the camera's speed: 40 to 140 units/s */
+function followWarp(sky: Sky, delta: number) {
+  const goal = MathUtils.smoothstep(worldStore.velocity, 40, 140);
+  sky.warp = MathUtils.damp(sky.warp, goal, 6, Math.min(delta, 0.1));
+  if (sky.warp < 1e-3 && goal === 0) sky.warp = 0;
+  setUniform(sky.dome, 'uWarp', sky.warp);
 }
 
 /**
  * The baked sky (an equirectangular half-float texture, longitude round x),
  * shared as a uniform for anything that shows the sky through itself, bent
- * (the home portal). Empty until the dome is mounted
+ * (the home portal). Empty until the first bake; it moves to the new bake
+ * once a theme change's crossfade completes
  */
 export const skyMap: { value: Texture | null } = { value: null };
 
@@ -443,100 +851,51 @@ export function Nebula({
   size,
 }: {
   theme: WorldTheme;
+  /** Read once, at mount */
   octaves: number;
+  /**
+   * The bake's width as asked for (half as tall), read once, at mount; phones'
+   * 1024 becomes 2048 where memory allows
+   */
   size: number;
 }) {
   const meshRef = useRef<Mesh>(null);
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
+  const invalidate = useThree((s) => s.invalidate);
   const track = useWarmupTask();
 
-  const target = useMemo(() => {
-    // Half-float keeps the dark, linear-space gradients free of banding
-    const target = new WebGLRenderTarget(size, size / 2, {
-      type: HalfFloatType,
-      minFilter: LinearFilter,
-      magFilter: LinearFilter,
-      generateMipmaps: false,
-      depthBuffer: false,
-    });
-    // Wraps round the seam, so the filter's outer taps meet up
-    target.texture.wrapS = RepeatWrapping;
-    return target;
-  }, [size]);
+  // The bake's size and detail are decided once, like shadows. A window
+  // resized across the lite breakpoint used to rebuild the sky while the
+  // world was drawing: a new bake program to compile, hulls on an empty
+  // environment, and the dome showing its new target black, then filling
+  // in strip by strip as it baked
+  const [spec] = useState(() => ({ size, octaves }));
+  const sky = useMemo(() => createSky(gl, spec.size, spec.octaves), [gl, spec]);
+  useEffect(() => () => disposeSky(sky), [sky]);
 
-  const grainMap = useMemo(() => createGrainMap(), []);
-  const material = useMemo(
-    () =>
-      new ShaderMaterial({
-        uniforms: {
-          uMap: { value: target.texture },
-          uGrainMap: { value: grainMap },
-          uSize: { value: new Vector2(target.width, target.height) },
-          uGrain: { value: 1 },
-        },
-        vertexShader: domeVertex,
-        fragmentShader: domeFragment,
-        side: BackSide,
-        depthWrite: false,
-        fog: false,
-      }),
-    [target, grainMap]
-  );
-
-  // A same-sized stand-in, so everything compiles against the final
-  // environment's shader variant before the bake finishes
+  // Before WarmupGate's precompile (an earlier sibling's effects run first)
   useEffect(() => {
-    if (scene.environment) return;
-    const generator = new PMREMGenerator(gl);
-    const placeholder = generator.fromScene(new Scene(), 0, 0.1, 30);
-    generator.dispose();
-    applyEnvironment(scene, placeholder.texture);
-  }, [gl, scene]);
+    const compiled = installPlaceholder(sky, gl, scene);
+    if (compiled) track(compiled);
+  }, [sky, gl, scene, track]);
 
   useEffect(() => {
-    let current = true;
-    let environment: WebGLRenderTarget | null = null;
-    track(
-      bakeNebula(gl, target, theme, octaves, () => current).then(() => {
-        if (!current) return;
-        environment = buildEnvironment(gl, target, theme);
-        applyEnvironment(scene, environment.texture);
-      })
-    );
-    return () => {
-      current = false;
-      environment?.dispose();
-    };
-  }, [gl, scene, target, theme, octaves, track]);
+    const bake = requestSky(sky, gl, scene, theme, invalidate);
+    if (bake) track(bake);
+  }, [sky, gl, scene, theme, invalidate, track]);
 
-  useEffect(() => shareSky(target.texture), [target]);
-
-  useEffect(
-    () => () => {
-      material.dispose();
-      target.dispose();
-      grainMap.dispose();
-    },
-    [material, target, grainMap]
-  );
-
-  useFrame(({ camera }) => {
+  useFrame(({ camera }, delta) => {
     meshRef.current?.position.copy(camera.position);
+    followWarp(sky, delta);
+    stepSky(sky, scene, delta, invalidate);
   });
 
   return (
-    <mesh ref={meshRef} material={material} renderOrder={-10} frustumCulled={false}>
+    <mesh ref={meshRef} material={sky.dome} renderOrder={-10} frustumCulled={false}>
       <sphereGeometry args={[900, 48, 32]} />
     </mesh>
   );
-}
-
-function shareSky(texture: Texture) {
-  skyMap.value = texture;
-  return () => {
-    if (skyMap.value === texture) skyMap.value = null;
-  };
 }
 
 function applyEnvironment(scene: Scene, texture: Texture) {

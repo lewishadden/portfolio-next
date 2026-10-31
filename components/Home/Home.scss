@@ -107,7 +107,7 @@
 
   &__role-line {
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
     gap: 0.6rem;
   }
 
@@ -115,9 +115,26 @@
     color: var(--accent-primary);
   }
 
+  /* Every title stacked in one cell (RoleRotator), only the current one shown */
+  &__role-stack {
+    display: inline-grid;
+  }
+
+  &__role-title {
+    grid-area: 1 / 1;
+    visibility: hidden;
+
+    &--on {
+      visibility: visible;
+    }
+  }
+
   &__role-caret {
+    display: inline-block;
     width: 0.55em;
     height: 1.1em;
+    margin-left: 0.6rem;
+    vertical-align: -0.2em;
     background: var(--accent-secondary);
     box-shadow: 0 0 10px var(--accent-secondary);
     animation: caret 1s steps(1) infinite;
@@ -167,7 +184,7 @@
       font-size: var(--fs-tiny);
       letter-spacing: var(--tr-label);
       text-transform: uppercase;
-      color: var(--text-muted);
+      color: var(--text-secondary);
     }
 
     dd {

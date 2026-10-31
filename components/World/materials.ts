@@ -8,7 +8,35 @@ import {
   ShaderMaterial,
 } from 'three';
 
+import type { Material } from 'three';
 import type { WorldTheme } from './utils';
+
+/** Replaced materials waiting for the compile that hands their programs on (ThemeRetire) */
+let retiring: Material[] = [];
+
+/**
+ * Queues materials a theme switch replaced, for ThemeRetire (warmup.tsx) to
+ * dispose once a compile of the whole scene has handed the programs they
+ * share to their replacements. Disposed any sooner, a program used by
+ * nothing else would be deleted while its new owner had yet to draw (a far
+ * station, the heading projector, anything hidden or under a paused
+ * canvas), then linked again, synchronously, on the frame it next drew:
+ * mid-flight, or on an approach
+ */
+export function retireMaterials(materials: Iterable<Material>) {
+  retiring.push(...materials);
+}
+
+/** Takes everything queued so far (retireMaterials) */
+export function takeRetired() {
+  const taken = retiring;
+  retiring = [];
+  return taken;
+}
+
+export function disposeMaterials(materials: Iterable<Material>) {
+  for (const material of materials) material.dispose();
+}
 
 /* ------------------------------------------------------------------
    GLSL chunks
@@ -166,7 +194,8 @@ export function createRingMaterial({
 }
 
 /* ------------------------------------------------------------------
-   Fresnel rim — atmospheres, holographic shells
+   Fresnel rim — atmospheres, holographic shells. Like the other glows it
+   follows its station's power (`uCharge`, wired by useThemedMaterials)
    ------------------------------------------------------------------ */
 export function createFresnelMaterial({
   color,
@@ -187,6 +216,7 @@ export function createFresnelMaterial({
         uIntensity: { value: intensity },
         uLight: { value: 0 },
         uBackSide: { value: backSide ? 1 : 0 },
+        uCharge: { value: 1 },
       },
       vertexShader: /* glsl */ `
       varying vec3 vNormal;
@@ -202,7 +232,7 @@ export function createFresnelMaterial({
       varying vec3 vNormal;
       varying vec3 vView;
       uniform vec3 uColor;
-      uniform float uPower, uIntensity, uLight;
+      uniform float uPower, uIntensity, uLight, uCharge;
       uniform float uBackSide;
       void main() {
         float facing = dot(normalize(vNormal), normalize(vView));
@@ -213,7 +243,10 @@ export function createFresnelMaterial({
         float f = uBackSide > 0.5
           ? pow(clamp(-facing, 0.0, 1.0), uPower)
           : pow(clamp(1.0 - abs(facing), 0.0, 1.0), uPower);
-        gl_FragColor = vec4(uColor * mix(uIntensity, 1.0, uLight), f * mix(1.0, 0.7, uLight));
+        gl_FragColor = vec4(
+          uColor * mix(uIntensity, 1.0, uLight) * max(uCharge, 1.0),
+          f * mix(1.0, 0.7, uLight) * min(uCharge, 1.0)
+        );
       }
     `,
       transparent: true,

@@ -1,3 +1,5 @@
+@use '../../app/motion' as *;
+
 /* =============================================================
    Recommendations: quoted transmissions on the About page
    ============================================================= */
@@ -7,6 +9,8 @@
   margin-top: clamp(3rem, 7vw, 5rem);
 
   &__title {
+    /* As wide as its text (the world dims what is behind it, beside the station) */
+    justify-self: start;
     font-family: var(--font-display);
     font-size: clamp(1.6rem, 3.2vw, 2.4rem);
     font-weight: var(--fw-bold);
@@ -120,11 +124,13 @@
       color: var(--text-secondary);
     }
 
+    /* The date and relationship: small mono text on glass over the world,
+       so the secondary grey (muted fell to 4.1:1 over the sky) */
     small {
       font-family: var(--font-mono);
       font-size: var(--fs-tiny);
       letter-spacing: 0.06em;
-      color: var(--text-muted);
+      color: var(--text-secondary);
     }
   }
 
@@ -158,7 +164,14 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+/* Wide layouts: in the copy's column, clear of the station on the right */
+@media (min-width: 900px) and (min-aspect-ratio: 11 / 10) {
+  .recs {
+    max-width: min(46rem, 58vw);
+  }
+}
+
+@include reduced-motion {
   .recs__signal-dot {
     animation: none;
   }

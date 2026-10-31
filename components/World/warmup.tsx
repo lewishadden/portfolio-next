@@ -12,6 +12,8 @@ import { useThree } from '@react-three/fiber';
 import { Effect, Pass, RenderPass } from 'postprocessing';
 import { Group, Mesh, PlaneGeometry, Scene, Texture, WebGLRenderTarget } from 'three';
 
+import { disposeMaterials, takeRetired } from './materials';
+
 import type { ReactNode } from 'react';
 import type { EffectComposer } from 'postprocessing';
 import type { Camera, Material, Object3D, WebGLRenderer } from 'three';
@@ -283,6 +285,33 @@ export function WarmupGate({ onWarm }: { onWarm: () => void }) {
     done.current = true;
     onWarm();
   }, [idle, onWarm]);
+
+  return null;
+}
+
+/**
+ * Disposes the material sets a theme switch replaced (retireMaterials, from
+ * useThemedMaterials and the skills lines) once one compile of the whole
+ * scene has handed their programs to the new sets. Compiling walks hidden
+ * objects too (far stations, the heading projector, the visor, a canvas
+ * paused under the menu) and finds those programs still alive, so it
+ * relinks nothing; its synchronous part attaches them to the new sets
+ * before anything old goes. Every cleanup of a commit runs before any of
+ * its effects, so the switch's old sets are all queued by the time this
+ * runs. Renders inside the canvas, after everything that retires
+ */
+export function ThemeRetire({ theme }: { theme: string }) {
+  const { gl, scene, camera } = useThree();
+  const track = useWarmupTask();
+
+  useEffect(() => {
+    const gone = takeRetired();
+    if (!gone.length) return;
+    track(precompile(gl, scene, camera, scene).finally(() => disposeMaterials(gone)));
+  }, [theme, gl, scene, camera, track]);
+
+  // The canvas closing: whatever its unmount queued, once all of it has run
+  useEffect(() => () => queueMicrotask(() => disposeMaterials(takeRetired())), []);
 
   return null;
 }

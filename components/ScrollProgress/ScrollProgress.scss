@@ -13,6 +13,12 @@
     background: var(--gradient-brand);
     box-shadow: 0 0 12px var(--glow-cyan);
   }
+
+  /* While the header is a HUD it shows the page's progress along its own
+     bottom edge; this bar is for the flat header (3D effects off) */
+  html:has(.header--hud) & {
+    display: none;
+  }
 }
 
 .back-to-top {

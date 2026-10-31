@@ -18,7 +18,8 @@ export const ThemeToggle = () => {
         emitCue('theme');
       }}
       className={`theme-toggle theme-toggle--${theme}`}
-      aria-label={`Switch to ${next} mode`}
+      // A switch keeps one name and says its state through aria-checked
+      aria-label="Light theme"
       title={`Switch to ${next} mode`}
       type="button"
       role="switch"

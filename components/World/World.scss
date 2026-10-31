@@ -1,3 +1,7 @@
+@use 'sass:list';
+@use '../../app/motion' as *;
+@use '../../app/stars' as *;
+
 .world {
   position: fixed;
   inset: 0;
@@ -40,6 +44,48 @@
   }
 }
 
+/* The world off, or no JavaScript (nothing says the world will run): a
+   still sky in its place, the loading screen's stars over a faint nebula
+   drifting through the right of the view. With the world off
+   (html[data-world='off'], never set without JavaScript) a 2D station
+   render floats there (.station-fallback in app/page.scss) */
+html:not([data-world-expected]),
+html[data-world='off'] {
+  .world__backdrop {
+    --star: color-mix(in oklab, var(--text-primary) 60%, transparent);
+    --nebula-a: rgba(139, 92, 246, 0.16);
+    --nebula-b: rgba(34, 211, 238, 0.08);
+    --nebula-c: rgba(244, 114, 182, 0.07);
+
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+    }
+
+    &::before {
+      background:
+        radial-gradient(ellipse 38% 30% at 74% 28%, var(--nebula-a), transparent 70%),
+        radial-gradient(ellipse 26% 42% at 90% 64%, var(--nebula-b), transparent 70%),
+        radial-gradient(ellipse 55% 20% at 42% 88%, var(--nebula-c), transparent 70%);
+    }
+
+    &::after {
+      background-image: list.join(star-tile(14, 260), star-tile(20, 430), comma);
+      background-size: list.join(tile-sizes(14, 260px), tile-sizes(20, 430px), comma);
+      opacity: 0.75;
+    }
+  }
+
+  &[data-theme='light'] .world__backdrop {
+    --star: color-mix(in oklab, var(--accent-primary) 32%, transparent);
+    --nebula-a: rgba(167, 139, 250, 0.24);
+    --nebula-b: rgba(103, 232, 249, 0.2);
+    --nebula-c: rgba(244, 114, 182, 0.1);
+  }
+}
+
 @media (max-width: 899px) {
   .world__veil {
     background: linear-gradient(
@@ -52,8 +98,59 @@
   }
 }
 
-/* Sector map shown while the camera flies (and during tours / explore mode) */
+/* Dark theme on wide layouts: the copy column sits over the brightest of
+   the sky (the nebula's core, beacons, a station's glow), and light text
+   lost contrast there. The wash is stronger and reaches further across,
+   clear of the station by 70% of the width */
+@media (min-width: 900px) {
+  [data-theme='dark'] .world__veil {
+    background:
+      linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--bg-primary) 70%, transparent) 0%,
+        color-mix(in oklab, var(--bg-primary) 45%, transparent) 45%,
+        transparent 70%
+      ),
+      linear-gradient(
+        0deg,
+        color-mix(in oklab, var(--bg-primary) 40%, transparent),
+        transparent 30%
+      );
+  }
+}
+
+/* The projects ride on a short landscape screen (Projects.scss, the same
+   query): the screen has the cell on the left and the copy the right, so the
+   wash goes on the copy's side and the screen keeps its own brightness
+   (scoped to the page, not its outgoing ghost) */
+@media (max-height: 520px) and (orientation: landscape) {
+  html:has(#main-content .projects__stage[data-docked]) .world__veil {
+    background: linear-gradient(
+      270deg,
+      color-mix(in oklab, var(--bg-primary) 60%, transparent) 0%,
+      color-mix(in oklab, var(--bg-primary) 40%, transparent) 40%,
+      transparent 52%
+    );
+  }
+}
+
+/* Dark theme: a soft halo of the page's own background behind the lines
+   most often set straight over the sky, the page subtitle and the hero's
+   tagline (their secondary grey is the first to drop below 4.5:1) */
+[data-theme='dark'] :is(.page-sub, .hero__tag) {
+  text-shadow:
+    0 0 1px var(--bg-primary),
+    0 0 8px var(--bg-primary),
+    0 0 18px color-mix(in oklab, var(--bg-primary) 70%, transparent);
+}
+
+/* Sector map shown while the camera flies to a new page (and during tours /
+   explore mode). An opaque panel, no backdrop blur: its small type keeps its
+   contrast whatever flies behind it, and it costs no blur pass mid-flight */
 .nav-radar {
+  /* Free roam's signal colour (the HUD's), for the edge of the world */
+  --signal: #fbbf24;
+
   position: fixed;
   bottom: 24px;
   left: 24px;
@@ -62,16 +159,43 @@
   gap: 6px;
   padding: 10px 10px 8px;
   pointer-events: none;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-card);
   opacity: 0;
   transform: translateY(8px) scale(0.97);
   transition:
     opacity 0.45s var(--ease-out),
     transform 0.45s var(--ease-out);
 
+  [data-theme='light'] & {
+    --signal: #92400e;
+  }
+
   &--on {
     opacity: 1;
     transform: none;
+  }
+
+  /* Over the element that has keyboard focus (NavRadar): out of its way */
+  &--on.nav-radar--clear {
+    opacity: 0;
+    transition-duration: 0.2s;
+  }
+
+  /* The tour's card has the bottom of the screen: the map goes top left,
+     where the hidden header was. Small screens have no room for both, nor
+     short ones (a phone on its side), where the card stands at the right */
+  [data-world-mode='tour'] & {
+    top: 24px;
+    right: auto;
+    bottom: auto;
+    left: 24px;
+
+    @media (max-width: 760px), (max-height: 520px) {
+      display: none;
+    }
   }
 
   /* Free roam on touch: the move stick has its corner. Tablets lift the map
@@ -124,7 +248,7 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
+  @include reduced-motion {
     transition: none;
   }
 }
@@ -135,31 +259,77 @@ html.world-dragging {
   cursor: grabbing;
 }
 
-/* Label following the pointer over interactive 3D objects */
+/* The label for an interactive 3D object (WorldTooltip): brackets round the
+   object's projected box (worldStore.tipBox) and a tag beside it, all placed
+   each frame by transform from the viewport's top left */
 .world-tip {
   position: fixed;
   top: 0;
   left: 0;
   z-index: 70;
-  display: grid;
-  gap: 0.1rem;
-  padding: 0.45rem 0.7rem;
-  border-radius: var(--radius-sm);
   pointer-events: none;
-  background: var(--surface-strong);
-  transform: translate3d(-200px, -200px, 0);
   animation: world-tip-in 0.18s ease-out both;
 
-  b {
-    font-size: var(--fs-caption);
-    color: var(--text-primary);
+  &__corner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 12px;
+    height: 12px;
+    margin: -1px;
+    border: 0 solid var(--accent-secondary);
+    filter: drop-shadow(0 0 4px var(--glow-cyan));
+    opacity: 0;
+    transition: opacity 0.15s ease;
+
+    &--tl {
+      border-width: 2px 0 0 2px;
+    }
+
+    &--tr {
+      margin-left: -11px;
+      border-width: 2px 2px 0 0;
+    }
+
+    &--bl {
+      margin-top: -11px;
+      border-width: 0 0 2px 2px;
+    }
+
+    &--br {
+      margin: -11px 0 0 -11px;
+      border-width: 0 2px 2px 0;
+    }
   }
 
-  span {
-    font-family: var(--font-mono);
-    font-size: var(--fs-tiny);
-    letter-spacing: 0.08em;
-    color: var(--accent-secondary);
+  &[data-boxed] &__corner {
+    opacity: 0.9;
+  }
+
+  &__tag {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    gap: 0.1rem;
+    width: max-content;
+    max-width: min(18rem, calc(100vw - 16px));
+    padding: 0.45rem 0.7rem;
+    border-radius: var(--radius-sm);
+    background: var(--surface-strong);
+    transform: translate3d(-200px, -200px, 0);
+
+    b {
+      font-size: var(--fs-caption);
+      color: var(--text-primary);
+    }
+
+    span {
+      font-family: var(--font-mono);
+      font-size: var(--fs-tiny);
+      letter-spacing: 0.08em;
+      color: var(--accent-secondary);
+    }
   }
 }
 
@@ -170,10 +340,12 @@ html.world-dragging {
 }
 
 /* =============================================================
-   Tour and explore modes: the page steps aside for the world
+   Tour and explore modes: the page steps aside for the world, and
+   stays aside while the camera flies back to it ('returning', World)
    ============================================================= */
 html[data-world-mode='tour'],
-html[data-world-mode='explore'] {
+html[data-world-mode='explore'],
+html[data-world-mode='returning'] {
   overflow: hidden;
 
   #main-content,
@@ -195,6 +367,12 @@ html[data-world-mode='explore'] {
   transition: opacity 0.8s var(--ease-out);
 }
 
+/* A long flight between pages (World): no copy until the approach, so
+   nothing to veil, and the view is clear for the cruise */
+html[data-flight='cruise'] .world__veil {
+  opacity: 0;
+}
+
 /* ----- Guided tour caption card ----- */
 .tour {
   position: fixed;
@@ -203,7 +381,7 @@ html[data-world-mode='explore'] {
   z-index: 80;
   display: grid;
   gap: 0.6rem;
-  width: min(560px, calc(100vw - 32px));
+  width: min(620px, calc(100vw - 32px));
   padding: 1.1rem 1.25rem 1rem;
   border-radius: var(--radius-lg);
   background: var(--surface-strong);
@@ -262,14 +440,16 @@ html[data-world-mode='explore'] {
     transform: scaleX(0);
     transform-origin: left;
 
+    /* --tour-dwell: the stop's dwell, from its caption's length (TourOverlay) */
     &--run {
-      animation: tour-fill 6.5s linear forwards;
+      animation: tour-fill var(--tour-dwell, 6.5s) linear forwards;
     }
   }
 
   /* Holding the tour (TourOverlay) freezes the countdown too */
   &:hover &__fill--run,
-  &:has(:focus-visible) &__fill--run {
+  &:has(:focus-visible) &__fill--run,
+  &[data-paused] &__fill--run {
     animation-play-state: paused;
   }
 
@@ -283,6 +463,51 @@ html[data-world-mode='explore'] {
 
   &__btn {
     min-height: 40px;
+
+    @media (pointer: coarse) {
+      min-height: 44px;
+    }
+  }
+
+  /* Previous stop and pause: small round buttons */
+  &__controls {
+    display: inline-flex;
+    gap: 0.35rem;
+  }
+
+  &__icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+
+    /* Touch: 44px targets */
+    @media (pointer: coarse) {
+      width: 44px;
+      height: 44px;
+    }
+    color: var(--text-secondary);
+    transition:
+      color var(--dur-fast) ease,
+      border-color var(--dur-fast) ease;
+
+    &:hover {
+      border-color: var(--accent-secondary);
+      color: var(--accent-secondary);
+    }
+
+    &[aria-disabled='true'] {
+      opacity: 0.45;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    &[aria-pressed='true'] {
+      border-color: var(--accent-secondary);
+      color: var(--accent-secondary);
+    }
   }
 
   &__exit {
@@ -296,6 +521,12 @@ html[data-world-mode='explore'] {
     &:hover {
       color: var(--accent-secondary);
     }
+
+    @media (pointer: coarse) {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+    }
   }
 
   kbd {
@@ -303,6 +534,23 @@ html[data-world-mode='explore'] {
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-xs);
     font-family: var(--font-mono);
+  }
+
+  /* Short landscape screens (a phone on its side): at the bottom the card
+     would hide most of the station, so it stands at the right, and each stop
+     is framed in the space left of it (stations.ts tourFraming, which keeps
+     to this width and margin) */
+  @media (max-height: 520px) and (orientation: landscape) {
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    left: auto;
+    align-content: end;
+    width: min(400px, 48vw);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: none;
+    animation-name: tour-in-side;
   }
 }
 
@@ -313,10 +561,10 @@ html[data-world-mode='explore'] {
   }
 }
 
-@keyframes jet-flicker {
-  to {
-    transform: scale(0.82, 1.12);
-    opacity: 0.85;
+@keyframes tour-in-side {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
   }
 }
 
@@ -342,8 +590,14 @@ html[data-world-mode='explore'] {
   z-index: 80;
   pointer-events: none;
 
+  /* Focused as free roam starts (ExploreHud), so keys reach the HUD */
+  &:focus {
+    outline: none;
+  }
+
+  /* Dark enough for its text to keep 4.5:1 over the light sky */
   [data-theme='light'] & {
-    --signal: #b45309;
+    --signal: #92400e;
   }
 
   /* The top bar with the signal detector under it, however tall the bar
@@ -395,14 +649,136 @@ html[data-world-mode='explore'] {
   &__keys {
     font-size: var(--fs-caption);
     color: var(--text-secondary);
+
+    &[hidden] {
+      display: none;
+    }
   }
 
+  /* After the coach: the key legend waits behind this */
+  &__controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+
+    &[aria-expanded='true'] {
+      color: var(--accent-secondary);
+      border-color: var(--accent-secondary);
+    }
+  }
+
+  /* The sound toggle in the bar, sized to its other buttons (with a 44px
+     target round it to touch, as they have) */
+  &__top .world-toggle {
+    width: 34px;
+    height: 34px;
+
+    @media (pointer: coarse) {
+      &::after {
+        content: '';
+        position: absolute;
+        inset: -6px;
+      }
+    }
+  }
+
+  /* The first free roam's coach, under the bar */
+  &__coach {
+    display: grid;
+    gap: 0.6rem;
+    justify-items: start;
+    max-width: min(30rem, calc(100vw - 32px));
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-lg);
+    background: var(--surface-strong);
+    pointer-events: auto;
+    animation: hud-rise 0.35s var(--ease-out) both;
+  }
+
+  &__coach-steps {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__coach-step {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: var(--fs-caption);
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+
+    &[aria-current='step'] {
+      color: var(--text-primary);
+    }
+
+    /* Dimmed a little, not so far as to fall under 4.5:1 */
+    &[data-done] {
+      color: var(--text-secondary);
+      opacity: 0.85;
+    }
+  }
+
+  /* A ring for each step: lit for the current one, ticked once done */
+  &__coach-mark {
+    position: relative;
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 50%;
+
+    [aria-current='step'] > & {
+      border-color: var(--accent-secondary);
+      box-shadow: 0 0 10px -2px var(--glow-cyan);
+    }
+
+    [data-done] > & {
+      border-color: var(--status-ok);
+      background: var(--status-ok);
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 4px;
+        width: 3px;
+        height: 6px;
+        border: solid var(--bg-primary);
+        border-width: 0 1.5px 1.5px 0;
+        transform: rotate(45deg);
+      }
+    }
+  }
+
+  &__coach-done {
+    margin: 0;
+    font-size: var(--fs-caption);
+    color: var(--accent-secondary);
+  }
+
+  /* Exit, and the Controls button beside it. To touch, each has a 44px
+     target round it without growing the bar: on a phone the head already
+     reaches down towards the thumbsticks */
   &__exit {
     padding: 0.4rem 0.8rem;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-pill);
     font-size: var(--fs-caption);
     color: var(--text-primary);
+
+    @media (pointer: coarse) {
+      position: relative;
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset: -5px -2px;
+      }
+    }
 
     &:hover,
     &:focus-visible {
@@ -455,6 +831,32 @@ html[data-world-mode='explore'] {
     transform: translateX(-50%);
   }
 
+  /* The edge of the world (EdgeWarning): a warning over the reticle while
+     the ship is turned back; empty (and unseen) otherwise. Its frame
+     blinks, never its text, which keeps 4.5:1 over whatever is behind */
+  &__edge {
+    position: absolute;
+    top: calc(50% - 10vmin - 2rem);
+    left: 50%;
+    margin: 0;
+    padding: 2px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--signal);
+    border: 1px solid color-mix(in oklab, var(--signal) 55%, transparent);
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--bg-primary) 88%, transparent);
+    transform: translateX(-50%);
+    animation: edge-blink 1.6s ease-in-out infinite;
+
+    &:empty {
+      visibility: hidden;
+    }
+  }
+
   /* Steering reticle: hold the mouse inside the ring to fly straight (a
      plain crosshair when the pointer is locked and the mouse looks) */
   &__reticle {
@@ -467,6 +869,10 @@ html[data-world-mode='explore'] {
     border-radius: 50%;
     transform: translate(-50%, -50%);
     opacity: 0.7;
+    transition:
+      scale 0.18s var(--ease-out),
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
 
     &::before,
     &::after {
@@ -495,22 +901,43 @@ html[data-world-mode='explore'] {
       border-color: color-mix(in oklab, var(--accent-secondary) 55%, transparent);
       box-shadow: 0 0 14px -2px var(--glow-cyan);
     }
+
+    /* On something interactive (html[data-world-hover]): E or a click picks it */
+    &--target {
+      border-style: solid;
+      border-color: var(--accent-tertiary);
+      box-shadow:
+        0 0 18px -2px var(--accent-tertiary),
+        inset 0 0 10px -4px var(--accent-tertiary);
+      opacity: 1;
+      scale: 1.2;
+
+      &::before,
+      &::after {
+        background: var(--accent-tertiary);
+      }
+    }
   }
 
+  /* On a chip of its own, as the scan line is: under the reticle it passes
+     over clouds, the planet's rim and hulls, and a halo alone can't hold
+     4.5:1 over a bright cloud */
   &__lock {
     position: absolute;
     top: calc(50% + 34px);
     left: 50%;
     margin: 0;
+    padding: 2px 10px;
+    border: 1px solid color-mix(in oklab, var(--text-secondary) 25%, transparent);
+    border-radius: 4px;
     font-family: var(--font-mono);
     font-size: var(--fs-tiny);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     white-space: nowrap;
     color: var(--text-secondary);
-    text-shadow: 0 1px 8px var(--bg-primary);
+    background: color-mix(in oklab, var(--bg-primary) 88%, transparent);
     transform: translateX(-50%);
-    opacity: 0.85;
   }
 
   &__autopilot {
@@ -598,6 +1025,56 @@ html[data-world-mode='explore'] {
         background: var(--signal);
         box-shadow: 0 0 8px var(--signal);
       }
+    }
+  }
+
+  /* A sonar scan's status (SignalsHud's ScanStatus), last in the head:
+     backed, so it keeps its contrast over the sky. Empty, it takes no room
+     but stays a live region */
+  &__scan {
+    margin: 0;
+    padding: 2px 10px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--signal);
+    border: 1px solid color-mix(in oklab, var(--signal) 45%, transparent);
+    border-radius: 4px;
+    background: color-mix(in oklab, var(--bg-primary) 88%, transparent);
+
+    &:empty {
+      padding: 0;
+      border: 0;
+      background: none;
+    }
+  }
+
+  /* Touch's Scan button, over the rise and sink buttons (TouchSticks) */
+  &__scan-button {
+    position: absolute;
+    right: 64px;
+    bottom: calc(200px + 2 * 48px + 0.5rem + 16px);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 44px;
+    padding: 0 0.9rem;
+    border: 1px solid color-mix(in oklab, var(--signal) 55%, transparent);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--signal);
+    background: color-mix(in oklab, var(--surface-strong) 80%, transparent);
+    pointer-events: auto;
+    touch-action: manipulation;
+
+    &:focus-visible {
+      outline: 2px solid var(--signal);
+      outline-offset: 2px;
     }
   }
 
@@ -711,15 +1188,25 @@ html[data-world-mode='explore'] {
     animation: dock-sweep 1.3s 0.25s var(--ease-in-out) both;
   }
 
+  /* On a plate of its own: the docking beam (DockingBeam) runs from the
+     port down through the middle of the screen, right where this sits, and
+     the overlay's dimming is clear at its centre */
   &__docking-text {
     display: grid;
     justify-items: center;
     gap: 0.35rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
     font-family: var(--font-mono);
     font-size: var(--fs-tiny);
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--text-secondary);
+    color: var(--text-primary);
+    background: radial-gradient(
+      closest-side,
+      color-mix(in oklab, var(--bg-primary) 85%, transparent) 60%,
+      color-mix(in oklab, var(--bg-primary) 0%, transparent)
+    );
 
     b {
       font-family: var(--font-display);
@@ -916,69 +1403,6 @@ html[data-world-mode='explore'] {
       inset 0 0 18px -6px var(--glow-cyan);
   }
 
-  /* Boosting: a rocket jet fires under the middle of the view (BoostJet),
-     its flame longer the faster you go */
-  &__jet {
-    --thrust: 0;
-
-    position: absolute;
-    top: calc(50% + 60px);
-    left: 50%;
-    display: grid;
-    justify-items: center;
-    opacity: 0;
-    transform: translate(-50%, 8px) scale(0.9);
-    transition:
-      opacity 0.2s ease,
-      transform 0.25s var(--ease-out);
-
-    &[data-on] {
-      opacity: 1;
-      transform: translate(-50%, 0);
-    }
-  }
-
-  &__rocket {
-    position: relative;
-    z-index: 1;
-    filter: drop-shadow(0 0 6px var(--glow-violet));
-  }
-
-  &__rocket-window {
-    fill: var(--bg-primary);
-  }
-
-  &__flame {
-    width: 11px;
-    height: 34px;
-    margin-top: -3px;
-    border-radius: 50% / 25% 25% 75% 75%;
-    background: linear-gradient(
-      to bottom,
-      #fff 0%,
-      #a5f3fc 22%,
-      var(--accent-secondary) 48%,
-      color-mix(in oklab, var(--gradient-start) 70%, transparent) 78%,
-      transparent 100%
-    );
-    box-shadow: 0 0 16px 2px var(--glow-cyan);
-    transform-origin: top center;
-    scale: 1 calc(0.65 + var(--thrust) * 0.85);
-    animation: jet-flicker 0.11s ease-in-out infinite alternate;
-  }
-
-  &__jet-label {
-    position: absolute;
-    top: 7px;
-    left: calc(100% + 0.5rem);
-    font-family: var(--font-mono);
-    font-size: var(--fs-tiny);
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--accent-secondary);
-    text-shadow: 0 1px 8px var(--bg-primary);
-  }
-
   /* Rise and sink, stacked over the look stick's corner (centred on its
      rest, ExploreHud restInset), clear of the markers riding the edge */
   &__lift {
@@ -1003,8 +1427,9 @@ html[data-world-mode='explore'] {
   }
 }
 
-/* Phones held upright: the autopilot's status and the dock prompt sit in the
-   head, under the top bar, clear of the thumbsticks (ExploreHud) */
+/* Phones (upright, or on their side): the autopilot's status and the dock
+   prompt sit in the head, under the top bar, clear of the thumbsticks and
+   the buttons between them (ExploreHud) */
 .explore-hud__head {
   .explore-hud__autopilot,
   .explore-hud__dock {
@@ -1020,6 +1445,12 @@ html[data-world-mode='explore'] {
 @media (max-height: 500px) {
   .explore-hud__lift {
     right: 176px;
+    bottom: 60px;
+  }
+
+  /* Beside the rise and sink buttons, where there's no room over them */
+  .explore-hud__scan-button {
+    right: calc(176px + 48px + 12px);
     bottom: 60px;
   }
 }
@@ -1125,6 +1556,13 @@ html[data-world-mode='explore'] {
     }
   }
 
+  /* Keyboard focus rings the label too; the marker stays shown meanwhile
+     however near its station is (Waypoints) */
+  &:focus-visible .waypoint__text {
+    outline: 2px solid var(--tone);
+    outline-offset: 2px;
+  }
+
   /* Off screen: the arrow points the way; the label sits inwards of it */
   &--edge {
     .waypoint__mark {
@@ -1140,6 +1578,15 @@ html[data-world-mode='explore'] {
       left: auto;
       right: calc(cos(var(--turn)) * 34px);
       transform: translateX(calc(50% - cos(var(--turn)) * 50%));
+    }
+  }
+
+  /* A contact a sonar scan picked out: amber, round */
+  &--contact {
+    --tone: var(--signal);
+
+    .waypoint__mark {
+      border-radius: 50%;
     }
   }
 
@@ -1230,6 +1677,12 @@ html[data-world-mode='explore'] {
   }
 }
 
+@keyframes edge-blink {
+  50% {
+    border-color: color-mix(in oklab, var(--signal) 12%, transparent);
+  }
+}
+
 @keyframes autopilot-blink {
   50% {
     opacity: 0.35;
@@ -1262,20 +1715,42 @@ html[data-pointer-lock] {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@include reduced-motion {
   .tour,
   .explore-hud__dock,
   .explore-hud__autopilot {
     animation: none;
   }
 
+  .explore-hud__reticle,
+  .explore-hud__coach-step {
+    transition: none;
+  }
+
+  .explore-hud__coach {
+    animation: none;
+  }
+
   .waypoint--course .waypoint__mark,
+  .explore-hud__edge,
   .explore-hud__autopilot-dot,
   .explore-hud__signal,
   .explore-hud__detector,
   .explore-hud__clamp,
-  .explore-hud__sweep,
-  .explore-hud__flame {
+  .explore-hud__sweep {
     animation: none;
   }
+}
+
+/* Below full motion a change of station cuts the camera rather than flying
+   it (CameraRig): the canvas dips out over 150ms, holds while the view cuts,
+   and comes back in over 300ms (html[data-world-cut]). A fade, so it plays
+   at calm and still too: hence !important over the reduced-motion rule */
+html[data-world-cut='out'] .world__canvas {
+  opacity: 0 !important;
+  transition: opacity 150ms ease-in !important;
+}
+
+html[data-world-cut='in'] .world__canvas {
+  transition: opacity 300ms ease-out !important;
 }

@@ -21,7 +21,6 @@
     gap: 0.4rem;
     padding: 1.6rem 1.5rem 1.4rem;
     transition: transform 0.4s var(--ease-out);
-    transform-style: preserve-3d;
   }
 
   &__index {
@@ -105,5 +104,14 @@
   .stats__orbit {
     width: 32px;
     height: 32px;
+  }
+}
+
+/* Wide layouts: a 2×2 block in the copy's column, so the station on the right
+   stays clear (the camera keeps it beside the copy as the page is read) */
+@media (min-width: 900px) and (min-aspect-ratio: 11 / 10) {
+  .stats__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: min(46rem, 58vw);
   }
 }

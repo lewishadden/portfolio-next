@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
 
 import type { Camera } from 'three';
+import type { MotionLevel } from '@/utils/motion';
 
 /**
  * How the camera is moving, measured once a frame after whatever flies it
@@ -12,7 +13,7 @@ import type { Camera } from 'three';
  * motion: star and dust streaks, the streak blur. `focusX` / `focusY` are
  * where on screen (-1..1, y up) the camera is heading; `ahead` is how much
  * of its motion is into the view (1 straight ahead, 0 sideways, negative
- * backwards). Snaps (reduced motion, teleports) never count as motion.
+ * backwards). Snaps (motion held back, teleports) never count as motion.
  */
 export const cameraMotion = {
   velocity: new Vector3(),
@@ -56,11 +57,14 @@ function measure(
   motion.focusY = heading.y;
 }
 
-/** Mount after CameraRig and ExploreControls, so it measures this frame's move */
-export function MotionProbe({ reducedMotion }: { reducedMotion: boolean }) {
+/**
+ * Mount after CameraRig and ExploreControls, so it measures this frame's
+ * move. Below full motion nothing counts, free roam included: no streaks
+ */
+export function MotionProbe({ motion }: { motion: MotionLevel }) {
   const previous = useRef({ position: new Vector3(), started: false });
   useFrame(({ camera }, delta) =>
-    measure(camera, previous.current, Math.min(delta, 0.1), reducedMotion)
+    measure(camera, previous.current, Math.min(delta, 0.1), motion !== 'full')
   );
   return null;
 }

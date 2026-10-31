@@ -1,3 +1,5 @@
+@use '../../app/motion' as *;
+
 /* =============================================================
    Mobile menu. It sits under the header (z-index 49), so the bar
    and its close button stay on top. With the header a HUD (3D
@@ -205,15 +207,17 @@
     box-shadow: 0 0 10px var(--status-ok);
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    &__item,
-    &[data-open] &__item {
+  &__item,
+  &[data-open] &__item {
+    @include reduced-motion {
       transform: none;
       transition: opacity 0.2s ease;
       transition-delay: 0s;
     }
+  }
 
-    &[data-open] &__link::after {
+  &[data-open] &__link::after {
+    @include reduced-motion {
       animation: none;
     }
   }
@@ -370,7 +374,7 @@
     transition: none;
   }
 
-  @media (prefers-reduced-motion: reduce) {
+  @include reduced-motion {
     transition:
       opacity 0.2s ease,
       visibility 0s linear 0.2s;

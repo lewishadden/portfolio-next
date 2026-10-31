@@ -1,13 +1,34 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } from 'three';
+import { useFrame, useThree } from '@react-three/fiber';
+import { CatmullRomCurve3, Euler, Fog, MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
+import { motionLevel } from '@/utils/motion';
+
+import { ambientTime } from './clock';
+import { colliderCount, contactWith, courseBlock, shipMargin } from './colliders';
+import {
+  aimingReticle,
+  clickTarget,
+  refreshPointer,
+  releaseHover,
+  reticleFreed,
+} from './interaction';
+import { spawnPing } from './Pings';
+import { cometAt, signals } from './signalStore';
 import { canLockPointer, lockPointer } from './pointerLock';
-import { navigableStations, stationForPath } from './routes';
+import {
+  navigableStations,
+  parkingOffset,
+  sectorCentre,
+  sectorRadius,
+  stationForPath,
+  stationKeys,
+} from './routes';
 import { applyShake } from './shake';
-import { setViewRange, useLite } from './stationHooks';
+import { spawnSparks } from './Sparks';
+import { fogTarget, setViewRange, useLite } from './stationHooks';
 import { baseFov, beaconHeight, stationPositions } from './stations';
 import { worldMode } from './worldMode';
 import {
@@ -17,16 +38,21 @@ import {
   setDock,
   setDocking,
   worldBumpEvent,
+  worldScanEvent,
   worldStore,
 } from './worldStore';
 
+import type { RootState } from '@react-three/fiber';
 import type { Scene } from 'three';
+import type { Contact, CourseBlock } from './colliders';
 import type { StationKey } from './routes';
+import type { Signal } from './signalStore';
 
 /* ------------------------------------------------------------------
    Free flight. While the world is in explore mode the visitor flies the
-   camera: keys or the on-screen pad to move, and the mouse steers. The
-   pointer is locked, so the cursor stays in the middle of the screen and
+   camera: keys or the on-screen pad to move, and the mouse steers (R / V
+   and PageUp / PageDown tip the nose too). The pointer is locked, so the
+   cursor stays in the middle of the screen and
    every movement turns the view at once, like a flight sim (Esc frees
    the mouse for the HUD; a click takes it back). Where the pointer can't
    be locked, the further the mouse rests from the centre the faster the
@@ -36,10 +62,13 @@ import type { StationKey } from './routes';
    Finding your way: the fog draws back so distant stations stay in
    sight, the HUD marks every station (edge arrows for those off screen),
    and the number keys (or a click on a marker) set the autopilot, which
-   turns, flies and brakes to park in front of that station. Flying close
+   turns, flies and brakes to park in front of that station (or a little
+   short of a signal, for a 'signal:<id>' course). Flying close
    to a station offers to dock, which opens its page (the camera rig then
-   flies the last stretch in). Hulls push you back out rather than
-   letting you clip inside them.
+   flies the last stretch in). Hulls, and simple solids standing in for
+   the experience beam, the projects helix, the derelict and the signal
+   craft (colliders.ts), push you back out rather than letting you clip
+   inside them. The edge of the world (sectorRadius) turns you back.
    ------------------------------------------------------------------ */
 
 const keys = new Map<string, keyof typeof exploreInput>([
@@ -53,8 +82,12 @@ const keys = new Map<string, keyof typeof exploreInput>([
   ['ArrowRight', 'turn'],
   ['Space', 'lift'],
   ['KeyC', 'lift'],
+  ['KeyR', 'pitch'],
+  ['PageUp', 'pitch'],
+  ['KeyV', 'pitch'],
+  ['PageDown', 'pitch'],
 ]);
-const negative = new Set(['KeyS', 'ArrowDown', 'KeyA', 'ArrowLeft', 'KeyC']);
+const negative = new Set(['KeyS', 'ArrowDown', 'KeyA', 'ArrowLeft', 'KeyC', 'KeyV', 'PageDown']);
 /** Digit keys set course: 0 is Home, as on the beacons and the HUD */
 const digit = /^(?:Digit|Numpad)(\d)$/;
 
@@ -69,7 +102,15 @@ const goal = new Vector3();
 const aim = new Vector3();
 const point = new Vector3();
 const view = new Vector3();
-const centre = new Vector3(0, 0, -110);
+const centre = new Vector3(...sectorCentre);
+const outward = new Vector3();
+const detour = new Vector3();
+const roundWay = new Vector3();
+const radial = new Vector3();
+const across = new Vector3();
+/** Where the course is headed: what it is following, if anything (the comet moves) */
+const targetVelocity = new Vector3();
+const comet = new Vector3();
 
 const dockRange = 18;
 /** Pointer locked: radians of turn per pixel the mouse moves */
@@ -84,25 +125,59 @@ const nudge = 0.0016;
 const stickDeadZone = 0.12;
 const stickYawRate = 1.9;
 const stickPitchRate = 1.2;
-const hullRadius = 5.5;
 /** Fastest a bump into a hull can be met without a jolt (units per second) */
 const gentle = 3;
 /** Steepest bank into a turn (radians), and how much each radian a second of turning banks */
 const maxBank = 0.3;
 const bankPerRate = 0.13;
-const worldRadius = 520;
+/** Pitch keys: how fast they tip the nose (rad/s) */
+const pitchRate = 1.1;
+/** Past the edge of the world (sectorRadius): how fast the ship is drawn back in, per unit beyond it (1/s) */
+const edgeSpring = 3;
+/** However it got there (a long frame, a hull pushing it out), the ship is never further past the edge than this */
+const edgeSlack = 4;
+/** The edge shimmers into view (worldStore.edge) over this much of the way to it */
+const edgeWarning = 60;
 /** Fog in free roam: pushed out this far so the whole line of stations stays in sight */
 const exploreFog = { near: 70, far: 460, liteFar: 300 };
-/** Autopilot: parks this far in front of the station's face (pages frame it from +Z) */
-const approach = new Vector3(0, 1.5, 16);
+/** Autopilot: parks this far in front of the station's face (routes.ts) */
+const approach = new Vector3(...parkingOffset);
 /** Autopilot: coming from behind a station it rounds its side, this far out, rather than through it */
 const rounding = 22;
 /** Autopilot: top speed, braking (units/s²) and turn rate cap (rad/s) */
 const autoSpeed = 58;
 const autoBrake = 16;
 const autoTurn = 1.7;
+/**
+ * Autopilot's last stretch: how quickly the ship's speed answers the
+ * autopilot (per second) far out and close in, and the speed it wants per
+ * unit still to go once that close. A quarter of the response is
+ * critically damped, so it eases into where it parks without overshooting
+ * (a signal's craft is only a few units past its stand-off)
+ */
+const autoResponse = { far: 2.6, near: 6 };
+const autoEase = autoResponse.near / 4;
 /** Mouse travel (px, locked) that takes the controls back from the autopilot */
 const takeOver = 80;
+/** Autopilot: points along the course it publishes for the radar and the course line */
+const courseSamples = 26;
+/**
+ * Autopilot to something on the move (the comet): the course is planned
+ * again once its goal is this far from where the course ends (units), at
+ * most every `replanEvery` seconds
+ */
+const courseDrift = 4;
+const replanEvery = 0.5;
+/**
+ * Autopilot to a signal ('signal:<id>'): parks this far short of it, on
+ * the ship's side (further from the derelict, whose wreck spreads wide and
+ * sits a few units towards the line of stations: colliders.ts)
+ */
+const standOff = 6;
+const standOffFor: Partial<Record<Signal['id'], number>> = { derelict: 11 };
+/** Free roam: how far ahead the reticle picks things out (world units), and every how many frames it looks */
+const reach = 60;
+const aimEvery = 3;
 
 /** Shortest signed angle from `a` to `b` */
 const wrap = (angle: number) => MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
@@ -123,7 +198,7 @@ function stickTurn(offset: number) {
 const overControls = (target: EventTarget | null) =>
   target instanceof Element &&
   !!target.closest(
-    'button, a, input, .explore-hud__top, .explore-hud__dock, .explore-hud__lift, .explore-hud__waypoints'
+    'button, a, input, .explore-hud__top, .explore-hud__coach, .explore-hud__autopilot, .explore-hud__signal, .explore-hud__dock, .explore-hud__lift, .explore-hud__waypoints'
   );
 
 function typing(target: EventTarget | null) {
@@ -151,8 +226,10 @@ function reachOut(scene: Scene, exploring: boolean, lite: boolean, dt: number) {
     base = { near: fog.near, far: fog.far };
     fogBase.set(fog, base);
   }
-  const far = exploring ? (lite ? exploreFog.liteFar : exploreFog.far) : base.far;
-  const near = exploring ? exploreFog.near : base.near;
+  // Outside free roam: the fog's own, or drawn back while a flight is under way (fogTarget)
+  const settled = exploring ? null : fogTarget(base, lite);
+  const far = settled ? settled.far : lite ? exploreFog.liteFar : exploreFog.far;
+  const near = settled ? settled.near : exploreFog.near;
   if (Math.abs(fog.far - far) < 0.5 && Math.abs(fog.near - near) < 0.5) return;
   fog.far = MathUtils.damp(fog.far, far, 1.4, dt);
   fog.near = MathUtils.damp(fog.near, near, 1.4, dt);
@@ -192,39 +269,297 @@ interface LookState {
   since: number;
   /** Clock time of the last bump into a hull */
   bumpedAt: number;
-  /** Reduced motion: no banking, no jolts */
+  /** Motion below full (calm or still): no banking, no jolts */
   calm: boolean;
+  /** Frames since free roam began, for looking again under the reticle every few */
+  frames: number;
+  /** The reticle aimed last frame (the pointer was locked) */
+  aiming: boolean;
+  /** The course worldStore.autopilotPath was planned for ('' for none), and when (clock time) */
+  planned: string;
+  plannedAt: number;
+  /** Colliders the camera started free roam inside (colliders.ts): not enforced until it leaves them */
+  excused: Set<number>;
+}
+
+/**
+ * What is under the pointer is looked at again every few frames as the
+ * ship flies (under the reticle when the pointer is locked), no further
+ * than `reach`; outside free roam the raycaster reaches as far as it can
+ */
+function aimReticle(state: RootState, look: LookState) {
+  if (state.raycaster.far !== reach) state.raycaster.far = reach;
+  const aiming = aimingReticle();
+  // The mouse was freed: a hover only the reticle could end lets go now
+  if (look.aiming && !aiming) reticleFreed(state);
+  look.aiming = aiming;
+  look.frames++;
+  if (look.frames % aimEvery === 0) refreshPointer(state);
+}
+
+/** Free roam is over: hovers made under the reticle end, and the raycaster reaches as far as it can */
+function stopAiming(state: RootState, look: LookState) {
+  state.raycaster.far = Infinity;
+  look.aiming = false;
+  releaseHover(state);
 }
 
 /** A knock against a hull, `speed` units a second into it: a jolt, a flash of the HUD and a thud */
-function bump(speed: number, t: number, state: LookState) {
+function bump(speed: number, t: number, state: LookState, hit: Contact, incoming: Vector3) {
   if (t - state.bumpedAt < 0.35) return;
   state.bumpedAt = t;
   const strength = MathUtils.clamp(speed / 30, 0.25, 1);
   worldStore.shake = Math.max(worldStore.shake, strength);
-  emitCue('bump');
+  emitCue('bump', { at: [hit.point.x, hit.point.y, hit.point.z], strength });
   window.dispatchEvent(new CustomEvent(worldBumpEvent, { detail: strength }));
+  // A ring of light where the hull was struck, and sparks off it (full
+  // motion). The thud is its sound: the ring doesn't chime as a click's does
+  spawnPing(hit.point, { cue: false });
+  spawnSparks(hit.point, hit.normal, incoming, strength);
+}
+
+const contact: Contact = { normal: new Vector3(), gap: 0, point: new Vector3() };
+/** The ship's velocity going into a hull, before it bounced */
+const incoming = new Vector3();
+
+/**
+ * Colliders the ship is already inside as free roam starts: left alone
+ * until it is clear of them (`idle`: ambient time, where the comet is)
+ */
+function excuseColliders(position: Vector3, idle: number, state: LookState) {
+  state.excused.clear();
+  for (let i = 0; i < colliderCount; i++) {
+    if (contactWith(i, position, idle, contact)) state.excused.add(i);
+  }
+}
+
+/**
+ * Pushes the ship back out of anything it has flown into, bouncing off
+ * rather than grinding along (`t`: the clock, timing the knocks; `idle`:
+ * ambient time, where the comet is)
+ */
+function collide(cam: PerspectiveCamera, t: number, idle: number, state: LookState) {
+  for (let i = 0; i < colliderCount; i++) {
+    if (!contactWith(i, cam.position, idle, contact)) {
+      state.excused.delete(i);
+      continue;
+    }
+    if (state.excused.has(i)) continue;
+    cam.position.addScaledVector(contact.normal, shipMargin - contact.gap);
+    const into = -velocity.dot(contact.normal);
+    if (into <= 0) continue;
+    incoming.copy(velocity);
+    velocity.addScaledVector(contact.normal, into * 1.5);
+    if (into > gentle) bump(into, t, state, contact, incoming);
+  }
+}
+
+/**
+ * Autopilot: coming from behind a station (`from` on its far side), the
+ * course first rounds its side, `rounding` out, until within 8 units of
+ * that point. True when it does; `out` is then the point to round
+ */
+function roundsSide(from: Vector3, at: Vector3, out: Vector3) {
+  if (from.z >= at.z + 4) return false;
+  const side = Math.sign(from.x - at.x) || 1;
+  out.set(at.x + side * rounding, at.y + 2, at.z + 6);
+  return from.distanceTo(out) > 8;
+}
+
+const block: CourseBlock = { centre: new Vector3(), radius: 0, along: 0 };
+const candidate: CourseBlock = { centre: new Vector3(), radius: 0, along: 0 };
+const candidateWay = new Vector3();
+const straight = new Vector3();
+/** Autopilot: how far ahead along its way round a solid the course aims */
+const roundLookAhead = 12;
+
+/**
+ * The side of `centre` a course from `from` passes on to reach `other`:
+ * across `out` from the solid to the ship, towards where it is going (over
+ * the top when that lies straight beyond the solid)
+ */
+function sideOf(centre: Vector3, from: Vector3, other: Vector3, out: Vector3) {
+  radial.subVectors(from, centre).normalize();
+  out.subVectors(other, centre).addScaledVector(radial, -out.dot(radial));
+  if (out.lengthSq() < 1e-6) {
+    out.set(0, 1, 0).addScaledVector(radial, -radial.y);
+    if (out.lengthSq() < 1e-6) out.set(1, 0, 0);
+  }
+  return out.normalize();
+}
+
+/**
+ * The way round a solid in a course's path (`solid`), as a direction:
+ * along the line from the ship that just grazes the solid's clearance, on
+ * the side where it is going, or straight round it once that close. As the
+ * ship flies it this meets the straight course the moment that clears the
+ * solid, so the course never jumps from one to the other
+ */
+function roundSolid(solid: CourseBlock, from: Vector3, toward: Vector3, out: Vector3) {
+  const distance = from.distanceTo(solid.centre);
+  sideOf(solid.centre, from, toward, across);
+  const sin = Math.min(1, solid.radius / Math.max(distance, 1e-3));
+  return out
+    .copy(radial)
+    .multiplyScalar(-Math.sqrt(1 - sin * sin))
+    .addScaledVector(across, sin);
+}
+
+/**
+ * Autopilot: what stands in the way of the straight course from `from` to
+ * `toward` (the hull of the station it is leaving, most often). Of the
+ * solids it runs too close to, the one it has to turn furthest to round
+ * goes into `block`, and the way round it into `way`; false when the way
+ * is clear
+ */
+function inTheWay(from: Vector3, toward: Vector3, way: Vector3) {
+  let found = false;
+  let turn = 2;
+  straight.subVectors(toward, from).normalize();
+  for (let i = 0; i < colliderCount; i++) {
+    if (!courseBlock(i, from, toward, candidate)) continue;
+    const ahead = roundSolid(candidate, from, toward, candidateWay).dot(straight);
+    if (found && ahead >= turn) continue;
+    found = true;
+    turn = ahead;
+    block.centre.copy(candidate.centre);
+    block.radius = candidate.radius;
+    block.along = candidate.along;
+    way.copy(candidateWay);
+  }
+  return found;
+}
+
+/**
+ * Where a course from `from` meets the clearance round `block` on its way
+ * to `other` (the point its grazing line touches): with `from` the ship,
+ * where it starts round the solid; with `from` the goal, where it leaves it
+ */
+function grazePoint(from: Vector3, other: Vector3, out: Vector3) {
+  const distance = from.distanceTo(block.centre);
+  sideOf(block.centre, from, other, across);
+  const cos = Math.min(1, block.radius / Math.max(distance, 1e-3));
+  return out
+    .copy(radial)
+    .multiplyScalar(cos * block.radius)
+    .addScaledVector(across, Math.sqrt(1 - cos * cos) * block.radius)
+    .add(block.centre);
+}
+
+/** The course line's way from `from` to `to`: the points it rounds anything in its path by */
+function legPoints(from: Vector3, to: Vector3, points: Vector3[]) {
+  if (inTheWay(from, to, roundWay)) {
+    points.push(grazePoint(from, to, new Vector3()), grazePoint(to, from, new Vector3()));
+  }
+  points.push(to.clone());
+}
+
+const isStation = (course: string): course is StationKey =>
+  (stationKeys as readonly string[]).includes(course);
+
+/**
+ * Where a course leads, seen from `from`: into `station` (what to face on
+ * arrival), `goal` (where to park) and `targetVelocity` (how fast that is
+ * moving). A station key parks in front of the station; 'signal:<id>'
+ * parks a little short of that signal on the ship's side (the comet
+ * followed along its orbit, `t` ambient time, which holds at the still
+ * level). Which it is, or null for a course that leads nowhere
+ */
+function resolveCourse(course: string, from: Vector3, t: number): 'station' | 'signal' | null {
+  targetVelocity.set(0, 0, 0);
+  if (isStation(course)) {
+    station.fromArray(stationPositions[course]);
+    goal.copy(station).add(approach);
+    return 'station';
+  }
+  const signal = course.startsWith('signal:')
+    ? signals.find((s) => s.id === course.slice('signal:'.length))
+    : undefined;
+  if (!signal) return null;
+  if (signal.id === 'comet') {
+    // How fast it is moving along its orbit, so the ship can match it (not
+    // at all at the still level, where it holds)
+    cometAt(t, station);
+    if (motionLevel() !== 'still') {
+      targetVelocity.subVectors(cometAt(t + 0.05, comet), station).divideScalar(0.05);
+    }
+  } else station.fromArray(signal.position);
+  goal.subVectors(from, station);
+  if (goal.lengthSq() < 1e-6) goal.set(0, 0, 1);
+  goal.setLength(standOffFor[signal.id] ?? standOff).add(station);
+  return 'signal';
+}
+
+const noCourse = new Float32Array(0);
+
+/**
+ * The autopilot's course, as the radar and the course line draw it: from
+ * the camera, round anything in its way (the station it is leaving, say)
+ * and round the station's side if flyTo will, to where it parks.
+ * `courseSamples` points (x, y, z triples) along a curve through them
+ */
+function planCourse(course: string, from: Vector3, t: number) {
+  const kind = resolveCourse(course, from, t);
+  if (!kind) return noCourse;
+  const end = goal.clone();
+  const points = [from.clone()];
+  const round = new Vector3();
+  if (kind === 'station' && roundsSide(from, station, round)) {
+    legPoints(from, round, points);
+    legPoints(round, end, points);
+  } else legPoints(from, end, points);
+  const curve = new CatmullRomCurve3(points, false, 'centripetal');
+  const path = new Float32Array(courseSamples * 3);
+  for (let i = 0; i < courseSamples; i++) {
+    curve.getPointAt(i / (courseSamples - 1), point).toArray(path, i * 3);
+  }
+  return path;
+}
+
+/**
+ * Keeps worldStore.autopilotPath in step with the autopilot: planned when a
+ * course is set (a new array, so whoever draws it sees the change), and
+ * again from where the ship is as a signal's goal moves off the end of it
+ * (the comet flies on along its orbit), emptied when the autopilot hands
+ * back the controls
+ */
+function trackCourse(course: string, from: Vector3, t: number, state: LookState) {
+  if (course !== state.planned) {
+    state.planned = course;
+    state.plannedAt = t;
+    worldStore.autopilotPath = course ? planCourse(course, from, t) : noCourse;
+    return;
+  }
+  const path = worldStore.autopilotPath;
+  if (!course.startsWith('signal:') || path.length < 3 || t - state.plannedAt < replanEvery) return;
+  if (resolveCourse(course, from, t) !== 'signal') return;
+  if (goal.distanceToSquared(point.fromArray(path, path.length - 3)) < courseDrift ** 2) return;
+  state.plannedAt = t;
+  worldStore.autopilotPath = planCourse(course, from, t);
 }
 
 /**
  * Autopilot: turns towards where it is going (round the station's side
- * first when coming from behind it), burns once roughly facing that way and
- * brakes to park in front of the station, turning to face it on the last
- * stretch. Returns true once it is parked and facing the station.
+ * first when coming from behind it, and round anything in the way, such as
+ * the hull of the station it is leaving), burns once roughly facing that way and
+ * brakes to park in front of the station (or short of the signal), turning
+ * to face it on the last stretch. Returns true once it is parked and facing
+ * it, or at once for a course that leads nowhere.
  */
-function flyTo(key: StationKey, state: LookState, cam: PerspectiveCamera, dt: number) {
-  station.fromArray(stationPositions[key]);
-  goal.copy(station).add(approach);
+function flyTo(course: string, state: LookState, cam: PerspectiveCamera, t: number, dt: number) {
+  const kind = resolveCourse(course, cam.position, t);
+  // Nowhere to go: hand the controls back
+  if (!kind) return true;
   let left = cam.position.distanceTo(goal);
   let toward = goal;
-  if (cam.position.z < station.z + 4) {
-    const side = Math.sign(cam.position.x - station.x) || 1;
-    point.set(station.x + side * rounding, station.y + 2, station.z + 6);
-    const lap = cam.position.distanceTo(point);
-    if (lap > 8) {
-      toward = point;
-      left = lap + point.distanceTo(goal);
-    }
+  if (kind === 'station' && roundsSide(cam.position, station, point)) {
+    toward = point;
+    left = cam.position.distanceTo(point) + point.distanceTo(goal);
+  }
+  // Anything in the way (the hull of the station it is leaving, most
+  // often): the course goes round it, grazing its clearance
+  if (inTheWay(cam.position, toward, roundWay)) {
+    toward = detour.copy(cam.position).addScaledVector(roundWay, roundLookAhead);
   }
   wish.subVectors(toward, cam.position);
   const distance = wish.length();
@@ -237,14 +572,25 @@ function flyTo(key: StationKey, state: LookState, cam: PerspectiveCamera, dt: nu
 
   forward.set(0, 0, -1).applyEuler(euler.set(state.pitch, state.yaw, 0, 'YXZ'));
   const facing = distance > 1e-3 ? forward.dot(view.copy(wish).divideScalar(distance)) : 1;
-  // Faster than it can stop in would overshoot: v² = 2·a·d
+  // Faster than it can stop in would overshoot: v² = 2·a·d. Close in it
+  // eases in like a damped spring, answering faster, so it comes to rest
+  // where it parks rather than coasting on past
+  const response = MathUtils.lerp(
+    autoResponse.far,
+    autoResponse.near,
+    1 - MathUtils.smoothstep(left, 10, 30)
+  );
   const speed =
-    Math.min(autoSpeed, Math.sqrt(2 * autoBrake * left)) *
+    Math.min(autoSpeed, Math.sqrt(2 * autoBrake * left), autoEase * left) *
     (settling ? 1 : MathUtils.smoothstep(facing, 0.35, 0.9));
-  wish.setLength(speed);
-  velocity.lerp(wish, 1 - Math.exp(-2.6 * dt));
+  // Brakes to the target's own speed, so it closes on the comet as it moves
+  wish.setLength(speed).add(targetVelocity);
+  velocity.lerp(wish, 1 - Math.exp(-response * dt));
   const aligned = Math.abs(yaw - state.yaw) < 0.05 && Math.abs(pitch - state.pitch) < 0.05;
-  return settling && distance < 2 && velocity.length() < 3 && aligned;
+  // Arrived once close, facing it and moving with it: handing back sooner
+  // would leave the ship coasting on into the craft it stood off from
+  const still = velocity.distanceTo(targetVelocity) < 3;
+  return settling && distance < 2 && still && aligned;
 }
 
 /** Docking: drifts to a stop and turns to face the station while the clamps close */
@@ -267,8 +613,14 @@ export function ExploreControls() {
     since: 0,
     bumpedAt: -Infinity,
     calm: false,
+    frames: 0,
+    aiming: false,
+    planned: '',
+    plannedAt: 0,
+    excused: new Set(),
   });
   const lite = useLite();
+  const get = useThree((s) => s.get);
 
   // Keyboard: held keys set the axes; digits set course; Escape leaves
   useEffect(() => {
@@ -278,6 +630,7 @@ export function ExploreControls() {
       exploreInput.strafe = 0;
       exploreInput.lift = 0;
       exploreInput.turn = 0;
+      exploreInput.pitch = 0;
       for (const code of held) {
         const axis = keys.get(code);
         if (axis && axis !== 'boost' && axis !== 'lookX' && axis !== 'lookY') {
@@ -294,13 +647,26 @@ export function ExploreControls() {
         return;
       }
       if (e.key === 'Shift') exploreInput.boost = true;
+      const plain = !e.metaKey && !e.ctrlKey && !e.altKey;
+      // E clicks what the reticle (or the free pointer) is on
+      if (e.code === 'KeyE' && plain) {
+        if (!e.repeat && clickTarget(get())) e.preventDefault();
+        return;
+      }
+      // F asks for a sonar scan (the signals listen for it)
+      if (e.code === 'KeyF' && plain) {
+        e.preventDefault();
+        if (!e.repeat) window.dispatchEvent(new CustomEvent(worldScanEvent));
+        return;
+      }
       const course = digit.exec(e.code);
-      if (course && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (course && plain) {
         e.preventDefault();
         setCourse(Number(course[1]));
         return;
       }
-      if (keys.has(e.code)) {
+      // With Cmd, Ctrl or Alt it is the browser's (Cmd+R reloads), not a flight key
+      if (keys.has(e.code) && plain) {
         e.preventDefault();
         held.add(e.code);
         apply();
@@ -308,6 +674,13 @@ export function ExploreControls() {
     };
     const upKey = (e: KeyboardEvent) => {
       if (e.key === 'Shift') exploreInput.boost = false;
+      // macOS never sends the keyup of a key let go while Cmd is down, so
+      // letting go of Cmd lets go of them all rather than leave one stuck
+      if (e.key === 'Meta' && held.size) {
+        held.clear();
+        apply();
+        return;
+      }
       if (held.delete(e.code)) apply();
     };
     const blur = () => {
@@ -323,7 +696,7 @@ export function ExploreControls() {
       window.removeEventListener('keyup', upKey);
       window.removeEventListener('blur', blur);
     };
-  }, []);
+  }, [get]);
 
   // The mouse looks (locked) or steers by where it rests. Touch is the
   // thumbsticks' (ExploreHud), which steer through the same input
@@ -375,7 +748,11 @@ export function ExploreControls() {
     };
   }, []);
 
-  useFrame(({ camera, clock, scene }, delta) => {
+  useFrame((root, delta) => {
+    const { camera, clock, scene } = root;
+    // Where the comet is (and so the courses to it and its collider) goes
+    // by ambient time, as Signals draws it; the clock times events
+    const idle = ambientTime(root);
     const state = look.current;
     const yawBefore = state.yaw;
     const dt = Math.min(delta, 1 / 20);
@@ -388,6 +765,9 @@ export function ExploreControls() {
         setDock('');
         setAutopilot('');
         setDocking('');
+        stopAiming(root, state);
+        trackCourse('', camera.position, idle, state);
+        worldStore.edge = 0;
       }
       return;
     }
@@ -398,21 +778,31 @@ export function ExploreControls() {
     if (!state.active) {
       state.active = true;
       state.since = clock.elapsedTime;
-      state.calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       euler.setFromQuaternion(cam.quaternion, 'YXZ');
       state.yaw = euler.y;
       state.pitch = euler.x;
       state.roll = 0;
+      state.aiming = false;
       velocity.set(0, 0, 0);
       exploreInput.steerX = 0;
       exploreInput.steerY = 0;
       exploreInput.lookX = 0;
       exploreInput.lookY = 0;
+      // Free roam starts wherever the page left the camera, which can be
+      // closer to a craft than the ship is held: no shove out on the first frame
+      excuseColliders(cam.position, idle, state);
     }
+
+    // Read every frame, so a change of level applies mid-flight
+    state.calm = motionLevel() !== 'full';
 
     // Any hand on the controls takes over from the autopilot
     const manual =
-      exploreInput.forward || exploreInput.strafe || exploreInput.lift || exploreInput.turn;
+      exploreInput.forward ||
+      exploreInput.strafe ||
+      exploreInput.lift ||
+      exploreInput.turn ||
+      exploreInput.pitch;
     if (manual && worldStore.autopilot) setAutopilot('');
     if (worldStore.docking) {
       exploreInput.lookX = 0;
@@ -425,21 +815,26 @@ export function ExploreControls() {
       (steering(exploreInput.steerX) * maxYawRate + stickTurn(exploreInput.stickX) * stickYawRate) *
         ease +
       exploreInput.turn * 1.6;
-    const pitchRate =
+    const steerPitch =
       (steering(exploreInput.steerY) * maxPitchRate +
         stickTurn(exploreInput.stickY) * stickPitchRate) *
       ease;
     state.yaw -= exploreInput.lookX + yawRate * dt;
-    state.pitch = MathUtils.clamp(state.pitch - exploreInput.lookY - pitchRate * dt, -1.35, 1.35);
+    state.pitch = MathUtils.clamp(
+      state.pitch - exploreInput.lookY - steerPitch * dt + exploreInput.pitch * pitchRate * dt,
+      -1.35,
+      1.35
+    );
     exploreInput.lookX = 0;
     exploreInput.lookY = 0;
 
-    const course = worldStore.autopilot as StationKey | '';
+    const course = worldStore.autopilot;
+    trackCourse(course, cam.position, idle, state);
     if (worldStore.docking) {
       // Docking: hands off the controls, coast to a stop facing the station
       settle(stationForPath(worldStore.docking), state, cam, dt);
     } else if (course) {
-      if (flyTo(course, state, cam, dt)) setAutopilot('');
+      if (flyTo(course, state, cam, idle, dt)) setAutopilot('');
     } else {
       // Thrust along where the camera faces, with drag
       forward.set(0, 0, -1).applyEuler(euler.set(state.pitch, state.yaw, 0, 'YXZ'));
@@ -462,37 +857,40 @@ export function ExploreControls() {
     const bank = state.calm || worldStore.docking ? 0 : turnRate * bankPerRate - drift * 0.006;
     state.roll = MathUtils.damp(state.roll, MathUtils.clamp(bank, -maxBank, maxBank), 4, dt);
     cam.quaternion.setFromEuler(euler.set(state.pitch, state.yaw, state.roll, 'YXZ'));
+    // The edge of the world turns you back. Past it the ship only heads back
+    // in, the further out the faster. Done before it moves: thrust added
+    // this frame would otherwise carry it on out before being taken away
+    let fromCentre = cam.position.distanceTo(centre);
+    if (fromCentre > sectorRadius) {
+      outward.subVectors(cam.position, centre).divideScalar(fromCentre);
+      const leaving = velocity.dot(outward);
+      const allowed = -(fromCentre - sectorRadius) * edgeSpring;
+      if (leaving > allowed) velocity.addScaledVector(outward, allowed - leaving);
+    }
     cam.position.addScaledVector(velocity, dt);
 
-    // Hulls push back (a hard knock jolts the view, flashes the HUD and
-    // thuds); the edge of the world gently turns you round
+    // Hulls (and the proxies round beams, helices and craft) push back: a
+    // hard knock jolts the view, flashes the HUD and thuds
+    collide(cam, clock.elapsedTime, idle, state);
+    // A last stop just past the edge, well short of its shimmer (EdgeShimmer)
+    fromCentre = cam.position.distanceTo(centre);
+    if (fromCentre > sectorRadius + edgeSlack) {
+      outward.subVectors(cam.position, centre).divideScalar(fromCentre);
+      cam.position.copy(centre).addScaledVector(outward, sectorRadius + edgeSlack);
+      const leaving = velocity.dot(outward);
+      if (leaving > 0) velocity.addScaledVector(outward, -leaving);
+      fromCentre = sectorRadius + edgeSlack;
+    }
     let nearest = '';
     let nearestDistance = Infinity;
     for (const key of navigableStations) {
-      station.fromArray(stationPositions[key]);
-      const distance = cam.position.distanceTo(station);
-      if (distance < hullRadius) {
-        const normal = station.sub(cam.position).normalize().negate();
-        cam.position.addScaledVector(normal, hullRadius - distance);
-        const into = -velocity.dot(normal);
-        if (into > 0) {
-          // Bounce off rather than grinding along the hull
-          velocity.addScaledVector(normal, into * 1.5);
-          if (into > gentle) bump(into, clock.elapsedTime, state);
-        }
-      }
+      const distance = cam.position.distanceTo(station.fromArray(stationPositions[key]));
       if (distance < nearestDistance) {
         nearestDistance = distance;
         nearest = key;
       }
     }
-    const fromCentre = cam.position.distanceTo(centre);
-    if (fromCentre > worldRadius) {
-      velocity.addScaledVector(
-        station.copy(centre).sub(cam.position).normalize(),
-        (fromCentre - worldRadius) * dt
-      );
-    }
+    worldStore.edge = MathUtils.smoothstep(fromCentre, sectorRadius - edgeWarning, sectorRadius);
     setDock(nearestDistance < dockRange ? nearest : '');
 
     const speed = velocity.length();
@@ -501,6 +899,7 @@ export function ExploreControls() {
     cam.updateProjectionMatrix();
     applyShake(cam, clock.elapsedTime, dt, state.calm);
     publishWaypoints(cam);
+    aimReticle(root, state);
   });
 
   return null;

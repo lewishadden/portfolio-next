@@ -1,3 +1,5 @@
+@use '../../app/motion' as *;
+
 .split {
   display: inline-block;
 
@@ -43,7 +45,7 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@include reduced-motion {
   .split__char {
     animation: none;
   }

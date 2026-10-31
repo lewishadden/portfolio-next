@@ -293,6 +293,59 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
   return shader;
 }
 
+const uniformNames = [
+  'uRes',
+  'uDpr',
+  'uTime',
+  'uMotion',
+  'uTravel',
+  'uWarp',
+  'uPanel',
+  'uBoot',
+  'uShut',
+  'uSquash',
+  'uHover',
+  'uLock',
+  'uLockFlash',
+  'uLockPing',
+  'uSplit',
+  'uBg',
+  'uLine',
+  'uFillColour',
+  'uFill',
+  'uGlow',
+  'uLineAlpha',
+  'uStar',
+] as const;
+type Uniforms = Record<(typeof uniformNames)[number], WebGLUniformLocation | null>;
+
+/**
+ * Compiles and links the hologram's program, with one triangle that covers
+ * the screen, and reads its uniform locations from that program: locations
+ * belong to the program they came from, so they are read afresh with every
+ * one linked
+ */
+function link(gl: WebGLRenderingContext) {
+  const vertex = compile(gl, gl.VERTEX_SHADER, vertexShader);
+  const fragment = compile(gl, gl.FRAGMENT_SHADER, fragmentShader);
+  const program = gl.createProgram();
+  if (!vertex || !fragment || !program) return null;
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+  gl.useProgram(program);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const position = gl.getAttribLocation(program, 'position');
+  gl.enableVertexAttribArray(position);
+  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+  const u = Object.fromEntries(
+    uniformNames.map((name) => [name, gl.getUniformLocation(program, name)])
+  ) as Uniforms;
+  return { program, u };
+}
+
 /**
  * Sets up the shader on a canvas and returns its controls, or null where
  * WebGL can't start. Draws only while powering on, open or switching off
@@ -316,50 +369,15 @@ function createHolo(
     powerPreference: 'low-power',
   });
   if (!gl || gl.isContextLost()) return null;
-  const vertex = compile(gl, gl.VERTEX_SHADER, vertexShader);
-  const fragment = compile(gl, gl.FRAGMENT_SHADER, fragmentShader);
-  const program = gl.createProgram();
-  if (!vertex || !fragment || !program) return null;
-  gl.attachShader(program, vertex);
-  gl.attachShader(program, fragment);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
-  gl.useProgram(program);
-
-  // One triangle that covers the screen
-  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  const position = gl.getAttribLocation(program, 'position');
-  gl.enableVertexAttribArray(position);
-  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-
-  const names = [
-    'uRes',
-    'uDpr',
-    'uTime',
-    'uMotion',
-    'uTravel',
-    'uWarp',
-    'uPanel',
-    'uBoot',
-    'uShut',
-    'uSquash',
-    'uHover',
-    'uLock',
-    'uLockFlash',
-    'uLockPing',
-    'uSplit',
-    'uBg',
-    'uLine',
-    'uFillColour',
-    'uFill',
-    'uGlow',
-    'uLineAlpha',
-    'uStar',
-  ] as const;
-  const u = Object.fromEntries(
-    names.map((name) => [name, gl.getUniformLocation(program, name)])
-  ) as Record<(typeof names)[number], WebGLUniformLocation | null>;
+  const linked = link(gl);
+  if (!linked) return null;
+  const { program, u } = linked;
+  /**
+   * Set once this instance is done with: a later one on the same canvas (a
+   * remount reuses it, so its context) links a program of its own, and this
+   * one's locations would be set with that one in use (INVALID_OPERATION)
+   */
+  let disposed = false;
 
   const state = {
     open: false,
@@ -397,6 +415,7 @@ function createHolo(
   };
 
   const draw = (now: number) => {
+    if (disposed) return;
     // Rendered at up to 1.5× for crisp lines without paying for 3× screens
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const width = Math.round(canvas.clientWidth * dpr);
@@ -405,6 +424,7 @@ function createHolo(
       canvas.width = width;
       canvas.height = height;
     }
+    gl.useProgram(program);
     gl.viewport(0, 0, width, height);
     const dt = Math.min((now - state.last) / 1000, 0.05);
     state.last = now;
@@ -452,7 +472,7 @@ function createHolo(
     state.frame = state.open || shutting ? requestAnimationFrame(loop) : 0;
   };
   const run = () => {
-    if (!state.frame) state.frame = requestAnimationFrame(loop);
+    if (!state.frame && !disposed) state.frame = requestAnimationFrame(loop);
   };
   /** Shows a change: at once if held still, otherwise the loop picks it up */
   const refresh = () => {
@@ -530,6 +550,7 @@ function createHolo(
     // The context goes with the canvas; losing it here would break a remount
     // that reuses the canvas (React runs effects twice in development)
     dispose() {
+      disposed = true;
       cancelAnimationFrame(state.frame);
       state.frame = 0;
       canvas.removeEventListener('webglcontextlost', lost);

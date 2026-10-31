@@ -1,0 +1,44 @@
+// The header HUD's look for page chrome drawn in CSS (the command palette,
+// the footer console): a thin frame and bright corner brackets. Opaque
+// panels, never a backdrop blur (blurring the live WebGL world under a
+// panel every frame is costly, and glitched on Android).
+
+/// Corner brackets on a pseudo-element: `@include hud-brackets;` inside
+/// `&::before` (or `::after`) of a positioned element. They sit on its
+/// border box's corners
+@mixin hud-brackets($colour: var(--accent-secondary), $arm: 14px, $width: 2px) {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient($colour, $colour) top left / #{$arm} #{$width},
+    linear-gradient($colour, $colour) top left / #{$width} #{$arm},
+    linear-gradient($colour, $colour) top right / #{$arm} #{$width},
+    linear-gradient($colour, $colour) top right / #{$width} #{$arm},
+    linear-gradient($colour, $colour) bottom left / #{$arm} #{$width},
+    linear-gradient($colour, $colour) bottom left / #{$width} #{$arm},
+    linear-gradient($colour, $colour) bottom right / #{$arm} #{$width},
+    linear-gradient($colour, $colour) bottom right / #{$width} #{$arm};
+  background-repeat: no-repeat;
+}
+
+/// The frame itself: a hairline in the HUD's colour round an opaque panel
+@mixin hud-frame($background: var(--bg-secondary)) {
+  position: relative;
+  border: 1px solid color-mix(in oklab, var(--accent-secondary) 34%, transparent);
+  border-radius: 3px;
+  background: $background;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/// Small caps in the HUD's mono face, for titles on those panels
+@mixin hud-caps {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}

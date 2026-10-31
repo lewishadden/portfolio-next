@@ -8,7 +8,7 @@ import { m, useInView, useScroll, useTransform } from 'framer-motion';
 import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { useBooted } from 'components/World/boot';
-import { worldStore } from 'components/World/worldStore';
+import { emitCue, worldStore } from 'components/World/worldStore';
 import { illustrations } from 'components/World/StationFallback';
 import { Reveal } from 'components/Motion/Reveal';
 
@@ -178,13 +178,15 @@ const readingLine = 0.62;
  * Which role's card is at the reading line, as a fractional index for the 3D
  * beam (worldStore.roleFocus): the camera rides down to that role's pod and
  * lights it. Before the first card it eases in from -0.6 (the top of the
- * beam), and past the last it runs on to the beam's end.
+ * beam), and past the last it runs on to the beam's end. Reaching another
+ * role sounds the `pod` cue (not as the page first draws).
  */
 function useRoleFocus(listRef: RefObject<HTMLOListElement | null>) {
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
     let frame = 0;
+    let reached: number | null = null;
     const update = () => {
       frame = 0;
       const cards = [...list.children] as HTMLElement[];
@@ -207,6 +209,11 @@ function useRoleFocus(listRef: RefObject<HTMLOListElement | null>) {
       }
       worldStore.roleFocus = focus;
       worldStore.roleCount = cards.length;
+      const role = Math.round(focus) || 0;
+      if (role !== reached) {
+        if (reached !== null && role >= 0 && role <= last) emitCue('pod', { strength: role });
+        reached = role;
+      }
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(update);

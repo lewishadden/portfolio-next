@@ -10,3 +10,26 @@
   height: calc(100% + 62px);
   pointer-events: none;
 }
+
+/* In flight, under the travelling target lock: where to and how far still
+   to go (HeaderHud places it every frame). Decoration: aria-hidden */
+.header-hud__course {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+  color: var(--hud-text-strong);
+  text-shadow:
+    0 0 8px var(--hud-glow),
+    0 0 3px var(--hud-halo),
+    0 0 2px var(--hud-halo);
+  pointer-events: none;
+
+  &[hidden] {
+    display: none;
+  }
+}
