@@ -24,12 +24,14 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
   const { submitting, send } = contact;
 
   const [loading, setLoading] = useState(false);
-  // When the form appeared — the API treats near-instant submissions as bots
-  const startedAt = useRef(0);
+  // When the form appeared, on the page's own stopwatch (performance.now(),
+  // not the device clock, which can be wrong): the API treats near-instant
+  // submissions as bots
+  const shownAt = useRef(0);
   const honeypotRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    startedAt.current = Date.now();
+    shownAt.current = performance.now();
     // Gone (sent, or another page): the comms array stops listening
     return () => {
       worldStore.commsFocus = false;
@@ -95,7 +97,7 @@ const ContactForm = ({ contact, onSuccess, onFail }: ContactFormProps) => {
           lastName,
           email,
           message,
-          startedAt: startedAt.current,
+          elapsedMs: Math.round(performance.now() - shownAt.current),
           [honeypotField]: honeypotRef.current?.value ?? '',
         }),
         headers: { 'Content-Type': 'application/json' },

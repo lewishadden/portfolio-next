@@ -41,8 +41,12 @@ export async function POST(request: NextRequest) {
   }
 
   // Honeypot filled or form submitted inhumanly fast: report success so bots
-  // have no signal to adapt to, but send nothing.
-  if (result.bot) return json('Email sent successfully', 200);
+  // have no signal to adapt to, but send nothing. Logged (the reason alone,
+  // nothing the sender wrote), so a person caught by mistake leaves a trace
+  if (result.bot) {
+    console.warn(`Contact submission dropped as a bot's: ${result.bot}`);
+    return json('Email sent successfully', 200);
+  }
 
   const { SMTP_HOST, SMTP_PORT, SMTP_EMAIL, SMTP_PASS } = process.env;
 
@@ -55,10 +59,13 @@ export async function POST(request: NextRequest) {
   const name = cleanDisplayName(`${firstName} ${lastName}`);
 
   try {
+    const port = Number(SMTP_PORT);
     const transporter = createTransport({
       host: SMTP_HOST,
-      port: Number(SMTP_PORT),
-      secure: false,
+      port,
+      // Port 465 speaks TLS from the first byte; 587 and 25 connect in the
+      // clear and upgrade (STARTTLS). The wrong one for the port never connects
+      secure: port === 465,
       auth: {
         user: SMTP_EMAIL,
         pass: SMTP_PASS,

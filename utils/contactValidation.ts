@@ -8,7 +8,7 @@ export const contactLimits = {
   message: 1000,
   /** Raw request body cap in bytes — far above any legitimate submission */
   body: 10_000,
-  /** Submissions faster than this after the form mounted are treated as bots */
+  /** Submissions sent sooner than this after the form appeared are treated as bots */
   minFillMs: 3000,
 } as const;
 
@@ -26,7 +26,7 @@ export interface ContactPayload {
 }
 
 export type ContactValidation =
-  | { ok: true; data: ContactPayload; bot: boolean }
+  | { ok: true; data: ContactPayload; bot: false | 'honeypot' | 'too-fast' }
   | { ok: false; errors: Partial<Record<keyof ContactPayload, string>> };
 
 const asTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
@@ -62,8 +62,15 @@ export function validateContactPayload(body: unknown, now = Date.now()): Contact
   if (Object.keys(errors).length) return { ok: false, errors };
 
   const honeypot = asTrimmedString(input[honeypotField]);
-  const startedAt = typeof input.startedAt === 'number' ? input.startedAt : NaN;
-  const tooFast = !Number.isFinite(startedAt) || now - startedAt < contactLimits.minFillMs;
+  // How long the form was open, counted in the visitor's browser. Never a
+  // clock reading set against the server's: a device clock running fast put
+  // the form's start in the server's future, and a real message was dropped
+  // as a bot's. A page open since before the form sent this still sends when
+  // it appeared (startedAt), so it isn't dropped for lacking the count
+  let elapsedMs = NaN;
+  if (typeof input.elapsedMs === 'number') elapsedMs = input.elapsedMs;
+  else if (typeof input.startedAt === 'number') elapsedMs = now - input.startedAt;
+  const tooFast = !Number.isFinite(elapsedMs) || elapsedMs < contactLimits.minFillMs;
 
-  return { ok: true, data, bot: honeypot.length > 0 || tooFast };
+  return { ok: true, data, bot: honeypot ? 'honeypot' : tooFast && 'too-fast' };
 }
