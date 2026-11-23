@@ -5,7 +5,9 @@ import { Icon } from '@iconify/react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
-import { canLockPointer, usePointerLocked } from './pointerLock';
+import { inspection, inspectionOwnsCamera, useInspection } from './inspection';
+import { hasWorldInputOwner, onWorldInputOwnerChange, worldKeyOwned } from './inputOwnership';
+import { useCanLockPointer, usePointerLocked } from './pointerLock';
 import { stationForPath, stationNames, stationPaths } from './routes';
 import { SignalCard, SignalCount, SignalDetector } from './SignalsHud';
 import { useAutopilot, Waypoints } from './Waypoints';
@@ -21,6 +23,7 @@ import {
 
 import type { StationKey } from './routes';
 import type { WorldContent } from './types';
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 
 const noDock = () => '';
 const readDock = () => worldStore.dock;
@@ -51,8 +54,8 @@ interface Stick {
 /** Taps the station marker at a point (it sets the autopilot), if there is one */
 function tapMarker(x: number, y: number) {
   for (const el of document.elementsFromPoint(x, y)) {
-    const marker = el.closest<HTMLElement>('.waypoint');
-    if (marker) {
+    const marker = el.closest<HTMLButtonElement>('.waypoint');
+    if (marker && !marker.disabled) {
       marker.click();
       return;
     }
@@ -128,6 +131,7 @@ function TouchSticks() {
       }
     };
     const release = (stick: Stick) => {
+      if (stick.id >= 0 && layer.hasPointerCapture(stick.id)) layer.releasePointerCapture(stick.id);
       stick.id = -1;
       stick.el.removeAttribute('data-active');
       stick.el.removeAttribute('data-boost');
@@ -145,7 +149,7 @@ function TouchSticks() {
     };
 
     const down = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') return;
+      if (e.pointerType === 'mouse' || hasWorldInputOwner() || inspectionOwnsCamera()) return;
       const stick = e.clientX < layer.clientWidth / 2 ? move : look;
       if (stick.id >= 0) return;
       e.preventDefault();
@@ -159,7 +163,9 @@ function TouchSticks() {
     };
     const drag = (e: PointerEvent) => {
       const stick = sticks.find((s) => s.id === e.pointerId);
-      if (stick) steer(stick, e);
+      if (!stick) return;
+      if (hasWorldInputOwner() || inspectionOwnsCamera()) release(stick);
+      else steer(stick, e);
     };
     const up = (e: PointerEvent) => {
       const stick = sticks.find((s) => s.id === e.pointerId);
@@ -167,9 +173,14 @@ function TouchSticks() {
       const tapped =
         e.type === 'pointerup' && e.timeStamp - stick.downAt < tap.time && stick.travel < tap.slop;
       release(stick);
-      if (tapped) tapMarker(e.clientX, e.clientY);
+      if (tapped && !hasWorldInputOwner() && !inspectionOwnsCamera()) {
+        tapMarker(e.clientX, e.clientY);
+      }
     };
 
+    const clear = () => sticks.forEach(release);
+    const offOwner = onWorldInputOwnerChange(clear);
+    const offInspection = inspection.subscribe(clear);
     move.el.style.setProperty('--boost-d', `${boostAt * stickReach * 2}px`);
     rest();
     layer.addEventListener('pointerdown', down);
@@ -177,19 +188,36 @@ function TouchSticks() {
     layer.addEventListener('pointerup', up);
     layer.addEventListener('pointercancel', up);
     window.addEventListener('resize', rest);
+    window.addEventListener('blur', clear);
     return () => {
+      offOwner();
+      offInspection();
       layer.removeEventListener('pointerdown', down);
       layer.removeEventListener('pointermove', drag);
       layer.removeEventListener('pointerup', up);
       layer.removeEventListener('pointercancel', up);
       window.removeEventListener('resize', rest);
+      window.removeEventListener('blur', clear);
       sticks.forEach(release);
     };
   }, []);
 
   const hold = (lift: number) => ({
-    onPointerDown: () => {
-      exploreInput.lift = lift;
+    onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      if (!hasWorldInputOwner() && !inspectionOwnsCamera()) exploreInput.lift = lift;
+    },
+    onKeyDown: (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+      if (e.key !== ' ' && e.key !== 'Enter') return;
+      e.preventDefault();
+      if (!hasWorldInputOwner() && !inspectionOwnsCamera()) exploreInput.lift = lift;
+    },
+    onKeyUp: (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+      if (e.key === ' ' || e.key === 'Enter') exploreInput.lift = 0;
+    },
+    onBlur: () => {
+      exploreInput.lift = 0;
     },
     onPointerUp: () => {
       exploreInput.lift = 0;
@@ -277,8 +305,6 @@ function BoostJet() {
   );
 }
 
-const noLock = () => false;
-const subscribeNothing = () => () => {};
 const readDocking = () => worldStore.docking;
 
 /**
@@ -348,6 +374,7 @@ export function ExploreHud({
 }) {
   const { mode } = useWorldMode();
   const exploring = mode === 'explore';
+  const inspecting = useInspection();
   const dock = useSyncExternalStore(onDock, readDock, noDock) as StationKey | '';
   const docking = useSyncExternalStore(onDocking, readDocking, noDock);
   const course = useAutopilot() as StationKey | '';
@@ -355,13 +382,13 @@ export function ExploreHud({
   // Phones held upright: the thumbsticks fill the bottom, so the autopilot's
   // status and the dock prompt sit under the top bar instead
   const compact = useMediaQuery('(pointer: coarse) and (max-width: 599px)');
-  const lockable = useSyncExternalStore(subscribeNothing, canLockPointer, noLock);
+  const lockable = useCanLockPointer();
   const locked = usePointerLocked();
-  const exitRef = useRef<HTMLButtonElement>(null);
+  const regionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!exploring) return;
-    exitRef.current?.focus({ preventScroll: true });
+    regionRef.current?.focus({ preventScroll: true });
   }, [exploring]);
 
   // The cursor ring hides while the pointer is locked (World.scss)
@@ -373,7 +400,7 @@ export function ExploreHud({
     // Not while the autopilot is flying somewhere else, or already docking
     if (!exploring || !dock || course || docking) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !(e.target instanceof HTMLInputElement)) {
+      if (e.key === 'Enter' && !inspectionOwnsCamera() && !worldKeyOwned(e)) {
         e.preventDefault();
         onDockRequest(stationPaths[dock]);
       }
@@ -382,7 +409,7 @@ export function ExploreHud({
     return () => window.removeEventListener('keydown', onKey);
   }, [exploring, dock, course, docking, onDockRequest]);
 
-  if (!exploring) return null;
+  if (!exploring || inspecting) return null;
   if (docking) {
     return (
       <div className="explore-hud" role="region" aria-label="Explore mode">
@@ -413,6 +440,7 @@ export function ExploreHud({
           <button
             type="button"
             className="btn btn--primary"
+            data-explore-dock={dock}
             onClick={() => onDockRequest(stationPaths[dock])}
           >
             Dock at {stationNames[dock].page}
@@ -424,7 +452,13 @@ export function ExploreHud({
   );
 
   return (
-    <div className="explore-hud" role="region" aria-label="Explore mode">
+    <div
+      ref={regionRef}
+      className="explore-hud"
+      role="region"
+      aria-label="Explore mode"
+      tabIndex={-1}
+    >
       <Waypoints />
       {/* Over the markers, under the rest of the HUD */}
       {touch && <TouchSticks />}
@@ -445,14 +479,15 @@ export function ExploreHud({
                 <kbd>A</kbd>
                 <kbd>S</kbd>
                 <kbd>D</kbd> fly · mouse {lockable ? 'looks' : 'steers'} · <kbd>Space</kbd>
-                <kbd>C</kbd> up/down · <kbd>⇧</kbd> boost · <kbd>0</kbd>–<kbd>5</kbd> autopilot
+                <kbd>C</kbd> up/down · <kbd>⇧</kbd> boost · <kbd>E</kbd> inspect · <kbd>0</kbd>–
+                <kbd>5</kbd> autopilot
               </>
             )}
           </span>
           <button
-            ref={exitRef}
             type="button"
             className="explore-hud__exit"
+            data-explore-focus-return
             onClick={worldMode.exit}
           >
             Exit <kbd>Esc</kbd>

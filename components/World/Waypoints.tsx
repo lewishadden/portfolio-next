@@ -33,7 +33,7 @@ export function Waypoints() {
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
-    const markers = [...list.querySelectorAll<HTMLElement>('[data-station]')];
+    const markers = [...list.querySelectorAll<HTMLButtonElement>('[data-station]')];
     const distances = markers.map((marker) => marker.querySelector<HTMLElement>('[data-km]'));
     const shown = markers.map(() => '');
     let frame = 0;
@@ -42,6 +42,23 @@ export function Waypoints() {
     const ys = markers.map(() => 0);
     const edges = markers.map(() => '');
     const live = markers.map(() => false);
+
+    const setAvailable = (marker: HTMLButtonElement, available: boolean) => {
+      if (marker.disabled === !available) return;
+      if (!available && document.activeElement === marker) {
+        // Arrival replaces the marker with a real docking action. If that
+        // action has not mounted yet, keep focus on the visible exit.
+        const dock = document.querySelector<HTMLButtonElement>(
+          `[data-explore-dock="${marker.dataset.station}"]`
+        );
+        const fallback = document.querySelector<HTMLButtonElement>('[data-explore-focus-return]');
+        (dock ?? fallback)?.focus({ preventScroll: true });
+      }
+      marker.disabled = !available;
+      marker.tabIndex = available ? 0 : -1;
+      if (available) marker.removeAttribute('aria-hidden');
+      else marker.setAttribute('aria-hidden', 'true');
+    };
 
     const place = () => {
       frame = requestAnimationFrame(place);
@@ -54,6 +71,8 @@ export function Waypoints() {
         live[i] = false;
         if (!waypoint) {
           marker.style.opacity = '0';
+          marker.style.pointerEvents = 'none';
+          setAvailable(marker, false);
           return;
         }
         if (waypoint.onScreen) {
@@ -78,6 +97,7 @@ export function Waypoints() {
         live[i] = presence > 0.05;
         marker.style.opacity = presence.toFixed(2);
         marker.style.pointerEvents = presence > 0.3 ? '' : 'none';
+        setAvailable(marker, presence > 0.3);
         const km = `${Math.round(waypoint.distance)} km`;
         if (km !== shown[i] && distances[i]) {
           distances[i].textContent = km;
@@ -132,6 +152,9 @@ export function Waypoints() {
               data-station={key}
               className={active ? 'waypoint waypoint--course' : 'waypoint'}
               aria-pressed={active}
+              aria-hidden="true"
+              disabled
+              tabIndex={-1}
               aria-label={`Autopilot to ${page}, the ${craft.toLowerCase()}`}
               onClick={() => setAutopilot(active ? '' : key)}
             >

@@ -7,6 +7,7 @@ import { Color, Group, Mesh, ShaderMaterial } from 'three';
 
 import { createHaloMaterial, createRingMaterial, noiseGlsl } from '../materials';
 import { Model } from '../Model';
+import { StationConsole } from './StationConsole';
 import { skyMap } from '../Nebula';
 import { Antenna, NavLights, SolarArray } from '../parts';
 import { StationScope } from '../power';
@@ -187,6 +188,13 @@ export function HomeStation({ theme }: { theme: WorldTheme }) {
   return (
     <StationScope station="home">
       <group ref={groupRef} position={stationPositions.home}>
+        <StationConsole
+          station="home"
+          title="Orientation display"
+          subtitle="Destinations and featured work"
+          position={[2.6, -1.6, 0.4]}
+          theme={theme}
+        />
         <Billboard position={[0, 0, -3]}>
           <mesh material={materials.halo} scale={10}>
             <planeGeometry />

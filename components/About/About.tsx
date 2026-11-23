@@ -8,6 +8,7 @@ import Magnet from 'components/Magnet/Magnet';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Recommendations } from 'components/Recommendations/Recommendations';
 import { illustrations } from 'components/World/StationFallback';
+import { InspectButton } from 'components/World/InspectButton';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
@@ -63,6 +64,15 @@ export const About = ({
         sub={`Senior full stack engineer · ${location} · shipping production software since 2018.`}
       />
 
+      <div className="about__dossier">
+        <div>
+          <span className="about__dossier-label">Habitat console</span>
+          <p>A personal dossier, with recommendations from the people I’ve worked with.</p>
+        </div>
+        <InspectButton selection={{ kind: 'station', id: 'about', station: 'about' }}>
+          Open personal dossier
+        </InspectButton>
+      </div>
       <div className="about__grid">
         <Reveal className="about__media" y={60} scale={0.94}>
           <div className="about__frame" ref={portraitRef}>

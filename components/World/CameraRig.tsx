@@ -14,8 +14,10 @@ import {
   smootherstep,
 } from './flight';
 import { isBooted } from './boot';
+import { inspectionOwnsCamera } from './inspection';
 import { applyShake } from './shake';
 import { baseFov, stationCamera, stationKeys, stationPositions } from './stations';
+import { getTravelPreference } from './travelPreference';
 import { worldMode } from './worldMode';
 import { emitFlight, worldStore } from './worldStore';
 
@@ -59,6 +61,7 @@ interface RigState {
   arrivedAt: number;
   /** The station the route preview was last planned to ('' for none) */
   preview: string;
+  inspectionAt: number | null;
 }
 
 /**
@@ -88,6 +91,7 @@ export function CameraRig({
     velocity: new Vector3(),
     arrivedAt: 0,
     preview: '',
+    inspectionAt: null,
   });
 
   useFrame(({ camera, clock, size }, delta) => {
@@ -96,10 +100,24 @@ export function CameraRig({
     const rig = state.current;
     const { mode } = worldMode.get();
     const t = clock.elapsedTime;
+    const calm = reducedMotion || getTravelPreference() === 'calm';
 
+    // A successful transmission belongs to the station even while its
+    // terminal holds the camera still for reading.
     if (worldStore.launchRequested) {
       worldStore.launchRequested = false;
       worldStore.launchAt = t;
+    }
+
+    // Inspection is orthogonal to page/tour/explore. Keep the flight plan,
+    // scroll position and tour orbit clock frozen until the saved pose is back.
+    if (inspectionOwnsCamera()) {
+      rig.inspectionAt ??= t;
+      return;
+    }
+    if (rig.inspectionAt !== null) {
+      rig.arrivedAt += t - rig.inspectionAt;
+      rig.inspectionAt = null;
     }
 
     if (mode === 'explore') {
@@ -123,7 +141,7 @@ export function CameraRig({
     if (newPage) {
       rig.progress = 0;
       rig.screens = 0;
-    } else if (reducedMotion || retarget) {
+    } else if (calm || retarget) {
       rig.progress = scrollTarget;
       rig.screens = screensTarget;
     } else {
@@ -137,18 +155,18 @@ export function CameraRig({
     look.add(origin);
 
     // A slow orbit while the tour lingers at a stop
-    if (mode === 'tour' && !rig.flight) {
+    if (mode === 'tour' && !rig.flight && !calm) {
       const angle = Math.sin((t - rig.arrivedAt) * 0.22) * 0.32;
       target.sub(look).applyAxisAngle(yAxis, angle).add(look);
     }
 
-    if (!reducedMotion && mode === 'page') {
+    if (!calm && mode === 'page') {
       target.x += worldStore.pointerX * 0.45;
       target.y += worldStore.pointerY * 0.28;
     }
 
     // Out in deep space until the loading screen lifts, then warp in
-    if (!rig.started && !reducedMotion && !isBooted()) {
+    if (!rig.started && !calm && !isBooted()) {
       cam.position.copy(target).add(introOffset);
       cam.lookAt(look);
       record(cam);
@@ -158,20 +176,27 @@ export function CameraRig({
       // First frame: start out in deep space and warp in
       rig.started = true;
       lookCurrent.copy(look);
-      if (reducedMotion) cam.position.copy(target);
+      if (calm) cam.position.copy(target);
       else {
         cam.position.copy(target).add(introOffset);
         cam.lookAt(look);
         startFlight(rig, cam, station);
       }
-    } else if (retarget && !reducedMotion) {
+    } else if (retarget && !calm) {
       startFlight(rig, cam, station);
+    }
+    if (calm && rig.flight) endFlight(rig, station, true);
+    if (calm && retarget && !reducedMotion) {
+      document.querySelector('.world__canvas')?.animate([{ opacity: 0.35 }, { opacity: 1 }], {
+        duration: 220,
+        easing: 'ease-out',
+      });
     }
     rig.station = station;
     rig.mode = mode;
 
     previous.copy(cam.position);
-    if (reducedMotion) {
+    if (calm) {
       cam.position.copy(target);
       lookCurrent.copy(look);
       cam.lookAt(lookCurrent);
@@ -184,14 +209,15 @@ export function CameraRig({
     }
 
     // Snapped (reduced-motion) cameras jump between poses; that is not flight
-    const speed = reducedMotion ? 0 : cam.position.distanceTo(previous) / Math.max(dt, 1e-4);
+    const speed = calm ? 0 : cam.position.distanceTo(previous) / Math.max(dt, 1e-4);
     rig.velocity.subVectors(cam.position, previous).divideScalar(Math.max(dt, 1e-4));
     worldStore.velocity = speed;
 
-    const fov = baseFov + (reducedMotion ? 0 : Math.min(speed * 0.3, 24));
-    easing.damp(cam, 'fov', fov, 0.3, dt);
+    const fov = baseFov + (calm ? 0 : Math.min(speed * 0.3, 24));
+    if (calm) cam.fov = baseFov;
+    else easing.damp(cam, 'fov', fov, 0.3, dt);
     cam.updateProjectionMatrix();
-    applyShake(cam, t, dt, reducedMotion);
+    applyShake(cam, t, dt, calm);
     record(cam);
     if (mode === 'page') planPreview(rig, cam, size.width, size.height);
   });

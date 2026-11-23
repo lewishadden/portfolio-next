@@ -1,90 +1,57 @@
 'use client';
 
-import { useId } from 'react';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
-import { m } from 'framer-motion';
 
 import Magnet from 'components/Magnet/Magnet';
 import { Marquee } from 'components/Marquee/Marquee';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
-import { useBooted } from 'components/World/boot';
+import { inspectEntity } from 'components/World/inspection';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
 
-import type { Variants } from 'framer-motion';
+import type { InspectionSkill } from 'components/World/inspectionTypes';
 import type { SkillCategory, SkillIcon, Skills as SkillsProps } from '@/types';
 
 import './Skills.scss';
 
-const ease = [0.16, 1, 0.3, 1] as const;
-
-/** "80%" / "80" → 80, clamped to 0–100 */
-const parseLevel = (level: string) => Math.max(0, Math.min(100, parseInt(level, 10) || 0));
-
-/** Grows with its tile's reveal (it inherits the RevealGroup stagger) */
-const meterVariants: Variants = {
-  hidden: { scaleX: 0 },
-  shown: { scaleX: 1, transition: { duration: 1.4, ease } },
-};
-
-const SkillTile = ({ skill }: { skill: SkillIcon }) => {
-  const level = parseLevel(skill.level);
+const SkillTile = ({ skill, evidence }: { skill: SkillIcon; evidence?: InspectionSkill }) => {
+  const projectCount = evidence?.projects.length ?? 0;
+  const roleCount = evidence?.roles.length ?? 0;
+  const summary =
+    projectCount || roleCount
+      ? [
+          projectCount ? `${projectCount} project${projectCount === 1 ? '' : 's'}` : '',
+          roleCount ? `${roleCount} role${roleCount === 1 ? '' : 's'}` : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : 'Explore skill';
   return (
     <RevealItem as="li" className="skills__tile-cell" y={24}>
-      <div className="skills__tile" data-world-target={`skill:${skill.name}`}>
+      <button
+        type="button"
+        className="skills__tile"
+        data-world-target={`skill:${skill.name}`}
+        aria-label={`Inspect ${skill.name}: ${summary}`}
+        aria-haspopup="dialog"
+        onClick={() => inspectEntity({ kind: 'skill', id: skill.name, station: 'skills' })}
+      >
         <span className="skills__tile-icon" aria-hidden="true">
           <Icon icon={skill.class} width={26} height={26} />
         </span>
-        <span className="skills__tile-level" aria-hidden="true">
-          {level}
-          <small>%</small>
-        </span>
-        <span className="skills__tile-name">
-          {skill.name}
-          <span className="sr-only">, proficiency {level}%</span>
-        </span>
-        <span className="skills__meter" aria-hidden="true">
-          <m.span
-            className="skills__meter-fill"
-            style={{ width: `${level}%` }}
-            variants={meterVariants}
-          />
-        </span>
-      </div>
-    </RevealItem>
-  );
-};
-
-/** Ring gauge of a category's average proficiency (decorative; the value is also in text) */
-const Gauge = ({ value }: { value: number }) => {
-  const gradientId = `gauge-${useId().replace(/[^\w-]/g, '')}`;
-  const booted = useBooted();
-  return (
-    <span className="skills__gauge" aria-hidden="true">
-      <svg viewBox="0 0 48 48">
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" className="skills__gauge-stop skills__gauge-stop--start" />
-            <stop offset="100%" className="skills__gauge-stop skills__gauge-stop--end" />
-          </linearGradient>
-        </defs>
-        <circle className="skills__gauge-track" cx="24" cy="24" r="20" />
-        <m.circle
-          className="skills__gauge-arc"
-          cx="24"
-          cy="24"
-          r="20"
-          stroke={`url(#${gradientId})`}
-          initial={{ pathLength: 0 }}
-          whileInView={booted ? { pathLength: value / 100 } : undefined}
-          viewport={{ once: true }}
-          transition={{ duration: 1.8, ease, delay: 0.3 }}
+        <Icon
+          className="skills__tile-arrow"
+          icon="ph:arrow-up-right-bold"
+          width={14}
+          height={14}
+          aria-hidden="true"
         />
-      </svg>
-      <span className="skills__gauge-value">{value}</span>
-    </span>
+        <span className="skills__tile-name">{skill.name}</span>
+        <span className="skills__tile-evidence">{summary}</span>
+      </button>
+    </RevealItem>
   );
 };
 
@@ -93,17 +60,21 @@ const CategoryCard = ({
   skills,
   span,
   index,
+  evidence,
 }: {
   category: SkillCategory;
   skills: SkillIcon[];
   span: number;
   index: number;
+  evidence: InspectionSkill[];
 }) => {
   const ref = usePointerGlow<HTMLDivElement>({ tilt: 2 });
   const headingId = `skills-${category.categoryKey}`;
-  const average = Math.round(
-    skills.reduce((sum, s) => sum + parseLevel(s.level), 0) / Math.max(skills.length, 1)
-  );
+  const projectCount = new Set(
+    evidence
+      .filter((item) => skills.some((skill) => skill.name === item.id))
+      .flatMap((item) => item.projects)
+  ).size;
 
   return (
     <Reveal
@@ -131,15 +102,18 @@ const CategoryCard = ({
               <span className="chip skills__count">
                 <b>{String(skills.length).padStart(2, '0')}</b> tools
               </span>
-              <span className="skills__avg">average {average}%</span>
+              <span className="skills__proof">{projectCount} linked projects</span>
             </p>
           </div>
-          <Gauge value={average} />
         </header>
 
         <RevealGroup as="ul" className="skills__tiles" stagger={0.035} delay={0.15}>
           {skills.map((skill) => (
-            <SkillTile key={skill.name} skill={skill} />
+            <SkillTile
+              key={skill.name}
+              skill={skill}
+              evidence={evidence.find((item) => item.id === skill.name)}
+            />
           ))}
         </RevealGroup>
       </div>
@@ -147,7 +121,13 @@ const CategoryCard = ({
   );
 };
 
-export const Skills = ({ skills }: { skills: SkillsProps }) => {
+export const Skills = ({
+  skills,
+  evidence = [],
+}: {
+  skills: SkillsProps;
+  evidence?: InspectionSkill[];
+}) => {
   const { label, tagline, marquee, categories, icons } = skills;
 
   const groups = categories.map((category) => ({
@@ -199,6 +179,9 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
         </div>
       </Reveal>
 
+      <p className="skills__evidence-intro">
+        Select a technology to explore the projects and roles that demonstrate it.
+      </p>
       <div className="skills__grid">
         {groups.map((group, i) => (
           <CategoryCard
@@ -207,6 +190,7 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
             skills={group.skills}
             span={spans[i]}
             index={i}
+            evidence={evidence}
           />
         ))}
       </div>

@@ -39,11 +39,13 @@ import { StationHull } from '../StationHull';
 import { palettes, setUniform } from '../utils';
 import { queueUpload } from '../warmup';
 import { prefetch } from '../routes';
-import { navigateTo, setWorldHover, worldStore, worldTip } from '../worldStore';
+import { setWorldHover, worldStore, worldTip } from '../worldStore';
+import { inspectEntity, inspection, isInspecting } from '../inspection';
 
 import type { BufferGeometry, Mesh, WebGLRenderer } from 'three';
 import type { NavLight } from '../parts';
 import type { WorldContent } from '../types';
+import type { WorldTip } from '../worldStore';
 import type { WorldPalette, WorldTheme } from '../utils';
 
 /** How much bigger the screen in front is: the camera's framing box (stations.ts) is sized to it */
@@ -614,16 +616,6 @@ class ScreenShots {
   }
 }
 
-/** Opens a project: the grid's modal when on /projects, its page from anywhere else */
-function openProject(slug: string) {
-  const href = `/projects/${slug}`;
-  if (document.querySelector('#main-content section.projects')) {
-    window.history.pushState({ projectModal: true }, '', href);
-  } else {
-    navigateTo(href);
-  }
-}
-
 /**
  * Runs one screen: scrolls full-page captures, and while the screen is live
  * (focused or hovered) crossfades through the project's other shots,
@@ -740,9 +732,9 @@ export function ProjectsStation({
   const screens = useMemo(() => projects.slice(0, helix.screens), [projects]);
 
   const hoveredRef = useRef(-1);
-  const tips = useMemo(
-    () =>
-      screens.map((screen) => ({ label: screen.title.trim(), sub: 'Click to open the project' })),
+  const screenshotTime = useRef(0);
+  const tips = useMemo<WorldTip[]>(
+    () => screens.map((screen) => ({ label: screen.title.trim(), sub: 'Inspect project' })),
     [screens]
   );
   const states = useMemo<ScreenState[]>(
@@ -809,20 +801,28 @@ export function ProjectsStation({
 
     // The project in front: an open one, else wherever the page has scrolled to
     const scrolled = worldStore.projectFocus;
+    const selected = inspection.get();
+    if (!selected) screenshotTime.current = t;
+    const inspected =
+      selected?.kind === 'project'
+        ? screens.findIndex((screen) => screen.slug === selected.id)
+        : -1;
     const front =
-      opened >= 0
-        ? opened
-        : scrolled >= 0
-          ? Math.min(settleFocus(scrolled), screens.length - 1)
-          : -1;
+      inspected >= 0
+        ? inspected
+        : opened >= 0
+          ? opened
+          : scrolled >= 0
+            ? Math.min(settleFocus(scrolled), screens.length - 1)
+            : -1;
     // At the top of the projects page the camera holds back on the whole
     // yard: the first screen only comes forward (and lights up) on scroll
-    const ride = front >= 0 ? 1 - (opened >= 0 ? 0 : projectIntro()) : 0;
+    const ride = front >= 0 ? 1 - (opened >= 0 || inspected >= 0 ? 0 : projectIntro()) : 0;
     const live = front >= 0 && ride > 0.9 ? Math.round(front) : -1;
     // On the page (or a project's), sharp copies load ahead of the camera,
     // nearest the project in front first, so none is ever soft once it gets
     // there (flying in, they download and decode but wait to upload)
-    const sharpening = scrolled >= 0 || opened >= 0;
+    const sharpening = scrolled >= 0 || opened >= 0 || inspected >= 0;
     const sharpWidth = sharpening
       ? frontScreenWidth(size.width, size.height, gl.domElement.height)
       : 0;
@@ -837,9 +837,9 @@ export function ProjectsStation({
         state,
         screens[i].images.length,
         i,
-        t,
-        dt,
-        i === live || i === hoveredRef.current,
+        screenshotTime.current,
+        selected ? 0 : dt,
+        !selected && (i === live || i === hoveredRef.current),
         shots,
         sharpWidth > 0 && i === live
       );
@@ -855,7 +855,7 @@ export function ProjectsStation({
     });
 
     const spiral = helixRef.current;
-    if (spiral) {
+    if (spiral && !isInspecting()) {
       // The camera rides the helix (stationCamera), so it holds still while a
       // project is in front; elsewhere it turns slowly with the page. Always
       // the short way round
@@ -913,6 +913,9 @@ export function ProjectsStation({
               >
                 <mesh
                   material={screenMaterials[i]}
+                  userData={{
+                    inspection: { kind: 'project', id: screen.slug, station: 'projects' },
+                  }}
                   scale={[screenSize.width, screenSize.height, 1]}
                   onPointerOver={(e) => {
                     e.stopPropagation();
@@ -920,6 +923,7 @@ export function ProjectsStation({
                     if (hoveredRef.current >= 0) setWorldHover(false);
                     hoveredRef.current = i;
                     setWorldHover(true);
+                    tips[i].anchor = e.point.toArray();
                     worldTip.set(tips[i]);
                   }}
                   onPointerOut={() => {
@@ -931,7 +935,12 @@ export function ProjectsStation({
                   onClick={(e) => {
                     e.stopPropagation();
                     spawnPing(e.point);
-                    openProject(screen.slug);
+                    inspectEntity({
+                      kind: 'project',
+                      id: screen.slug,
+                      station: 'projects',
+                      anchor: e.point.toArray(),
+                    });
                   }}
                 >
                   <planeGeometry />

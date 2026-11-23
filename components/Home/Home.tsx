@@ -10,6 +10,7 @@ import { HeroHud } from './HeroHud';
 import { RoleRotator } from './RoleRotator';
 import { StationFallback, illustrations } from 'components/World/StationFallback';
 import { WorldLaunch } from 'components/WorldLaunch/WorldLaunch';
+import { InspectButton } from 'components/World/InspectButton';
 
 import { Home as HomeProps } from '@/types';
 
@@ -90,6 +91,12 @@ export const Home = ({
                 <span>{cta.secondary.text}</span>
               </Link>
             </Magnet>
+          </div>
+          <div className="hero__orientation">
+            <span className="hero__orientation-label">Gateway console</span>
+            <InspectButton selection={{ kind: 'station', id: 'home', station: 'home' }}>
+              Open orientation display
+            </InspectButton>
           </div>
           <WorldLaunch />
         </div>
