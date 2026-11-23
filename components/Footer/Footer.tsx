@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -16,6 +17,15 @@ import { Footer as FooterProps, NavItem } from '@/types';
 
 import './Footer.scss';
 
+const noopSubscribe = () => () => {};
+
+interface Props {
+  footer: FooterProps;
+  navItems: NavItem[];
+  /** The year the page was prerendered in, which is the year its markup shows */
+  builtYear: number;
+}
+
 /**
  * The site's footer: a call to action, then a console (while the header is
  * a HUD it takes the HUD's look: an opaque panel with a hairline frame and
@@ -24,13 +34,21 @@ import './Footer.scss';
  * the social links and the visitor's settings. Server-rendered, the current
  * page included
  */
-export const Footer = ({ footer, navItems }: { footer: FooterProps; navItems: NavItem[] }) => {
+export const Footer = ({ footer, navItems, builtYear }: Props) => {
   const { tagline, social, name, home, connectText, navigateText, builtWith, cta, version } =
     footer;
   const pathname = usePathname();
   const here = stationForPath(pathname);
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
+  // The copyright year hydrates as the one in the prerendered markup, then
+  // becomes the visitor's. Reading the clock while rendering mismatched on
+  // every page from New Year until the next deploy
+  const year = useSyncExternalStore(
+    noopSubscribe,
+    () => Math.max(builtYear, new Date().getFullYear()),
+    () => builtYear
+  );
 
   return (
     <footer className="footer">
@@ -122,7 +140,7 @@ export const Footer = ({ footer, navItems }: { footer: FooterProps; navItems: Na
 
       <div className="footer__bottom">
         <p className="footer__copy">
-          &copy; {new Date().getFullYear()} {name}
+          &copy; {year} {name}
           <span className="footer__version">{version}</span>
         </p>
         <p className="footer__built">

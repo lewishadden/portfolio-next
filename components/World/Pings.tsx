@@ -128,15 +128,20 @@ const fragmentShader = /* glsl */ `
   varying float vAge;
   varying float vScale;
   varying float vFlash;
+  // x squared. Never pow(x, 2.0) for these: x is signed, and pow() of a
+  // negative base is undefined (NaN on some GPUs)
+  float sq(float x) {
+    return x * x;
+  }
   void main() {
     // Done, or waiting to start
     if (vAge >= 1.0 || vAge < 0.0) discard;
     float d = length(vUv);
     // Wider rings keep a slimmer band
     float sharp = sqrt(vScale);
-    float ring = exp(-pow((d - 0.82) * 14.0 * sharp, 2.0));
+    float ring = exp(-sq((d - 0.82) * 14.0 * sharp));
     // A second, fainter ring follows a beat behind, and (clicks) a flash at the start
-    float inner = exp(-pow((d - 0.82 * smoothstep(0.15, 1.0, vAge)) * 18.0 * sharp, 2.0)) * 0.5;
+    float inner = exp(-sq((d - 0.82 * smoothstep(0.15, 1.0, vAge)) * 18.0 * sharp)) * 0.5;
     float flash = exp(-d * d * 30.0) * (1.0 - smoothstep(0.0, 0.25, vAge)) * 1.5 * vFlash;
     float fade = 1.0 - vAge;
     float alpha = (ring + inner + flash) * fade * fade * mix(0.55, 1.0, vFlash);

@@ -136,8 +136,10 @@ export const Header = ({
 
   useEffect(() => {
     if (!mobileOpen) return;
+    // An Escape the command palette has claimed (open over the menu, it
+    // closes itself) leaves the menu open
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMobileOpen(false);
+      if (e.key === 'Escape' && !e.defaultPrevented) setMobileOpen(false);
     };
     // The menu only shows on narrow screens (MobileMenu.scss): widened past
     // them (a tablet turned to landscape) it closes, rather than stay open

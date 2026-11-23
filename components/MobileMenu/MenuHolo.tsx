@@ -80,6 +80,11 @@ float rectDist(vec2 p, vec4 r) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
 }
 
+/** x squared. Never pow(x, 2.0) for these: x is signed, and pow() of a negative base is undefined (NaN on some GPUs) */
+float sq(float x) {
+  return x * x;
+}
+
 /** Brackets round a box: its sides, and its top and bottom only near the ends */
 float brackets(vec2 p, vec4 g, float arm) {
   vec2 local = p - g.xy;
@@ -105,9 +110,9 @@ float holo(vec2 p, float t) {
   float shown = step(l.y, drop + 0.5) * step(0.25, uBoot);
   float onTop = step(l.y, 3.0);
   float frame = smoothstep(1.4, 0.2, abs(outside + 1.0)) * mix(shown, step(fromMiddle, reach + 0.5), onTop);
-  float tip = exp(-pow((fromMiddle - reach) / 5.0, 2.0)) * smoothstep(4.0, 0.0, abs(l.y)) * (1.0 - step(0.28, uBoot));
-  float scanDown = exp(-pow((l.y - drop) / 2.5, 2.0)) * inside * step(0.25, uBoot) * (1.0 - smoothstep(0.56, 0.62, uBoot));
-  float snap = exp(-pow((uBoot - 0.62) * 14.0, 2.0));
+  float tip = exp(-sq((fromMiddle - reach) / 5.0)) * smoothstep(4.0, 0.0, abs(l.y)) * (1.0 - step(0.28, uBoot));
+  float scanDown = exp(-sq((l.y - drop) / 2.5)) * inside * step(0.25, uBoot) * (1.0 - smoothstep(0.56, 0.62, uBoot));
+  float snap = exp(-sq((uBoot - 0.62) * 14.0));
   // How far in from the nearest side, across and down (0 outside)
   vec2 depthIn = max(r.zw * 0.5 - abs(l - r.zw * 0.5), 0.0);
   float nearCorner = step(max(depthIn.x, depthIn.y), 22.0);
@@ -121,8 +126,8 @@ float holo(vec2 p, float t) {
   float ticks = step(mod(l.y, 16.0), 1.0) * step(4.0, side) * step(side, 8.0) * 0.35;
   float grid = (step(fract(l.x / 14.0), 0.06) + step(fract(l.y / 14.0), 0.06)) * 0.04;
   float scan = (0.5 + 0.5 * sin(l.y * 1.7 - t * 9.0)) * 0.045;
-  float sweep = exp(-pow((l.x / r.z - fract(t * 0.06)) * 10.0, 2.0)) * 0.06 * uMotion;
-  float roll = exp(-pow((l.y - (mod(t * 60.0, r.w + 160.0) - 80.0)) / 2.5, 2.0)) * 0.22 * uMotion;
+  float sweep = exp(-sq((l.x / r.z - fract(t * 0.06)) * 10.0)) * 0.06 * uMotion;
+  float roll = exp(-sq((l.y - (mod(t * 60.0, r.w + 160.0) - 80.0)) / 2.5)) * 0.22 * uMotion;
   float grain = (hash(floor(p * 1.5) + floor(t * 24.0)) - 0.5) * 0.06 * uMotion;
   float body = (grid + scan + sweep + roll + grain + ticks) * inside * shown;
 

@@ -233,6 +233,14 @@ test.describe('the guided tour', () => {
       await expect(title).toContainText('Skills');
       await page.keyboard.press('ArrowLeft');
       await expect(tour).toContainText('01 / 06');
+      // Held down, → repeats: the tour moves one stop, not one per repeat
+      // (each is a camera cut, and a run of them flashes)
+      await page.keyboard.down('ArrowRight');
+      for (let i = 0; i < 4; i++) await page.keyboard.down('ArrowRight');
+      await page.keyboard.up('ArrowRight');
+      await expect(tour).toContainText('02 / 06');
+      await page.keyboard.press('ArrowLeft');
+      await expect(tour).toContainText('01 / 06');
 
       // Past the last stop, a closing card waits for a choice
       for (const stop of ['02', '03', '04', '05', '06']) {
@@ -619,6 +627,31 @@ test.describe('free roam on touch', () => {
       await expect(look).not.toHaveAttribute('data-active');
     }
   );
+});
+
+test.describe('warming the station a link leads to', () => {
+  test.use({ world: 'on', reducedMotion: 'reduce' });
+
+  test('a link to a file warms no station', { tag: '@webgl' }, async ({ page }) => {
+    const requests: string[] = [];
+    page.on('request', (request) => requests.push(new URL(request.url()).pathname));
+    const hulls = (station: string) =>
+      requests.filter((path) => path === `/static/models/stations/hd/${station}.glb`).length;
+
+    await openHydrated(page, '/about');
+    await page.waitForSelector('.world--ready', { state: 'attached', timeout: 120_000 });
+    await page.waitForSelector('html:not([data-boot])', { state: 'attached', timeout: 60_000 });
+
+    // The CV is a path on this site, but not a page: its link used to count
+    // as one to the 404 derelict and download that station's hull
+    const cv = page.locator('#main-content a[download]').first();
+    await cv.scrollIntoViewIfNeeded();
+    await cv.hover();
+    // A link to a page does warm its station, and by then the CV's would have gone out too
+    await page.getByRole('banner').getByRole('link', { name: 'Skills' }).hover();
+    await expect.poll(() => hulls('skills'), { timeout: 30_000 }).toBeGreaterThanOrEqual(1);
+    expect(hulls('lost')).toBe(0);
+  });
 });
 
 test.describe('warming the next station on a phone', () => {

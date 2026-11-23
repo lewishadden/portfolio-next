@@ -93,6 +93,11 @@ float rectDist(vec2 p, vec4 r) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
 }
 
+/** x squared. Never pow(x, 2.0) for these: x is signed, and pow() of a negative base is undefined (NaN on some GPUs) */
+float sq(float x) {
+  return x * x;
+}
+
 /** 1 inside a box, feathered to 0 a few pixels outside it */
 float within(vec2 p, vec4 r) {
   return smoothstep(6.0, 0.0, rectDist(p, r));
@@ -117,9 +122,9 @@ float lines(vec2 p, float t) {
   float fromMiddle = abs(p.x - uSize.x * 0.5);
   float drawn = step(fromMiddle, reach + 0.5);
   float onEdge = smoothstep(4.0, 0.0, min(abs(p.y), abs(p.y - uSize.y)));
-  float tip = exp(-pow((fromMiddle - reach) / 5.0, 2.0)) * onEdge * (1.0 - step(0.35, uBoot));
+  float tip = exp(-sq((fromMiddle - reach) / 5.0)) * onEdge * (1.0 - step(0.35, uBoot));
   float sides = smoothstep(0.3, 0.4, uBoot);
-  float snap = exp(-pow((uBoot - 0.42) * 14.0, 2.0));
+  float snap = exp(-sq((uBoot - 0.42) * 14.0));
   float settle = smoothstep(0.4, 0.9, uBoot);
   float flickerIn = max(step(hash(vec2(floor(t * 30.0), 3.0)), settle * 1.2), step(1.0, uBoot));
 
@@ -137,8 +142,8 @@ float lines(vec2 p, float t) {
   vec2 deep = p + vec2(-uTilt.x, uTilt.y) * 1.6;
   float grid = (step(fract(deep.x / 12.0), 0.07) + step(fract(deep.y / 12.0), 0.07)) * 0.045 * inside;
   float scan = (0.5 + 0.5 * sin(deep.y * 1.7 - t * 9.0)) * 0.05 * inside;
-  float sweep = exp(-pow((p.x / uSize.x - fract(t * 0.07)) * 12.0, 2.0)) * 0.08 * inside * uMotion;
-  float roll = exp(-pow((p.y - (mod(-t * 26.0, uSize.y + 90.0) - 45.0)) / 2.2, 2.0)) * 0.3 * inside * uMotion;
+  float sweep = exp(-sq((p.x / uSize.x - fract(t * 0.07)) * 12.0)) * 0.08 * inside * uMotion;
+  float roll = exp(-sq((p.y - (mod(-t * 26.0, uSize.y + 90.0) - 45.0)) / 2.2)) * 0.3 * inside * uMotion;
   float grain = (hash(floor(p * 1.5) + floor(t * 24.0)) - 0.5) * 0.06 * inside * uMotion;
   float body = (grid + scan + sweep + roll + grain) * flickerIn;
 
@@ -237,7 +242,7 @@ void main() {
   // A see-through tint, thickest along the row of links, with a faint
   // interference ripple through it
   float inside = step(rectDist(p, vec4(0.0, 0.0, uSize)), 0.0);
-  float row = 0.5 + 0.5 * exp(-pow((p.y - uSize.y * 0.5) / (uSize.y * 0.3), 2.0));
+  float row = 0.5 + 0.5 * exp(-sq((p.y - uSize.y * 0.5) / (uSize.y * 0.3)));
   float ripple = 0.92 + 0.08 * sin(p.y * 0.9 + p.x * 0.05 - t * 3.0);
   // Never thinner than uFloor over the row of links and buttons themselves,
   // so a lit hull or the hero's name behind the bar can't swallow them

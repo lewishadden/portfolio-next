@@ -71,13 +71,17 @@ class CanvasBoundary extends Component<{ children: ReactNode }, { failed: boolea
   }
 }
 
-/** Hovering or focusing an internal link starts downloading that station's model */
+/**
+ * Hovering or focusing a link to another station starts downloading that
+ * station's model. Not any link to a path on this site: the CV's is one, and
+ * as no page it used to download the 404 derelict's hull
+ */
 function useModelPrefetch(active: boolean) {
   useEffect(() => {
     if (!active) return;
     const onIntent = (e: Event) => {
       const link = e.target instanceof Element ? e.target.closest('a[href^="/"]') : null;
-      if (link instanceof HTMLAnchorElement) prefetchStationModel(new URL(link.href).pathname);
+      if (stationOfLink(link)) prefetchStationModel((link as HTMLAnchorElement).pathname);
     };
     document.addEventListener('pointerover', onIntent, { passive: true });
     document.addEventListener('focusin', onIntent);

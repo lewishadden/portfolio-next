@@ -187,6 +187,8 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
 
   // Keys: Escape ends the tour, ← / → step through it, Space on a stop's
   // card pauses (the closing card has no countdown, nor a pause to show).
+  // A held key acts once: its repeats would step a stop each (a camera cut
+  // below full motion, so a run of them flashes) or flick the pause.
   // An Escape something else has claimed (closing the command palette over
   // the tour) or pressed in a field or dialog is left to it
   useEffect(() => {
@@ -198,11 +200,14 @@ export function TourOverlay({ captions }: { captions: WorldContent['tour'] }) {
       }
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || ownKeys(e.target)) return;
       const onStop = worldMode.get().tourStep < tourStops.length;
+      const pause = e.key === ' ' && e.target === panelRef.current && onStop;
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && !pause) return;
+      // Still the tour's key while held, so its repeats don't scroll the page
+      e.preventDefault();
+      if (e.repeat) return;
       if (e.key === 'ArrowRight') worldMode.advanceTour();
       else if (e.key === 'ArrowLeft') worldMode.backTour();
-      else if (e.key === ' ' && e.target === panelRef.current && onStop) setPaused((on) => !on);
-      else return;
-      e.preventDefault();
+      else setPaused((on) => !on);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

@@ -218,10 +218,11 @@ export function ProjectDetailsModal({
     return () => unlockScroll();
   }, [lenis]);
 
-  // Escape closes from anywhere
+  // Escape closes from anywhere, unless something above the dialog has
+  // claimed it (the command palette, open over it, closes itself)
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
       e.preventDefault();
       onClose();
     };

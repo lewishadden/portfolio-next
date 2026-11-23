@@ -63,6 +63,30 @@ test.describe('command palette', () => {
     await expect(button).toBeFocused();
   });
 
+  test('Escape closes the palette alone, not the project dialog under it', async ({ page }) => {
+    await openHydrated(page, '/projects');
+    // Brought to the front first (its index link), and let arrive: "View
+    // details" belongs to the project in front, which changes on the way
+    await page
+      .getByRole('navigation', { name: 'Projects' })
+      .getByRole('link', { name: 'Drive King', exact: true })
+      .click();
+    await expect(page.getByRole('heading', { level: 2, name: 'Drive King' })).toBeVisible();
+    await page.getByRole('link', { name: 'View details for Drive King' }).click();
+    const project = page.getByRole('dialog', { name: 'Drive King' });
+    await expect(project).toBeVisible();
+
+    const { dialog } = await openPalette(page);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(project).toBeVisible();
+    await expect(page).toHaveURL(/\/projects\/drive-king$/);
+
+    // The next Escape is the project dialog's own
+    await page.keyboard.press('Escape');
+    await expect(project).toBeHidden();
+  });
+
   test('runs terminal commands', async ({ page }) => {
     await openHydrated(page, '/');
     const { dialog, input } = await openPalette(page);

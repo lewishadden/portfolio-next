@@ -1,3 +1,5 @@
+import { gaInit } from '../../components/GoogleAnalyticsDeferred/gaInit';
+
 import { expect, openHydrated, test } from './fixtures';
 
 import type { Locator, Page } from '@playwright/test';
@@ -187,4 +189,63 @@ test('analytics stays off for local and automated visits', async ({ page }) => {
   // It would load once the browser is idle, within 4s
   await page.waitForTimeout(4_500);
   expect(requests).toEqual([]);
+});
+
+test('the geolocation endpoint gives a rough place, never an address or coordinates', async ({
+  request,
+}) => {
+  // What Vercel's edge adds to a request (the city arrives percent-encoded)
+  const response = await request.get('/api/geo', {
+    headers: {
+      'x-real-ip': '203.0.113.7',
+      'x-forwarded-for': '203.0.113.7',
+      'x-vercel-ip-country': 'GB',
+      'x-vercel-ip-country-region': 'ENG',
+      'x-vercel-ip-city': 'Bishop%27s%20Stortford',
+      'x-vercel-ip-latitude': '51.8721',
+      'x-vercel-ip-longitude': '0.1592',
+      'x-vercel-ip-postal-code': 'CM23',
+    },
+  });
+  expect(response.ok()).toBe(true);
+  const body = await response.json();
+  expect(body.geo).toMatchObject({ country: 'GB', city: "Bishop's Stortford" });
+  const text = JSON.stringify(body);
+  for (const precise of ['203.0.113.7', '51.8721', '0.1592', 'CM23']) {
+    expect(text).not.toContain(precise);
+  }
+});
+
+test('analytics hears the country, region and city, and no more', async ({ page }) => {
+  await page.goto('/llms.txt');
+  // A place name with an apostrophe used to end the script's string early,
+  // and analytics never started for those visitors
+  await page.addScriptTag({
+    content: gaInit('G-TEST', { country: 'GB', region: 'lhr1', city: "Bishop's Stortford" }),
+  });
+  const calls = await page.evaluate(() =>
+    (window as unknown as { dataLayer: IArguments[] }).dataLayer.map((call) => Array.from(call))
+  );
+  expect(calls.find((call) => call[0] === 'config')).toEqual(['config', 'G-TEST']);
+  const set = calls.find((call) => call[0] === 'set');
+  expect(set).toEqual([
+    'set',
+    'user_properties',
+    { country: 'GB', region: 'lhr1', city: "Bishop's Stortford", flag: '' },
+  ]);
+});
+
+test('a page built last year starts cleanly in the new year', async ({ page }) => {
+  // The footer's year is prerendered: a visit after New Year, before the next
+  // deploy, used to hydrate a different year over it on every page
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  const nextYear = new Date().getFullYear() + 1;
+  await page.clock.setFixedTime(new Date(nextYear, 0, 2));
+  await openHydrated(page, '/about');
+  await expect(page.locator('.footer__copy')).toContainText(`\u00a9 ${nextYear}`);
+  expect(errors).toEqual([]);
 });

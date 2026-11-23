@@ -103,6 +103,14 @@ test.describe('mobile menu', () => {
     await expect(page.locator('#mobile-menu')).toBeVisible();
     await expect(html).toHaveClass(/lenis-stopped/);
 
+    // So does Escape, which is the palette's while it is open
+    await page.getByRole('button', { name: 'Open command palette' }).click();
+    await expect(dialog.getByRole('combobox', { name: 'Command' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('#mobile-menu')).toBeVisible();
+    await expect(html).toHaveClass(/lenis-stopped/);
+
     // Once the menu closes too, the page scrolls again
     await page.keyboard.press('Escape');
     await expect(page.locator('#mobile-menu')).toBeHidden();

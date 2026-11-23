@@ -167,7 +167,7 @@ function JsonLd() {
     (c: ContactInfo) => c.name === 'Email'
   )?.value;
   const telephone = content.contact?.contactInfo?.items?.find(
-    (c: ContactInfo) => c.name === 'Mobile'
+    (c: ContactInfo) => c.name === 'Phone'
   )?.value;
 
   // Person Schema
@@ -275,7 +275,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main id="main-content" tabIndex={-1}>
             <PageTransition>{children}</PageTransition>
           </main>
-          <Footer footer={content.footer} navItems={content.global.navItems} />
+          <Footer
+            footer={content.footer}
+            navItems={content.global.navItems}
+            builtYear={new Date().getFullYear()}
+          />
           <Cursor />
           <CommandPalette data={paletteData} />
           <StatsOverlay />
