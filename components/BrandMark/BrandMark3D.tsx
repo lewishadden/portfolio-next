@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
   AdditiveBlending,
@@ -276,7 +276,14 @@ function Mark({
   const motion = useMemo(() => createMarkMotion(), []);
   const ready = useRef(false);
 
-  useEffect(() => () => disposeAssets(assets), [assets]);
+  // A theme switch builds a new set: the old goes once the new has drawn
+  // (two frames on), so the programs they share aren't deleted and relinked
+  useEffect(
+    () => () => {
+      requestAnimationFrame(() => requestAnimationFrame(() => disposeAssets(assets)));
+    },
+    [assets]
+  );
   useEffect(() => lightScene(gl, scene), [gl, scene]);
   useEffect(() => onGone, [onGone]);
 
@@ -326,9 +333,23 @@ function Mark({
   );
 }
 
+/** Whether the page (and the header with it) is showing: html[data-world-mode] is `page` */
+const subscribeMode = (listener: () => void) => {
+  const observer = new MutationObserver(listener);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-world-mode'],
+  });
+  return () => observer.disconnect();
+};
+const pageShowing = () => (document.documentElement.dataset.worldMode ?? 'page') === 'page';
+const showingOnServer = () => true;
+
 /**
  * The 3D mark's canvas: transparent, small, antialiased. `onReady` fires
- * after its first frame, when HeaderMark fades it in over the SVG.
+ * after its first frame, when HeaderMark fades it in over the SVG. While
+ * the header is hidden (the tour, free roam, the page coming back from
+ * them) it draws nothing: on demand, with nothing asking.
  */
 export default function BrandMark3D({
   theme,
@@ -342,9 +363,11 @@ export default function BrandMark3D({
   /** Called when it unmounts, so the SVG shows again at once */
   onGone: () => void;
 }) {
+  const showing = useSyncExternalStore(subscribeMode, pageShowing, showingOnServer);
   return (
     <Canvas
       dpr={[1, 2]}
+      frameloop={showing ? 'always' : 'demand'}
       flat
       gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}
       camera={{

@@ -38,3 +38,18 @@ test('icons come from the offline bundle, never the Iconify API', async ({ page 
   expect(external).toEqual([]);
   expect(missing).toEqual([]);
 });
+
+test('the Person structured data carries the email and phone the contact page shows', async ({
+  page,
+}) => {
+  await page.goto('/contact');
+  const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+  const person = blocks
+    .map((block) => JSON.parse(block) as Record<string, unknown>)
+    .find((block) => block['@type'] === 'Person');
+  expect(person).toBeTruthy();
+  const main = page.locator('#main-content');
+  await expect(main.locator(`a[href="mailto:${person!.email}"]`).first()).toBeAttached();
+  expect(person!.telephone).toMatch(/^\+?[\d ]{9,}$/);
+  await expect(main.getByText(person!.telephone as string).first()).toBeAttached();
+});

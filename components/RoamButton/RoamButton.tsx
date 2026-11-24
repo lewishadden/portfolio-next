@@ -23,15 +23,16 @@ const serverNearTop = () => true;
 
 /**
  * Free roam, front and centre: a floating button that hands the camera to
- * the visitor (switching the 3D world on first if needed) and, on desktop,
- * becomes the way back while they fly. A full pill only at the top of the
- * home page; everywhere else it would cover the page, so it is just its
- * icon, the label sliding out on hover or focus. Hidden where WebGL is
+ * the visitor and, on desktop, becomes the way back while they fly. With
+ * the world switched off it says so, and turns the world back on (free
+ * roam is a click away again once it is up). A full pill only at the top
+ * of the home page; everywhere else it would cover the page, so it is just
+ * its icon, the label sliding out on hover or focus. Hidden where WebGL is
  * unavailable, during the guided tour, and in free flight on touch screens,
  * where the flight pad needs the corner.
  */
 export function RoamButton() {
-  const { supported, setEnabled } = useWorldPreference();
+  const { enabled, supported, setEnabled } = useWorldPreference();
   const { mode } = useWorldMode();
   const touch = useMediaQuery('(pointer: coarse)');
   const pathname = usePathname();
@@ -42,8 +43,14 @@ export function RoamButton() {
   const compact = !exploring && !(pathname === '/' && top);
   const toggle = () => {
     if (exploring) worldMode.exit();
+    else if (!enabled) setEnabled(true);
     else launchWorldMode('explore', () => setEnabled(true));
   };
+  const [icon, label, sub] = exploring
+    ? ['ph:x-bold', 'Exit free roam', 'Back to the page']
+    : enabled
+      ? ['ph:rocket-launch-bold', 'Free roam', 'Fly the 3D world']
+      : ['ph:cube-bold', 'Turn on 3D', 'See the world behind the page'];
 
   return (
     <button
@@ -52,11 +59,11 @@ export function RoamButton() {
       onClick={toggle}
     >
       <span className="roam-fab__icon" aria-hidden="true">
-        <Icon icon={exploring ? 'ph:x-bold' : 'ph:rocket-launch-bold'} width={22} height={22} />
+        <Icon icon={icon} width={22} height={22} />
       </span>
       <span className="roam-fab__label">
-        <b>{exploring ? 'Exit free roam' : 'Free roam'}</b>
-        <small aria-hidden="true">{exploring ? 'Back to the page' : 'Fly the 3D world'}</small>
+        <b>{label}</b>
+        <small aria-hidden="true">{sub}</small>
       </span>
     </button>
   );

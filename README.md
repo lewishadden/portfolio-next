@@ -63,7 +63,8 @@ hologram, so the site never breaks on a failed download.
 time) with a fake success, and rate limits each IP to 5 messages per 10 minutes. The limiter is
 in-memory, so it is per server instance and resets on deploy — enough for a single Node server; use a
 shared store (e.g. Redis) if the site ever runs on several instances. SMTP settings come from
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL` and `SMTP_PASS`.
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL` and `SMTP_PASS`; the connection uses TLS from the start on
+port 465 and STARTTLS on any other port.
 
 ## Contributing
 

@@ -306,6 +306,41 @@
   }
 }
 
+/* Wide layouts: portrait and bio keep to the left, about as wide as the
+   other pages' copy, so the station has the right side (the camera holds it
+   there as the page is read). The smaller photo wears its name tag under it
+   rather than over it. Its width here is in the portrait's `sizes`
+   (portraitSizes in About.tsx): change both together */
+@media (min-width: 900px) and (min-aspect-ratio: 11 / 10) {
+  .about__grid {
+    grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr);
+    gap: clamp(1.5rem, 3vw, 2.5rem);
+    max-width: min(54rem, 58vw);
+  }
+
+  .about__body {
+    container-type: inline-size;
+  }
+
+  .about__tag {
+    position: relative;
+    inset: auto;
+    flex-wrap: wrap;
+    margin-top: 10px;
+
+    small {
+      white-space: normal;
+    }
+  }
+}
+
+/* A narrow bio column (wide layouts on smaller screens): one highlight a row */
+@container (max-width: 30rem) {
+  .about__highlights {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 900px) {
   .about__grid {
     grid-template-columns: 1fr;

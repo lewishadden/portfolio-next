@@ -4,7 +4,7 @@
 
 ## About
 
-Lewis Hadden is a highly experienced senior full stack engineer based in Peterborough, UK. He has been working in the web development industry for almost 9 years, leading development teams for large-scale projects and working as an independent developer on both in-house and public-facing products. He is currently seeking opportunities as a Senior or Lead Full Stack Developer, either as a freelancer or under permanent employment.
+Lewis Hadden is a highly experienced senior full stack engineer based in Peterborough, UK. He has been working in the web development industry for nine years, leading development teams for large-scale projects and working as an independent developer on both in-house and public-facing products. He is currently seeking opportunities as a Senior or Lead Full Stack Developer, either as a freelancer or under permanent employment.
 
 ## Contact
 
@@ -50,8 +50,33 @@ Selenium, WebdriverIO, Cucumber / Gherkin, BrowserStack, Appium, Node.js, JIRA, 
 
 ## Projects
 
+### ZGS Carpentry (2026)
+Marketing website designed and built from scratch for a Caddington-based carpenter, joiner and tiler covering Hertfordshire and Bedfordshire. Thirteen SEO-friendly service pages, an interactive Three.js showcase of carpentry tools, a coverage map with a page for each local area, a filterable gallery and a quote form that emails enquiries via Resend.
+Technologies: Next.js, React, TypeScript, Tailwind CSS, Three.js, Resend, Vercel
+URL: https://zgs-carpentry.co.uk
+
+### Sidenote (2026)
+A passion project: a Chrome extension that turns the browser side panel into an AI reading assistant for articles, PDFs and research papers. It summarises a page at three depths, answers questions with numbered citations that highlight the source passage, rewrites dense passages in plain language and builds a glossary of key terms. A Vite and React Manifest V3 extension with a Next.js backend on Vercel, Supabase (Postgres with pgvector), Anthropic's Claude models, passwordless sign-in and Stripe billing.
+Technologies: Next.js, React, TypeScript, Anthropic Claude, Tailwind CSS, Vite, Chrome Extension, Supabase, PostgreSQL, Stripe
+URL: https://getsidenote.app
+
+### Drive King (2026)
+Driving school website designed and built from scratch for a DVSA Approved Driving Instructor covering Bedfordshire and Hertfordshire. Live Google reviews through the Google Places API, an interactive Leaflet map with a page for each area covered, learner guides, lesson pricing and a contact form that sends enquiries via Resend. All copy is editable through TinaCMS.
+Technologies: Next.js, React, TypeScript, Tailwind CSS, TinaCMS, Leaflet, Resend, Google Places API, Vercel
+URL: https://drive-king.co.uk
+
+### Smiley Pets (2026)
+Pet care website designed and built from scratch for a local dog walking and pet sitting business established in 2010, with client testimonials, a photo gallery, a film strip of the pets in their care and a contact and booking section.
+Technologies: Next.js, React, TypeScript, Tailwind CSS, Vercel
+URL: https://smileypets.co.uk
+
+### Sip Happens (2026)
+A passion project: a review platform for espresso martini enthusiasts, with bar reviews from around the world, a blog, an interactive global map of the bars reviewed and a form for recommending bars. Reviews, posts and submissions are stored in PostgreSQL.
+Technologies: Next.js, React, TypeScript, Tailwind CSS, PostgreSQL
+URL: https://sip-happens.co.uk
+
 ### ADP RUN (2025)
-Working on the ADP RUN payroll and HR platform. Developing new features using React and Tailwind CSS with feature flags for a customisable user experience. Writing unit tests with Jest and React Testing Library, and e2e tests with Cypress.
+Worked on the ADP RUN payroll and HR platform, developing new features using React and Tailwind CSS with feature flags for a customisable user experience. Wrote unit tests with Jest and React Testing Library, and e2e tests with Cypress.
 Technologies: React, Tailwind CSS, Webpack, Cypress IO
 URL: https://online.adp.com/signin/v1/?APPID=RUN&productId=80e309c3-70c3-bae1-e053-3505430b5495
 
@@ -83,7 +108,7 @@ Led front-end development and was pivotal in modernising Audi UK's technology in
 Technologies: React, TypeScript, AWS
 
 ### Traffic Management Portal (2022)
-Bespoke real-time traffic monitoring, reporting and management dashboards for the Singapore Land Traffic Authority (LTA).
+Bespoke real-time traffic monitoring, reporting and management dashboards for the Singapore Land Transport Authority (LTA).
 Technologies: Angular, TypeScript, SCSS
 
 ### Audex (2022)
@@ -104,4 +129,4 @@ Technologies: Azure, REST API, Cosmos DB
 - **Cloud:** AWS, Azure, Azure Functions, Azure DevOps, Docker, GitHub Actions, CI/CD Pipelines
 - **CMS & Analytics:** Adobe Experience Manager, Adobe Dynamic Tag Manager, Shopify
 - **UI Libraries:** Mantine UI, Bootstrap, Carbon Design System, Material UI
-- **Tools:** Git, JIRA, Notion, Linux, Bash, Apache, NGINX, PowerBI
+- **Tools:** Git, JIRA, Notion, Postman, Claude, Linux, Bash, Apache, NGINX, PowerBI

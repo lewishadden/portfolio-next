@@ -1,15 +1,20 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useDeferredValue, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@iconify/react';
-import { useLenis } from 'lenis/react';
 
-import { stationForPath, stationNames, stationPositions } from 'components/World/routes';
+import {
+  prefetchStationModel,
+  rangeBetween,
+  stationForPath,
+  stationNames,
+} from 'components/World/routes';
 
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useLenisHold } from '@/hooks/useLenisHold';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 import { MenuHolo } from './MenuHolo';
@@ -44,25 +49,27 @@ export function MobileMenu({
 }) {
   const pathname = usePathname();
   const menuRef = useFocusTrap<HTMLDivElement>(open);
-  const lenis = useLenis();
-  const { theme } = useTheme();
+  // The hologram follows a theme switch a moment later, off the switch's own frame
+  const theme = useDeferredValue(useTheme().theme);
   const reduced = useReducedMotion();
-  const here = stationPositions[stationForPath(pathname)];
+  const here = stationForPath(pathname);
 
-  // The page under the menu holds still
+  // The page under the menu holds still (a hold shared with the palette,
+  // which opens above the menu)
+  useLenisHold(open);
+
+  // A tap on any row flies there: with 3D effects on, every row's station
+  // starts downloading as the menu opens, so the flight arrives at the
+  // station rather than its placeholder
   useEffect(() => {
-    if (!open || !lenis) return;
-    lenis.stop();
-    return () => lenis.start();
-  }, [open, lenis]);
+    if (!open || !hud) return;
+    navItems.forEach(({ href }) => {
+      if (stationForPath(href) !== here) prefetchStationModel(href);
+    });
+  }, [open, hud, navItems, here]);
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
-  /** How far a page's station is from the one docked at now (km, as the station readout counts) */
-  const rangeTo = (href: string) => {
-    const [x, y, z] = stationPositions[stationForPath(href)];
-    return Math.round(Math.hypot(x - here[0], y - here[1], z - here[2]));
-  };
 
   return (
     <div
@@ -100,8 +107,9 @@ export function MobileMenu({
                     tabIndex={open ? 0 : -1}
                     onClick={onClose}
                   >
+                    {/* Numbered from 00, as the page eyebrows are (About is 01) */}
                     <span className="mobile-menu__index" aria-hidden="true">
-                      {String(i + 1).padStart(2, '0')}
+                      {String(i).padStart(2, '0')}
                     </span>
                     <span className="mobile-menu__name">
                       <span className="mobile-menu__label">{label}</span>
@@ -110,7 +118,7 @@ export function MobileMenu({
                       </span>
                     </span>
                     <span className="mobile-menu__range" aria-hidden="true">
-                      {active ? 'Docked' : `${rangeTo(href)} km`}
+                      {active ? 'Docked' : `${rangeBetween(here, stationForPath(href))} km`}
                     </span>
                     <Icon icon={icon} width={22} aria-hidden="true" />
                   </Link>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import { easing } from 'maath';
 import {
@@ -19,6 +19,8 @@ import {
   Vector3,
 } from 'three';
 
+import { motionLevel } from '@/utils/motion';
+
 import globePoints from '../data/globePoints.json';
 import {
   asGlow,
@@ -28,17 +30,29 @@ import {
   createRingMaterial,
 } from '../materials';
 import { Model } from '../Model';
-import { NavLights, Spin } from '../parts';
-import { StationScope } from '../power';
-import { createReaction, stepReaction, trickProgress, useReactionHandlers } from '../reaction';
+import { NavLights } from '../parts';
+import { spawnPing } from '../Pings';
+import { flashNavLights, StationScope } from '../power';
+import {
+  createReaction,
+  stepReaction,
+  trick,
+  trickProgress,
+  useReactionHandlers,
+  useRedrawOnPageChange,
+} from '../reaction';
 import { stationInRange, useThemedMaterials, useWide } from '../stationHooks';
 import { StationHull } from '../StationHull';
+import { contactDish } from '../routes';
 import { stationModels, stationPositions } from '../stations';
+import { setTipTarget, tipTarget } from '../tipTarget';
 import { latLngToVector3, palettes, seededRandom, setUniform } from '../utils';
-import { setWorldHover, worldStore, worldTip } from '../worldStore';
+import { emitCue, onShowcase, setWorldHover, worldStore, worldTip } from '../worldStore';
 
 import { RocketSmoke } from './RocketSmoke';
+import { repaintFor } from './stillFrames';
 
+import type { RefObject } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { NavLight } from '../parts';
 import type { Reaction } from '../reaction';
@@ -46,7 +60,7 @@ import type { WorldPalette, WorldTheme } from '../utils';
 
 /** Where the dish array sits, and the point on it the data link leaves from */
 const arrayPosition = new Vector3(4.3, -0.9, -3.2);
-const dishFocus = new Vector3(3.85, 0.65, -2.9);
+const dishFocus = new Vector3(...contactDish);
 /** Relative to the array, which sweeps about its base */
 const arrayLights: NavLight[] = [
   { position: [-0.95, -0.65, 0], kind: 'red' },
@@ -91,20 +105,29 @@ const dotFragment = /* glsl */ `
   uniform vec3 uColorA;
   uniform vec3 uColorB;
   uniform float uLight;
+  uniform float uCharge;
   varying float vFacing;
   varying float vLat;
   varying float vTwinkle;
   void main() {
     if (vFacing < -0.05) discard;
     float d = length(gl_PointCoord - 0.5);
-    float alpha = smoothstep(0.5, 0.2, d) * smoothstep(-0.05, 0.35, vFacing) * vTwinkle;
+    // The station's power: the land goes dark in standby, and flickers and surges on
+    float alpha = smoothstep(0.5, 0.2, d) * smoothstep(-0.05, 0.35, vFacing) * vTwinkle * min(uCharge, 1.0);
     vec3 col = mix(uColorA, uColorB, smoothstep(-0.2, 0.9, vLat));
-    gl_FragColor = vec4(col * mix(1.6, 1.0, uLight), alpha);
+    gl_FragColor = vec4(col * mix(1.6, 1.0, uLight) * max(uCharge, 1.0), alpha);
   }
 `;
 
 /** The transmission: packets streaming from the dish to the Peterborough pin */
 const packetCount = 28;
+/** Share of the arc packets loop over near the dish while a message is only being written */
+const idleReach = 0.22;
+/** Seconds a packet takes from the pin back up to the dish (a contact card pointed at) */
+const courierTime = 1.3;
+/** The packet and its fading trail: how far behind it each point is, and how bright */
+const courierTrail = [0, 0.035, 0.07, 0.105];
+const courierFade = [2.4, 1.1, 0.55, 0.25];
 /** Seconds the stream shows at least, so a fast send is still seen */
 const transmitHold = 1.8;
 const packetFrom = new Vector3();
@@ -116,13 +139,17 @@ const packetCurve = new QuadraticBezierCurve3(packetFrom, packetBend, packetTo);
 
 const packetVertex = /* glsl */ `
   uniform float uPixelRatio;
+  uniform float uSize;
   attribute float aAlong;
+  attribute float aFade;
   varying float vAlong;
+  varying float vFade;
   void main() {
     vAlong = aAlong;
+    vFade = aFade;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = (2.0 + 4.0 * sin(aAlong * 3.1416)) * uPixelRatio * (10.0 / -mv.z);
+    gl_PointSize = (2.0 + 4.0 * sin(aAlong * 3.1416)) * uSize * uPixelRatio * (10.0 / -mv.z);
   }
 `;
 
@@ -132,9 +159,13 @@ const packetFragment = /* glsl */ `
   uniform float uActive;
   uniform float uLight;
   varying float vAlong;
+  varying float vFade;
   void main() {
     float d = length(gl_PointCoord - 0.5);
-    float alpha = smoothstep(0.5, 0.0, d) * uActive;
+    // A fade over 1 brightens an additive glow (dark theme). Blended normally
+    // (light theme) an alpha over 1 would subtract what is behind it: cap it
+    float alpha = smoothstep(0.5, 0.0, d) * uActive * vFade;
+    alpha = mix(alpha, min(alpha, 1.0), uLight);
     gl_FragColor = vec4(mix(uFrom, uTo, vAlong) * mix(2.4, 1.1, uLight), alpha);
   }
 `;
@@ -170,6 +201,28 @@ const exhaustFragment = /* glsl */ `
   }
 `;
 
+/** Packets: points that brighten from cyan at the dish to pink at the pin */
+function createPacketMaterial(p: WorldPalette, size = 1) {
+  return asGlow(
+    new ShaderMaterial({
+      uniforms: {
+        uPixelRatio: { value: 1 },
+        uSize: { value: size },
+        uActive: { value: 0 },
+        uFrom: { value: new Color(p.cyan) },
+        uTo: { value: new Color(p.pink) },
+        uLight: { value: 0 },
+      },
+      vertexShader: packetVertex,
+      fragmentShader: packetFragment,
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      toneMapped: false,
+    })
+  );
+}
+
 const buildMaterials = (p: WorldPalette) => ({
   dots: asGlow(
     new ShaderMaterial({
@@ -179,6 +232,7 @@ const buildMaterials = (p: WorldPalette) => ({
         uColorA: { value: new Color(p.violet) },
         uColorB: { value: new Color(p.cyan) },
         uLight: { value: 0 },
+        uCharge: { value: 1 },
       },
       vertexShader: dotVertex,
       fragmentShader: dotFragment,
@@ -201,23 +255,8 @@ const buildMaterials = (p: WorldPalette) => ({
   beacon0: createRingMaterial({ colorA: p.pink, colorB: p.violet, intensity: 3, speed: 0 }),
   beacon1: createRingMaterial({ colorA: p.pink, colorB: p.violet, intensity: 3, speed: 0 }),
   beacon2: createRingMaterial({ colorA: p.pink, colorB: p.violet, intensity: 3, speed: 0 }),
-  packets: asGlow(
-    new ShaderMaterial({
-      uniforms: {
-        uPixelRatio: { value: 1 },
-        uActive: { value: 0 },
-        uFrom: { value: new Color(p.cyan) },
-        uTo: { value: new Color(p.pink) },
-        uLight: { value: 0 },
-      },
-      vertexShader: packetVertex,
-      fragmentShader: packetFragment,
-      transparent: true,
-      depthWrite: false,
-      blending: AdditiveBlending,
-      toneMapped: false,
-    })
-  ),
+  packets: createPacketMaterial(p),
+  courier: createPacketMaterial(p, 2.8),
   flare: createHaloMaterial({ color: '#fbbf24', intensity: 2.4, opacity: 0 }),
   exhaust: asGlow(
     new ShaderMaterial({
@@ -239,8 +278,8 @@ const buildMaterials = (p: WorldPalette) => ({
   ),
 });
 
-/** Lays the packets out along an arc from the dish to the pin, wherever the globe has turned it */
-function streamPackets(points: Points, globe: Group, tip: Vector3, t: number) {
+/** Aims the packets' arc from the dish to the pin, wherever the globe has turned it */
+function aimPackets(globe: Group, tip: Vector3) {
   globe.updateMatrix();
   packetFrom.copy(dishFocus);
   packetTo.copy(tip).applyMatrix4(globe.matrix);
@@ -251,16 +290,45 @@ function streamPackets(points: Points, globe: Group, tip: Vector3, t: number) {
     .sub(globeCentre)
     .setLength(radius * 1.9)
     .add(globeCentre);
+}
+
+/**
+ * Lays the packets out along the arc, `clock` setting how far they have
+ * got. With `reach` 1 they stream the whole way to the pin (a message
+ * sending); down at `idleReach` they loop near the dish, fading in and out
+ * at either end of the loop (a message being written)
+ */
+function streamPackets(points: Points, globe: Group, tip: Vector3, clock: number, reach: number) {
+  aimPackets(globe, tip);
+  const full = MathUtils.clamp((reach - idleReach) / (1 - idleReach), 0, 1);
   const position = points.geometry.getAttribute('position') as BufferAttribute;
   const along = points.geometry.getAttribute('aAlong') as BufferAttribute;
+  const fade = points.geometry.getAttribute('aFade') as BufferAttribute;
   for (let i = 0; i < packetCount; i++) {
-    const u = (t * 0.85 + i / packetCount) % 1;
+    const u = (clock + i / packetCount) % 1;
+    packetCurve.getPoint(u * reach, packetPoint);
+    position.setXYZ(i, packetPoint.x, packetPoint.y, packetPoint.z);
+    along.setX(i, u * reach);
+    fade.setX(i, MathUtils.lerp(Math.sin(u * Math.PI), 1, full));
+  }
+  position.needsUpdate = along.needsUpdate = fade.needsUpdate = true;
+}
+
+/**
+ * Places the packet (and its trail) arcing from the pin back up to the
+ * dish, `progress` 0..1 of the way: the stream's path, run the other way
+ */
+function sendCourier(points: Points, globe: Group, tip: Vector3, progress: number) {
+  aimPackets(globe, tip);
+  const position = points.geometry.getAttribute('position') as BufferAttribute;
+  const along = points.geometry.getAttribute('aAlong') as BufferAttribute;
+  courierTrail.forEach((behind, i) => {
+    const u = 1 - MathUtils.clamp(progress - behind, 0, 1);
     packetCurve.getPoint(u, packetPoint);
     position.setXYZ(i, packetPoint.x, packetPoint.y, packetPoint.z);
     along.setX(i, u);
-  }
-  position.needsUpdate = true;
-  along.needsUpdate = true;
+  });
+  position.needsUpdate = along.needsUpdate = true;
 }
 
 function buildArcs() {
@@ -272,6 +340,17 @@ function buildArcs() {
     return new TubeGeometry(new QuadraticBezierCurve3(start, mid, end), 48, 0.011, 6, false);
   });
 }
+
+/**
+ * What the station answers on the page, as one string for
+ * useRedrawOnPageChange: a contact card or the location map pointed at,
+ * and the form (a field focused, the message's length)
+ */
+const readComms = () => {
+  const target = worldStore.targetHover;
+  const answered = target.startsWith('contact:') || target === 'globe:home' ? target : '';
+  return `${answered}|${worldStore.commsFocus ? 1 : 0}|${worldStore.composing}`;
+};
 
 const globeTip = { label: 'Peterborough, UK', sub: 'Drag to spin the globe' };
 const rocketTip = { label: 'Ready for launch', sub: 'Send a message to fire it, or click to rev' };
@@ -305,17 +384,128 @@ function holdSelection() {
   };
 }
 
-/** Starts a drag on the globe; window listeners follow the pointer until release */
-function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>) {
+/** Pixels a press may wander and still count as a click (which pings), not a drag or a scroll */
+const clickSlop = 6;
+
+/** Screen pixels past which the first move a touch sends decides it (see `globeTouch`) */
+const firstMoveSlop = 2.5;
+
+/**
+ * A touch that starts on the globe and runs sideways is the drag's; one
+ * that runs up or down is still the page's to scroll (pan-y, for that touch
+ * only: the globe's pitch barely moves, and it sits in the gaps left for
+ * scrolling past it on phones). Whether a touch may scroll is settled as it
+ * starts, before any handler can change touch-action, so while the globe is
+ * in view listeners decide instead. The globe's pointerdown (which the
+ * browser dispatches just before touchstart) marks the touch, touchstart
+ * notes where it began, and a cancelable move then either claims it,
+ * cancelling the scroll on every move from then on, or lets it go. Which
+ * move decides differs by browser. iOS sends every move from the first
+ * pixel, so a thumb's first pixel or two of roll must not decide the swipe:
+ * later moves wait until the touch is `clickSlop` out, still short of
+ * iOS's own pan. Chrome holds moves back until the touch is past its own
+ * slop (8 dp on Android), then sends that one as its only cancelable move,
+ * so the first move the page sees decides once it is clearly past a roll
+ * (`firstMoveSlop`) rather than waiting for `clickSlop`: both slops are in
+ * screen pixels, so page zoom shrinks Chrome's in CSS pixels (to 2.7 at
+ * 300%) and the page can't tell. Distances are scaled by the visual
+ * viewport's scale, so pinch zoom doesn't shrink the gates. Only a clearly
+ * sideways swipe (within about 34° of level) is claimed: a diagonal one
+ * scrolls. A second finger (a pinch) is the page's too. Away from /contact
+ * nothing listens
+ */
+const globeTouch = { pending: false, claimed: false, armed: false, id: -1, x: 0, y: 0, moves: 0 };
+
+function noteTouch(event: TouchEvent) {
+  if (!globeTouch.pending) return;
+  const touch = event.changedTouches[0];
+  if (event.touches.length > 1 || !touch) {
+    globeTouch.pending = false;
+    return;
+  }
+  globeTouch.id = touch.identifier;
+  globeTouch.x = touch.clientX;
+  globeTouch.y = touch.clientY;
+  globeTouch.moves = 0;
+}
+
+function claimTouch(event: TouchEvent) {
+  if (globeTouch.claimed) {
+    // On every move: iOS scrolls anyway if only the first is cancelled
+    if (event.cancelable) event.preventDefault();
+    return;
+  }
+  // Once the page is scrolling its moves can't be cancelled (and pointercancel ends the drag)
+  if (!globeTouch.pending || !event.cancelable) return;
+  let touch: Touch | null = null;
+  for (let i = 0; i < event.touches.length; i++) {
+    if (event.touches[i].identifier === globeTouch.id) touch = event.touches[i];
+  }
+  if (event.touches.length > 1 || !touch) {
+    globeTouch.pending = false;
+    return;
+  }
+  const across = Math.abs(touch.clientX - globeTouch.x);
+  const down = Math.abs(touch.clientY - globeTouch.y);
+  const travel = Math.hypot(across, down) * (window.visualViewport?.scale ?? 1);
+  const first = globeTouch.moves++ === 0;
+  if (travel < (first ? firstMoveSlop : clickSlop)) return;
+  globeTouch.pending = false;
+  if (across > down * 1.5) {
+    globeTouch.claimed = true;
+    event.preventDefault();
+  }
+}
+
+/** Listens for touches to claim while the globe is in view (and not otherwise: a move listener that cancels can't be passive) */
+function armTouch(on: boolean) {
+  if (globeTouch.armed === on) return;
+  globeTouch.armed = on;
+  if (on) {
+    document.addEventListener('touchstart', noteTouch, { passive: true });
+    document.addEventListener('touchmove', claimTouch, { passive: false });
+  } else {
+    document.removeEventListener('touchstart', noteTouch);
+    document.removeEventListener('touchmove', claimTouch);
+  }
+}
+
+const pressPoint = new Vector3();
+
+/**
+ * Starts a drag on the globe; window listeners follow the pointer until
+ * release. A press that barely moves is a click instead: it pings where it
+ * landed, like every other click in the world (by hand on release, as a
+ * touch claimed for the drag never becomes a click). A touch turns the
+ * globe only once it is claimed (it may yet scroll the page instead, which
+ * ends the drag with a pointercancel). `repaint` keeps it drawing at
+ * `still`, where the world only draws on demand: a frame per move, and
+ * frames for as long as a ping plays
+ */
+function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>, repaint: () => void) {
   e.stopPropagation();
   e.nativeEvent.preventDefault();
+  const pointer = e.pointerId;
+  const touch = e.pointerType === 'touch';
+  if (touch) {
+    globeTouch.pending = true;
+    globeTouch.claimed = false;
+  }
   const release = holdSelection();
+  const fromX = e.clientX;
+  const fromY = e.clientY;
+  let wandered = 0;
+  pressPoint.copy(e.point);
   spin.dragging = true;
   spin.lastX = e.clientX;
   spin.lastY = e.clientY;
   spin.lastTime = performance.now();
   spin.velocity = 0;
   const move = (event: PointerEvent) => {
+    if (event.pointerId !== pointer) return;
+    wandered = Math.max(wandered, Math.hypot(event.clientX - fromX, event.clientY - fromY));
+    // A touch turns nothing until it is claimed; the first claimed move then catches up from the press
+    if (touch && !globeTouch.claimed) return;
     const now = performance.now();
     const dx = event.clientX - spin.lastX;
     const dy = event.clientY - spin.lastY;
@@ -326,17 +516,129 @@ function startSpin(spin: Spin, e: ThreeEvent<PointerEvent>) {
     spin.lastX = event.clientX;
     spin.lastY = event.clientY;
     spin.lastTime = now;
+    repaint();
   };
-  const end = () => {
+  const end = (event: PointerEvent) => {
+    if (event.pointerId !== pointer) return;
     spin.dragging = false;
+    // A touch claimed for the drag is a drag however short (its first move may claim it under `clickSlop`)
+    const dragged = touch && globeTouch.claimed;
+    globeTouch.pending = globeTouch.claimed = false;
     release();
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', end);
     window.removeEventListener('pointercancel', end);
+    if (event.type === 'pointerup' && wandered < clickSlop && !dragged) {
+      spin.velocity = 0;
+      spawnPing(pressPoint);
+      // At `still` one repaint would freeze the ping's first frame: keep drawing while it plays
+      if (motionLevel() === 'still') repaintFor(repaint, 1000);
+    }
+    repaint();
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', end);
   window.addEventListener('pointercancel', end);
+}
+
+/**
+ * The comms array's state between frames: how locked on to the globe the
+ * dish is (a form field has focus), its sweep, the data link's and the
+ * packets' own clocks (they speed up and slow down without jumping), how
+ * far the packets reach, the packet arcing back from the pin, and how far
+ * the globe has turned Peterborough to the camera
+ */
+interface Comms {
+  lock: number;
+  sweep: number;
+  link: number;
+  stream: number;
+  reach: number;
+  composing: number;
+  courierAt: number;
+  courierFor: string;
+  face: number;
+  /** The pin's rings' own clock (they quicken while a message sends) */
+  rings: number;
+  /** Clock time a showcase's transmission runs until */
+  showUntil: number;
+  /** The station's own clock, which holds at `still` (nothing ambient moves) */
+  ambient: number;
+}
+
+/** Turns of the sweep, either side of the globe, while the dish idles */
+const sweepAngle = 0.3;
+const sweepRate = 0.3;
+
+const cameraLocal = new Vector3();
+const pinFacing = new Vector3();
+const untilt = new Quaternion();
+const xAxis = new Vector3(1, 0, 0);
+
+/** The shortest turn from angle `a` to `b`, -π..π */
+function turnBetween(a: number, b: number) {
+  return MathUtils.euclideanModulo(b - a + Math.PI, Math.PI * 2) - Math.PI;
+}
+
+/**
+ * The globe's yaw that turns the pin (`pin`, its direction in the globe's
+ * own frame) to face the camera, for the globe's pitch, nearest `from`
+ */
+function yawFacing(globe: Group, pin: Vector3, camera: Vector3, from: number) {
+  // The camera's direction from the globe, tilted back by the globe's pitch
+  pinFacing.copy(camera).sub(globe.position);
+  pinFacing.applyQuaternion(untilt.setFromAxisAngle(xAxis, -globe.rotation.x));
+  const yaw = Math.atan2(pinFacing.x, pinFacing.z) - Math.atan2(pin.x, pin.z);
+  return from + turnBetween(from, yaw);
+}
+
+/** Seconds a showcase's transmission runs: the packets' arc to the pin */
+const showcaseTime = 2;
+const showPoint = new Vector3();
+
+/**
+ * Asked to show off (a tour stop landing, or the visitor hailing it): the
+ * pin pings, the comms array streams a transmission to it for a couple of
+ * seconds and the rocket revs (it never launches: that is the form's).
+ * The transmission is the station's own, so it never cuts short a real
+ * message sending; like one, it holds the camera on the globe. The rev's
+ * cue plays from the rocket. A tour's showcase waits for full motion; at
+ * `still` a hail is the ping and a blink of the array's nav lights
+ */
+function useShowcase(
+  globe: RefObject<Group | null>,
+  pin: Vector3,
+  comms: RefObject<Comms>,
+  rev: RefObject<Reaction>,
+  rocket: RefObject<Group | null>
+) {
+  const get = useThree((s) => s.get);
+  useEffect(
+    () =>
+      onShowcase((station, reason) => {
+        if (station !== 'contact') return;
+        const level = motionLevel();
+        if (reason === 'tour' && level !== 'full') return;
+        const { clock, invalidate } = get();
+        const sphere = globe.current;
+        if (sphere) spawnPing(sphere.localToWorld(showPoint.copy(pin)));
+        if (level === 'still') {
+          flashNavLights('contact');
+          repaintFor(invalidate, 1400);
+          return;
+        }
+        comms.current.showUntil = clock.elapsedTime + showcaseTime;
+        worldStore.showcaseUntil = Math.max(
+          worldStore.showcaseUntil,
+          performance.now() + (showcaseTime + transmitHold) * 1000
+        );
+        const [x, y, z] = stationPositions.contact;
+        emitCue('transmit', { at: [x + dishFocus.x, y + dishFocus.y, z + dishFocus.z] });
+        const body = rocket.current;
+        trick(rev.current, revTime, body ? body.getWorldPosition(showPoint) : undefined);
+      }),
+    [get, globe, pin, comms, rev, rocket]
+  );
 }
 
 const launchDuration = 5.5;
@@ -364,6 +666,7 @@ function updateRocket(
   launch: Launch,
   rev: Reaction,
   t: number,
+  idle: number,
   dt: number
 ) {
   const since = worldStore.launchAt < 0 ? Infinity : t - worldStore.launchAt;
@@ -389,9 +692,9 @@ function updateRocket(
   }
   const hop = trickProgress(rev, revTime);
   const lifted = hop >= 0 ? Math.sin(hop * Math.PI) * 0.45 : 0;
-  easing.damp(rocket.position, 'y', base.y + Math.sin(t * 1.1) * 0.12 + lifted, 0.12, dt);
+  easing.damp(rocket.position, 'y', base.y + Math.sin(idle * 1.1) * 0.12 + lifted, 0.12, dt);
   rocket.rotation.z =
-    Math.sin(t * 0.7) * 0.05 + (hop >= 0 ? Math.sin(hop * Math.PI * 6) * 0.02 : 0);
+    Math.sin(idle * 0.7) * 0.05 + (hop >= 0 ? Math.sin(hop * Math.PI * 6) * 0.02 : 0);
   return hop >= 0 ? Math.sin(hop * Math.PI) * 0.85 : 0;
 }
 
@@ -442,7 +745,23 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   const beaconRef = useRef<Group>(null);
   const rocketRef = useRef<Group>(null);
   const packetsRef = useRef<Points>(null);
+  const courierRef = useRef<Points>(null);
+  const arrayRef = useRef<Group>(null);
   const transmit = useRef({ since: -Infinity, was: false, level: 0 });
+  const commsRef = useRef<Comms>({
+    lock: 0,
+    sweep: 0,
+    link: 0,
+    stream: 0,
+    reach: 1,
+    composing: 0,
+    courierAt: -Infinity,
+    courierFor: '',
+    face: 0,
+    rings: 0,
+    ambient: 0,
+    showUntil: -Infinity,
+  });
   const launch = useRef<Launch>({ ignitedAt: -1, flash: 0 });
   const globeHover = useRef({ on: false, level: 0 });
   const rev = useRef(createReaction());
@@ -452,6 +771,10 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   const wide = useWide();
   const materials = useThemedMaterials(buildMaterials, theme, 'contact');
   const palette = palettes[theme];
+  const invalidate = useThree((s) => s.invalidate);
+  useRedrawOnPageChange(readComms);
+  // Stop claiming touches once the station goes
+  useEffect(() => () => armTouch(false), []);
 
   const { positions, seeds } = useMemo(() => {
     const random = seededRandom(5);
@@ -482,10 +805,21 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
     () => beaconPosition.clone().addScaledVector(beaconPosition.clone().normalize(), 0.72),
     [beaconPosition]
   );
+  useShowcase(globeRef, beaconTip, commsRef, rev, rocketRef);
   const packetBuffers = useMemo(
     () => ({
       positions: new Float32Array(packetCount * 3),
       along: new Float32Array(packetCount),
+      fade: new Float32Array(packetCount).fill(1),
+    }),
+    []
+  );
+  // The packet that arcs back from the pin (bigger and brighter than the stream's), and its trail
+  const courierBuffers = useMemo(
+    () => ({
+      position: new Float32Array(courierTrail.length * 3),
+      along: new Float32Array(courierTrail.length),
+      fade: Float32Array.from(courierFade),
     }),
     []
   );
@@ -511,47 +845,105 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
   const rocketBase = wide ? { x: 2.8, y: 2.1, z: 1.2 } : { x: 1.5, y: 2.3, z: 1.5 };
 
   useFrame(({ camera, clock, viewport }, delta) => {
-    if (!stationInRange(groupRef.current, camera, 'contact')) return;
+    const group = groupRef.current;
+    const inRange = stationInRange(group, camera, 'contact');
+    armTouch(inRange);
+    if (!inRange) return;
     const t = clock.elapsedTime;
     const dt = Math.min(delta, 1 / 20);
-    setUniform(materials.dots, 'uTime', t);
+    // At `still` nothing moves on its own (step), and what answers the page snaps (ease)
+    const still = motionLevel() === 'still';
+    const step = still ? 0 : dt;
+    const ease = still ? 1 : dt;
+    const comms = commsRef.current;
+    const idle = (comms.ambient += step);
+    setUniform(materials.dots, 'uTime', idle);
     setUniform(materials.dots, 'uPixelRatio', viewport.dpr);
-    setUniform(materials.arc, 'uTime', t);
-    setUniform(materials.link, 'uTime', t);
+    setUniform(materials.arc, 'uTime', idle);
     setUniform(materials.exhaust, 'uTime', t);
     setUniform(materials.exhaust, 'uPixelRatio', viewport.dpr);
 
+    // A form field has focus: the dish stops sweeping and locks on to the
+    // globe, and the data link runs faster, as if listening
+    comms.lock = MathUtils.damp(comms.lock, worldStore.commsFocus ? 1 : 0, 3, ease);
+    comms.sweep += step * sweepRate;
+    const array = arrayRef.current;
+    if (array) array.rotation.y = Math.sin(comms.sweep) * sweepAngle * (1 - comms.lock);
+    comms.link += step * (1 + comms.lock * 1.6);
+    setUniform(materials.link, 'uTime', comms.link);
+
     const globe = globeRef.current;
-    if (globe) {
+    if (globe && group) {
       // Momentum after a drag, easing out; the tilt drifts back to rest
       const spin = spinRef.current;
       if (!spin.dragging) {
-        spin.yaw += spin.velocity * dt;
-        spin.velocity *= Math.exp(-1.6 * dt);
-        spin.pitch = MathUtils.damp(spin.pitch, 0, 1.2, dt);
+        spin.yaw += spin.velocity * step;
+        spin.velocity = still ? 0 : spin.velocity * Math.exp(-1.6 * dt);
+        spin.pitch = MathUtils.damp(spin.pitch, 0, 1.2, ease);
       }
-      globe.rotation.y =
-        -Math.PI / 2 + Math.sin(t * 0.12) * 0.35 + worldStore.pointerX * 0.2 + spin.yaw;
+      const sway =
+        -Math.PI / 2 + Math.sin(idle * 0.12) * 0.35 + worldStore.pointerX * 0.2 + spin.yaw;
       globe.rotation.x = 0.62 + worldStore.pointerY * 0.08 + spin.pitch;
+      // The location map pointed at: the globe turns Peterborough to the camera
+      const facing = worldStore.targetHover === 'globe:home' && !spin.dragging;
+      comms.face = MathUtils.damp(comms.face, facing ? 1 : 0, 2.5, ease);
+      const faced =
+        comms.face > 0.001
+          ? yawFacing(
+              globe,
+              beaconPosition,
+              group.worldToLocal(cameraLocal.copy(camera.position)),
+              sway
+            )
+          : sway;
+      globe.rotation.y = MathUtils.lerp(sway, faced, comms.face);
     }
 
     // Transmitting: packets stream along an arc over the globe to the pin
-    // (wherever the globe has turned it), and the pin's rings speed up
+    // (wherever the globe has turned it), and the pin's rings speed up. A
+    // message being written waits at the dish: a few packets loop near it,
+    // more as it grows
     const sending = transmit.current;
     if (worldStore.transmitting && !sending.was) sending.since = t;
     sending.was = worldStore.transmitting;
-    const active = worldStore.transmitting || t - sending.since < transmitHold;
+    const active =
+      worldStore.transmitting || t < comms.showUntil || t - sending.since < transmitHold;
     sending.level = MathUtils.damp(sending.level, active ? 1 : 0, active ? 6 : 3, dt);
-    setUniform(materials.packets, 'uActive', sending.level);
+    // Up to 0.35 for a full message (the square root, so a few lines already show)
+    const writing = Math.sqrt(worldStore.composing) * 0.35;
+    comms.composing = MathUtils.damp(comms.composing, writing, 4, ease);
+    const activity = Math.max(sending.level, comms.composing);
+    const reach = sending.level >= comms.composing ? 1 : idleReach;
+    comms.reach = MathUtils.damp(comms.reach, reach, 3, ease);
+    comms.stream += step * 0.85;
+    setUniform(materials.packets, 'uActive', activity);
     setUniform(materials.packets, 'uPixelRatio', viewport.dpr);
     const packets = packetsRef.current;
     if (packets && globe) {
-      packets.visible = sending.level > 0.01;
-      if (packets.visible) streamPackets(packets, globe, beaconTip, t);
+      packets.visible = activity > 0.01;
+      if (packets.visible) streamPackets(packets, globe, beaconTip, comms.stream, comms.reach);
     }
 
+    // A contact card pointed at: one packet arcs from the pin back up to the dish
+    const card = worldStore.targetHover.startsWith('contact:') ? worldStore.targetHover : '';
+    if (card !== comms.courierFor) {
+      comms.courierFor = card;
+      if (card && !still) comms.courierAt = t;
+    }
+    const flown = (t - comms.courierAt) / courierTime;
+    const courier = courierRef.current;
+    if (courier && globe) {
+      courier.visible = flown >= 0 && flown < 1;
+      if (courier.visible) {
+        sendCourier(courier, globe, beaconTip, MathUtils.smootherstep(flown, 0, 1));
+        setUniform(materials.courier, 'uActive', Math.min(1, flown * 8, (1 - flown) * 5));
+        setUniform(materials.courier, 'uPixelRatio', viewport.dpr);
+      }
+    }
+
+    comms.rings += step * (0.6 + sending.level * 1.2);
     beaconRef.current?.children.forEach((ring, i) => {
-      const phase = (t * (0.6 + sending.level * 1.2) + i / 3) % 1;
+      const phase = (comms.rings + i / 3) % 1;
       ring.scale.setScalar(0.1 + phase * 0.9);
       const material = (ring as Mesh).material as ShaderMaterial;
       setUniform(material, 'uOpacity', 1 - phase);
@@ -561,14 +953,14 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
     stepReaction(rev.current, t, dt);
     let thrust = 0;
     if (rocket) {
-      thrust = updateRocket(rocket, rocketBase, launch.current, rev.current, t, dt);
+      thrust = updateRocket(rocket, rocketBase, launch.current, rev.current, t, idle, dt);
       setUniform(materials.exhaust, 'uActive', thrust);
       // Smoke trails only a real launch, from the nozzle in the station's space
       nozzle.current.copy(rocket.position).add(nozzlePoint.set(0, wide ? -1 : -0.72, 0));
       burning.current = worldStore.launchAt >= 0 && t - worldStore.launchAt < launchDuration;
     }
     const hover = globeHover.current;
-    hover.level = MathUtils.damp(hover.level, hover.on ? 1 : 0, 6, dt);
+    hover.level = MathUtils.damp(hover.level, hover.on ? 1 : 0, 6, ease);
     lightUp(materials, launch.current, thrust, hover.level, palette.cyan, t, dt);
   });
 
@@ -577,16 +969,19 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
       <group ref={groupRef} position={stationPositions.contact}>
         <group ref={globeRef} position={[0, 0.5, 0]} rotation={[0.62, -Math.PI / 2, 0]}>
           <mesh
-            onPointerDown={(e) => startSpin(spinRef.current, e)}
+            onPointerDown={(e) => startSpin(spinRef.current, e, invalidate)}
             onPointerOver={(e) => {
               e.stopPropagation();
               setWorldHover(true, 'grab');
               worldTip.set(globeTip);
+              // The tooltip brackets the globe (TipProbe)
+              setTipTarget(e.eventObject);
               globeHover.current.on = true;
             }}
-            onPointerOut={() => {
+            onPointerOut={(e) => {
               setWorldHover(false);
               if (worldTip.get() === globeTip) worldTip.set(null);
+              if (tipTarget()?.object === e.eventObject) setTipTarget(null);
               globeHover.current.on = false;
             }}
           >
@@ -629,12 +1024,12 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
 
         {/* The deep-space comms array, dish turned towards the globe */}
         {/* It sweeps a little either side, as if tracking the signal */}
-        <Spin position={arrayPosition} sweep={0.3} speed={0.09}>
+        <group ref={arrayRef} position={arrayPosition}>
           <group rotation={[0.08, -2.3, 0.05]}>
             <StationHull station="contact" height={2.5} theme={theme} />
           </group>
           <NavLights lights={arrayLights} />
-        </Spin>
+        </group>
         <mesh material={materials.link} position={link.position} quaternion={link.quaternion}>
           <cylinderGeometry args={[0.025, 0.025, link.length, 8, 1, true]} />
         </mesh>
@@ -642,6 +1037,14 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[packetBuffers.positions, 3]} />
             <bufferAttribute attach="attributes-aAlong" args={[packetBuffers.along, 1]} />
+            <bufferAttribute attach="attributes-aFade" args={[packetBuffers.fade, 1]} />
+          </bufferGeometry>
+        </points>
+        <points ref={courierRef} material={materials.courier} visible={false} frustumCulled={false}>
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" args={[courierBuffers.position, 3]} />
+            <bufferAttribute attach="attributes-aAlong" args={[courierBuffers.along, 1]} />
+            <bufferAttribute attach="attributes-aFade" args={[courierBuffers.fade, 1]} />
           </bufferGeometry>
         </points>
 
@@ -650,9 +1053,11 @@ export function ContactStation({ theme }: { theme: WorldTheme }) {
           position={[rocketBase.x, rocketBase.y, rocketBase.z]}
           rotation={[0, 0, 0.12]}
         >
-          <group {...revHandlers}>
-            <Model url={stationModels.contact!} height={wide ? 2.1 : 1.5} theme={theme} />
-          </group>
+          <Model url={stationModels.contact!} height={wide ? 2.1 : 1.5} theme={theme} />
+          {/* Never drawn: the rocket's target for the pointer, so hover doesn't test its model */}
+          <mesh visible={false} {...revHandlers}>
+            <capsuleGeometry args={[wide ? 0.6 : 0.45, wide ? 1 : 0.7, 4, 12]} />
+          </mesh>
           <points
             material={materials.exhaust}
             position={[0, wide ? -1 : -0.72, 0]}

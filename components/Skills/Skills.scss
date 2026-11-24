@@ -308,7 +308,9 @@
       transition: opacity var(--dur-med) ease;
     }
 
-    &:hover {
+    /* Focus (keyboard) lights it as hover does, and its badge in the world */
+    &:hover,
+    &:focus-visible {
       transform: translateY(-4px);
       border-color: color-mix(in oklab, var(--accent-primary) 50%, transparent);
       background: var(--surface-hover);
@@ -396,6 +398,20 @@
 @media (max-width: 1000px) {
   .skills__cell[class*='--span-'] {
     grid-column: span 12;
+  }
+}
+
+/* Wide layouts: one card per category, stacked in the copy's column (4 or 5
+   tiles a row), so the constellation on the right stays clear and the camera
+   can face each category's orbit as its card is read */
+@media (min-width: 900px) and (min-aspect-ratio: 11 / 10) {
+  .skills__grid {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: min(48rem, 58vw);
+  }
+
+  .skills__cell[class*='--span-'] {
+    grid-column: auto;
   }
 }
 

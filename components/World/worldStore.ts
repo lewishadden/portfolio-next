@@ -1,3 +1,7 @@
+import { contactDish, stationForPath, stationKeys, stationPositions } from './routes';
+
+import type { StationKey } from './routes';
+
 /**
  * Mutable, non-React state shared between the DOM and the WebGL world.
  * DOM listeners write here; useFrame callbacks read every frame, so nothing
@@ -13,6 +17,16 @@ export const worldStore = {
    * camera rides the helix to it.
    */
   projectFocus: -1,
+  /**
+   * The project the /projects page is gliding to (an index entry, a helix
+   * screen, a closed modal's project), -1 while it isn't gliding to one.
+   * The camera's ride heads straight there: re-aimed at each screen the
+   * glide passed instead, it chose its way round the helix before it knew
+   * where it was going, and turned one way, then back. The page sets it as
+   * the glide sets off and clears it when the glide ends or anything else
+   * takes the scroll over
+   */
+  projectRideTo: -1,
   /**
    * How far the /projects page still is from its first project: 1 at the
    * top, where the camera holds back on the whole station beside the page
@@ -60,15 +74,21 @@ export const worldStore = {
    * The flight in progress, if any: destination station, progress 0..1 and
    * its path (x, y, z triples). `turn` is which way the camera swings as it
    * leaves: 0 straight ahead, +1 an about-turn to the left, -1 to the right.
-   * `approached` turns true on the final approach (when the new page shows)
+   * `approached` turns true on the final approach (when the new page shows).
+   * `duration` is the planned flight length in seconds (0 when none);
+   * CameraRig's startFlight writes it. `covered` is the share of the path
+   * the camera has covered, 0..1 (progress through its easing: about-turns
+   * ease differently from flights ahead), for counting down the range
    */
   flight: {
     active: false,
     to: '',
     progress: 0,
+    covered: 0,
     path: new Float32Array(0),
     turn: 0,
     approached: false,
+    duration: 0,
   },
   /**
    * The station a hovered or focused link leads to ('' for none): the radar
@@ -97,6 +117,75 @@ export const worldStore = {
    */
   skillHover: '',
   skillCategory: '',
+  /**
+   * The page element pointed at or focused that stands for something in the
+   * world ('' for none): `skill:<name>`, `role:<i>`, `contact:<name>`,
+   * `project:<i>` (anything tagged [data-world-project]), `globe:home` or
+   * `about:portrait`. `skillHover` is derived from it
+   */
+  targetHover: '',
+  /**
+   * The text blocks the readability guard protects ([data-reading] under
+   * #main-content, visible in the viewport, nearest the reading line first,
+   * at most 6): `[x0, y0, x1, y1]` per block as viewport fractions 0..1, y down
+   */
+  readingRects: new Float32Array(24),
+  /** 1 where that rect's text is large (≥24px, or ≥18.66px bold): it needs 3:1 rather than 4.5:1 */
+  readingLarge: new Uint8Array(6),
+  /** How many of `readingRects` are in use, 0..6 */
+  readingCount: 0,
+  /**
+   * NDC x (-1..1) of the right-most edge of the `#main-content .glass`
+   * panels at the reading line (or within a card gap of it), so the station
+   * can clear them; drawn in towards -1 as they move away from the line, -1
+   * when there are none
+   */
+  clearRight: -1,
+  /** /skills: fractional index of the [data-world-category] at the reading line (-1 off /skills) */
+  skillFocus: -1,
+  /**
+   * Phones: the [data-world-window] spacer nearest the reading line (CSS px
+   * from the top of the viewport, and its height), where the camera frames
+   * the station mid-page; `top` is -1 and `height` 0 when there is none.
+   * A spacer partly scrolled above the screen has a negative `top` too, so
+   * test `height > 0` for whether there is one
+   */
+  worldWindow: { top: -1, height: 0 },
+  /** CSS px of the helix screen in front on /projects (`on` false when none is) */
+  screenRect: { left: 0, top: 0, right: 0, bottom: 0, on: false },
+  /**
+   * /projects: CSS px of the page's cell for the screen in front
+   * (.proj-hud__screen), where the camera frames it on short landscape
+   * screens, which put the copy beside it; `on` false when there is none
+   */
+  screenSlot: { left: 0, top: 0, right: 0, bottom: 0, on: false },
+  /** The project gallery's slide on show (content indexes); -1 / -1 when no gallery is open */
+  projectShot: { project: -1, image: -1 },
+  /** The content image index each helix screen shows (-1 unknown) */
+  screenShown: new Int8Array(16).fill(-1),
+  /**
+   * CSS px of the hovered 3D object's box as projected on screen (`on` false
+   * when nothing is), and the tip it was measured for
+   */
+  tipBox: { x0: 0, y0: 0, x1: 0, y1: 0, on: false, tip: null as WorldTip | null },
+  /** Home: the hero's role line as currently displayed (mid-decode included) */
+  heroRole: '',
+  /** /contact: how much of the message is written, its length over the limit, 0..1 */
+  composing: 0,
+  /** /contact: a contact form field has focus */
+  commsFocus: false,
+  /** Free roam: the autopilot's course, x, y, z triples (length 0 when none) */
+  autopilotPath: new Float32Array(0),
+  /** Free roam: how close the ship is to the world's edge, 0..1 */
+  edge: 0,
+  /** Stations mid power-on and their charge (absent: fully powered) */
+  charge: {} as Partial<Record<StationKey, number>>,
+  /**
+   * The station the visitor is about to fly to ('' for none): a finger or
+   * button down on a link to it, or its page's way on (the page nav)
+   * scrolled into view. The world mounts and warms it before the click
+   */
+  intent: '' as StationKey | '',
   /**
    * The page's heading block on screen (`.page-head__copy`, else the hero
    * copy), -1..1 from the centre with y up; all 0 when there is none. Things
@@ -191,7 +280,9 @@ export function onDock(listener: () => void) {
 export function setDock(station: string) {
   if (worldStore.dock === station) return;
   worldStore.dock = station;
-  if (station) emitCue('proximity');
+  if (stationKeys.includes(station as StationKey)) {
+    emitCue('proximity', { at: stationPositions[station as StationKey] });
+  }
   dockListeners.forEach((listener) => listener());
 }
 
@@ -209,7 +300,7 @@ export function onDocking(listener: () => void) {
 export function setDocking(path: string) {
   if (worldStore.docking === path) return;
   worldStore.docking = path;
-  if (path) emitCue('dock');
+  if (path) emitCue('dock', { at: stationPositions[stationForPath(path)] });
   dockingListeners.forEach((listener) => listener());
 }
 
@@ -235,7 +326,7 @@ export function setAutopilot(station: string) {
 export function requestLaunch() {
   worldStore.launchRequested = true;
   worldStore.showcaseUntil = performance.now() + 6500;
-  emitCue('launch');
+  emitCue('launch', { at: stationPositions.contact });
 }
 
 /** Called by the contact form while a message is sending */
@@ -244,7 +335,91 @@ export function setTransmitting(on: boolean) {
   worldStore.transmitting = on;
   // Hold on the globe a little after a failed send too, so it doesn't jerk away
   worldStore.showcaseUntil = Math.max(worldStore.showcaseUntil, performance.now() + 1800);
-  if (on) emitCue('transmit');
+  if (!on) return;
+  // From the dish, where the transmission sets off
+  const [x, y, z] = stationPositions.contact;
+  const [dx, dy, dz] = contactDish;
+  emitCue('transmit', { at: [x + dx, y + dy, z + dz] });
+}
+
+/* ----------------- Page chrome covering the world ----------------- */
+
+/**
+ * Page chrome that covers the whole world: the mobile menu (`menuOpen`,
+ * Header) and a full-screen project modal on a phone (`modalCover`). While
+ * either is up the world stops drawing
+ */
+export const chrome = { menuOpen: false, modalCover: false };
+
+const chromeListeners = new Set<() => void>();
+
+/** Reports page chrome opening or closing over the world (only what changed needs passing) */
+export function setChrome(next: Partial<{ menuOpen: boolean; modalCover: boolean }>) {
+  let changed = false;
+  for (const key of Object.keys(chrome) as (keyof typeof chrome)[]) {
+    const value = next[key];
+    if (value === undefined || value === chrome[key]) continue;
+    chrome[key] = value;
+    changed = true;
+  }
+  if (changed) chromeListeners.forEach((listener) => listener());
+}
+
+/** Subscribe to the menu or a covering modal opening or closing */
+export function onChrome(listener: () => void) {
+  chromeListeners.add(listener);
+  return () => {
+    chromeListeners.delete(listener);
+  };
+}
+
+/* ----------------- Showcases: a station shows off ----------------- */
+
+/** Why a station is asked to show off: a tour stop landing, or the visitor hailing it */
+export type ShowcaseReason = 'tour' | 'hail';
+
+type ShowcaseListener = (station: StationKey, reason: ShowcaseReason) => void;
+
+const showcaseListeners = new Set<ShowcaseListener>();
+
+/** Asks a station to perform its trick (each station listens for its own key) */
+export function showcase(station: StationKey, reason: ShowcaseReason) {
+  showcaseListeners.forEach((listener) => listener(station, reason));
+}
+
+/** Subscribe to showcases (a station checks the key is its own, and the reason) */
+export function onShowcase(listener: ShowcaseListener) {
+  showcaseListeners.add(listener);
+  return () => {
+    showcaseListeners.delete(listener);
+  };
+}
+
+/* ----------------- Intent: the station the visitor is about to fly to ----------------- */
+
+const intentListeners = new Set<() => void>();
+
+/**
+ * How long an intent has to stand before the world warms its station (ms):
+ * a tap's click lands within it (and clears it), as does the cancel of a
+ * touch the browser takes for a scroll, and warming then would only compete
+ * with the route change or the scroll
+ */
+export const intentSettle = 300;
+
+/** Sets worldStore.intent ('' to clear): the world warms that station ahead of the click */
+export function setIntent(station: StationKey | '') {
+  if (worldStore.intent === station) return;
+  worldStore.intent = station;
+  intentListeners.forEach((listener) => listener());
+}
+
+/** Subscribe to worldStore.intent changing */
+export function onIntent(listener: () => void) {
+  intentListeners.add(listener);
+  return () => {
+    intentListeners.delete(listener);
+  };
 }
 
 /* ----------------- Sound cues (components/Sound plays them when sound is on) ----------------- */
@@ -273,11 +448,36 @@ export type Cue =
   /** The command palette opened */
   | 'palette'
   /** The theme switched */
-  | 'theme';
+  | 'theme'
+  /** A detent: the projects ride settles on a screen */
+  | 'tick'
+  /** The experience timeline reaches another role's pod (strength: the role's index) */
+  | 'pod'
+  /** Free roam: the signal detector pings the nearest unfound signal */
+  | 'sonar'
+  /** Free roam: a sonar scan sweeps out from the ship */
+  | 'scan'
+  /** Arrived at a station without a flight (reduced motion, the world off) */
+  | 'arrive'
+  /** Free roam: the ship nears the world's edge */
+  | 'edge'
+  /** The station was hailed and answers */
+  | 'hail';
 
-const cueListeners = new Set<(cue: Cue) => void>();
+/**
+ * Where a cue happens in the world (for spatial sound) and how strong it is
+ * (0..1 for most cues; `pod` passes the role's index)
+ */
+export interface CueDetail {
+  at?: readonly [number, number, number];
+  strength?: number;
+}
 
-export function onCue(listener: (cue: Cue) => void) {
+type CueListener = (cue: Cue, detail?: CueDetail) => void;
+
+const cueListeners = new Set<CueListener>();
+
+export function onCue(listener: CueListener) {
   cueListeners.add(listener);
   return () => {
     cueListeners.delete(listener);
@@ -285,8 +485,8 @@ export function onCue(listener: (cue: Cue) => void) {
 }
 
 /** Something happened that has a sound; silent unless the visitor turned sound on */
-export function emitCue(cue: Cue) {
-  cueListeners.forEach((listener) => listener(cue));
+export function emitCue(cue: Cue, detail?: CueDetail) {
+  cueListeners.forEach((listener) => listener(cue, detail));
 }
 
 /* ----------------- Hovering things in 3D: cursor ring + tooltip ----------------- */
@@ -299,6 +499,15 @@ export function setWorldHover(on: boolean, kind: 'point' | 'grab' = 'point') {
   const root = document.documentElement;
   if (hovers > 0) root.dataset.worldHover = kind;
   else delete root.dataset.worldHover;
+}
+
+/**
+ * Nothing in 3D is hovered any more (free roam has let go of everything):
+ * the count starts again from nothing, however its overs and outs paired
+ */
+export function clearWorldHover() {
+  hovers = 0;
+  delete document.documentElement.dataset.worldHover;
 }
 
 export interface WorldTip {
@@ -334,6 +543,9 @@ export function focusOnPage(id: string) {
 /** Dispatched when free roam knocks into a hull (detail: strength, 0..1); the HUD flashes */
 export const worldBumpEvent = 'world:bump';
 
+/** Dispatched when the explorer asks for a sonar scan (free roam's F key) */
+export const worldScanEvent = 'world:scan';
+
 /** Dispatched to navigate from inside the canvas (World handles it with the router) */
 export const worldNavigateEvent = 'world:navigate';
 
@@ -347,6 +559,8 @@ export const exploreInput = {
   strafe: 0,
   lift: 0,
   turn: 0,
+  /** Nose up (+1) or down (-1) from the keys (R / V, PageUp / PageDown) */
+  pitch: 0,
   boost: false,
   /** Accumulated look deltas in radians from mouse movement, consumed each frame */
   lookX: 0,

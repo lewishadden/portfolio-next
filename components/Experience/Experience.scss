@@ -349,7 +349,7 @@
     font-size: var(--fs-tiny);
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
 
   &__role {
@@ -412,16 +412,19 @@
       box-shadow: 0 0 18px -4px var(--glow-violet);
     }
 
+    /* Minor: smaller and dashed, but in the secondary grey. The glass card
+       lets the sky through behind the row, and the muted grey at this size
+       fell to 2.8:1 over the nebula */
     &--minor {
       padding: 0.2rem 0.6rem;
       font-size: 0.65rem;
-      color: var(--text-muted);
+      color: var(--text-secondary);
       border-color: var(--border-color);
       border-style: dashed;
       background: transparent;
 
       &:hover {
-        color: var(--text-secondary);
+        color: var(--text-primary);
         border-color: var(--border-strong);
         background: transparent;
         box-shadow: none;
@@ -447,7 +450,7 @@
     font-size: 0.65rem;
     letter-spacing: var(--tr-label);
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
 
   /* ---------- End of the line ---------- */

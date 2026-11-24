@@ -17,6 +17,12 @@
     color: var(--accent-secondary);
     transition: color var(--dur-fast) ease;
 
+    /* Small text over the world: the accent is marginal on the light
+       theme's tinted sky, the HUD's darker cyan isn't */
+    [data-theme='light'] & {
+      color: var(--hud-text);
+    }
+
     &:hover,
     &:focus-visible {
       color: var(--text-primary);

@@ -3,7 +3,8 @@ import { Vector3 } from 'three';
 /**
  * Fixed features of the sky, shared by everything lit by or drawn in it:
  * the sun (key light, shadows, sky glow, flare, the planet's terminator),
- * the Milky Way's plane, and the landmark planet and moon.
+ * the Milky Way's plane, the distant spiral galaxy, and the landmark planet
+ * and moon.
  */
 
 /** Towards the sun: from the left, a little above, slightly behind the stations' cameras */
@@ -39,6 +40,20 @@ export const nebulae: { direction: Vector3; radius: number; kind: number }[] = [
   { direction: galactic(-2.3, -0.05), radius: 0.26, kind: 0.1 },
   { direction: galactic(1.4, 0.24), radius: 0.2, kind: 0.65 },
 ];
+
+/**
+ * Towards a distant spiral galaxy, the backdrop behind the stations'
+ * cameras: in view on flights back towards Home and in free roam
+ */
+export const backdropDirection = new Vector3(0.3, 0.12, 1).normalize();
+/** The galaxy's disc on the sky: its major axis (tilted ~34° from level) and its minor axis */
+export const backdropMajor = new Vector3()
+  .crossVectors(new Vector3(0, 1, 0), backdropDirection)
+  .normalize()
+  .applyAxisAngle(backdropDirection, 0.6);
+export const backdropMinor = new Vector3()
+  .crossVectors(backdropDirection, backdropMajor)
+  .normalize();
 
 /** The giant planet hanging below the stations, and its moon (world space, never fogged) */
 export const planet = { position: new Vector3(560, -470, -1050), radius: 150 };

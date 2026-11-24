@@ -1,4 +1,8 @@
-import { contactLimits, honeypotField } from '../../utils/contactValidation';
+import {
+  contactLimits,
+  honeypotField,
+  validateContactPayload,
+} from '../../utils/contactValidation';
 
 import { expect, openHydrated, test } from './fixtures';
 
@@ -14,7 +18,7 @@ const human = () => ({
   lastName: 'Lovelace',
   email: 'ada@example.com',
   message: 'Hello from the test suite',
-  startedAt: Date.now() - 60_000,
+  elapsedMs: 60_000,
   [honeypotField]: '',
 });
 
@@ -54,7 +58,7 @@ test.describe('POST /api/sendmail', () => {
     expect(trapped.status()).toBe(200);
     const hurried = await request.post('/api/sendmail', {
       headers,
-      data: { ...human(), startedAt: Date.now() },
+      data: { ...human(), elapsedMs: 0 },
     });
     expect(hurried.status()).toBe(200);
   });
@@ -70,6 +74,62 @@ test.describe('POST /api/sendmail', () => {
     expect(limited.status()).toBe(429);
     expect(Number(limited.headers()['retry-after'])).toBeGreaterThan(0);
   });
+});
+
+test.describe('telling people from bots', () => {
+  test("goes by how long the form was open, never by the visitor's clock", () => {
+    expect(validateContactPayload(human())).toMatchObject({ ok: true, bot: false });
+    expect(
+      validateContactPayload({ ...human(), elapsedMs: contactLimits.minFillMs - 1 })
+    ).toMatchObject({ ok: true, bot: 'too-fast' });
+    // Nothing to go by (a script posting straight to the API) counts as too fast
+    expect(validateContactPayload({ ...human(), elapsedMs: undefined })).toMatchObject({
+      ok: true,
+      bot: 'too-fast',
+    });
+    expect(validateContactPayload({ ...human(), [honeypotField]: 'Acme Ltd' })).toMatchObject({
+      ok: true,
+      bot: 'honeypot',
+    });
+  });
+
+  test('a page open since before this shipped still sends when its form appeared', () => {
+    const now = Date.now();
+    const old = { ...human(), elapsedMs: undefined };
+    expect(validateContactPayload({ ...old, startedAt: now - 60_000 }, now)).toMatchObject({
+      ok: true,
+      bot: false,
+    });
+    expect(validateContactPayload({ ...old, startedAt: now }, now)).toMatchObject({
+      ok: true,
+      bot: 'too-fast',
+    });
+  });
+});
+
+test('the contact form says how long it was open, not what its clock reads', async ({ page }) => {
+  // A device clock running fast put the form's start in the server's future:
+  // a real message then looked like a bot's and was dropped without a word
+  let posted: Record<string, unknown> | null = null;
+  await page.route('**/api/sendmail', async (route) => {
+    posted = route.request().postDataJSON();
+    await route.fulfill({ json: { message: 'Email sent successfully' } });
+  });
+  await openHydrated(page, '/contact');
+  await page.waitForLoadState('networkidle');
+  await page.locator('#formFirstName').fill('Ada');
+  await page.locator('#formLastName').fill('Lovelace');
+  await page.locator('#formEmail').fill('ada@example.com');
+  await page.locator('#formMessage').fill('Hello from the test suite');
+  await page.locator('.contact-form__submit').click();
+  await expect(page.locator('.contact__toast--success')).toBeVisible();
+
+  expect(posted).toMatchObject({ firstName: 'Ada', lastName: 'Lovelace', [honeypotField]: '' });
+  const { elapsedMs } = posted!;
+  expect(typeof elapsedMs).toBe('number');
+  expect(elapsedMs as number).toBeGreaterThanOrEqual(0);
+  expect(elapsedMs as number).toBeLessThan(60_000);
+  expect(posted).not.toHaveProperty('startedAt');
 });
 
 test('the contact form explains missing fields', async ({ page }) => {

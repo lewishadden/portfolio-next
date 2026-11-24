@@ -4,6 +4,7 @@ import { useEffect, useId, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { stationForPath } from 'components/World/routes';
+import { motionLevel } from '@/utils/motion';
 
 import {
   backArc,
@@ -108,7 +109,6 @@ export function BrandMark({
       ...svg.querySelectorAll<SVGCircleElement>(`[data-moon="${k}"]`),
     ]);
     const notch = svg.querySelector<SVGPathElement>('[data-notch]');
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     const motion = createMarkMotion();
     let last = performance.now();
     let frame = 0;
@@ -122,10 +122,10 @@ export function BrandMark({
     };
 
     const tick = (now: number) => {
-      frame = requestAnimationFrame(tick);
+      frame = visible ? requestAnimationFrame(tick) : 0;
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
-      const pose = motion.step(dt, hoverRef.current, reduce.matches);
+      const pose = motion.step(dt, hoverRef.current, motionLevel() !== 'full');
       place(layers[0], pose.moon);
       for (let k = 1; k <= ghosts; k++) {
         place(layers[k], pose.moon + k * (0.08 + pose.rush * 0.1));
@@ -135,8 +135,21 @@ export function BrandMark({
       notch?.setAttribute('d', notchPath(pose.notch));
       svg.classList.toggle('brand-mark--lost', pose.station === 'lost');
     };
+    // Only while it's on screen (the footer's copy is out of sight mostly)
+    let visible = true;
+    const view = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible && !frame) {
+        last = performance.now();
+        frame = requestAnimationFrame(tick);
+      }
+    });
+    view.observe(svg);
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      view.disconnect();
+    };
   }, [orbit]);
 
   const filter = `url(#${id}-glow)`;

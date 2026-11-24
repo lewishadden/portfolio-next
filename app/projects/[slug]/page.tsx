@@ -5,7 +5,7 @@ import { PageJsonLd } from 'components/Seo/PageJsonLd';
 
 import { getPageContent } from 'utils/serverUtils';
 import { pageMetadata, siteUrl } from 'utils/seo';
-import { projectPath } from 'utils/projectPaths';
+import { projectPath, projectTitle } from 'utils/projectPaths';
 
 import type { Metadata } from 'next';
 import type { Project, ResumeData } from '@/types';
@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!project) return {};
   return pageMetadata({
     path: projectPath(slug),
-    title: `${project.title.trim()} | Projects`,
+    title: projectTitle(project.title),
     description: summarise(project.description),
   });
 }

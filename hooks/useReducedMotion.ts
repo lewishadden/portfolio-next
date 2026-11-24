@@ -1,23 +1,12 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
-
-const query = '(prefers-reduced-motion: reduce)';
-
-function subscribe(callback: () => void) {
-  const mql = window.matchMedia(query);
-  mql.addEventListener('change', callback);
-  return () => mql.removeEventListener('change', callback);
-}
-
-function getSnapshot() {
-  return window.matchMedia(query).matches;
-}
+import { useMotionLevel } from './useMotion';
 
 /**
- * Returns `true` when the user prefers reduced motion.
+ * Returns `true` when motion is held back: the `calm` or `still` level (the
+ * visitor's choice, or the OS's reduced-motion setting; see utils/motion.ts).
  * Returns `false` during SSR.
  */
 export function useReducedMotion(): boolean {
-  return useSyncExternalStore(subscribe, getSnapshot, () => false);
+  return useMotionLevel() !== 'full';
 }

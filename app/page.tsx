@@ -1,6 +1,7 @@
 import { Home } from 'components/Home/Home';
 import { StatsStrip } from 'components/StatsStrip/StatsStrip';
 import { Explore } from 'components/Explore/Explore';
+import { WorldWindow } from 'components/WorldWindow/WorldWindow';
 
 import { getPageContent } from 'utils/serverUtils';
 import { siteUrl, personName, siteDescription, contentUpdated } from 'utils/seo';
@@ -39,6 +40,7 @@ export default async function Page() {
         location={global.location}
       />
       <StatsStrip stats={home.stats} />
+      <WorldWindow />
       <Explore label={home.exploreLabel} title={home.exploreTitle} items={home.explore} />
     </>
   );

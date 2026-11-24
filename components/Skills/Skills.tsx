@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@iconify/react';
 import { m } from 'framer-motion';
@@ -10,9 +10,11 @@ import { Marquee } from 'components/Marquee/Marquee';
 import { PageHead } from 'components/PageHead/PageHead';
 import { Reveal, RevealGroup, RevealItem } from 'components/Motion/Reveal';
 import { useBooted } from 'components/World/boot';
+import { illustrations } from 'components/World/StationFallback';
 
 import { usePointerGlow } from '@/hooks/usePointerGlow';
 
+import type { FocusEvent, KeyboardEvent } from 'react';
 import type { Variants } from 'framer-motion';
 import type { SkillCategory, SkillIcon, Skills as SkillsProps } from '@/types';
 
@@ -29,11 +31,79 @@ const meterVariants: Variants = {
   shown: { scaleX: 1, transition: { duration: 1.4, ease } },
 };
 
-const SkillTile = ({ skill }: { skill: SkillIcon }) => {
+/**
+ * Where an arrow key (or Home / End) moves focus among a category's tiles,
+ * or -1 for a key that doesn't move it. Up and down go to the nearest tile
+ * in the row above or below, as the tiles wrap at this width.
+ */
+function tileFor(key: string, tiles: HTMLElement[], from: number) {
+  const last = tiles.length - 1;
+  switch (key) {
+    case 'ArrowRight':
+      return Math.min(from + 1, last);
+    case 'ArrowLeft':
+      return Math.max(from - 1, 0);
+    case 'Home':
+      return 0;
+    case 'End':
+      return last;
+    case 'ArrowDown':
+    case 'ArrowUp': {
+      const down = key === 'ArrowDown';
+      // Layout offsets of the tiles' cells (siblings, so one offsetParent),
+      // which no transform moves. Screen rects did: the focused tile's
+      // focus-visible lift put its row-mates "below" it, so ↓ went sideways
+      // (the cells' entrance offset and the card's tilt skew them too)
+      const boxes = tiles.map((tile) => {
+        const cell = tile.parentElement ?? tile;
+        return {
+          top: cell.offsetTop,
+          centre: cell.offsetLeft + cell.offsetWidth / 2,
+          height: cell.offsetHeight,
+        };
+      });
+      const here = boxes[from];
+      // Tiles within half a tile's height of each other share a row
+      const band = here.height / 2;
+      // The top of the next row that way
+      let row = down ? Infinity : -Infinity;
+      for (const { top } of boxes) {
+        if (down ? top > here.top + band && top < row : top < here.top - band && top > row) {
+          row = top;
+        }
+      }
+      if (!Number.isFinite(row)) return from;
+      let nearest = from;
+      let gap = Infinity;
+      boxes.forEach(({ top, centre }, i) => {
+        const dx = Math.abs(centre - here.centre);
+        if (Math.abs(top - row) < band && dx < gap) {
+          gap = dx;
+          nearest = i;
+        }
+      });
+      return nearest;
+    }
+    default:
+      return -1;
+  }
+}
+
+const tilesIn = (list: HTMLElement) => [...list.querySelectorAll<HTMLElement>('.skills__tile')];
+
+const SkillTile = ({ skill, current }: { skill: SkillIcon; current: boolean }) => {
   const level = parseLevel(skill.level);
+  const levelId = useId();
   return (
     <RevealItem as="li" className="skills__tile-cell" y={24}>
-      <div className="skills__tile" data-world-target={`skill:${skill.name}`}>
+      {/* Focusable (a roving tab stop) so the keyboard can light its badge in
+          the constellation, as hovering does; its level is its description */}
+      <div
+        className="skills__tile"
+        data-world-target={`skill:${skill.name}`}
+        tabIndex={current ? 0 : -1}
+        aria-describedby={levelId}
+      >
         <span className="skills__tile-icon" aria-hidden="true">
           <Icon icon={skill.class} width={26} height={26} />
         </span>
@@ -41,10 +111,7 @@ const SkillTile = ({ skill }: { skill: SkillIcon }) => {
           {level}
           <small>%</small>
         </span>
-        <span className="skills__tile-name">
-          {skill.name}
-          <span className="sr-only">, proficiency {level}%</span>
-        </span>
+        <span className="skills__tile-name">{skill.name}</span>
         <span className="skills__meter" aria-hidden="true">
           <m.span
             className="skills__meter-fill"
@@ -53,6 +120,9 @@ const SkillTile = ({ skill }: { skill: SkillIcon }) => {
           />
         </span>
       </div>
+      <span id={levelId} className="sr-only">
+        Proficiency {level}%
+      </span>
     </RevealItem>
   );
 };
@@ -101,6 +171,25 @@ const CategoryCard = ({
 }) => {
   const ref = usePointerGlow<HTMLDivElement>({ tilt: 2 });
   const headingId = `skills-${category.categoryKey}`;
+  // One tab stop per category: the tile last focused (the first to begin with)
+  const [current, setCurrent] = useState(0);
+
+  const onTileKey = (e: KeyboardEvent<HTMLElement>) => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const tiles = tilesIn(e.currentTarget);
+    const from = tiles.indexOf(e.target as HTMLElement);
+    if (from < 0) return;
+    const to = tileFor(e.key, tiles, from);
+    if (to < 0) return;
+    // Arrow keys move between tiles here, not the page
+    e.preventDefault();
+    tiles[to].focus();
+  };
+
+  const onTileFocus = (e: FocusEvent<HTMLElement>) => {
+    const index = tilesIn(e.currentTarget).indexOf(e.target as HTMLElement);
+    if (index >= 0) setCurrent(index);
+  };
   const average = Math.round(
     skills.reduce((sum, s) => sum + parseLevel(s.level), 0) / Math.max(skills.length, 1)
   );
@@ -137,9 +226,16 @@ const CategoryCard = ({
           <Gauge value={average} />
         </header>
 
-        <RevealGroup as="ul" className="skills__tiles" stagger={0.035} delay={0.15}>
-          {skills.map((skill) => (
-            <SkillTile key={skill.name} skill={skill} />
+        <RevealGroup
+          as="ul"
+          className="skills__tiles"
+          stagger={0.035}
+          delay={0.15}
+          onKeyDown={onTileKey}
+          onFocus={onTileFocus}
+        >
+          {skills.map((skill, i) => (
+            <SkillTile key={skill.name} skill={skill} current={i === current} />
           ))}
         </RevealGroup>
       </div>
@@ -179,6 +275,7 @@ export const Skills = ({ skills }: { skills: SkillsProps }) => {
         title="Tech"
         accent="stack"
         sub={tagline}
+        illustration={illustrations.terminal}
       >
         <Reveal as="ul" className="skills__stats" delay={0.24} aria-label="At a glance">
           <li className="skills__stat">

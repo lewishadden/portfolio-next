@@ -1,21 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-export const useScrollProgress = () => {
-  const [progress, setProgress] = useState(0);
+/**
+ * How far down the page is scrolled, 0..100. `onProgress` is called with
+ * it on every scroll (write it to the DOM there: nothing here re-renders
+ * React as the page scrolls); `showBackToTop` turns true once the page is
+ * half a screen down, and only its changes render.
+ */
+export const useScrollProgress = (onProgress?: (progress: number) => void) => {
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const listener = useRef(onProgress);
+
+  useEffect(() => {
+    listener.current = onProgress;
+  }, [onProgress]);
 
   useEffect(() => {
     const handleScroll = () => {
       const scrollTop = window.scrollY;
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       const scrollPercent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
-      const clamped = Math.min(scrollPercent, 100);
-
-      setProgress(clamped);
+      listener.current?.(Math.min(Math.max(scrollPercent, 0), 100));
+      // Same value, no render
       setShowBackToTop(scrollTop > window.innerHeight * 0.5);
-      document.documentElement.style.setProperty('--scroll-pct', `${clamped}%`);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -24,5 +32,5 @@ export const useScrollProgress = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  return { progress, showBackToTop };
+  return { showBackToTop };
 };

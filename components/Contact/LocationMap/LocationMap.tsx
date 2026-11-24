@@ -24,7 +24,7 @@ export function LocationMap({ location }: { location: string }) {
   const home = places.home;
 
   return (
-    <figure className="location-map glass">
+    <figure className="location-map glass" data-world-target="globe:home">
       <div className="location-map__chart">
         <svg
           className="location-map__svg"

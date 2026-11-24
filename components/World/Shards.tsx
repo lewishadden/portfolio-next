@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Color, InstancedMesh, Object3D, Vector3 } from 'three';
 
+import { ambientTime } from './clock';
 import { palettes, seededRandom } from './utils';
 
 import type { WorldTheme } from './utils';
@@ -63,10 +64,10 @@ export function Shards({
 
   useEffect(() => paintShards(meshRef.current, theme, count), [theme, count]);
 
-  useFrame(({ clock }) => {
+  useFrame((state) => {
     const mesh = meshRef.current;
     if (!mesh || !mesh.visible) return;
-    const t = clock.elapsedTime;
+    const t = ambientTime(state);
     orbits.forEach((o, i) => {
       const a = o.phase + t * o.speed;
       const x = Math.cos(a) * o.radius;

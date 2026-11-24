@@ -120,6 +120,12 @@
     text-transform: uppercase;
     color: var(--accent-secondary);
 
+    /* The accent is marginal for small text on the light theme's tinted
+       sky; the HUD's own darker cyan holds 4.5:1 */
+    [data-theme='light'] & {
+      color: var(--hud-text);
+    }
+
     svg {
       transition: transform 0.45s var(--ease-spring);
     }
@@ -147,14 +153,16 @@
     font-family: var(--font-mono);
     font-size: var(--fs-xs);
     font-weight: var(--fw-medium);
-    color: var(--text-muted);
+    color: var(--text-secondary);
     vertical-align: middle;
   }
 
+  /* Small mono text on the glass card, with the 3D project screens bright
+     behind it: the secondary grey (muted fell to 2.7:1 over a screen) */
   &__year {
     font-family: var(--font-mono);
     font-size: var(--fs-xs);
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
 }
 

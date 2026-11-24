@@ -8,10 +8,12 @@
    copied. Like the KTX2 transcoder, the worker runs from a blob URL.
    ------------------------------------------------------------------ */
 
+import { imageAccept } from './routes';
+
 const workerSource = `
 self.onmessage = async ({ data: { id, url, options } }) => {
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: { Accept: ${JSON.stringify(imageAccept)} } });
     if (!response.ok) throw new Error(response.status + ' for ' + url);
     const bitmap = await createImageBitmap(await response.blob(), options);
     self.postMessage({ id, bitmap }, [bitmap]);
@@ -39,7 +41,7 @@ let nextId = 0;
 const pending = new Map<number, Request>();
 
 async function decodeHere(url: string, options: ImageBitmapOptions) {
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: { Accept: imageAccept } });
   if (!response.ok) throw new Error(`${response.status} for ${url}`);
   return createImageBitmap(await response.blob(), options);
 }
@@ -68,16 +70,36 @@ function startWorker() {
   }
 }
 
-/** Fetches an image and decodes it to an ImageBitmap (scaled, flipped… per `options`) off the main thread */
-export function decodeImage(url: string, options: ImageBitmapOptions) {
+function decodeFresh(url: string, options: ImageBitmapOptions) {
   if (worker === undefined) worker = startWorker();
-  // The worker's own URL is a blob: resolve the image against the page
-  const absolute = new URL(url, location.href).href;
-  if (!worker) return decodeHere(absolute, options);
+  if (!worker) return decodeHere(url, options);
   const id = nextId++;
   const decoded = new Promise<ImageBitmap>((resolve, reject) =>
-    pending.set(id, { url: absolute, options, resolve, reject })
+    pending.set(id, { url, options, resolve, reject })
   );
-  worker.postMessage({ id, url: absolute, options });
+  worker.postMessage({ id, url, options });
+  return decoded;
+}
+
+/** Decodes under way, by URL and options: asking again for one of them shares it */
+const inflight = new Map<string, Promise<ImageBitmap>>();
+
+/**
+ * Fetches an image and decodes it to an ImageBitmap (scaled, flipped… per
+ * `options`) off the main thread. Asking for an image that is already being
+ * fetched and decoded the same way shares that work (a remount, React's
+ * development double mount), so the bitmap may have more than one owner:
+ * upload it as often as needed, but never close or transfer it
+ */
+export function decodeImage(url: string, options: ImageBitmapOptions) {
+  // The worker's own URL is a blob: resolve the image against the page
+  const absolute = new URL(url, location.href).href;
+  const key = `${absolute} ${JSON.stringify(options)}`;
+  const shared = inflight.get(key);
+  if (shared) return shared;
+  const decoded = decodeFresh(absolute, options);
+  inflight.set(key, decoded);
+  const settle = () => inflight.delete(key);
+  decoded.then(settle, settle);
   return decoded;
 }

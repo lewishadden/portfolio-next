@@ -1,44 +1,42 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useBooted } from '@/components/World/boot';
-
-const subscribeNothing = () => () => {};
+import { useMotionLevel } from '@/hooks/useMotion';
 
 /**
- * Counts up to `target` once the element scrolls into view. The server HTML
- * (and so a visit without JavaScript, or a crawler) has the real number;
- * once hydrated it starts from 0, still hidden by the page's entrance
+ * Counts up to `target` once the element scrolls into view, at full motion
+ * only. Until the count starts it gives the real number (as the server HTML
+ * does, for a visit without JavaScript or a crawler), never 0: the count
+ * starts from 0 on its first frame, still hidden by the page's entrance.
+ * Below full motion it is always the real number.
  */
 export function useCountUp<T extends HTMLElement = HTMLElement>(
   target: number,
   duration = 1600
 ): [number, React.RefObject<T | null>] {
-  const [val, setVal] = useState(0);
+  // null until the count starts
+  const [val, setVal] = useState<number | null>(null);
   const [started, setStarted] = useState(false);
   const ref = useRef<T | null>(null);
   // Counts once the loading screen has lifted, so it is seen
   const booted = useBooted();
-  const hydrated = useSyncExternalStore(
-    subscribeNothing,
-    () => true,
-    () => false
-  );
+  const counting = useMotionLevel() === 'full';
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || !booted) return;
+    if (!el || !booted || !counting || started) return;
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !started) setStarted(true);
+        if (entry.isIntersecting) setStarted(true);
       },
       { threshold: 0.3 }
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [started, booted]);
+  }, [started, booted, counting]);
 
   useEffect(() => {
-    if (!started) return;
+    if (!started || !counting) return;
     let raf = 0;
     const start = performance.now();
     const tick = (t: number) => {
@@ -49,7 +47,7 @@ export function useCountUp<T extends HTMLElement = HTMLElement>(
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [started, target, duration]);
+  }, [started, counting, target, duration]);
 
-  return [hydrated ? val : target, ref];
+  return [counting && val !== null ? val : target, ref];
 }

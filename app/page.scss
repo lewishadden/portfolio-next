@@ -44,6 +44,9 @@ body {
 .page-head {
   position: relative;
   display: grid;
+  /* Each line only as wide as its text: the world's readability guard dims
+     what is behind [data-reading] boxes, and these sit beside the station */
+  justify-items: start;
   gap: 1.25rem;
   max-width: 44rem;
   margin-bottom: clamp(3rem, 8vh, 5.5rem);
@@ -83,6 +86,7 @@ body {
 
   .page-head__stage {
     display: block;
+    justify-self: stretch;
     height: clamp(11rem, 30svh, 18rem);
     margin-top: calc(-1 * clamp(1.5rem, 5vh, 3rem));
   }
@@ -368,9 +372,40 @@ body {
   margin-top: clamp(4rem, 10vh, 6rem);
 }
 
+/* Wide layouts: under the copy's column, clear of the station on the right */
+@media (min-width: 900px) and (min-aspect-ratio: 11 / 10) {
+  .page-nav {
+    justify-content: flex-start;
+  }
+}
+
 /* =============================================================
-   Static renders shown when WebGL is unavailable
-   (World sets html[data-world='off']). Positioned where the
+   World windows (components/WorldWindow): on narrow, stacked layouts
+   the copy covers the screen, so these gaps let the camera bring the
+   station back into view as they scroll past. Only when the world will
+   run: never without JavaScript, nor with the world off (which includes
+   an app that never starts: ThemeScript marks the world off when one of
+   its scripts fails to load with no retry left or to parse, or when it
+   gives up on the app). An app that is only slow to start, or whose
+   loader fetches a dropped chunk again, leaves them open, so nothing
+   shifts twice.
+   ============================================================= */
+.world-window {
+  display: none;
+}
+
+@media (max-width: 899px), (max-aspect-ratio: 11 / 10) {
+  html[data-world-expected]:not([data-world='off']) .world-window {
+    display: block;
+    height: clamp(11rem, 32svh, 18rem);
+  }
+}
+
+/* =============================================================
+   Static renders shown with the world off (html[data-world='off']:
+   World sets it without WebGL or when switched off, ThemeScript for a
+   saved "off" or an app that never starts; never without JavaScript).
+   Positioned where the
    3D station would be: right of the copy, or above it on narrow screens.
    ============================================================= */
 .station-fallback {
@@ -403,6 +438,35 @@ body {
     right: auto;
     width: min(62vw, 17rem);
     margin-left: min(-31vw, -8.5rem);
+  }
+
+  /* Short landscape (a phone on its side): the stage above the copy
+     (.page-head__stage, .hero__stage) is only 11-12rem tall, so the render
+     shrinks to fit it, clear of the eyebrow and the readout under it */
+  @media (max-width: 899px) and (max-height: 520px) and (orientation: landscape) {
+    [data-world='off'] .station-fallback {
+      --fallback-size: min(62vw, 11.5rem);
+
+      width: var(--fallback-size);
+      margin-left: calc(var(--fallback-size) / -2);
+    }
+  }
+
+  /* A project page's breadcrumb comes first: the render sits below it
+     (clear of it at the top of its float), inside the room the page head
+     leaves (smaller, so it fits on short screens too) */
+  [data-world='off'] .project-page .station-fallback {
+    --fallback-size: min(52vw, 14rem, 26svh);
+
+    top: calc(var(--header-h) + clamp(3rem, 9vh, 6.5rem) + 2.75rem);
+    width: var(--fallback-size);
+    margin-left: calc(var(--fallback-size) / -2);
+  }
+}
+
+@media (max-width: 640px) {
+  [data-world='off'] .project-page .station-fallback {
+    top: calc(var(--header-h) + 5.25rem);
   }
 }
 

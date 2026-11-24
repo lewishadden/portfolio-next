@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+import { motionLevel } from '@/utils/motion';
+
 /**
  * Tracks the pointer over an element and exposes it as `--mx` / `--my`
  * (percentages) for the `.spotlight` glow. Optional 3D tilt.
@@ -10,7 +12,6 @@ export function usePointerGlow<T extends HTMLElement = HTMLElement>({ tilt = 0 }
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let frame = 0;
 
     const onMove = (e: PointerEvent) => {
@@ -22,7 +23,7 @@ export function usePointerGlow<T extends HTMLElement = HTMLElement>({ tilt = 0 }
         const y = (e.clientY - r.top) / r.height;
         el.style.setProperty('--mx', `${x * 100}%`);
         el.style.setProperty('--my', `${y * 100}%`);
-        if (tilt && !reduce) {
+        if (tilt && motionLevel() === 'full') {
           el.style.transform = `perspective(900px) rotateX(${(0.5 - y) * tilt}deg) rotateY(${(x - 0.5) * tilt}deg)`;
         }
       });

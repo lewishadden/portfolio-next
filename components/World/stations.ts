@@ -1,10 +1,15 @@
-import { MathUtils, Vector3 } from 'three';
+import { Euler, MathUtils, Vector3 } from 'three';
+
+import { motionLevel } from '@/utils/motion';
 
 import type { StationKey } from './routes';
-import { worldStore } from './worldStore';
+import { settleFocus } from './ride';
+import { orbitTilts } from './skillsOrbit';
+import { emitCue, worldStore } from './worldStore';
 
 export { stationForPath, stationKeys, stationModels, stationPositions } from './routes';
 export type { StationKey } from './routes';
+export { settleFocus } from './ride';
 
 /** Height of each station's beacon (and the HUD's waypoint for it) above its centre */
 const beaconHeights: Partial<Record<StationKey, number>> = { experience: 6, skills: 5 };
@@ -37,15 +42,313 @@ export function projectIntro() {
 }
 
 /**
- * The projects page runs through its projects as a fractional index; this
- * settles it on each one: the middle 60% of the way from one screen to the
- * next carries the move, the rest holds still on the nearer screen
+ * The projects focus the camera is riding (CameraRig moves it along the
+ * helix towards the page's with stepRide, so a jump of a screen or more
+ * orbits the spiral instead of cutting a chord across it), -1 while it has
+ * none, and the camera's angle round the helix there
  */
-export function settleFocus(focus: number) {
-  const whole = Math.floor(focus);
-  const x = MathUtils.clamp((focus - whole - 0.2) / 0.6, 0, 1);
-  return whole + x * x * x * (x * (x * 6 - 15) + 10);
+let ridden = -1;
+let riddenAngle = 0;
+
+/** CameraRig hands over where it is on the ride each frame (-1 off it) */
+export function rideProjectFocus(focus: number, angle = focus * helix.turn) {
+  ridden = focus;
+  riddenAngle = angle;
 }
+
+/** Where the page has the projects ride: settled on each screen, 0 off the page */
+export const pageProjectFocus = () =>
+  settleFocus(MathUtils.clamp(worldStore.projectFocus, 0, helix.screens - 1));
+
+/**
+ * The ridden projects focus (CameraRig keeps one and steps it each frame).
+ * It passes the page's straight through while that moves a little at a
+ * time (the scroll runway), and hops when it jumps (prev / next on a project
+ * page, a modal opening another project, the index, End on the runway).
+ * A hop moves two things together: the focus (which screen's height the
+ * camera is at) and the camera's angle round the helix, which takes the
+ * short way round, so even a hop the length of the helix turns the view
+ * half a turn at most. While the page glides to a project it says which
+ * (worldStore.projectRideTo), and the ride heads straight there (rideGoal).
+ */
+export interface Ride {
+  /** Focus ridden (fractional project index); -1 when there is nothing to ride (off the projects pages) */
+  value: number;
+  /** The camera's angle round the helix (radians), `value` × helix.turn give or take whole turns */
+  angle: number;
+  hopping: boolean;
+  start: number;
+  duration: number;
+  /** Where the hop set off from, focus and angle: its length sets how long it takes */
+  origin: number;
+  angleOrigin: number;
+  /**
+   * Each of the hop's channels runs from → to, setting off at `speed` (focus
+   * per second) or `spin` (radians per second): a hop that changes course
+   * carries on at the speed it had (0 from rest)
+   */
+  from: number;
+  to: number;
+  speed: number;
+  angleFrom: number;
+  angleTo: number;
+  spin: number;
+  /** The ride crosses a screen or more: it sounded as it set off, and locks on as it lands */
+  long: boolean;
+  /**
+   * The page's focus (worldStore.projectFocus) on the last frame (NaN
+   * before the first), which way it last moved, and for how long (seconds)
+   * it has held still since
+   */
+  page: number;
+  pageWay: number;
+  pageStill: number;
+  /** The project the page last named (worldStore.projectRideTo), and for how long (seconds) */
+  named: number;
+  namedFor: number;
+}
+
+export const createRide = (): Ride => ({
+  value: -1,
+  angle: 0,
+  hopping: false,
+  start: 0,
+  duration: 0,
+  origin: 0,
+  angleOrigin: 0,
+  from: 0,
+  to: 0,
+  speed: 0,
+  angleFrom: 0,
+  angleTo: 0,
+  spin: 0,
+  long: false,
+  page: NaN,
+  pageWay: 0,
+  pageStill: 0,
+  named: -1,
+  namedFor: 0,
+});
+
+/**
+ * How long (seconds) the page's focus may hold still and still count as on
+ * its way to the project it named: a frame or two can pass without a scroll
+ * event, and the end of a long glide moves less than a pixel a frame
+ */
+const pageRest = 0.25;
+/**
+ * How long (seconds) a project the page named counts for: its glides take
+ * 1.2s (Lenis's duration), so one named for longer was left set after the
+ * glide was taken over the same way, and would send the ride ahead of the
+ * page whenever the page next moved towards it
+ */
+const namedLimit = 2.5;
+
+/**
+ * Where the ride heads this frame (-1 off the projects pages): the project
+ * the page is gliding to (worldStore.projectRideTo) while the page is on
+ * its way there, else where the page is. Fed each frame of the glide
+ * instead, a ride set off towards the first and took the short way round
+ * to each in turn, so a glide past half a turn of the helix (five screens)
+ * turned the view one way, then back. On its way: last moving towards it,
+ * not held still for `pageRest` and named no longer than `namedLimit` ago,
+ * so a destination the page leaves set after something else took the
+ * scroll is let go (the ride comes back to the page) rather than kept until
+ * the ride arrives, which sent it back and forth between the two
+ */
+export function rideGoal(ride: Ride, dt: number) {
+  const page = worldStore.projectFocus;
+  const moved = page - ride.page;
+  ride.page = page;
+  if (moved > 0 || moved < 0) {
+    ride.pageWay = Math.sign(moved);
+    ride.pageStill = 0;
+  } else ride.pageStill += dt;
+  const named = worldStore.projectRideTo;
+  if (named !== ride.named) {
+    ride.named = named;
+    ride.namedFor = 0;
+  } else ride.namedFor += dt;
+  if (page < 0) return -1;
+  const to = Math.min(named, helix.screens - 1);
+  const onItsWay =
+    to >= 0 &&
+    ride.namedFor < namedLimit &&
+    ride.pageStill < pageRest &&
+    (to - page) * ride.pageWay > 0;
+  return onItsWay ? to : pageProjectFocus();
+}
+
+/**
+ * Jumps smaller than this in a 60th of a second pass straight through, so
+ * the runway is as responsive as ever. Scaled to the frame's length: per
+ * frame alone, at 120Hz a glide across three screens never hopped, and the
+ * camera chased it through the helix
+ */
+const rideJump = 0.5;
+/**
+ * Fastest a hop turns the view round the helix (radians per second, at the
+ * peak of its ease); flights peak a little under it. Hops were timed by
+ * their length alone, so the length of the helix spun the view 1.7 times
+ * round at up to 700° a second
+ */
+const rideTurnRate = 2.4;
+
+/** Shortest signed angle (radians) */
+const wrapAngle = (angle: number) =>
+  MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
+
+/** smootherstep: 0 to 1, setting off and arriving at rest */
+const ease = (u: number) => u * u * u * (u * (u * 6 - 15) + 10);
+const easeRate = (u: number) => 30 * u * u * (1 - u) * (1 - u);
+/** Sets off at unit speed and comes back to rest where it started: carries a speed into a hop */
+const carry = (u: number) => u * (1 - u) ** 3 * (1 + 3 * u);
+const carryRate = (u: number) => (1 - u) ** 2 * (1 + 2 * u - 15 * u * u);
+
+/** How long a hop of `span` screens turning `turn` radians takes (s): smootherstep peaks at 1.875 times its mean speed */
+const hopDuration = (span: number, turn: number) =>
+  Math.max(MathUtils.clamp(0.8 + 0.12 * span, 0.8, 2.2), (1.875 * Math.abs(turn)) / rideTurnRate);
+
+/** Where the hop under way has the ride at `u` (0..1 through it) */
+function hopAt(ride: Ride, u: number) {
+  const d = ride.duration;
+  ride.value = MathUtils.clamp(
+    ride.from + (ride.to - ride.from) * ease(u) + ride.speed * d * carry(u),
+    0,
+    helix.screens - 1
+  );
+  ride.angle =
+    ride.angleFrom + (ride.angleTo - ride.angleFrom) * ease(u) + ride.spin * d * carry(u);
+}
+
+/** A hop from where the ride is to `goal`, setting off at `speed` / `spin` */
+function setOff(ride: Ride, goal: number, t: number, speed: number, spin: number) {
+  ride.hopping = true;
+  ride.start = t;
+  ride.origin = ride.from = ride.value;
+  ride.angleOrigin = ride.angleFrom = ride.angle;
+  ride.to = goal;
+  ride.angleTo = ride.angle + wrapAngle(goal * helix.turn - ride.angle);
+  ride.speed = speed;
+  ride.spin = spin;
+  ride.duration = hopDuration(Math.abs(goal - ride.value), ride.angleTo - ride.angle);
+}
+
+/**
+ * The page's focus moved mid-hop. While the hop is still setting off, a
+ * goal that races on (the page gliding somewhere it hasn't named, as a
+ * flick of the wheel does) or drifts re-aims the same hop, re-based so it
+ * carries on from where it is: restarted from rest every frame of the
+ * glide, it barely moved until the page stopped, and sounded on every
+ * frame. Each re-aim takes the short way to where the goal has got to, so
+ * one that races on past half a turn can still turn the ride back: glides
+ * to a project name it (rideGoal) to avoid that. Later, a drift is
+ * followed; a new jump (back the other way, or on again as it slows) sets
+ * off afresh from where it has got to, at the speed it had. Either way it
+ * is one ride for the ear
+ */
+function retarget(ride: Ride, goal: number, t: number, jump: number) {
+  const u = (t - ride.start) / ride.duration;
+  const drift = Math.abs(goal - ride.to) < jump;
+  const onward = Math.sign(goal - ride.to) === Math.sign(ride.to - ride.origin);
+  if (u < 0.5 && (drift || onward)) {
+    const angleTo = ride.angle + wrapAngle(goal * helix.turn - ride.angle);
+    // Timed for where it is going now (a glide passing four screens on its
+    // way to ten wanted longer), but never so short it is past halfway
+    ride.duration = Math.max(
+      hopDuration(Math.abs(goal - ride.origin), angleTo - ride.angleOrigin),
+      (t - ride.start) / 0.5
+    );
+    const at = (t - ride.start) / ride.duration;
+    const eased = ease(at);
+    const carried = carry(at) * ride.duration;
+    ride.from = (ride.value - goal * eased - ride.speed * carried) / (1 - eased);
+    ride.angleFrom = (ride.angle - angleTo * eased - ride.spin * carried) / (1 - eased);
+    ride.to = goal;
+    ride.angleTo = angleTo;
+  } else if (drift) {
+    ride.angleTo += (goal - ride.to) * helix.turn;
+    ride.to = goal;
+  } else {
+    const d = ride.duration;
+    const speed = ((ride.to - ride.from) * easeRate(u)) / d + ride.speed * carryRate(u);
+    const spin = ((ride.angleTo - ride.angleFrom) * easeRate(u)) / d + ride.spin * carryRate(u);
+    setOff(ride, goal, t, speed, spin);
+  }
+  if (!ride.long && Math.abs(goal - ride.origin) >= 1) {
+    ride.long = true;
+    emitCue('select');
+  }
+}
+
+/**
+ * Moves the ride towards `goal` (rideGoal: the page's focus or the project
+ * it is gliding to, -1 off the projects pages) at clock time `t`, `dt`
+ * after the last frame: straight through while it moves less than
+ * `rideJump` at a time, else a hop of 0.8 to 2.2s depending on its length
+ * (longer if it would turn the view faster than `rideTurnRate`). A ride
+ * over a screen or more sounds once as it sets off ('select') and once as
+ * it lands ('hud-lock'). Cuts when the camera does (`snap`)
+ */
+export function stepRide(ride: Ride, goal: number, t: number, dt: number, snap: boolean) {
+  if (snap || goal < 0 || ride.value < 0) {
+    ride.value = goal;
+    ride.angle = goal * helix.turn;
+    ride.hopping = false;
+    return;
+  }
+  if (ride.hopping) {
+    const u = (t - ride.start) / ride.duration;
+    if (u < 1) hopAt(ride, u);
+    else {
+      ride.value = ride.to;
+      ride.angle = ride.angleTo;
+      ride.hopping = false;
+      if (ride.long) emitCue('hud-lock');
+    }
+  }
+  const jump = rideJump * Math.min(1, dt * 60);
+  if (ride.hopping) {
+    if (goal !== ride.to) {
+      retarget(ride, goal, t, jump);
+      hopAt(ride, (t - ride.start) / ride.duration);
+    }
+  } else if (Math.abs(goal - ride.value) < jump) {
+    ride.value = goal;
+    ride.angle = goal * helix.turn;
+  } else {
+    setOff(ride, goal, t, 0, 0);
+    ride.long = Math.abs(goal - ride.origin) >= 1;
+    if (ride.long) emitCue('select');
+  }
+}
+
+/**
+ * The project the camera is in front of on the ride (fractional): the
+ * ridden focus, or the page's when the rig isn't riding. The station's
+ * front screen should follow this rather than the page, so it lights as
+ * the camera arrives
+ */
+export const riddenProjectFocus = () => (ridden >= 0 ? ridden : pageProjectFocus());
+
+/** A flight to a new page is short of its final approach, where PageTransition shows that page's copy */
+let copyHeld = false;
+
+/** CameraRig marks a flight to a new page, from its start to its final approach */
+export function holdPageCopy(held: boolean) {
+  copyHeld = held;
+}
+
+/**
+ * Whether the page's heading block (worldStore.copy) is really on screen,
+ * for things that keep out of its way. Not while touring or exploring, or
+ * while the page waits for the camera to bring it back (whenever
+ * html[data-world-mode] isn't 'page'), nor during a flight to a new page
+ * before its final approach. The block is measured all the same, at
+ * opacity 0: the course line had a hole cut in it over empty space
+ */
+export const pageCopyShown = () =>
+  !copyHeld && document.documentElement.dataset.worldMode === 'page';
 
 /** Wide layouts push the station's hero object to the right of the copy */
 export const isWideViewport = (width: number, height: number) =>
@@ -101,16 +404,24 @@ export interface Framing {
   lift: number;
 }
 
+/** A stretch of the screen to frame the station in, CSS px from the top */
+export interface Slot {
+  top: number;
+  height: number;
+}
+
 /**
  * Wide layouts frame every station as designed. Narrow ones pull the camera
- * back until the station fits the screen width and the stage slot, then drop
- * it so the station sits in that slot instead of spilling off the edges.
+ * back until the station fits the screen width and the stage slot (or the
+ * `slot` given: a world window further down the page), then drop it so the
+ * station sits in that slot instead of spilling off the edges.
  */
 export function stationFraming(
   key: StationKey,
   width: number,
   height: number,
-  out: Framing = { zoom: 1, lift: 0 }
+  out: Framing = { zoom: 1, lift: 0 },
+  slot?: Slot
 ) {
   if (isWideViewport(width, height)) {
     out.zoom = 1;
@@ -118,21 +429,168 @@ export function stationFraming(
     return out;
   }
   const shot = shots[key];
-  const slot = slotHeight(height);
+  const top = slot ? slot.top : slotTop;
+  const tall = slot ? slot.height : slotHeight(height);
   const aspect = width / Math.max(height, 1);
   const distance = Math.max(
     shot.distance,
     shot.halfWidth / (narrowFill * tanHalfFov * aspect),
-    shot.halfHeight / ((slot / height) * tanHalfFov)
+    shot.halfHeight / ((tall / height) * tanHalfFov)
   );
   // Slot centre in normalised device coordinates (1 = top of the screen)
-  const slotCentre = 1 - (2 * (slotTop + slot / 2)) / height;
+  const slotCentre = 1 - (2 * (top + tall / 2)) / height;
   out.zoom = distance / shot.distance;
   out.lift = slotCentre * distance * tanHalfFov - shot.offsetY;
   return out;
 }
 
+/**
+ * Short landscape screens (a phone on its side, a short desktop window, at
+ * any width): the projects page puts its screen's cell in the left half and
+ * the copy in the right (Projects.scss, `(max-height: 520px) and
+ * (orientation: landscape)`)
+ */
+export const isShortLandscape = (width: number, height: number) => height <= 520 && width > height;
+
+/**
+ * The projects ride's framing in its screen cell: as Framing, plus where
+ * across the view (NDC x) the lens puts its axis, with the screen on it
+ */
+interface CellFraming extends Framing {
+  axis: number;
+}
+
+/**
+ * The projects ride on a short landscape screen: frames the screen in front
+ * inside the page's cell for it (worldStore.screenSlot), fitted to the
+ * cell's width and height and centred on it, so it sits beside the copy
+ * rather than behind it. Sideways the camera keeps looking straight at the
+ * screen and the lens shifts the picture (stationLens): moved sideways
+ * instead, the camera saw the screen a quarter-turn off its axis, which
+ * stretched it and pushed it out past the cell's edge. Null anywhere else
+ * (another layout, a project page, or no cell measured)
+ */
+function screenCellFraming(width: number, height: number, out: CellFraming) {
+  const slot = worldStore.screenSlot;
+  if (!isShortLandscape(width, height) || !slot.on || worldStore.projectAside) return null;
+  const shot = shots.projects;
+  const aspect = width / Math.max(height, 1);
+  const cellWidth = Math.max(slot.right - slot.left, 1) / width;
+  const cellHeight = Math.max(slot.bottom - slot.top, 1) / height;
+  const distance = Math.max(
+    shot.distance,
+    shot.halfWidth / (narrowFill * cellWidth * tanHalfFov * aspect),
+    shot.halfHeight / (cellHeight * tanHalfFov)
+  );
+  // The cell's centre in normalised device coordinates (y up)
+  const centreX = (slot.left + slot.right) / width - 1;
+  const centreY = 1 - (slot.top + slot.bottom) / height;
+  out.zoom = distance / shot.distance;
+  out.lift = centreY * distance * tanHalfFov - shot.offsetY;
+  out.axis = centreX;
+  return out;
+}
+
+/**
+ * The guided tour's caption card on a short landscape screen stands at the
+ * right, the full height of the screen less its margin (World.scss `.tour`,
+ * `(max-height: 520px) and (orientation: landscape)`: min(400px, 48vw)
+ * wide, 16px in). Keep these in step with that rule.
+ */
+const tourCard = { width: 400, share: 0.48, margin: 16 };
+
+/**
+ * A tour stop on a short landscape screen: frames the station in the space
+ * left of the caption card, fitted to it, with the lens moving the picture
+ * there (stationLens) so the camera still looks straight at the station.
+ * Null on any other screen, where the card has the bottom of the screen
+ */
+function tourFraming(key: StationKey, width: number, height: number, out: CellFraming) {
+  if (!isShortLandscape(width, height)) return null;
+  const shot = shots[key];
+  const aspect = width / Math.max(height, 1);
+  const card = Math.min(tourCard.width, tourCard.share * width);
+  const right = width - card - 2 * tourCard.margin;
+  const spaceWidth = Math.max(right - tourCard.margin, 1) / width;
+  const spaceHeight = Math.max(height - 2 * tourCard.margin, 1) / height;
+  const distance = Math.max(
+    shot.distance,
+    shot.halfWidth / (narrowFill * spaceWidth * tanHalfFov * aspect),
+    shot.halfHeight / (spaceHeight * tanHalfFov)
+  );
+  out.zoom = distance / shot.distance;
+  out.lift = -shot.offsetY;
+  out.axis = (tourCard.margin + right) / width - 1;
+  return out;
+}
+
 const framing: Framing = { zoom: 1, lift: 0 };
+const cellFraming: CellFraming = { zoom: 1, lift: 0, axis: 0 };
+const tourCardFraming: CellFraming = { zoom: 1, lift: 0, axis: 0 };
+
+/**
+ * Where across the view (NDC x, -1..1) the camera's lens puts its axis for
+ * a station's pose: 0 (the middle) everywhere but on a short landscape
+ * screen, for the projects ride (the screen in front is framed in the cell
+ * beside the copy, screenCellFraming, coming into it as the ride begins)
+ * and for a tour stop (`touring`: framed left of the caption card,
+ * tourFraming). CameraRig turns it into the camera's film offset
+ */
+export function stationLens(
+  key: StationKey,
+  width: number,
+  height: number,
+  reading = true,
+  touring = false
+) {
+  if (touring) return tourFraming(key, width, height, tourCardFraming)?.axis ?? 0;
+  if (key !== 'projects' || !reading) return 0;
+  const cell = screenCellFraming(width, height, cellFraming);
+  return cell ? cell.axis * (1 - projectIntro()) : 0;
+}
+const windowFraming: Framing = { zoom: 1, lift: 0 };
+const windowEye = new Vector3();
+const windowLook = new Vector3();
+
+/**
+ * Phones: the page leaves "windows" in its copy ([data-world-window],
+ * worldStore.worldWindow) where the station is framed again mid-page. As
+ * one passes the reading line the camera swings round the station by this
+ * much (radians), gently, and frames it inside the window instead of
+ * leaving it scrolled away above the copy
+ */
+const windowSwing = 0.35;
+/** How close to the reading line (share of the screen's height) a window starts and finishes taking the camera */
+const windowNear = 0.05;
+const windowFar = 0.4;
+
+/**
+ * How far the nearest world window has the camera, 0..1, from its distance
+ * to the reading line. The station comes back from wherever the page left
+ * it, so below full motion it cuts into the window halfway instead of
+ * sweeping in with the scroll
+ */
+function windowWeight(height: number) {
+  const view = worldStore.worldWindow;
+  if (view.height <= 0) return 0;
+  const line = height * 0.45;
+  const bottom = view.top + view.height;
+  const away = (view.top > line ? view.top - line : bottom < line ? line - bottom : 0) / height;
+  if (motionLevel() !== 'full') return away < (windowNear + windowFar) / 2 ? 1 : 0;
+  return 1 - MathUtils.smoothstep(away, windowNear, windowFar);
+}
+
+/** The pose that frames the station inside the nearest world window (station-local) */
+function windowPose(key: StationKey, width: number, height: number, pos: Vector3, look: Vector3) {
+  const { zoom, lift } = stationFraming(key, width, height, windowFraming, worldStore.worldWindow);
+  const { height: eyeY, distance } = shots[key];
+  look.set(0, 0, 0);
+  pos
+    .set(Math.sin(windowSwing) * distance, eyeY, Math.cos(windowSwing) * distance)
+    .multiplyScalar(zoom);
+  pos.y -= lift;
+  look.y -= lift;
+}
 
 /**
  * Station-local height of the point the camera frames, given the camera's own
@@ -145,7 +603,9 @@ export function framedHeight(key: StationKey, cameraY: number, width: number, he
 
 /** How far the camera is from the project screen in front, riding the helix */
 export function frontScreenDistance(width: number, height: number) {
-  return shots.projects.distance * stationFraming('projects', width, height, framing).zoom;
+  const cell = screenCellFraming(width, height, cellFraming);
+  const zoom = cell ? cell.zoom : stationFraming('projects', width, height, framing).zoom;
+  return shots.projects.distance * zoom;
 }
 
 const right = new Vector3();
@@ -175,29 +635,120 @@ interface Companion {
   room: number;
 }
 
+// Rooms clear the left-hand column of cards and panels wide layouts keep the
+// copy in (at most min(46rem, 58vw) wide, about 0.23 in NDC)
 const companions: Partial<Record<StationKey, Companion[]>> = {
   home: [
-    { swing: 0.42, back: 1.75, rise: 2.2, look: [0, 0.3, 0], room: 1.5 },
-    { swing: 0.13, back: 5.5, rise: 5.8, look: [-6, -2, -46], room: 0.4 },
+    { swing: 0.5, back: 2.4, rise: 2.6, look: [0, 0.3, 0], room: 4.4 },
+    { swing: 0.13, back: 5.5, rise: 5.8, look: [-6, -2, -46], room: 3.5 },
   ],
-  // Its story runs down the right-hand column, so the station waits for the recommendations
-  about: [{ swing: 0.5, back: 1.9, rise: 1.6, look: [0, 0.3, 0], room: 2.4 }],
-  contact: [{ swing: 0.38, back: 1.65, rise: 1.6, look: [0.8, 0.6, -1], room: 1.4 }],
+  about: [
+    // The bio (About.tsx's grid): swung round so the habitat, 15 units behind
+    // the helmet, comes out from behind the copy, and further right and up,
+    // clear of the bio's column before it reaches the reading line
+    { swing: 0.5, back: 2.1, rise: 1.4, look: [0, -0.8, 0], room: 5.2 },
+    { swing: 0.5, back: 1.9, rise: 1.6, look: [0, 0.3, 0], room: 3.2 },
+  ],
+  contact: [{ swing: 0.38, back: 1.8, rise: 1.6, look: [0.8, 0.6, -1], room: 3.9 }],
 };
 
-/** How far the page has moved the camera into each companion pose, 0..1 */
-function companionWeights(count: number, out: number[]) {
-  const focus = worldStore.sectionCount > 0 ? worldStore.sectionFocus : -1;
+/** How far the section being read (`focus`, -1 for none) moves the camera into each companion pose, 0..1 */
+function companionWeights(count: number, focus: number, out: number[]) {
   for (let i = 0; i < count; i++)
     out[i] = MathUtils.smoothstep(focus, i === 0 ? -0.7 : i - 0.3, i === 0 ? 0.2 : i + 0.3);
   return out;
 }
 const weights: number[] = [];
 
+/** NDC kept between the glass panels at the reading line and the station's framing box */
+const clearMargin = 0.06;
+/** Furthest right (NDC) the station's centre is pushed to clear the glass: it stays in shot */
+const clearMost = 0.62;
+const subject = new Vector3();
+
+/**
+ * How far right (world units, along the camera's right axis) a wide layout
+ * has to move the station for its framing box to clear the glass panels
+ * at the reading line (`clear`, worldStore.clearRight), from the eye `pos`
+ * before any shift, along the pose's axes (`forward` and `right`, set just
+ * before); 0 when there is none. Stations the camera travels
+ * through (the experience beam, the projects helix) clear the point it
+ * frames, the rest their centre.
+ */
+function clearRoom(key: StationKey, pos: Vector3, look: Vector3, aspect: number, clear: number) {
+  if (clear <= -1) return 0;
+  if (key === 'experience' || key === 'projects') subject.copy(look);
+  else subject.set(0, 0, 0);
+  subject.sub(pos);
+  const depth = subject.dot(forward);
+  if (depth < 1) return 0;
+  const lateral = subject.dot(right);
+  // Half the view's width at the station's depth
+  const half = depth * tanHalfFov * aspect;
+  const wanted = (clear + clearMargin) * half + shots[key].halfWidth - lateral;
+  return Math.min(wanted, clearMost * half - lateral);
+}
+
+/**
+ * /skills on wide layouts: the planet stays in shot (it only sinks this far
+ * over the whole page) while the eye moves round it to one pose per
+ * category, facing that category's orbit: this far (radians) above its
+ * plane, so the orbit opens out into an ellipse, and this much further back
+ * than the hero shot. The skills grid is one column there (min(48rem, 58vw)),
+ * so the constellation has the right of the screen.
+ */
+const skillsDescent = 1.6;
+const orbitView = 0.42;
+const orbitBack = 1.15;
+const orbitTilt = new Euler();
+const eyeFrom = new Vector3();
+const eyeTo = new Vector3();
+
+/** The eye's offset from the planet facing category `k`'s orbit (orbitTilts, as SkillsStation tilts it) */
+function orbitEye(k: number, distance: number, out: Vector3) {
+  const [x, z] = orbitTilts[k % orbitTilts.length];
+  return out
+    .set(0, Math.sin(orbitView), Math.cos(orbitView))
+    .applyEuler(orbitTilt.set(x, 0, z))
+    .multiplyScalar(distance * orbitBack);
+}
+
+/**
+ * Wide /skills: the eye's offset from the planet for the category at the
+ * reading line (`focus`, worldStore.skillFocus): the hero shot above the
+ * first category, then each category's pose, moving to the next over the
+ * first 30% of it. Below full motion it cuts from pose to pose instead.
+ */
+function skillsEye(distance: number, eyeY: number, focus: number, out: Vector3) {
+  const cut = motionLevel() !== 'full';
+  let weight: number;
+  if (focus < 0) {
+    eyeFrom.set(0, eyeY, distance);
+    orbitEye(0, distance, eyeTo);
+    weight = cut ? (focus >= -0.3 ? 1 : 0) : MathUtils.smootherstep(focus, -0.6, 0);
+  } else {
+    const k = Math.floor(focus);
+    orbitEye(Math.max(k - 1, 0), distance, eyeFrom);
+    orbitEye(k, distance, eyeTo);
+    const into = focus - k;
+    weight = k === 0 ? 1 : cut ? (into >= 0.15 ? 1 : 0) : MathUtils.smootherstep(into, 0, 0.3);
+  }
+  // Round the planet rather than through it: blend the direction and the distance apart
+  const length = MathUtils.lerp(eyeFrom.length(), eyeTo.length(), weight);
+  return out.lerpVectors(eyeFrom, eyeTo, weight).setLength(length);
+}
+
 /**
  * Camera pose inside a station, in station-local space.
  * `progress` is page scroll 0..1, `screens` is viewport-heights scrolled,
  * `width` / `height` the canvas size in CSS pixels. Writes into `pos` / `look`.
+ * `reading` (the default) frames the page's own station as the page is
+ * read: the section, role, skills category and project at the reading line,
+ * its glass panels and its world windows. A tour stop, or the route a link
+ * previews, passes false and is framed from the top of its page instead:
+ * those measure the page on screen, which is hidden while touring and is
+ * another station's page for a preview. `touring` (a tour stop) frames it
+ * clear of the caption card where that stands beside it (tourFraming)
  */
 export function stationCamera(
   key: StationKey,
@@ -206,10 +757,28 @@ export function stationCamera(
   width: number,
   height: number,
   pos: Vector3,
-  look: Vector3
+  look: Vector3,
+  reading = true,
+  touring = false
 ) {
-  const { zoom, lift } = stationFraming(key, width, height, framing);
+  let { zoom, lift } = stationFraming(key, width, height, framing);
   const { height: eyeY, distance } = shots[key];
+  const wide = isWideViewport(width, height);
+  // A tour stop beside the caption card: fitted to the space left of it,
+  // the lens moving it there (stationLens)
+  const besideCard = touring ? tourFraming(key, width, height, tourCardFraming) : null;
+  if (besideCard) {
+    zoom = besideCard.zoom;
+    lift = besideCard.lift;
+  }
+  // The projects ride on a short landscape screen frames its screen in the
+  // page's cell beside the copy, coming into it as the ride begins
+  const cell = key === 'projects' && reading ? screenCellFraming(width, height, cellFraming) : null;
+  const inCell = cell ? 1 - projectIntro() : 0;
+  if (cell) {
+    zoom = MathUtils.lerp(zoom, cell.zoom, inCell);
+    lift = MathUtils.lerp(lift, cell.lift, inCell);
+  }
 
   // `look` is the framed point; `pos` starts as the eye's offset from it.
   // Scroll-follow speeds scale with the zoom so the station still leaves the
@@ -220,14 +789,17 @@ export function stationCamera(
       pos.set(0, eyeY, distance + screens * 1.8);
       break;
     case 'about':
-      look.set(0, -screens * 5.2 * zoom, 0);
+      // At page speed (a viewport height of drop per viewport height
+      // scrolled, at the station's distance), so the station leaves with the
+      // page head: slower, it hung over the bio as the bio came up under it
+      look.set(0, -screens * 2 * distance * tanHalfFov * zoom, 0);
       pos.set(0, eyeY, distance);
       break;
     case 'experience': {
       // Down the beam to the pod of the role being read on the page (each
       // pod sits (i + 0.6) / count of the way down), else with the scroll
-      const reading = worldStore.roleFocus > -0.99 && worldStore.roleCount > 0;
-      const depth = reading
+      const onRole = reading && worldStore.roleFocus > -0.99 && worldStore.roleCount > 0;
+      const depth = onRole
         ? MathUtils.clamp((worldStore.roleFocus + 0.6) / worldStore.roleCount, 0, 1)
         : progress;
       look.set(0, -depth * experienceDepth, 0);
@@ -236,17 +808,17 @@ export function stationCamera(
     }
     case 'projects': {
       // Ride the helix: the camera orbits down the spiral to face the project
-      // the page has scrolled to (worldStore.projectFocus), screen centred.
-      // A project page sits the screen beside its copy instead, further back
-      const focus = settleFocus(MathUtils.clamp(worldStore.projectFocus, 0, helix.screens - 1));
-      const angle = focus * helix.turn;
-      const back = worldStore.projectAside ? asideDistance : 1;
+      // the page has scrolled to (worldStore.projectFocus, as CameraRig rides
+      // it), screen centred. A project page sits the screen beside its copy
+      // instead, further back
+      const focus = riddenProjectFocus();
+      const angle = ridden >= 0 ? riddenAngle : focus * helix.turn;
+      const aside = reading && worldStore.projectAside;
+      const back = aside ? asideDistance : 1;
       // Past the last project it descends with the page, a viewport height
       // of drop per viewport height scrolled at the screen's distance, so the
       // last screen scrolls away with its copy rather than under the footer
-      const drop = worldStore.projectAside
-        ? 0
-        : worldStore.projectTail * 2 * distance * zoom * tanHalfFov;
+      const drop = aside ? 0 : worldStore.projectTail * 2 * distance * zoom * tanHalfFov;
       look.set(
         Math.sin(angle) * helix.radius,
         helixScreenY(focus) - drop,
@@ -254,8 +826,8 @@ export function stationCamera(
       );
       pos.set(Math.sin(angle) * distance * back, eyeY, Math.cos(angle) * distance * back);
       // At the top of the page it holds back on the whole yard, and comes in
-      // to the first screen as the page scrolls to it
-      const intro = projectIntro();
+      // to the first screen as the page scrolls to it (off the page, always)
+      const intro = reading ? projectIntro() : 1;
       if (intro > 0) {
         look.lerp(overviewLook.set(0, overview.lookY, 0), intro);
         pos.lerp(overviewEye.set(0, overview.height, overview.distance), intro);
@@ -263,6 +835,13 @@ export function stationCamera(
       break;
     }
     case 'skills': {
+      if (wide) {
+        // Beside the one-column grid: the planet stays in shot, the eye
+        // turns to face the orbit of the category being read
+        look.set(0, -progress * skillsDescent, 0);
+        skillsEye(distance, eyeY, reading ? worldStore.skillFocus : -1, pos);
+        break;
+      }
       const angle = progress * 0.9;
       look.set(0, -screens * 3.2 * zoom, 0);
       pos.set(Math.sin(angle) * distance, eyeY, Math.cos(angle) * distance);
@@ -282,13 +861,13 @@ export function stationCamera(
 
   // Long pages on wide layouts: into the companion poses as they are read
   // (not while the contact page holds the globe for a launch)
-  const wide = isWideViewport(width, height);
   const poses = wide ? companions[key] : undefined;
   const showcase =
     key === 'contact' && (worldStore.transmitting || performance.now() < worldStore.showcaseUntil);
   let room = 0;
   if (poses && !showcase) {
-    companionWeights(poses.length, weights);
+    const section = reading && worldStore.sectionCount > 0 ? worldStore.sectionFocus : -1;
+    companionWeights(poses.length, section, weights);
     poses.forEach((pose, i) => {
       const weight = weights[i];
       if (weight <= 0) return;
@@ -311,15 +890,35 @@ export function stationCamera(
   right.crossVectors(forward, up).normalize();
   // The skills constellation is wider than the other stations: give it more
   // room. On the projects page the screen is centred, with its copy around it
-  const centred = key === 'projects' && !worldStore.projectAside;
-  const intro = centred ? projectIntro() : 0;
+  const centred = key === 'projects' && !(reading && worldStore.projectAside);
+  const intro = centred ? (reading ? projectIntro() : 1) : 0;
   const roomy = (key === 'skills' ? 4.4 : centred ? overview.room * intro : 3.3) + room;
-  const shiftX = wide ? roomy : 0;
+  // Further, if that leaves the station behind the glass panels at the
+  // reading line (worldStore.clearRight)
+  let shiftX = wide
+    ? Math.max(
+        roomy,
+        centred
+          ? 0
+          : clearRoom(key, pos, look, width / height, reading ? worldStore.clearRight : -1)
+      )
+    : 0;
+  // In the cell, or beside the tour's card, the lens moves the picture instead (stationLens)
+  if (cell) shiftX = MathUtils.lerp(shiftX, 0, inCell);
+  if (besideCard) shiftX = 0;
   pos.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   look.addScaledVector(right, -shiftX).addScaledVector(up, -lift);
   // Centred in the space below the header, not the whole viewport
-  if (centred && wide) {
+  if (centred && wide && !cell && !besideCard) {
     pos.addScaledVector(up, 0.19 * (1 - intro));
     look.addScaledVector(up, 0.19 * (1 - intro));
+  }
+
+  // Phones: into the world window passing the reading line, if there is one
+  const into = wide || !reading ? 0 : windowWeight(height);
+  if (into > 0) {
+    windowPose(key, width, height, windowEye, windowLook);
+    pos.lerp(windowEye, into);
+    look.lerp(windowLook, into);
   }
 }

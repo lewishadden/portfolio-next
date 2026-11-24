@@ -80,6 +80,11 @@ float rectDist(vec2 p, vec4 r) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
 }
 
+/** x squared. Never pow(x, 2.0) for these: x is signed, and pow() of a negative base is undefined (NaN on some GPUs) */
+float sq(float x) {
+  return x * x;
+}
+
 /** Brackets round a box: its sides, and its top and bottom only near the ends */
 float brackets(vec2 p, vec4 g, float arm) {
   vec2 local = p - g.xy;
@@ -105,9 +110,9 @@ float holo(vec2 p, float t) {
   float shown = step(l.y, drop + 0.5) * step(0.25, uBoot);
   float onTop = step(l.y, 3.0);
   float frame = smoothstep(1.4, 0.2, abs(outside + 1.0)) * mix(shown, step(fromMiddle, reach + 0.5), onTop);
-  float tip = exp(-pow((fromMiddle - reach) / 5.0, 2.0)) * smoothstep(4.0, 0.0, abs(l.y)) * (1.0 - step(0.28, uBoot));
-  float scanDown = exp(-pow((l.y - drop) / 2.5, 2.0)) * inside * step(0.25, uBoot) * (1.0 - smoothstep(0.56, 0.62, uBoot));
-  float snap = exp(-pow((uBoot - 0.62) * 14.0, 2.0));
+  float tip = exp(-sq((fromMiddle - reach) / 5.0)) * smoothstep(4.0, 0.0, abs(l.y)) * (1.0 - step(0.28, uBoot));
+  float scanDown = exp(-sq((l.y - drop) / 2.5)) * inside * step(0.25, uBoot) * (1.0 - smoothstep(0.56, 0.62, uBoot));
+  float snap = exp(-sq((uBoot - 0.62) * 14.0));
   // How far in from the nearest side, across and down (0 outside)
   vec2 depthIn = max(r.zw * 0.5 - abs(l - r.zw * 0.5), 0.0);
   float nearCorner = step(max(depthIn.x, depthIn.y), 22.0);
@@ -121,8 +126,8 @@ float holo(vec2 p, float t) {
   float ticks = step(mod(l.y, 16.0), 1.0) * step(4.0, side) * step(side, 8.0) * 0.35;
   float grid = (step(fract(l.x / 14.0), 0.06) + step(fract(l.y / 14.0), 0.06)) * 0.04;
   float scan = (0.5 + 0.5 * sin(l.y * 1.7 - t * 9.0)) * 0.045;
-  float sweep = exp(-pow((l.x / r.z - fract(t * 0.06)) * 10.0, 2.0)) * 0.06 * uMotion;
-  float roll = exp(-pow((l.y - (mod(t * 60.0, r.w + 160.0) - 80.0)) / 2.5, 2.0)) * 0.22 * uMotion;
+  float sweep = exp(-sq((l.x / r.z - fract(t * 0.06)) * 10.0)) * 0.06 * uMotion;
+  float roll = exp(-sq((l.y - (mod(t * 60.0, r.w + 160.0) - 80.0)) / 2.5)) * 0.22 * uMotion;
   float grain = (hash(floor(p * 1.5) + floor(t * 24.0)) - 0.5) * 0.06 * uMotion;
   float body = (grid + scan + sweep + roll + grain + ticks) * inside * shown;
 
@@ -293,6 +298,59 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
   return shader;
 }
 
+const uniformNames = [
+  'uRes',
+  'uDpr',
+  'uTime',
+  'uMotion',
+  'uTravel',
+  'uWarp',
+  'uPanel',
+  'uBoot',
+  'uShut',
+  'uSquash',
+  'uHover',
+  'uLock',
+  'uLockFlash',
+  'uLockPing',
+  'uSplit',
+  'uBg',
+  'uLine',
+  'uFillColour',
+  'uFill',
+  'uGlow',
+  'uLineAlpha',
+  'uStar',
+] as const;
+type Uniforms = Record<(typeof uniformNames)[number], WebGLUniformLocation | null>;
+
+/**
+ * Compiles and links the hologram's program, with one triangle that covers
+ * the screen, and reads its uniform locations from that program: locations
+ * belong to the program they came from, so they are read afresh with every
+ * one linked
+ */
+function link(gl: WebGLRenderingContext) {
+  const vertex = compile(gl, gl.VERTEX_SHADER, vertexShader);
+  const fragment = compile(gl, gl.FRAGMENT_SHADER, fragmentShader);
+  const program = gl.createProgram();
+  if (!vertex || !fragment || !program) return null;
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+  gl.useProgram(program);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const position = gl.getAttribLocation(program, 'position');
+  gl.enableVertexAttribArray(position);
+  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+  const u = Object.fromEntries(
+    uniformNames.map((name) => [name, gl.getUniformLocation(program, name)])
+  ) as Uniforms;
+  return { program, u };
+}
+
 /**
  * Sets up the shader on a canvas and returns its controls, or null where
  * WebGL can't start. Draws only while powering on, open or switching off
@@ -316,50 +374,15 @@ function createHolo(
     powerPreference: 'low-power',
   });
   if (!gl || gl.isContextLost()) return null;
-  const vertex = compile(gl, gl.VERTEX_SHADER, vertexShader);
-  const fragment = compile(gl, gl.FRAGMENT_SHADER, fragmentShader);
-  const program = gl.createProgram();
-  if (!vertex || !fragment || !program) return null;
-  gl.attachShader(program, vertex);
-  gl.attachShader(program, fragment);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
-  gl.useProgram(program);
-
-  // One triangle that covers the screen
-  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  const position = gl.getAttribLocation(program, 'position');
-  gl.enableVertexAttribArray(position);
-  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-
-  const names = [
-    'uRes',
-    'uDpr',
-    'uTime',
-    'uMotion',
-    'uTravel',
-    'uWarp',
-    'uPanel',
-    'uBoot',
-    'uShut',
-    'uSquash',
-    'uHover',
-    'uLock',
-    'uLockFlash',
-    'uLockPing',
-    'uSplit',
-    'uBg',
-    'uLine',
-    'uFillColour',
-    'uFill',
-    'uGlow',
-    'uLineAlpha',
-    'uStar',
-  ] as const;
-  const u = Object.fromEntries(
-    names.map((name) => [name, gl.getUniformLocation(program, name)])
-  ) as Record<(typeof names)[number], WebGLUniformLocation | null>;
+  const linked = link(gl);
+  if (!linked) return null;
+  const { program, u } = linked;
+  /**
+   * Set once this instance is done with: a later one on the same canvas (a
+   * remount reuses it, so its context) links a program of its own, and this
+   * one's locations would be set with that one in use (INVALID_OPERATION)
+   */
+  let disposed = false;
 
   const state = {
     open: false,
@@ -397,6 +420,7 @@ function createHolo(
   };
 
   const draw = (now: number) => {
+    if (disposed) return;
     // Rendered at up to 1.5× for crisp lines without paying for 3× screens
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const width = Math.round(canvas.clientWidth * dpr);
@@ -405,6 +429,7 @@ function createHolo(
       canvas.width = width;
       canvas.height = height;
     }
+    gl.useProgram(program);
     gl.viewport(0, 0, width, height);
     const dt = Math.min((now - state.last) / 1000, 0.05);
     state.last = now;
@@ -452,7 +477,7 @@ function createHolo(
     state.frame = state.open || shutting ? requestAnimationFrame(loop) : 0;
   };
   const run = () => {
-    if (!state.frame) state.frame = requestAnimationFrame(loop);
+    if (!state.frame && !disposed) state.frame = requestAnimationFrame(loop);
   };
   /** Shows a change: at once if held still, otherwise the loop picks it up */
   const refresh = () => {
@@ -530,6 +555,7 @@ function createHolo(
     // The context goes with the canvas; losing it here would break a remount
     // that reuses the canvas (React runs effects twice in development)
     dispose() {
+      disposed = true;
       cancelAnimationFrame(state.frame);
       state.frame = 0;
       canvas.removeEventListener('webglcontextlost', lost);

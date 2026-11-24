@@ -26,7 +26,7 @@ export function HeroHud({ location }: { location: string }) {
 
   return (
     <div className="hero__hud">
-      <dl className="hero__hud-stats">
+      <dl className="hero__hud-stats" data-reading>
         <div>
           <dt>Base</dt>
           <dd>{location}</dd>

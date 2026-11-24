@@ -1,0 +1,39 @@
+@use 'sass:list';
+@use 'sass:math';
+
+// A tile of scattered stars, as gradient images for a repeating background
+// (`background-size: $tile $tile` each, see `tile-sizes`). The stars are
+// var(--star), which the rule using them defines. The loading screen's
+// tiles (BootScreen.scss) are built the same way.
+@function star-tile($count, $tile) {
+  $images: ();
+
+  @for $i from 1 through $count {
+    $x: math.random($tile);
+    $y: math.random($tile);
+    $r: 1.1px;
+
+    @if math.random(10) > 7 {
+      $r: 1.9px;
+    }
+
+    $images: list.append(
+      $images,
+      radial-gradient(#{$r} #{$r} at #{$x}px #{$y}px, var(--star) 35%, transparent),
+      $separator: comma
+    );
+  }
+
+  @return $images;
+}
+
+// `background-size` for a star tile: one `$tile $tile` per star
+@function tile-sizes($count, $tile) {
+  $sizes: ();
+
+  @for $i from 1 through $count {
+    $sizes: list.append($sizes, $tile $tile, $separator: comma);
+  }
+
+  @return $sizes;
+}

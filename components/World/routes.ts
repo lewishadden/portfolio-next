@@ -28,6 +28,30 @@ export const stationPositions: Record<StationKey, [number, number, number]> = {
   lost: [96, 44, 34],
 };
 
+/**
+ * Free roam's sector: the middle of the line of stations, and how far from
+ * it the ship can fly before it is turned back (the edge of the world)
+ */
+export const sectorCentre: [number, number, number] = [0, 0, -110];
+export const sectorRadius = 520;
+
+/**
+ * Free roam's autopilot parks this far in front of a station's face (pages
+ * frame it from +Z): ExploreControls flies there, and the signals HUD
+ * counts a course as arrived once the ship is parked there
+ */
+export const parkingOffset: readonly [number, number, number] = [0, 1.5, 16];
+
+/** /contact: the comms array's dish rim, from the station's centre (its transmissions set off there) */
+export const contactDish: readonly [number, number, number] = [3.85, 0.65, -2.9];
+
+/** Distance between two stations, centre to centre, in whole world units (the HUD's "km") */
+export function rangeBetween(a: StationKey, b: StationKey) {
+  const [ax, ay, az] = stationPositions[a];
+  const [bx, by, bz] = stationPositions[b];
+  return Math.round(Math.hypot(bx - ax, by - ay, bz - az));
+}
+
 /** The page each station belongs to ('lost' is the 404 and has no page of its own) */
 export const stationPaths: Record<StationKey, string> = {
   home: '/',
@@ -82,11 +106,22 @@ export const hullUrl = (key: StationKey, lite: boolean) =>
 
 const prefetched = new Set<string>();
 
+/**
+ * What image fetches accept (the prefetch here and the decoder's fetches in
+ * imageDecoder.ts). The image endpoint picks its output format from the
+ * request's Accept header, and its responses vary on it: a bare fetch
+ * accepts anything without naming WebP, so it could get the source format
+ * back, and a prefetch sent with another Accept than the decode's missed
+ * the HTTP cache
+ */
+export const imageAccept = 'image/webp,image/*;q=0.8';
+
 /** Fetches a URL once, at low priority, into the HTTP cache (plain fetch, no three.js) */
 export function prefetch(url: string) {
   if (prefetched.has(url)) return;
   prefetched.add(url);
-  fetch(url, { priority: 'low' } as RequestInit).catch(() => prefetched.delete(url));
+  const headers = url.startsWith('/_next/image') ? { Accept: imageAccept } : undefined;
+  fetch(url, { priority: 'low', headers } as RequestInit).catch(() => prefetched.delete(url));
 }
 
 /**

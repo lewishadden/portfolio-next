@@ -38,7 +38,7 @@ export const Home = ({
         <StationFallback src={illustrations.astronaut} />
 
         <div className="hero__content">
-          <div className="hero__meta">
+          <div className="hero__meta" data-reading>
             {openToWork && (
               <p className="hero__badge">
                 <span className="hero__badge-dot" aria-hidden="true" />
@@ -48,11 +48,11 @@ export const Home = ({
             <StationReadout className="hero__station" />
           </div>
 
-          <p className="hero__greeting">
+          <p className="hero__greeting" data-reading>
             <ScrambleText text="// hello world, I'm" trigger="mount" delay={150} />
           </p>
 
-          <h1 id="home-heading" className="hero__name">
+          <h1 id="home-heading" className="hero__name" data-reading="large">
             <span className="hero__line">
               <SplitText text={firstName} delay={250} />
             </span>
@@ -63,7 +63,9 @@ export const Home = ({
 
           <RoleRotator titles={titles} />
 
-          <p className="hero__tag">{tagline}</p>
+          <p className="hero__tag" data-reading>
+            {tagline}
+          </p>
 
           <div className="hero__ctas">
             <Magnet>
