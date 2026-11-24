@@ -63,7 +63,7 @@ test('the role line never moves what is under it on a phone', async ({ page }) =
   await ctas.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
   const tops: number[] = [];
   // Over four titles (3.2s each) and their decodes
-  for (const end = Date.now() + 14_000; Date.now() < end; ) {
+  for (const end = Date.now() + 14_000; Date.now() < end;) {
     tops.push((await ctas.boundingBox())?.y ?? Number.NaN);
     await page.waitForTimeout(100);
   }

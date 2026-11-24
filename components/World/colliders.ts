@@ -45,9 +45,11 @@ const craftSize: Partial<Record<(typeof signals)[number]['id'], number>> = {
 
 const shapes: Shape[] = [
   // Every station's hull, held 5.5 from its centre, as free roam always has
-  ...navigableStations.map(
-    (key): Shape => ({ kind: 'sphere', centre: at(key), surface: 5.5 - shipMargin })
-  ),
+  ...navigableStations.map((key): Shape => ({
+    kind: 'sphere',
+    centre: at(key),
+    surface: 5.5 - shipMargin,
+  })),
   // The experience beam and the pods strung along it
   {
     kind: 'capsule',

@@ -809,6 +809,17 @@ function lightWave(states: ScreenState[], t: number) {
 }
 
 /**
+ * A screen coming to the front: its edge light powers up from clock time `t`,
+ * flickering or not (see flickerGap). A module-level helper, as the screens'
+ * states come from a hook (the React Compiler lint rules forbid the frame
+ * callback writing to them itself)
+ */
+function powerUp(state: ScreenState, t: number, flicker: boolean) {
+  state.poweredAt = t;
+  state.flicker = flicker;
+}
+
+/**
  * Whether a screen sits behind the page's heading block (worldStore.copy,
  * -1..1 from the centre, y up), give or take a little: on a project page the
  * screens other than the project's own dim there, so the copy reads
@@ -1389,10 +1400,9 @@ export function ProjectsStation({
     const power = powering.current;
     if (live !== power.live) {
       if (live >= 0 && !instant) {
-        const state = states[live];
-        state.poweredAt = t;
-        state.flicker = t - power.flickerAt >= flickerGap;
-        if (state.flicker) power.flickerAt = t;
+        const flicker = t - power.flickerAt >= flickerGap;
+        powerUp(states[live], t, flicker);
+        if (flicker) power.flickerAt = t;
       }
       power.live = live;
     }
