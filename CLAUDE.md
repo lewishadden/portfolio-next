@@ -10,7 +10,7 @@ Lewis Hadden's portfolio: Next.js 16 (App Router), React 19, TypeScript, SCSS. S
 
 ## Commands
 
-Node 24 (`.nvmrc`), npm 11. Copy `.env.SAMPLE` to `.env` (`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_GOOGLE_ANALYTICS_ID`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL`, `SMTP_PASS`).
+Node 26 (`.nvmrc`), npm 12. Copy `.env.SAMPLE` to `.env` (`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_GOOGLE_ANALYTICS_ID`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_EMAIL`, `SMTP_PASS`).
 
 ```sh
 npm run dev               # dev server on :3000
@@ -24,7 +24,7 @@ npm run lint:fix          # eslint --fix + stylelint --fix
 npm run analyze           # build with the bundle analyzer
 ```
 
-`npm run purgecss` rewrites the built CSS in `.next/static/chunks` in place and isn't part of CI or deploys. `npm run indexnow` submits the live production sitemap to IndexNow (a network side effect: only after a production deploy that adds or changes URLs, never as a check); `public/f01e788253de41b49344920789ed78b3.txt` is its ownership key, so don't delete it.
+`npm run purgecss` rewrites the built CSS in `.next/static/chunks` in place and isn't part of CI or deploys. `npm run indexnow` submits to IndexNow only the pages new, changed or removed since its last run: it fingerprints every live page in the production sitemap and records the run in `~/.local/state/indexnow`, outside the repo. It's a network side effect, so run it after a production deploy, never as a check; `npm run indexnow -- --dry` previews what it would submit (flags go after the `--`). `public/f01e788253de41b49344920789ed78b3.txt` is its ownership key, so don't delete it.
 
 End-to-end tests (Playwright; there are no unit tests). CI (`.github/workflows/ci.yml`) runs `verify`, then `build`, then the e2e suite on every pull request.
 
